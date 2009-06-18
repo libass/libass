@@ -41,8 +41,8 @@
 #include "ass_fontconfig.h"
 #include "ass_library.h"
 
-#define MAX_GLYPHS 3000
-#define MAX_LINES 300
+#define MAX_GLYPHS_INITIAL 1024
+#define MAX_LINES_INITIAL 64
 #define BLUR_MAX_RADIUS 50.0
 #define MAX_BE 100
 #define ROUND(x) ((int) ((x) + .5))
@@ -115,9 +115,11 @@ typedef struct line_info_s {
 typedef struct text_info_s {
 	glyph_info_t* glyphs;
 	int length;
-	line_info_t lines[MAX_LINES];
+	line_info_t* lines;
 	int n_lines;
 	int height;
+	int max_glyphs;
+	int max_lines;
 } text_info_t;
 
 
@@ -282,7 +284,10 @@ ass_renderer_t* ass_renderer_init(ass_library_t* library)
 	priv->cache.composite_cache = ass_composite_cache_init();
 	priv->cache.glyph_cache = ass_glyph_cache_init();
 
-	priv->text_info.glyphs = calloc(MAX_GLYPHS, sizeof(glyph_info_t));
+	priv->text_info.max_glyphs = MAX_GLYPHS_INITIAL;
+	priv->text_info.max_lines = MAX_LINES_INITIAL;
+	priv->text_info.glyphs = calloc(MAX_GLYPHS_INITIAL, sizeof(glyph_info_t));
+	priv->text_info.lines = calloc(MAX_LINES_INITIAL, sizeof(line_info_t));
 
 ass_init_exit:
 	if (priv) mp_msg(MSGT_ASS, MSGL_INFO, MSGTR_LIBASS_Init);
@@ -306,7 +311,8 @@ void ass_renderer_done(ass_renderer_t* render_priv)
 	if (render_priv && render_priv->synth_priv) ass_synth_done(render_priv->synth_priv);
 	if (render_priv && render_priv->eimg) free(render_priv->eimg);
 	free(render_priv);
-	if (render_priv->text_info.glyphs) free(render_priv->text_info.glyphs);
+	free(render_priv->text_info.glyphs);
+	free(render_priv->text_info.lines);
 }
 
 /**
@@ -1623,12 +1629,11 @@ static void wrap_lines_smart(ass_renderer_t* render_priv, int max_text_width)
 			// need to use one more line
 			// marking break_at+1 as start of a new line
 			int lead = break_at + 1; // the first symbol of the new line
-			if (text_info->n_lines >= MAX_LINES) {
-				// to many lines !
-				// no more linebreaks
-				for (j = lead; j < text_info->length; ++j)
-					text_info->glyphs[j].linebreak = 0;
-				break;
+			if (text_info->n_lines >= text_info->max_lines) {
+				// Raise maximum number of lines
+				text_info->max_lines *= 2;
+				text_info->lines = realloc(text_info->lines,
+					sizeof(line_info_t) * text_info->max_lines);
 			}
 			if (lead < text_info->length)
 				text_info->glyphs[lead].linebreak = break_type;
@@ -1934,10 +1939,10 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 		if (code == 0)
 			break;
 
-		if (text_info->length >= MAX_GLYPHS) {
-			mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_MAX_GLYPHS_Reached,
-					(int)(event - render_priv->track->events), event->Start, event->Duration, event->Text);
-			break;
+		if (text_info->length >= text_info->max_glyphs) {
+			// Raise maximum number of glyphs
+			text_info->max_glyphs *= 2;
+			text_info->glyphs = realloc(text_info->glyphs, sizeof(glyph_info_t) * text_info->max_glyphs);
 		}
 
 		if ( previous && code ) {
