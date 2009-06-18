@@ -173,6 +173,13 @@ typedef struct render_context_s {
 
 } render_context_t;
 
+typedef struct cache_store_s {
+	hashmap_t* font_cache;
+	hashmap_t* glyph_cache;
+	hashmap_t* bitmap_cache;
+	hashmap_t* composite_cache;
+} cache_store_t;
+
 struct ass_renderer_s {
 	ass_library_t* library;
 	FT_Library ftlibrary;
@@ -201,6 +208,7 @@ struct ass_renderer_s {
 	
 	render_context_t state;
 	text_info_t text_info;
+	cache_store_t cache;
 };
 
 struct render_priv_s {
@@ -269,10 +277,10 @@ ass_renderer_t* ass_renderer_init(ass_library_t* library)
 	priv->ftlibrary = ft;
 	// images_root and related stuff is zero-filled in calloc
 
-	ass_font_cache_init();
-	ass_bitmap_cache_init();
-	ass_composite_cache_init();
-	ass_glyph_cache_init();
+	priv->cache.font_cache = ass_font_cache_init();
+	priv->cache.bitmap_cache = ass_bitmap_cache_init();
+	priv->cache.composite_cache = ass_composite_cache_init();
+	priv->cache.glyph_cache = ass_glyph_cache_init();
 
 	priv->text_info.glyphs = calloc(MAX_GLYPHS, sizeof(glyph_info_t));
 
@@ -285,10 +293,10 @@ ass_init_exit:
 
 void ass_renderer_done(ass_renderer_t* render_priv)
 {
-	ass_font_cache_done();
-	ass_bitmap_cache_done();
-	ass_composite_cache_done();
-	ass_glyph_cache_done();
+	ass_font_cache_done(render_priv->cache.font_cache);
+	ass_bitmap_cache_done(render_priv->cache.bitmap_cache);
+	ass_composite_cache_done(render_priv->cache.composite_cache);
+	ass_glyph_cache_done(render_priv->cache.glyph_cache);
 	if (render_priv->state.stroker) {
 		FT_Stroker_Done(render_priv->state.stroker);
 		render_priv->state.stroker = 0;
@@ -405,7 +413,7 @@ static ass_image_t** render_glyph(ass_renderer_t* render_priv, bitmap_t* bm, int
  * Mainly useful for translucent glyphs and especially borders, to avoid the
  * luminance adding up where they overlap (which looks ugly)
  */
-static void render_overlap(ass_image_t** last_tail, ass_image_t** tail, bitmap_hash_key_t *last_hash, bitmap_hash_key_t* hash) {
+static void render_overlap(ass_renderer_t* render_priv, ass_image_t** last_tail, ass_image_t** tail, bitmap_hash_key_t *last_hash, bitmap_hash_key_t* hash) {
 	int left, top, bottom, right;
 	int old_left, old_top, w, h, cur_left, cur_top;
 	int x, y, opos, cpos;
@@ -458,7 +466,7 @@ static void render_overlap(ass_image_t** last_tail, ass_image_t** tail, bitmap_h
 	hk.ay = ay;
 	hk.bx = bx;
 	hk.by = by;
-	hv = cache_find_composite(&hk);
+	hv = cache_find_composite(render_priv->cache.composite_cache, &hk);
 	if (hv) {
 		(*last_tail)->bitmap = hv->a;
 		(*tail)->bitmap = hv->b;
@@ -489,7 +497,7 @@ static void render_overlap(ass_image_t** last_tail, ass_image_t** tail, bitmap_h
 	hv = calloc(1, sizeof(*hv));
 	hv->a = (*last_tail)->bitmap;
 	hv->b = (*tail)->bitmap;
-	cache_add_composite(nhk, hv);
+	cache_add_composite(render_priv->cache.composite_cache, nhk, hv);
 }
 
 /**
@@ -520,7 +528,7 @@ static ass_image_t* render_text(ass_renderer_t* render_priv, int dst_x, int dst_
 		here_tail = tail;
 		tail = render_glyph(render_priv, bm, pen_x, pen_y, info->c[3], 0, 1000000, tail);
 		if (last_tail && tail != here_tail && ((info->c[3] & 0xff) > 0))
-			render_overlap(last_tail, here_tail, last_hash, &info->hash_key);
+			render_overlap(render_priv, last_tail, here_tail, last_hash, &info->hash_key);
 		last_tail = here_tail;
 		last_hash = &info->hash_key;
 	}
@@ -541,7 +549,7 @@ static ass_image_t* render_text(ass_renderer_t* render_priv, int dst_x, int dst_
 			here_tail = tail;
 			tail = render_glyph(render_priv, bm, pen_x, pen_y, info->c[2], 0, 1000000, tail);
 			if (last_tail && tail != here_tail && ((info->c[2] & 0xff) > 0))
-				render_overlap(last_tail, here_tail, last_hash, &info->hash_key);
+				render_overlap(render_priv, last_tail, here_tail, last_hash, &info->hash_key);
 			last_tail = here_tail;
 			last_hash = &info->hash_key;
 		}
@@ -683,7 +691,7 @@ static void update_font(ass_renderer_t* render_priv)
 	else if (val == 1) val = 110; //italic
 	desc.italic = val;
 
-	render_priv->state.font = ass_font_new(render_priv->library, render_priv->ftlibrary, render_priv->fontconfig_priv, &desc);
+	render_priv->state.font = ass_font_new(render_priv->cache.font_cache, render_priv->library, render_priv->ftlibrary, render_priv->fontconfig_priv, &desc);
 	free(desc.family);
 
 	if (render_priv->state.font)
@@ -1438,7 +1446,7 @@ static void get_outline_glyph(ass_renderer_t* render_priv, int symbol, glyph_inf
 
 	memset(info, 0, sizeof(glyph_info_t));
 
-	val = cache_find_glyph(&key);
+	val = cache_find_glyph(render_priv->cache.glyph_cache, &key);
 	if (val) {
 		FT_Glyph_Copy(val->glyph, &info->glyph);
 		if (val->outline_glyph)
@@ -1469,7 +1477,7 @@ static void get_outline_glyph(ass_renderer_t* render_priv, int symbol, glyph_inf
 			FT_Glyph_Copy(info->outline_glyph, &v.outline_glyph);
 		v.advance = info->advance;
 		v.bbox_scaled = info->bbox;
-		cache_add_glyph(&key, &v);
+		cache_add_glyph(render_priv->cache.glyph_cache, &key, &v);
 	}
 }
 
@@ -1488,7 +1496,7 @@ static void get_bitmap_glyph(ass_renderer_t* render_priv, glyph_info_t* info)
 	bitmap_hash_val_t* val;
 	bitmap_hash_key_t* key = &info->hash_key;
 
-	val = cache_find_bitmap(key);
+	val = cache_find_bitmap(render_priv->cache.bitmap_cache, key);
 /* 	val = 0; */
 
 	if (val) {
@@ -1519,7 +1527,7 @@ static void get_bitmap_glyph(ass_renderer_t* render_priv, glyph_info_t* info)
 			hash_val.bm_o = info->bm_o;
 			hash_val.bm = info->bm;
 			hash_val.bm_s = info->bm_s;
-			cache_add_bitmap(&(info->hash_key), &hash_val);
+			cache_add_bitmap(render_priv->cache.bitmap_cache, &(info->hash_key), &hash_val);
 		}
 	}
 	// deallocate glyphs
@@ -2197,9 +2205,9 @@ static void ass_free_images(ass_image_t* img)
 static void ass_reconfigure(ass_renderer_t* priv)
 {
 	priv->render_id = ++last_render_id;
-	ass_glyph_cache_reset();
-	ass_bitmap_cache_reset();
-	ass_composite_cache_reset();
+	priv->cache.glyph_cache = ass_glyph_cache_reset(priv->cache.glyph_cache);
+	priv->cache.bitmap_cache = ass_bitmap_cache_reset(priv->cache.bitmap_cache);
+	priv->cache.composite_cache = ass_composite_cache_reset(priv->cache.composite_cache);
 	ass_free_images(priv->prev_images_root);
 	priv->prev_images_root = 0;
 }

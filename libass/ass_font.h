@@ -49,7 +49,8 @@ typedef struct ass_font_s {
 	double size;
 } ass_font_t;
 
-ass_font_t* ass_font_new(ass_library_t* library, FT_Library ftlibrary, void* fc_priv, ass_font_desc_t* desc);
+// FIXME: passing the hashmap via a void pointer is very ugly.
+ass_font_t* ass_font_new(void* font_cache, ass_library_t* library, FT_Library ftlibrary, void* fc_priv, ass_font_desc_t* desc);
 void ass_font_set_transform(ass_font_t* font, double scale_x, double scale_y, FT_Vector* v);
 void ass_font_set_size(ass_font_t* font, double size);
 void ass_font_get_asc_desc(ass_font_t* font, uint32_t ch, int* asc, int* desc);

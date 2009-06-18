@@ -157,13 +157,13 @@ static int add_face(void* fc_priv, ass_font_t* font, uint32_t ch)
 /**
  * \brief Create a new ass_font_t according to "desc" argument
  */
-ass_font_t* ass_font_new(ass_library_t* library, FT_Library ftlibrary, void* fc_priv, ass_font_desc_t* desc)
+ass_font_t* ass_font_new(void* font_cache, ass_library_t* library, FT_Library ftlibrary, void* fc_priv, ass_font_desc_t* desc)
 {
 	int error;
 	ass_font_t* fontp;
 	ass_font_t font;
 
-	fontp = ass_font_cache_find(desc);
+	fontp = ass_font_cache_find((hashmap_t*)font_cache, desc);
 	if (fontp)
 		return fontp;
 
@@ -184,7 +184,7 @@ ass_font_t* ass_font_new(ass_library_t* library, FT_Library ftlibrary, void* fc_
 		free(font.desc.family);
 		return 0;
 	} else
-		return ass_font_cache_add(&font);
+		return ass_font_cache_add((hashmap_t*)font_cache, &font);
 }
 
 /**
