@@ -1425,6 +1425,82 @@ static void free_render_context(void)
 {
 }
 
+// Calculate the cbox of a series of points
+static void get_contour_cbox(FT_BBox *box, FT_Vector *points, int start, int end) {
+    box->xMin = box->yMin = INT_MAX;
+    box->xMax = box->yMax = INT_MIN;
+    int i;
+
+    for (i=start; i<end; i++) {
+            box->xMin = (points[i].x < box->xMin) ? points[i].x : box->xMin;
+            box->xMax = (points[i].x > box->xMax) ? points[i].x : box->xMax;
+            box->yMin = (points[i].y < box->yMin) ? points[i].y : box->yMin;
+            box->yMax = (points[i].y > box->yMax) ? points[i].y : box->yMax;
+    }
+}
+
+/**
+ * \brief Fix-up stroker result for huge borders by removing the contours from
+ * the outline that are harmful.
+*/
+static void fix_freetype_stroker(FT_OutlineGlyph glyph, int border) {
+    int nc = glyph->outline.n_contours;
+    int begin, stop;
+    char modified = 0;
+    char *valid_cont;
+    int start = 0;
+    int end = -1;
+    FT_BBox *boxes = calloc(nc, sizeof(FT_BBox));
+    int i, j;
+
+    // Create a list of cboxes of the contours
+    for (i=0; i < nc; i++) {
+        start = end + 1;
+        end = glyph->outline.contours[i];
+        get_contour_cbox(&boxes[i], glyph->outline.points, start, end);
+    }
+
+    // if a) contour's cbox is contained in another contours cbox
+    //    b) contour's height or width is smaller than the border*2
+    // the contour can be safely removed.
+    valid_cont = calloc(1, nc);
+    for (i=0; i < nc; i++) {
+        valid_cont[i] = 1;
+        for (j=0; j < nc; j++) {
+            if (i == j) continue;
+            if (boxes[i].xMin >= boxes[j].xMin &&
+                boxes[i].xMax <= boxes[j].xMax &&
+                boxes[i].yMin >= boxes[j].yMin &&
+                boxes[i].yMax <= boxes[j].yMax) {
+                    int width = boxes[i].xMax - boxes[i].xMin;
+                    int height = boxes[i].yMax - boxes[i].yMin;
+                    if (width < border*2 || height < border*2) {
+                        valid_cont[i] = 0;
+                        modified = 1;
+                        break;
+                    }
+                }
+        }
+    }
+
+    // Zero-out contours that can be removed; much simpler than copying
+    if (modified) {
+        for (i=0; i<nc; i++) {
+            if (valid_cont[i]) continue;
+            begin = (i == 0) ? 0 : glyph->outline.contours[i-1]+1;
+            stop = glyph->outline.contours[i];
+            for (j=begin; j<=stop; j++) {
+                glyph->outline.points[j].x = 0;
+                glyph->outline.points[j].y = 0;
+                glyph->outline.tags[j] = 0;
+            }
+        }
+    }
+
+    free(boxes);
+    free(valid_cont);
+}
+
 /**
  * \brief Get normal and outline (border) glyphs
  * \param symbol ucs4 char
@@ -1471,8 +1547,9 @@ static void get_outline_glyph(ass_renderer_t* render_priv, int symbol, glyph_inf
 		FT_Glyph_Get_CBox( info->glyph, FT_GLYPH_BBOX_PIXELS, &info->bbox);
 
 		if (render_priv->state.stroker) {
-			info->outline_glyph = info->glyph;
-			error = FT_Glyph_StrokeBorder( &(info->outline_glyph), render_priv->state.stroker, 0 , 0 ); // don't destroy original
+ 			FT_Glyph_Copy(info->glyph, &info->outline_glyph);
+ 			fix_freetype_stroker((FT_OutlineGlyph) info->outline_glyph, double_to_d6(render_priv->state.border * render_priv->border_scale));
+ 			error = FT_Glyph_StrokeBorder( &(info->outline_glyph), render_priv->state.stroker, 0 , 1);
 			if (error) {
 				mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_FT_Glyph_Stroke_Error, error);
 			}
