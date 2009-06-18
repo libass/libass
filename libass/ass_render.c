@@ -43,7 +43,7 @@
 
 #define MAX_GLYPHS_INITIAL 1024
 #define MAX_LINES_INITIAL 64
-#define BLUR_MAX_RADIUS 50.0
+#define BLUR_MAX_RADIUS 100.0
 #define MAX_BE 100
 #define ROUND(x) ((int) ((x) + .5))
 #define SUBPIXEL_MASK 56	// d6 bitmask for subpixel accuracy adjustment
@@ -865,6 +865,7 @@ static char* parse_tag(ass_renderer_t* render_priv, char* p, double pwr) {
 	} else if (mystrcmp(&p, "blur")) {
 		double val;
 		if (mystrtod(&p, &val)) {
+			val = render_priv->state.blur * (1-pwr) + val*pwr;
 			val = (val < 0) ? 0 : val;
 			val = (val > BLUR_MAX_RADIUS) ? BLUR_MAX_RADIUS : val;
 			render_priv->state.blur = val;
