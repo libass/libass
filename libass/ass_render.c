@@ -173,8 +173,6 @@ typedef struct render_context_s {
 
 } render_context_t;
 
-static text_info_t text_info;
-
 struct ass_renderer_s {
 	ass_library_t* library;
 	FT_Library ftlibrary;
@@ -247,8 +245,6 @@ ass_renderer_t* ass_renderer_init(ass_library_t* library)
 	ass_renderer_t* priv = 0;
 	int vmajor, vminor, vpatch;
 
-	memset(&text_info, 0, sizeof(text_info));
-
 	error = FT_Init_FreeType( &ft );
 	if ( error ) {
 		mp_msg(MSGT_ASS, MSGL_FATAL, MSGTR_LIBASS_FT_Init_FreeTypeFailed);
@@ -278,7 +274,7 @@ ass_renderer_t* ass_renderer_init(ass_library_t* library)
 	ass_composite_cache_init();
 	ass_glyph_cache_init();
 
-	text_info.glyphs = calloc(MAX_GLYPHS, sizeof(glyph_info_t));
+	priv->text_info.glyphs = calloc(MAX_GLYPHS, sizeof(glyph_info_t));
 
 ass_init_exit:
 	if (priv) mp_msg(MSGT_ASS, MSGL_INFO, MSGTR_LIBASS_Init);
@@ -302,7 +298,7 @@ void ass_renderer_done(ass_renderer_t* render_priv)
 	if (render_priv && render_priv->synth_priv) ass_synth_done(render_priv->synth_priv);
 	if (render_priv && render_priv->eimg) free(render_priv->eimg);
 	free(render_priv);
-	if (text_info.glyphs) free(text_info.glyphs);
+	if (render_priv->text_info.glyphs) free(render_priv->text_info.glyphs);
 }
 
 /**
@@ -500,7 +496,7 @@ static void render_overlap(ass_image_t** last_tail, ass_image_t** tail, bitmap_h
  * \brief Convert text_info_t struct to ass_image_t list
  * Splits glyphs in halves when needed (for \kf karaoke).
  */
-static ass_image_t* render_text(ass_renderer_t* render_priv, text_info_t* text_info, int dst_x, int dst_y)
+static ass_image_t* render_text(ass_renderer_t* render_priv, int dst_x, int dst_y)
 {
 	int pen_x, pen_y;
 	int i;
@@ -510,6 +506,7 @@ static ass_image_t* render_text(ass_renderer_t* render_priv, text_info_t* text_i
 	ass_image_t** last_tail = 0;
 	ass_image_t** here_tail = 0;
 	bitmap_hash_key_t* last_hash = 0;
+	text_info_t* text_info = &render_priv->text_info;
 
 	for (i = 0; i < text_info->length; ++i) {
 		glyph_info_t* info = text_info->glyphs + i;
@@ -619,15 +616,15 @@ static void compute_string_bbox( text_info_t* info, FT_BBox *abbox ) {
 	FT_BBox bbox;
 	int i;
 
-	if (text_info.length > 0) {
+	if (info->length > 0) {
 		bbox.xMin = 32000;
 		bbox.xMax = -32000;
-		bbox.yMin = - d6_to_int(text_info.lines[0].asc) + text_info.glyphs[0].pos.y;
-		bbox.yMax = d6_to_int(text_info.height - text_info.lines[0].asc) + text_info.glyphs[0].pos.y;
+		bbox.yMin = - d6_to_int(info->lines[0].asc) + info->glyphs[0].pos.y;
+		bbox.yMax = d6_to_int(info->height - info->lines[0].asc) + info->glyphs[0].pos.y;
 
-		for (i = 0; i < text_info.length; ++i) {
-			int s = text_info.glyphs[i].pos.x;
-			int e = s + d6_to_int(text_info.glyphs[i].advance.x);
+		for (i = 0; i < info->length; ++i) {
+			int s = info->glyphs[i].pos.x;
+			int e = s + d6_to_int(info->glyphs[i].advance.x);
 			bbox.xMin = FFMIN(bbox.xMin, s);
 			bbox.xMax = FFMAX(bbox.xMax, e);
 		}
@@ -1540,28 +1537,29 @@ static void get_bitmap_glyph(ass_renderer_t* render_priv, glyph_info_t* info)
  *   lines[].asc
  *   lines[].desc
  */
-static void measure_text(ass_settings_t* priv)
+static void measure_text(ass_renderer_t* render_priv)
 {
+	text_info_t* text_info = &render_priv->text_info;
 	int cur_line = 0, max_asc = 0, max_desc = 0;
 	int i;
-	text_info.height = 0;
-	for (i = 0; i < text_info.length + 1; ++i) {
-		if ((i == text_info.length) || text_info.glyphs[i].linebreak) {
-			text_info.lines[cur_line].asc = max_asc;
-			text_info.lines[cur_line].desc = max_desc;
-			text_info.height += max_asc + max_desc;
+	text_info->height = 0;
+	for (i = 0; i < text_info->length + 1; ++i) {
+		if ((i == text_info->length) || text_info->glyphs[i].linebreak) {
+			text_info->lines[cur_line].asc = max_asc;
+			text_info->lines[cur_line].desc = max_desc;
+			text_info->height += max_asc + max_desc;
 			cur_line ++;
 			max_asc = max_desc = 0;
 		}
-		if (i < text_info.length) {
-			glyph_info_t* cur = text_info.glyphs + i;
+		if (i < text_info->length) {
+			glyph_info_t* cur = text_info->glyphs + i;
 			if (cur->asc > max_asc)
 				max_asc = cur->asc;
 			if (cur->desc > max_desc)
 				max_desc = cur->desc;
 		}
 	}
-	text_info.height += (text_info.n_lines - 1) * double_to_d6(priv->line_spacing);
+	text_info->height += (text_info->n_lines - 1) * double_to_d6(render_priv->settings.line_spacing);
 }
 
 /**
@@ -1573,7 +1571,7 @@ static void measure_text(ass_settings_t* priv)
  * the difference in lengths between this two lines.
  * The result may not be optimal, but usually is good enough.
  */
-static void wrap_lines_smart(ass_settings_t* priv, int max_text_width)
+static void wrap_lines_smart(ass_renderer_t* render_priv, int max_text_width)
 {
 	int i, j;
 	glyph_info_t *cur, *s1, *e1, *s2, *s3, *w;
@@ -1583,14 +1581,15 @@ static void wrap_lines_smart(ass_settings_t* priv, int max_text_width)
 	int pen_shift_x;
 	int pen_shift_y;
 	int cur_line;
-
+	text_info_t* text_info = &render_priv->text_info;
+	
 	last_space = -1;
-	text_info.n_lines = 1;
+	text_info->n_lines = 1;
 	break_type = 0;
-	s1 = text_info.glyphs; // current line start
-	for (i = 0; i < text_info.length; ++i) {
+	s1 = text_info->glyphs; // current line start
+	for (i = 0; i < text_info->length; ++i) {
 		int break_at, s_offset, len;
-		cur = text_info.glyphs + i;
+		cur = text_info->glyphs + i;
 		break_at = -1;
 		s_offset = s1->bbox.xMin + s1->pos.x;
 		len = (cur->bbox.xMax + cur->pos.x) - s_offset;
@@ -1616,19 +1615,19 @@ static void wrap_lines_smart(ass_settings_t* priv, int max_text_width)
 			// need to use one more line
 			// marking break_at+1 as start of a new line
 			int lead = break_at + 1; // the first symbol of the new line
-			if (text_info.n_lines >= MAX_LINES) {
+			if (text_info->n_lines >= MAX_LINES) {
 				// to many lines !
 				// no more linebreaks
-				for (j = lead; j < text_info.length; ++j)
-					text_info.glyphs[j].linebreak = 0;
+				for (j = lead; j < text_info->length; ++j)
+					text_info->glyphs[j].linebreak = 0;
 				break;
 			}
-			if (lead < text_info.length)
-				text_info.glyphs[lead].linebreak = break_type;
+			if (lead < text_info->length)
+				text_info->glyphs[lead].linebreak = break_type;
 			last_space = -1;
-			s1 = text_info.glyphs + lead;
+			s1 = text_info->glyphs + lead;
 			s_offset = s1->bbox.xMin + s1->pos.x;
-			text_info.n_lines ++;
+			text_info->n_lines ++;
 		}
 
 		if (cur->symbol == ' ')
@@ -1643,11 +1642,11 @@ static void wrap_lines_smart(ass_settings_t* priv, int max_text_width)
 	exit = 0;
 	while (!exit) {
 		exit = 1;
-		w = s3 = text_info.glyphs;
+		w = s3 = text_info->glyphs;
 		s1 = s2 = 0;
-		for (i = 0; i <= text_info.length; ++i) {
-			cur = text_info.glyphs + i;
-			if ((i == text_info.length) || cur->linebreak) {
+		for (i = 0; i <= text_info->length; ++i) {
+			cur = text_info->glyphs + i;
+			if ((i == text_info->length) || cur->linebreak) {
 				s1 = s2;
 				s2 = s3;
 				s3 = cur;
@@ -1673,27 +1672,27 @@ static void wrap_lines_smart(ass_settings_t* priv, int max_text_width)
 					}
 				}
 			}
-			if (i == text_info.length)
+			if (i == text_info->length)
 				break;
 		}
 
 	}
-	assert(text_info.n_lines >= 1);
+	assert(text_info->n_lines >= 1);
 #undef DIFF
 
-	measure_text(priv);
+	measure_text(render_priv);
 
 	pen_shift_x = 0;
 	pen_shift_y = 0;
 	cur_line = 1;
-	for (i = 0; i < text_info.length; ++i) {
-		cur = text_info.glyphs + i;
+	for (i = 0; i < text_info->length; ++i) {
+		cur = text_info->glyphs + i;
 		if (cur->linebreak) {
-			int height = text_info.lines[cur_line - 1].desc + text_info.lines[cur_line].asc;
+			int height = text_info->lines[cur_line - 1].desc + text_info->lines[cur_line].asc;
 			cur_line ++;
 			pen_shift_x = - cur->pos.x;
-			pen_shift_y += d6_to_int(height + double_to_d6(priv->line_spacing));
-			mp_msg(MSGT_ASS, MSGL_DBG2, "shifting from %d to %d by (%d, %d)\n", i, text_info.length - 1, pen_shift_x, pen_shift_y);
+			pen_shift_y += d6_to_int(height + double_to_d6(render_priv->settings.line_spacing));
+			mp_msg(MSGT_ASS, MSGL_DBG2, "shifting from %d to %d by (%d, %d)\n", i, text_info->length - 1, pen_shift_x, pen_shift_y);
 		}
 		cur->pos.x += pen_shift_x;
 		cur->pos.y += pen_shift_y;
@@ -1727,9 +1726,9 @@ static void process_karaoke_effects(ass_renderer_t* render_priv)
 	tm_current = render_priv->time - render_priv->state.event->Start;
 	timing = 0;
 	s1 = s2 = 0;
-	for (i = 0; i <= text_info.length; ++i) {
-		cur = text_info.glyphs + i;
-		if ((i == text_info.length) || (cur->effect_type != EF_NONE)) {
+	for (i = 0; i <= render_priv->text_info.length; ++i) {
+		cur = render_priv->text_info.glyphs + i;
+		if ((i == render_priv->text_info.length) || (cur->effect_type != EF_NONE)) {
 			s1 = s2;
 			s2 = cur;
 			if (s1) {
@@ -1891,6 +1890,7 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 	int alignment, halign, valign;
 	int device_x = 0, device_y = 0;
 	ass_settings_t* settings_priv = &render_priv->settings;
+	text_info_t* text_info = &render_priv->text_info;
 
 	if (event->Style >= render_priv->track->n_styles) {
 		mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_NoStyleFound);
@@ -1903,7 +1903,7 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 
 	init_render_context(render_priv, event);
 
-	text_info.length = 0;
+	text_info->length = 0;
 	pen.x = 0;
 	pen.y = 0;
 	previous = 0;
@@ -1926,7 +1926,7 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 		if (code == 0)
 			break;
 
-		if (text_info.length >= MAX_GLYPHS) {
+		if (text_info->length >= MAX_GLYPHS) {
 			mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_MAX_GLYPHS_Reached,
 					(int)(event - render_priv->track->events), event->Start, event->Duration, event->Text);
 			break;
@@ -1952,63 +1952,63 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 				       render_priv->state.scale_y,
 				       &shift );
 
-		get_outline_glyph(render_priv, code, text_info.glyphs + text_info.length, &shift);
+		get_outline_glyph(render_priv, code, text_info->glyphs + text_info->length, &shift);
 
-		text_info.glyphs[text_info.length].pos.x = pen.x >> 6;
-		text_info.glyphs[text_info.length].pos.y = pen.y >> 6;
+		text_info->glyphs[text_info->length].pos.x = pen.x >> 6;
+		text_info->glyphs[text_info->length].pos.y = pen.y >> 6;
 
-		pen.x += text_info.glyphs[text_info.length].advance.x;
+		pen.x += text_info->glyphs[text_info->length].advance.x;
 		pen.x += double_to_d6(render_priv->state.hspacing);
-		pen.y += text_info.glyphs[text_info.length].advance.y;
+		pen.y += text_info->glyphs[text_info->length].advance.y;
 
 		previous = code;
 
-		text_info.glyphs[text_info.length].symbol = code;
-		text_info.glyphs[text_info.length].linebreak = 0;
+		text_info->glyphs[text_info->length].symbol = code;
+		text_info->glyphs[text_info->length].linebreak = 0;
 		for (i = 0; i < 4; ++i) {
 			uint32_t clr = render_priv->state.c[i];
 			change_alpha(&clr, mult_alpha(_a(clr), render_priv->state.fade), 1.);
-			text_info.glyphs[text_info.length].c[i] = clr;
+			text_info->glyphs[text_info->length].c[i] = clr;
 		}
-		text_info.glyphs[text_info.length].effect_type = render_priv->state.effect_type;
-		text_info.glyphs[text_info.length].effect_timing = render_priv->state.effect_timing;
-		text_info.glyphs[text_info.length].effect_skip_timing = render_priv->state.effect_skip_timing;
-		text_info.glyphs[text_info.length].be = render_priv->state.be;
-		text_info.glyphs[text_info.length].blur = render_priv->state.blur;
-		text_info.glyphs[text_info.length].shadow = render_priv->state.shadow;
-		text_info.glyphs[text_info.length].frx = render_priv->state.frx;
-		text_info.glyphs[text_info.length].fry = render_priv->state.fry;
-		text_info.glyphs[text_info.length].frz = render_priv->state.frz;
+		text_info->glyphs[text_info->length].effect_type = render_priv->state.effect_type;
+		text_info->glyphs[text_info->length].effect_timing = render_priv->state.effect_timing;
+		text_info->glyphs[text_info->length].effect_skip_timing = render_priv->state.effect_skip_timing;
+		text_info->glyphs[text_info->length].be = render_priv->state.be;
+		text_info->glyphs[text_info->length].blur = render_priv->state.blur;
+		text_info->glyphs[text_info->length].shadow = render_priv->state.shadow;
+		text_info->glyphs[text_info->length].frx = render_priv->state.frx;
+		text_info->glyphs[text_info->length].fry = render_priv->state.fry;
+		text_info->glyphs[text_info->length].frz = render_priv->state.frz;
 		ass_font_get_asc_desc(render_priv->state.font, code,
-				      &text_info.glyphs[text_info.length].asc,
-				      &text_info.glyphs[text_info.length].desc);
-		text_info.glyphs[text_info.length].asc *= render_priv->state.scale_y;
-		text_info.glyphs[text_info.length].desc *= render_priv->state.scale_y;
+				      &text_info->glyphs[text_info->length].asc,
+				      &text_info->glyphs[text_info->length].desc);
+		text_info->glyphs[text_info->length].asc *= render_priv->state.scale_y;
+		text_info->glyphs[text_info->length].desc *= render_priv->state.scale_y;
 
 		// fill bitmap_hash_key
-		text_info.glyphs[text_info.length].hash_key.font = render_priv->state.font;
-		text_info.glyphs[text_info.length].hash_key.size = render_priv->state.font_size;
-		text_info.glyphs[text_info.length].hash_key.outline = render_priv->state.border * 0xFFFF;
-		text_info.glyphs[text_info.length].hash_key.scale_x = render_priv->state.scale_x * 0xFFFF;
-		text_info.glyphs[text_info.length].hash_key.scale_y = render_priv->state.scale_y * 0xFFFF;
-		text_info.glyphs[text_info.length].hash_key.frx = render_priv->state.frx * 0xFFFF;
-		text_info.glyphs[text_info.length].hash_key.fry = render_priv->state.fry * 0xFFFF;
-		text_info.glyphs[text_info.length].hash_key.frz = render_priv->state.frz * 0xFFFF;
-		text_info.glyphs[text_info.length].hash_key.bold = render_priv->state.bold;
-		text_info.glyphs[text_info.length].hash_key.italic = render_priv->state.italic;
-		text_info.glyphs[text_info.length].hash_key.ch = code;
-		text_info.glyphs[text_info.length].hash_key.advance = shift;
-		text_info.glyphs[text_info.length].hash_key.be = render_priv->state.be;
-		text_info.glyphs[text_info.length].hash_key.blur = render_priv->state.blur;
+		text_info->glyphs[text_info->length].hash_key.font = render_priv->state.font;
+		text_info->glyphs[text_info->length].hash_key.size = render_priv->state.font_size;
+		text_info->glyphs[text_info->length].hash_key.outline = render_priv->state.border * 0xFFFF;
+		text_info->glyphs[text_info->length].hash_key.scale_x = render_priv->state.scale_x * 0xFFFF;
+		text_info->glyphs[text_info->length].hash_key.scale_y = render_priv->state.scale_y * 0xFFFF;
+		text_info->glyphs[text_info->length].hash_key.frx = render_priv->state.frx * 0xFFFF;
+		text_info->glyphs[text_info->length].hash_key.fry = render_priv->state.fry * 0xFFFF;
+		text_info->glyphs[text_info->length].hash_key.frz = render_priv->state.frz * 0xFFFF;
+		text_info->glyphs[text_info->length].hash_key.bold = render_priv->state.bold;
+		text_info->glyphs[text_info->length].hash_key.italic = render_priv->state.italic;
+		text_info->glyphs[text_info->length].hash_key.ch = code;
+		text_info->glyphs[text_info->length].hash_key.advance = shift;
+		text_info->glyphs[text_info->length].hash_key.be = render_priv->state.be;
+		text_info->glyphs[text_info->length].hash_key.blur = render_priv->state.blur;
 
-		text_info.length++;
+		text_info->length++;
 
 		render_priv->state.effect_type = EF_NONE;
 		render_priv->state.effect_timing = 0;
 		render_priv->state.effect_skip_timing = 0;
 	}
 
-	if (text_info.length == 0) {
+	if (text_info->length == 0) {
 		// no valid symbols in the event; this can be smth like {comment}
 		free_render_context();
 		return 1;
@@ -2033,15 +2033,15 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 		max_text_width = x2scr(render_priv, render_priv->track->PlayResX - MarginR) - x2scr(render_priv, MarginL);
 
 		// rearrange text in several lines
-		wrap_lines_smart(settings_priv, max_text_width);
+		wrap_lines_smart(render_priv, max_text_width);
 
 		// align text
 		last_break = -1;
-		for (i = 1; i < text_info.length + 1; ++i) { // (text_info.length + 1) is the end of the last line
-			if ((i == text_info.length) || text_info.glyphs[i].linebreak) {
+		for (i = 1; i < text_info->length + 1; ++i) { // (text_info->length + 1) is the end of the last line
+			if ((i == text_info->length) || text_info->glyphs[i].linebreak) {
 				int width, shift = 0;
-				glyph_info_t* first_glyph = text_info.glyphs + last_break + 1;
-				glyph_info_t* last_glyph = text_info.glyphs + i - 1;
+				glyph_info_t* first_glyph = text_info->glyphs + last_break + 1;
+				glyph_info_t* last_glyph = text_info->glyphs + i - 1;
 
 				while ((last_glyph > first_glyph) && ((last_glyph->symbol == '\n') || (last_glyph->symbol == 0)))
 					last_glyph --;
@@ -2055,17 +2055,17 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 					shift = (max_text_width - width) / 2;
 				}
 				for (j = last_break + 1; j < i; ++j) {
-					text_info.glyphs[j].pos.x += shift;
+					text_info->glyphs[j].pos.x += shift;
 				}
 				last_break = i - 1;
 			}
 		}
 	} else { // render_priv->state.evt_type == EVENT_HSCROLL
-		measure_text(settings_priv);
+		measure_text(render_priv);
 	}
 
 	// determing text bounding box
-	compute_string_bbox(&text_info, &bbox);
+	compute_string_bbox(text_info, &bbox);
 
 	// determine device coordinates for text
 
@@ -2084,7 +2084,7 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 	if (render_priv->state.evt_type == EVENT_NORMAL ||
 	    render_priv->state.evt_type == EVENT_HSCROLL) {
 		if (valign == VALIGN_TOP) { // toptitle
-			device_y = y2scr_top(render_priv, MarginV) + d6_to_int(text_info.lines[0].asc);
+			device_y = y2scr_top(render_priv, MarginV) + d6_to_int(text_info->lines[0].asc);
 		} else if (valign == VALIGN_CENTER) { // midtitle
 			int scr_y = y2scr(render_priv, render_priv->track->PlayResY / 2);
 			device_y = scr_y - (bbox.yMax - bbox.yMin) / 2;
@@ -2094,8 +2094,8 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 				mp_msg(MSGT_ASS, MSGL_V, "Invalid valign, supposing 0 (subtitle)\n");
 			scr_y = y2scr_sub(render_priv, render_priv->track->PlayResY - MarginV);
 			device_y = scr_y;
-			device_y -= d6_to_int(text_info.height);
-			device_y += d6_to_int(text_info.lines[0].asc);
+			device_y -= d6_to_int(text_info->height);
+			device_y += d6_to_int(text_info->lines[0].asc);
 		}
 	} else if (render_priv->state.evt_type == EVENT_VSCROLL) {
 		if (render_priv->state.scroll_direction == SCROLL_TB)
@@ -2151,8 +2151,8 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 			center.y = device_y + by;
 		}
 
-		for (i = 0; i < text_info.length; ++i) {
-			glyph_info_t* info = text_info.glyphs + i;
+		for (i = 0; i < text_info->length; ++i) {
+			glyph_info_t* info = text_info->glyphs + i;
 
 			if (info->hash_key.frx || info->hash_key.fry || info->hash_key.frz) {
 				info->hash_key.shift_x = info->pos.x + device_x - center.x;
@@ -2165,16 +2165,16 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 	}
 
 	// convert glyphs to bitmaps
-	for (i = 0; i < text_info.length; ++i)
-		get_bitmap_glyph(render_priv, text_info.glyphs + i);
+	for (i = 0; i < text_info->length; ++i)
+		get_bitmap_glyph(render_priv, text_info->glyphs + i);
 
 	memset(event_images, 0, sizeof(*event_images));
-	event_images->top = device_y - d6_to_int(text_info.lines[0].asc);
-	event_images->height = d6_to_int(text_info.height);
+	event_images->top = device_y - d6_to_int(text_info->lines[0].asc);
+	event_images->height = d6_to_int(text_info->height);
 	event_images->detect_collisions = render_priv->state.detect_collisions;
 	event_images->shift_direction = (valign == VALIGN_TOP) ? 1 : -1;
 	event_images->event = event;
-	event_images->imgs = render_text(render_priv, &text_info, device_x, device_y);
+	event_images->imgs = render_text(render_priv, device_x, device_y);
 
 	free_render_context();
 
