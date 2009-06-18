@@ -1678,8 +1678,8 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
     key.font = render_priv->state.font;
     key.size = render_priv->state.font_size;
     key.ch = symbol;
-    key.scale_x = (render_priv->state.scale_x * 0xFFFF);
-    key.scale_y = (render_priv->state.scale_y * 0xFFFF);
+    key.scale_x = double_to_d16(render_priv->state.scale_x);
+    key.scale_y = double_to_d16(render_priv->state.scale_y);
     key.advance = *advance;
     key.bold = render_priv->state.bold;
     key.italic = render_priv->state.italic;
