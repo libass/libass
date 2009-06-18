@@ -90,6 +90,18 @@ struct ass_renderer_s {
 
 	event_images_t* eimg; // temporary buffer for sorting rendered events
 	int eimg_size; // allocated buffer size
+
+	// frame-global data
+	int width, height; // screen dimensions
+	int orig_height; // frame height ( = screen height - margins )
+	int orig_width; // frame width ( = screen width - margins )
+	int orig_height_nocrop; // frame height ( = screen height - margins + cropheight)
+	int orig_width_nocrop; // frame width ( = screen width - margins + cropwidth)
+	ass_track_t* track;
+	long long time; // frame's timestamp, ms
+	double font_scale;
+	double font_scale_x; // x scale applied to all glyphs to preserve text aspect ratio
+	double border_scale;
 };
 
 typedef enum {EF_NONE = 0, EF_KARAOKE, EF_KARAOKE_KF, EF_KARAOKE_KO} effect_t;
@@ -188,21 +200,6 @@ typedef struct render_context_s {
 
 } render_context_t;
 
-// frame-global data
-typedef struct frame_context_s {
-	ass_renderer_t* ass_priv;
-	int width, height; // screen dimensions
-	int orig_height; // frame height ( = screen height - margins )
-	int orig_width; // frame width ( = screen width - margins )
-	int orig_height_nocrop; // frame height ( = screen height - margins + cropheight)
-	int orig_width_nocrop; // frame width ( = screen width - margins + cropwidth)
-	ass_track_t* track;
-	long long time; // frame's timestamp, ms
-	double font_scale;
-	double font_scale_x; // x scale applied to all glyphs to preserve text aspect ratio
-	double border_scale;
-} frame_context_t;
-
 static text_info_t text_info;
 static render_context_t render_context;
 
@@ -211,9 +208,9 @@ struct render_priv_s {
 	int render_id;
 };
 
-static void ass_lazy_track_init(frame_context_t* frame_priv, ass_settings_t* settings_priv)
+static void ass_lazy_track_init(ass_renderer_t* render_priv, ass_settings_t* settings_priv)
 {
-	ass_track_t* track = frame_priv->track;
+	ass_track_t* track = render_priv->track;
 	if (track->PlayResX && track->PlayResY)
 		return;
 	if (!track->PlayResX && !track->PlayResY) {
@@ -221,8 +218,8 @@ static void ass_lazy_track_init(frame_context_t* frame_priv, ass_settings_t* set
 		track->PlayResX = 384;
 		track->PlayResY = 288;
 	} else {
-		double orig_aspect = (settings_priv->aspect * frame_priv->height * frame_priv->orig_width) /
-			frame_priv->orig_height / frame_priv->width;
+		double orig_aspect = (settings_priv->aspect * render_priv->height * render_priv->orig_width) /
+			render_priv->orig_height / render_priv->width;
 		if (!track->PlayResY && track->PlayResX == 1280) {
 			track->PlayResY = 1024;
 			mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_PlayResYUndefinedSettingY, track->PlayResY);
@@ -244,7 +241,6 @@ ass_renderer_t* ass_renderer_init(ass_library_t* library)
 	int error;
 	FT_Library ft;
 	ass_renderer_t* priv = 0;
-	frame_context_t* frame_priv = 0;
 	int vmajor, vminor, vpatch;
 
 	memset(&render_context, 0, sizeof(render_context));
@@ -264,12 +260,6 @@ ass_renderer_t* ass_renderer_init(ass_library_t* library)
 
 	priv = calloc(1, sizeof(ass_renderer_t));
 	if (!priv) {
-		FT_Done_FreeType(ft);
-		goto ass_init_exit;
-	}
-	
-	frame_priv = calloc(1, sizeof(frame_context_t));
-	if (!frame_priv) {
 		FT_Done_FreeType(ft);
 		goto ass_init_exit;
 	}
@@ -507,7 +497,7 @@ static void render_overlap(ass_image_t** last_tail, ass_image_t** tail, bitmap_h
  * \brief Convert text_info_t struct to ass_image_t list
  * Splits glyphs in halves when needed (for \kf karaoke).
  */
-static ass_image_t* render_text(frame_context_t* frame_priv, text_info_t* text_info, int dst_x, int dst_y)
+static ass_image_t* render_text(ass_renderer_t* render_priv, text_info_t* text_info, int dst_x, int dst_y)
 {
 	int pen_x, pen_y;
 	int i;
@@ -523,8 +513,8 @@ static ass_image_t* render_text(frame_context_t* frame_priv, text_info_t* text_i
 		if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm_s || (info->shadow == 0))
 			continue;
 
-		pen_x = dst_x + info->pos.x + ROUND(info->shadow * frame_priv->border_scale);
-		pen_y = dst_y + info->pos.y + ROUND(info->shadow * frame_priv->border_scale);
+		pen_x = dst_x + info->pos.x + ROUND(info->shadow * render_priv->border_scale);
+		pen_y = dst_y + info->pos.y + ROUND(info->shadow * render_priv->border_scale);
 		bm = info->bm_s;
 
 		here_tail = tail;
@@ -583,42 +573,42 @@ static ass_image_t* render_text(frame_context_t* frame_priv, text_info_t* text_i
 /**
  * \brief Mapping between script and screen coordinates
  */
-static int x2scr(frame_context_t* frame_priv, ass_settings_t* priv, double x) {
-	return x*frame_priv->orig_width_nocrop / frame_priv->track->PlayResX +
+static int x2scr(ass_renderer_t* render_priv, ass_settings_t* priv, double x) {
+	return x*render_priv->orig_width_nocrop / render_priv->track->PlayResX +
 		FFMAX(priv->left_margin, 0);
 }
-static double x2scr_pos(frame_context_t* frame_priv, ass_settings_t* priv, double x) {
-	return x*frame_priv->orig_width / frame_priv->track->PlayResX +
+static double x2scr_pos(ass_renderer_t* render_priv, ass_settings_t* priv, double x) {
+	return x*render_priv->orig_width / render_priv->track->PlayResX +
 		priv->left_margin;
 }
 /**
  * \brief Mapping between script and screen coordinates
  */
-static double y2scr(frame_context_t* frame_priv, ass_settings_t* priv, double y) {
-	return y * frame_priv->orig_height_nocrop / frame_priv->track->PlayResY +
+static double y2scr(ass_renderer_t* render_priv, ass_settings_t* priv, double y) {
+	return y * render_priv->orig_height_nocrop / render_priv->track->PlayResY +
 		FFMAX(priv->top_margin, 0);
 }
-static double y2scr_pos(frame_context_t* frame_priv, ass_settings_t* priv, double y) {
-	return y * frame_priv->orig_height / frame_priv->track->PlayResY +
+static double y2scr_pos(ass_renderer_t* render_priv, ass_settings_t* priv, double y) {
+	return y * render_priv->orig_height / render_priv->track->PlayResY +
 		priv->top_margin;
 }
 
 // the same for toptitles
-static int y2scr_top(frame_context_t* frame_priv, ass_settings_t* priv, double y) {
+static int y2scr_top(ass_renderer_t* render_priv, ass_settings_t* priv, double y) {
 	if (priv->use_margins)
-		return y * frame_priv->orig_height_nocrop / frame_priv->track->PlayResY;
+		return y * render_priv->orig_height_nocrop / render_priv->track->PlayResY;
 	else
-		return y * frame_priv->orig_height_nocrop / frame_priv->track->PlayResY +
+		return y * render_priv->orig_height_nocrop / render_priv->track->PlayResY +
 			FFMAX(priv->top_margin, 0);
 }
 // the same for subtitles
-static int y2scr_sub(frame_context_t* frame_priv, ass_settings_t* priv, double y) {
+static int y2scr_sub(ass_renderer_t* render_priv, ass_settings_t* priv, double y) {
 	if (priv->use_margins)
-		return y * frame_priv->orig_height_nocrop / frame_priv->track->PlayResY +
+		return y * render_priv->orig_height_nocrop / render_priv->track->PlayResY +
 			FFMAX(priv->top_margin, 0) +
 			FFMAX(priv->bottom_margin, 0);
 	else
-		return y * frame_priv->orig_height_nocrop / frame_priv->track->PlayResY +
+		return y * render_priv->orig_height_nocrop / render_priv->track->PlayResY +
 			FFMAX(priv->top_margin, 0);
 }
 
@@ -658,14 +648,14 @@ static inline int mystrcmp(char** p, const char* sample) {
 		return 0;
 }
 
-static void change_font_size(frame_context_t* frame_priv, double sz)
+static void change_font_size(ass_renderer_t* render_priv, double sz)
 {
-	double size = sz * frame_priv->font_scale;
+	double size = sz * render_priv->font_scale;
 
 	if (size < 1)
 		size = 1;
-	else if (size > frame_priv->height * 2)
-		size = frame_priv->height * 2;
+	else if (size > render_priv->height * 2)
+		size = render_priv->height * 2;
 
 	ass_font_set_size(render_context.font, size);
 
@@ -675,10 +665,9 @@ static void change_font_size(frame_context_t* frame_priv, double sz)
 /**
  * \brief Change current font, using setting from render_context.
  */
-static void update_font(frame_context_t* frame_priv)
+static void update_font(ass_renderer_t* render_priv)
 {
 	unsigned val;
-	ass_renderer_t* priv = frame_priv->ass_priv;
 	ass_font_desc_t desc;
 	desc.family = strdup(render_context.family);
 	desc.treat_family_as_pattern = render_context.treat_family_as_pattern;
@@ -694,18 +683,18 @@ static void update_font(frame_context_t* frame_priv)
 	else if (val == 1) val = 110; //italic
 	desc.italic = val;
 
-	render_context.font = ass_font_new(priv->library, priv->ftlibrary, priv->fontconfig_priv, &desc);
+	render_context.font = ass_font_new(render_priv->library, render_priv->ftlibrary, render_priv->fontconfig_priv, &desc);
 	free(desc.family);
 
 	if (render_context.font)
-		change_font_size(frame_priv, render_context.font_size);
+		change_font_size(render_priv, render_context.font_size);
 }
 
 /**
  * \brief Change border width
  * negative value resets border to style value
  */
-static void change_border(frame_context_t* frame_priv, ass_renderer_t* render_priv, double border)
+static void change_border(ass_renderer_t* render_priv, double border)
 {
 	int b;
 	if (!render_context.font) return;
@@ -718,7 +707,7 @@ static void change_border(frame_context_t* frame_priv, ass_renderer_t* render_pr
 	}
 	render_context.border = border;
 
-	b = 64 * border * frame_priv->border_scale;
+	b = 64 * border * render_priv->border_scale;
 	if (b > 0) {
 		if (!render_context.stroker) {
 			int error;
@@ -805,14 +794,14 @@ static unsigned interpolate_alpha(long long now,
 	return a;
 }
 
-static void reset_render_context(frame_context_t*, ass_renderer_t*);
+static void reset_render_context(ass_renderer_t*);
 
 /**
  * \brief Parse style override tag.
  * \param p string to parse
  * \param pwr multiplier for some tag effects (comes from \t tags)
  */
-static char* parse_tag(frame_context_t* frame_priv, ass_renderer_t* render_priv, char* p, double pwr) {
+static char* parse_tag(ass_renderer_t* render_priv, char* p, double pwr) {
 #define skip_to(x) while ((*p != (x)) && (*p != '}') && (*p != 0)) { ++p;}
 #define skip(x) if (*p == (x)) ++p; else { return p; }
 
@@ -897,14 +886,14 @@ static char* parse_tag(frame_context_t* frame_priv, ass_renderer_t* render_priv,
 		else
 			val = render_context.style->FontSize;
 		if (render_context.font)
-			change_font_size(frame_priv, val);
+			change_font_size(render_priv, val);
 	} else if (mystrcmp(&p, "bord")) {
 		double val;
 		if (mystrtod(&p, &val))
 			val = render_context.border * ( 1 - pwr ) + val * pwr;
 		else
 			val = -1.; // reset to default
-		change_border(frame_priv, render_priv, val);
+		change_border(render_priv, val);
 	} else if (mystrcmp(&p, "move")) {
 		double x1, x2, y1, y2;
 		long long t1, t2, delta_t, t;
@@ -932,7 +921,7 @@ static char* parse_tag(frame_context_t* frame_priv, ass_renderer_t* render_priv,
 		}
 		skip(')');
 		delta_t = t2 - t1;
-		t = frame_priv->time - render_context.event->Start;
+		t = render_priv->time - render_context.event->Start;
 		if (t < t1)
 			k = 0.;
 		else if (t > t2)
@@ -980,7 +969,7 @@ static char* parse_tag(frame_context_t* frame_priv, ass_renderer_t* render_priv,
 		if (render_context.family)
 			free(render_context.family);
 		render_context.family = family;
-		update_font(frame_priv);
+		update_font(render_priv);
 	} else if (mystrcmp(&p, "alpha")) {
 		uint32_t val;
 		int i;
@@ -1063,7 +1052,7 @@ static char* parse_tag(frame_context_t* frame_priv, ass_renderer_t* render_priv,
 			mystrtoll(&p, &t4);
 		}
 		skip(')');
-		render_context.fade = interpolate_alpha(frame_priv->time - render_context.event->Start, t1, t2, t3, t4, a1, a2, a3);
+		render_context.fade = interpolate_alpha(render_priv->time - render_context.event->Start, t1, t2, t3, t4, a1, a2, a3);
 	} else if (mystrcmp(&p, "org")) {
 		int v1, v2;
 		skip('(');
@@ -1108,7 +1097,7 @@ static char* parse_tag(frame_context_t* frame_priv, ass_renderer_t* render_priv,
 		delta_t = v2 - v1;
 		if (v3 < 0.)
 			v3 = 0.;
-		t = frame_priv->time - render_context.event->Start; // FIXME: move to render_context
+		t = render_priv->time - render_context.event->Start; // FIXME: move to render_context
 		if (t <= t1)
 			k = 0.;
 		else if (t >= t2)
@@ -1118,7 +1107,7 @@ static char* parse_tag(frame_context_t* frame_priv, ass_renderer_t* render_priv,
 			k = pow(((double)(t - t1)) / delta_t, v3);
 		}
 		while (*p == '\\')
-			p = parse_tag(frame_priv, render_priv, p, k); // maybe k*pwr ? no, specs forbid nested \t's 
+			p = parse_tag(render_priv, p, k); // maybe k*pwr ? no, specs forbid nested \t's 
 		skip_to(')'); // in case there is some unknown tag or a comment
 		skip(')');
 	} else if (mystrcmp(&p, "clip")) {
@@ -1141,8 +1130,8 @@ static char* parse_tag(frame_context_t* frame_priv, ass_renderer_t* render_priv,
 		} else {
 			render_context.clip_x0 = 0;
 			render_context.clip_y0 = 0;
-			render_context.clip_x1 = frame_priv->track->PlayResX;
-			render_context.clip_y1 = frame_priv->track->PlayResY;
+			render_context.clip_x1 = render_priv->track->PlayResX;
+			render_context.clip_y1 = render_priv->track->PlayResY;
 		}
 	} else if (mystrcmp(&p, "c")) {
 		uint32_t val;
@@ -1171,7 +1160,7 @@ static char* parse_tag(frame_context_t* frame_priv, ass_renderer_t* render_priv,
 		}
 		mp_msg(MSGT_ASS, MSGL_DBG2, "single c/a at %f: %c%c = %X   \n", pwr, n, cmd, render_context.c[cidx]);
 	} else if (mystrcmp(&p, "r")) {
-		reset_render_context(frame_priv, render_priv);
+		reset_render_context(render_priv);
 	} else if (mystrcmp(&p, "be")) {
 		int val;
 		if (mystrtoi(&p, &val)) {
@@ -1188,7 +1177,7 @@ static char* parse_tag(frame_context_t* frame_priv, ass_renderer_t* render_priv,
 				render_context.bold = b;
 		} else
 			render_context.bold = render_context.style->Bold;
-		update_font(frame_priv);
+		update_font(render_priv);
 	} else if (mystrcmp(&p, "i")) {
 		int i;
 		if (mystrtoi(&p, &i)) {
@@ -1196,7 +1185,7 @@ static char* parse_tag(frame_context_t* frame_priv, ass_renderer_t* render_priv,
 				render_context.italic = i;
 		} else
 			render_context.italic = render_context.style->Italic;
-		update_font(frame_priv);
+		update_font(render_priv);
 	} else if (mystrcmp(&p, "kf") || mystrcmp(&p, "K")) {
 		int val = 0;
 		mystrtoi(&p, &val);
@@ -1246,14 +1235,14 @@ static char* parse_tag(frame_context_t* frame_priv, ass_renderer_t* render_priv,
  * \return ucs4 code of the next char
  * On return str points to the unparsed part of the string
  */
-static unsigned get_next_char(frame_context_t* frame_priv, ass_renderer_t* render_priv, char** str)
+static unsigned get_next_char(ass_renderer_t* render_priv, char** str)
 {
 	char* p = *str;
 	unsigned chr;
 	if (*p == '{') { // '\0' goes here
 		p++;
 		while (1) {
-			p = parse_tag(frame_priv, render_priv, p, 1.);
+			p = parse_tag(render_priv, p, 1.);
 			if (*p == '}') { // end of tag
 				p++;
 				if (*p == '{') {
@@ -1273,7 +1262,7 @@ static unsigned get_next_char(frame_context_t* frame_priv, ass_renderer_t* rende
 		return ' ';
 	}
 	if (*p == '\\') {
-		if ((*(p+1) == 'N') || ((*(p+1) == 'n') && (frame_priv->track->WrapStyle == 2))) {
+		if ((*(p+1) == 'N') || ((*(p+1) == 'n') && (render_priv->track->WrapStyle == 2))) {
 			p += 2;
 			*str = p;
 			return '\n';
@@ -1288,7 +1277,7 @@ static unsigned get_next_char(frame_context_t* frame_priv, ass_renderer_t* rende
 	return chr;
 }
 
-static void apply_transition_effects(frame_context_t* frame_priv, ass_event_t* event)
+static void apply_transition_effects(ass_renderer_t* render_priv, ass_event_t* event)
 {
 	int v[4];
 	int cnt;
@@ -1314,7 +1303,7 @@ static void apply_transition_effects(frame_context_t* frame_priv, ass_event_t* e
 
 		delay = v[0];
 		if (delay == 0) delay = 1; // ?
-		render_context.scroll_shift = (frame_priv->time - render_context.event->Start) / delay;
+		render_context.scroll_shift = (render_priv->time - render_context.event->Start) / delay;
 		render_context.evt_type = EVENT_HSCROLL;
 		return;
 	}
@@ -1337,14 +1326,14 @@ static void apply_transition_effects(frame_context_t* frame_priv, ass_event_t* e
 		}
 		delay = v[2];
 		if (delay == 0) delay = 1; // ?
-		render_context.scroll_shift = (frame_priv->time - render_context.event->Start) / delay;
+		render_context.scroll_shift = (render_priv->time - render_context.event->Start) / delay;
 		if (v[0] < v[1]) {
 			y0 = v[0]; y1 = v[1];
 		} else {
 			y0 = v[1]; y1 = v[0];
 		}
 		if (y1 == 0)
-			y1 = frame_priv->track->PlayResY; // y0=y1=0 means fullscreen scrolling
+			y1 = render_priv->track->PlayResY; // y0=y1=0 means fullscreen scrolling
 		render_context.clip_y0 = y0;
 		render_context.clip_y1 = y1;
 		render_context.evt_type = EVENT_VSCROLL;
@@ -1357,7 +1346,7 @@ static void apply_transition_effects(frame_context_t* frame_priv, ass_event_t* e
  * \brief partially reset render_context to style values
  * Works like {\r}: resets some style overrides
  */
-static void reset_render_context(frame_context_t* frame_priv, ass_renderer_t* render_priv)
+static void reset_render_context(ass_renderer_t* render_priv)
 {
 	render_context.c[0] = render_context.style->PrimaryColour;
 	render_context.c[1] = render_context.style->SecondaryColour;
@@ -1371,9 +1360,9 @@ static void reset_render_context(frame_context_t* frame_priv, ass_renderer_t* re
 	render_context.treat_family_as_pattern = render_context.style->treat_fontname_as_pattern;
 	render_context.bold = render_context.style->Bold;
 	render_context.italic = render_context.style->Italic;
-	update_font(frame_priv);
+	update_font(render_priv);
 
-	change_border(frame_priv, render_priv, -1.);
+	change_border(render_priv, -1.);
 	render_context.scale_x = render_context.style->ScaleX;
 	render_context.scale_y = render_context.style->ScaleY;
 	render_context.hspacing = render_context.style->Spacing;
@@ -1389,12 +1378,12 @@ static void reset_render_context(frame_context_t* frame_priv, ass_renderer_t* re
 /**
  * \brief Start new event. Reset render_context.
  */
-static void init_render_context(frame_context_t *frame_priv, ass_renderer_t* render_priv, ass_event_t* event)
+static void init_render_context(ass_renderer_t* render_priv, ass_event_t* event)
 {
 	render_context.event = event;
-	render_context.style = frame_priv->track->styles + event->Style;
+	render_context.style = render_priv->track->styles + event->Style;
 
-	reset_render_context(frame_priv, render_priv);
+	reset_render_context(render_priv);
 
 	render_context.evt_type = EVENT_NORMAL;
 	render_context.alignment = render_context.style->Alignment;
@@ -1405,8 +1394,8 @@ static void init_render_context(frame_context_t *frame_priv, ass_renderer_t* ren
 	render_context.have_origin = 0;
 	render_context.clip_x0 = 0;
 	render_context.clip_y0 = 0;
-	render_context.clip_x1 = frame_priv->track->PlayResX;
-	render_context.clip_y1 = frame_priv->track->PlayResY;
+	render_context.clip_x1 = render_priv->track->PlayResX;
+	render_context.clip_y1 = render_priv->track->PlayResY;
 	render_context.detect_collisions = 1;
 	render_context.fade = 0;
 	render_context.drawing_mode = 0;
@@ -1414,7 +1403,7 @@ static void init_render_context(frame_context_t *frame_priv, ass_renderer_t* ren
 	render_context.effect_timing = 0;
 	render_context.effect_skip_timing = 0;
 
-	apply_transition_effects(frame_priv, event);
+	apply_transition_effects(render_priv, event);
 }
 
 static void free_render_context(void)
@@ -1431,7 +1420,7 @@ static void free_render_context(void)
  * and add them to cache.
  * The glyphs are returned in info->glyph and info->outline_glyph
  */
-static void get_outline_glyph(frame_context_t* frame_priv, ass_settings_t* priv, int symbol, glyph_info_t* info, FT_Vector* advance)
+static void get_outline_glyph(ass_renderer_t* render_priv, ass_settings_t* priv, int symbol, glyph_info_t* info, FT_Vector* advance)
 {
 	int error;
 	glyph_hash_val_t* val;
@@ -1459,7 +1448,7 @@ static void get_outline_glyph(frame_context_t* frame_priv, ass_settings_t* priv,
 		info->advance.y = val->advance.y;
 	} else {
 		glyph_hash_val_t v;
-		info->glyph = ass_font_get_glyph(frame_priv->ass_priv->fontconfig_priv, render_context.font, symbol, priv->hinting);
+		info->glyph = ass_font_get_glyph(render_priv->fontconfig_priv, render_context.font, symbol, priv->hinting);
 		if (!info->glyph)
 			return;
 		info->advance.x = d16_to_d6(info->glyph->advance.x);
@@ -1494,7 +1483,7 @@ static void transform_3d(FT_Vector shift, FT_Glyph* glyph, FT_Glyph* glyph2, dou
  * After that, bitmaps are added to the cache.
  * They are returned in info->bm (glyph), info->bm_o (outline) and info->bm_s (shadow).
  */
-static void get_bitmap_glyph(frame_context_t* frame_priv, ass_renderer_t* render_priv, glyph_info_t* info)
+static void get_bitmap_glyph(ass_renderer_t* render_priv, glyph_info_t* info)
 {
 	bitmap_hash_val_t* val;
 	bitmap_hash_key_t* key = &info->hash_key;
@@ -1522,7 +1511,7 @@ static void get_bitmap_glyph(frame_context_t* frame_priv, ass_renderer_t* render
 			error = glyph_to_bitmap(render_priv->synth_priv,
 					info->glyph, info->outline_glyph,
 					&info->bm, &info->bm_o,
-					&info->bm_s, info->be, info->blur * frame_priv->border_scale);
+					&info->bm_s, info->be, info->blur * render_priv->border_scale);
 			if (error)
 				info->symbol = 0;
 
@@ -1719,7 +1708,7 @@ static void wrap_lines_smart(ass_settings_t* priv, int max_text_width)
  * 2. sets effect_timing for all glyphs to x coordinate of the border line between the left and right karaoke parts
  * (left part is filled with PrimaryColour, right one - with SecondaryColour).
  */
-static void process_karaoke_effects(frame_context_t* frame_priv)
+static void process_karaoke_effects(ass_renderer_t* render_priv)
 {
 	glyph_info_t *cur, *cur2;
 	glyph_info_t *s1, *e1; // start and end of the current word
@@ -1732,7 +1721,7 @@ static void process_karaoke_effects(frame_context_t* frame_priv)
 	int x;
 	int x_start, x_end;
 
-	tm_current = frame_priv->time - render_context.event->Start;
+	tm_current = render_priv->time - render_context.event->Start;
 	timing = 0;
 	s1 = s2 = 0;
 	for (i = 0; i <= text_info.length; ++i) {
@@ -1884,7 +1873,7 @@ static void transform_3d(FT_Vector shift, FT_Glyph* glyph, FT_Glyph* glyph2, dou
  * \param event_images struct containing resulting images, will also be initialized
  * Process event, appending resulting ass_image_t's to images_root.
  */
-static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_priv, ass_event_t* event, event_images_t* event_images)
+static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, event_images_t* event_images)
 {
 	char* p;
 	FT_UInt previous;
@@ -1900,7 +1889,7 @@ static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_
 	int device_x = 0, device_y = 0;
 	ass_settings_t* settings_priv = &render_priv->settings;
 
-	if (event->Style >= frame_priv->track->n_styles) {
+	if (event->Style >= render_priv->track->n_styles) {
 		mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_NoStyleFound);
 		return 1;
 	}
@@ -1909,7 +1898,7 @@ static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_
 		return 1;
 	}
 
-	init_render_context(frame_priv, render_priv, event);
+	init_render_context(render_priv, event);
 
 	text_info.length = 0;
 	pen.x = 0;
@@ -1922,7 +1911,7 @@ static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_
 		// get next char, executing style override
 		// this affects render_context
 		do {
-			code = get_next_char(frame_priv, render_priv, &p);
+			code = get_next_char(render_priv, &p);
 		} while (code && render_context.drawing_mode); // skip everything in drawing mode
 
 		// face could have been changed in get_next_char
@@ -1936,7 +1925,7 @@ static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_
 
 		if (text_info.length >= MAX_GLYPHS) {
 			mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_MAX_GLYPHS_Reached,
-					(int)(event - frame_priv->track->events), event->Start, event->Duration, event->Text);
+					(int)(event - render_priv->track->events), event->Start, event->Duration, event->Text);
 			break;
 		}
 
@@ -1951,16 +1940,16 @@ static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_
 		shift.y = pen.y & SUBPIXEL_MASK;
 
 		if (render_context.evt_type == EVENT_POSITIONED) {
-			shift.x += double_to_d6(x2scr_pos(frame_priv, settings_priv, render_context.pos_x)) & SUBPIXEL_MASK;
-			shift.y -= double_to_d6(y2scr_pos(frame_priv, settings_priv, render_context.pos_y)) & SUBPIXEL_MASK;
+			shift.x += double_to_d6(x2scr_pos(render_priv, settings_priv, render_context.pos_x)) & SUBPIXEL_MASK;
+			shift.y -= double_to_d6(y2scr_pos(render_priv, settings_priv, render_context.pos_y)) & SUBPIXEL_MASK;
 		}
 
 		ass_font_set_transform(render_context.font,
-				       render_context.scale_x * frame_priv->font_scale_x,
+				       render_context.scale_x * render_priv->font_scale_x,
 				       render_context.scale_y,
 				       &shift );
 
-		get_outline_glyph(frame_priv, settings_priv, code, text_info.glyphs + text_info.length, &shift);
+		get_outline_glyph(render_priv, settings_priv, code, text_info.glyphs + text_info.length, &shift);
 
 		text_info.glyphs[text_info.length].pos.x = pen.x >> 6;
 		text_info.glyphs[text_info.length].pos.y = pen.y >> 6;
@@ -2023,7 +2012,7 @@ static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_
 	}
 
 	// depends on glyph x coordinates being monotonous, so it should be done before line wrap
-	process_karaoke_effects(frame_priv);
+	process_karaoke_effects(render_priv);
 
 	// alignments
 	alignment = render_context.alignment;
@@ -2038,7 +2027,7 @@ static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_
 		int max_text_width;
 
 		// calculate max length of a line
-		max_text_width = x2scr(frame_priv, settings_priv, frame_priv->track->PlayResX - MarginR) - x2scr(frame_priv, settings_priv, MarginL);
+		max_text_width = x2scr(render_priv, settings_priv, render_priv->track->PlayResX - MarginR) - x2scr(render_priv, settings_priv, MarginL);
 
 		// rearrange text in several lines
 		wrap_lines_smart(settings_priv, max_text_width);
@@ -2080,36 +2069,36 @@ static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_
 	// x coordinate for everything except positioned events
 	if (render_context.evt_type == EVENT_NORMAL ||
 	    render_context.evt_type == EVENT_VSCROLL) {
-		device_x = x2scr(frame_priv, settings_priv, MarginL);
+		device_x = x2scr(render_priv, settings_priv, MarginL);
 	} else if (render_context.evt_type == EVENT_HSCROLL) {
 		if (render_context.scroll_direction == SCROLL_RL)
-			device_x = x2scr(frame_priv, settings_priv, frame_priv->track->PlayResX - render_context.scroll_shift);
+			device_x = x2scr(render_priv, settings_priv, render_priv->track->PlayResX - render_context.scroll_shift);
 		else if (render_context.scroll_direction == SCROLL_LR)
-			device_x = x2scr(frame_priv, settings_priv, render_context.scroll_shift) - (bbox.xMax - bbox.xMin);
+			device_x = x2scr(render_priv, settings_priv, render_context.scroll_shift) - (bbox.xMax - bbox.xMin);
 	}
 
 	// y coordinate for everything except positioned events
 	if (render_context.evt_type == EVENT_NORMAL ||
 	    render_context.evt_type == EVENT_HSCROLL) {
 		if (valign == VALIGN_TOP) { // toptitle
-			device_y = y2scr_top(frame_priv, settings_priv, MarginV) + d6_to_int(text_info.lines[0].asc);
+			device_y = y2scr_top(render_priv, settings_priv, MarginV) + d6_to_int(text_info.lines[0].asc);
 		} else if (valign == VALIGN_CENTER) { // midtitle
-			int scr_y = y2scr(frame_priv, settings_priv, frame_priv->track->PlayResY / 2);
+			int scr_y = y2scr(render_priv, settings_priv, render_priv->track->PlayResY / 2);
 			device_y = scr_y - (bbox.yMax - bbox.yMin) / 2;
 		} else { // subtitle
 			int scr_y;
 			if (valign != VALIGN_SUB)
 				mp_msg(MSGT_ASS, MSGL_V, "Invalid valign, supposing 0 (subtitle)\n");
-			scr_y = y2scr_sub(frame_priv, settings_priv, frame_priv->track->PlayResY - MarginV);
+			scr_y = y2scr_sub(render_priv, settings_priv, render_priv->track->PlayResY - MarginV);
 			device_y = scr_y;
 			device_y -= d6_to_int(text_info.height);
 			device_y += d6_to_int(text_info.lines[0].asc);
 		}
 	} else if (render_context.evt_type == EVENT_VSCROLL) {
 		if (render_context.scroll_direction == SCROLL_TB)
-			device_y = y2scr(frame_priv, settings_priv, render_context.clip_y0 + render_context.scroll_shift) - (bbox.yMax - bbox.yMin);
+			device_y = y2scr(render_priv, settings_priv, render_context.clip_y0 + render_context.scroll_shift) - (bbox.yMax - bbox.yMin);
 		else if (render_context.scroll_direction == SCROLL_BT)
-			device_y = y2scr(frame_priv, settings_priv, render_context.clip_y1 - render_context.scroll_shift);
+			device_y = y2scr(render_priv, settings_priv, render_context.clip_y1 - render_context.scroll_shift);
 	}
 
 	// positioned events are totally different
@@ -2118,31 +2107,31 @@ static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_
 		int base_y = 0;
 		mp_msg(MSGT_ASS, MSGL_DBG2, "positioned event at %f, %f\n", render_context.pos_x, render_context.pos_y);
 		get_base_point(bbox, alignment, &base_x, &base_y);
-		device_x = x2scr_pos(frame_priv, settings_priv, render_context.pos_x) - base_x;
-		device_y = y2scr_pos(frame_priv, settings_priv, render_context.pos_y) - base_y;
+		device_x = x2scr_pos(render_priv, settings_priv, render_context.pos_x) - base_x;
+		device_y = y2scr_pos(render_priv, settings_priv, render_context.pos_y) - base_y;
 	}
 
 	// fix clip coordinates (they depend on alignment)
 	if (render_context.evt_type == EVENT_NORMAL ||
 	    render_context.evt_type == EVENT_HSCROLL ||
 	    render_context.evt_type == EVENT_VSCROLL) {
-		render_context.clip_x0 = x2scr(frame_priv, settings_priv, render_context.clip_x0);
-		render_context.clip_x1 = x2scr(frame_priv, settings_priv, render_context.clip_x1);
+		render_context.clip_x0 = x2scr(render_priv, settings_priv, render_context.clip_x0);
+		render_context.clip_x1 = x2scr(render_priv, settings_priv, render_context.clip_x1);
 		if (valign == VALIGN_TOP) {
-			render_context.clip_y0 = y2scr_top(frame_priv, settings_priv, render_context.clip_y0);
-			render_context.clip_y1 = y2scr_top(frame_priv, settings_priv, render_context.clip_y1);
+			render_context.clip_y0 = y2scr_top(render_priv, settings_priv, render_context.clip_y0);
+			render_context.clip_y1 = y2scr_top(render_priv, settings_priv, render_context.clip_y1);
 		} else if (valign == VALIGN_CENTER) {
-			render_context.clip_y0 = y2scr(frame_priv, settings_priv, render_context.clip_y0);
-			render_context.clip_y1 = y2scr(frame_priv, settings_priv, render_context.clip_y1);
+			render_context.clip_y0 = y2scr(render_priv, settings_priv, render_context.clip_y0);
+			render_context.clip_y1 = y2scr(render_priv, settings_priv, render_context.clip_y1);
 		} else if (valign == VALIGN_SUB) {
-			render_context.clip_y0 = y2scr_sub(frame_priv, settings_priv, render_context.clip_y0);
-			render_context.clip_y1 = y2scr_sub(frame_priv, settings_priv, render_context.clip_y1);
+			render_context.clip_y0 = y2scr_sub(render_priv, settings_priv, render_context.clip_y0);
+			render_context.clip_y1 = y2scr_sub(render_priv, settings_priv, render_context.clip_y1);
 		}
 	} else if (render_context.evt_type == EVENT_POSITIONED) {
-		render_context.clip_x0 = x2scr_pos(frame_priv, settings_priv, render_context.clip_x0);
-		render_context.clip_x1 = x2scr_pos(frame_priv, settings_priv, render_context.clip_x1);
-		render_context.clip_y0 = y2scr_pos(frame_priv, settings_priv, render_context.clip_y0);
-		render_context.clip_y1 = y2scr_pos(frame_priv, settings_priv, render_context.clip_y1);
+		render_context.clip_x0 = x2scr_pos(render_priv, settings_priv, render_context.clip_x0);
+		render_context.clip_x1 = x2scr_pos(render_priv, settings_priv, render_context.clip_x1);
+		render_context.clip_y0 = y2scr_pos(render_priv, settings_priv, render_context.clip_y0);
+		render_context.clip_y1 = y2scr_pos(render_priv, settings_priv, render_context.clip_y1);
 	}
 
 	// calculate rotation parameters
@@ -2150,8 +2139,8 @@ static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_
 		FT_Vector center;
 
 		if (render_context.have_origin) {
-			center.x = x2scr(frame_priv, settings_priv, render_context.org_x);
-			center.y = y2scr(frame_priv, settings_priv, render_context.org_y);
+			center.x = x2scr(render_priv, settings_priv, render_context.org_x);
+			center.y = y2scr(render_priv, settings_priv, render_context.org_y);
 		} else {
 			int bx = 0, by = 0;
 			get_base_point(bbox, alignment, &bx, &by);
@@ -2174,7 +2163,7 @@ static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_
 
 	// convert glyphs to bitmaps
 	for (i = 0; i < text_info.length; ++i)
-		get_bitmap_glyph(frame_priv, render_priv, text_info.glyphs + i);
+		get_bitmap_glyph(render_priv, text_info.glyphs + i);
 
 	memset(event_images, 0, sizeof(*event_images));
 	event_images->top = device_y - d6_to_int(text_info.lines[0].asc);
@@ -2182,7 +2171,7 @@ static int ass_render_event(frame_context_t* frame_priv, ass_renderer_t* render_
 	event_images->detect_collisions = render_context.detect_collisions;
 	event_images->shift_direction = (valign == VALIGN_TOP) ? 1 : -1;
 	event_images->event = event;
-	event_images->imgs = render_text(frame_priv, &text_info, device_x, device_y);
+	event_images->imgs = render_text(render_priv, &text_info, device_x, device_y);
 
 	free_render_context();
 
@@ -2301,43 +2290,42 @@ int ass_set_fonts_nofc(ass_renderer_t* priv, const char* default_font, const cha
 /**
  * \brief Start a new frame
  */
-static int ass_start_frame(frame_context_t* frame_priv, ass_renderer_t *priv, ass_track_t* track, long long now)
+static int ass_start_frame(ass_renderer_t *render_priv, ass_track_t* track, long long now)
 {
-	ass_settings_t* settings_priv = &priv->settings;
+	ass_settings_t* settings_priv = &render_priv->settings;
 
-	if (!priv->settings.frame_width && !priv->settings.frame_height)
+	if (!render_priv->settings.frame_width && !render_priv->settings.frame_height)
 		return 1; // library not initialized
 
 	if (track->n_events == 0)
 		return 1; // nothing to do
 
-	frame_priv->ass_priv = priv;
-	frame_priv->width = settings_priv->frame_width;
-	frame_priv->height = settings_priv->frame_height;
-	frame_priv->orig_width = settings_priv->frame_width - settings_priv->left_margin - settings_priv->right_margin;
-	frame_priv->orig_height = settings_priv->frame_height - settings_priv->top_margin - settings_priv->bottom_margin;
-	frame_priv->orig_width_nocrop = settings_priv->frame_width -
+	render_priv->width = settings_priv->frame_width;
+	render_priv->height = settings_priv->frame_height;
+	render_priv->orig_width = settings_priv->frame_width - settings_priv->left_margin - settings_priv->right_margin;
+	render_priv->orig_height = settings_priv->frame_height - settings_priv->top_margin - settings_priv->bottom_margin;
+	render_priv->orig_width_nocrop = settings_priv->frame_width -
 		FFMAX(settings_priv->left_margin, 0) -
 		FFMAX(settings_priv->right_margin, 0);
-	frame_priv->orig_height_nocrop = settings_priv->frame_height -
+	render_priv->orig_height_nocrop = settings_priv->frame_height -
 		FFMAX(settings_priv->top_margin, 0) -
 		FFMAX(settings_priv->bottom_margin, 0);
-	frame_priv->track = track;
-	frame_priv->time = now;
+	render_priv->track = track;
+	render_priv->time = now;
 
-	ass_lazy_track_init(frame_priv, settings_priv);
+	ass_lazy_track_init(render_priv, settings_priv);
 
-	frame_priv->font_scale = settings_priv->font_size_coeff *
-	                           frame_priv->orig_height / frame_priv->track->PlayResY;
-	if (frame_priv->track->ScaledBorderAndShadow)
-		frame_priv->border_scale = ((double)frame_priv->orig_height) / frame_priv->track->PlayResY;
+	render_priv->font_scale = settings_priv->font_size_coeff *
+	                           render_priv->orig_height / render_priv->track->PlayResY;
+	if (render_priv->track->ScaledBorderAndShadow)
+		render_priv->border_scale = ((double)render_priv->orig_height) / render_priv->track->PlayResY;
 	else
-		frame_priv->border_scale = 1.;
+		render_priv->border_scale = 1.;
 
-	frame_priv->font_scale_x = 1.;
+	render_priv->font_scale_x = 1.;
 
-	priv->prev_images_root = priv->images_root;
-	priv->images_root = 0;
+	render_priv->prev_images_root = render_priv->images_root;
+	render_priv->images_root = 0;
 
 	return 0;
 }
@@ -2387,7 +2375,7 @@ static int cmp_segment(const void* p1, const void* p2)
 	return ((segment_t*)p1)->a - ((segment_t*)p2)->a;
 }
 
-static void shift_event(frame_context_t* frame_priv, event_images_t* ei, int shift)
+static void shift_event(ass_renderer_t* render_priv, event_images_t* ei, int shift)
 {
 	ass_image_t* cur = ei->imgs;
 	while (cur) {
@@ -2399,8 +2387,8 @@ static void shift_event(frame_context_t* frame_priv, event_images_t* ei, int shi
 			cur->bitmap += clip * cur->stride;
 			cur->dst_y = 0;
 		}
-		if (cur->dst_y + cur->h >= frame_priv->height) {
-			int clip = cur->dst_y + cur->h - frame_priv->height;
+		if (cur->dst_y + cur->h >= render_priv->height) {
+			int clip = cur->dst_y + cur->h - render_priv->height;
 			cur->h -= clip;
 		}
 		if (cur->h <= 0) {
@@ -2440,7 +2428,7 @@ static int fit_segment(segment_t* s, segment_t* fixed, int* cnt, int dir)
 	return shift;
 }
 
-static void fix_collisions(frame_context_t* frame_priv, ass_renderer_t* render_priv, event_images_t* imgs, int cnt)
+static void fix_collisions(ass_renderer_t* render_priv, event_images_t* imgs, int cnt)
 {
 	segment_t used[MAX_EVENTS];
 	int cnt_used = 0;
@@ -2469,7 +2457,7 @@ static void fix_collisions(frame_context_t* frame_priv, ass_renderer_t* render_p
 				used[cnt_used].a = priv->top;
 				used[cnt_used].b = priv->top + priv->height;
 				cnt_used ++;
-				shift_event(frame_priv, imgs + i, priv->top - imgs[i].top);
+				shift_event(render_priv, imgs + i, priv->top - imgs[i].top);
 			}
 		}
 	}
@@ -2486,7 +2474,7 @@ static void fix_collisions(frame_context_t* frame_priv, ass_renderer_t* render_p
 			s.a = imgs[i].top;
 			s.b = imgs[i].top + imgs[i].height;
 			shift = fit_segment(&s, used, &cnt_used, imgs[i].shift_direction);
-			if (shift) shift_event(frame_priv, imgs + i, shift);
+			if (shift) shift_event(render_priv, imgs + i, shift);
 			// make it fixed
 			priv->top = imgs[i].top;
 			priv->height = imgs[i].height;
@@ -2565,11 +2553,8 @@ ass_image_t* ass_render_frame(ass_renderer_t *priv, ass_track_t* track, long lon
 	event_images_t* last;
 	ass_image_t** tail;
 
-	// FIXME: XXX: BROKEN BEYOND REPAIR
-	frame_context_t* frame_priv = 0;
-	
 	// init frame
-	rc = ass_start_frame(frame_priv, priv, track, now);
+	rc = ass_start_frame(priv, track, now);
 	if (rc != 0)
 		return 0;
 
@@ -2582,7 +2567,7 @@ ass_image_t* ass_render_frame(ass_renderer_t *priv, ass_track_t* track, long lon
 				priv->eimg_size += 100;
 				priv->eimg = realloc(priv->eimg, priv->eimg_size * sizeof(event_images_t));
 			}
-			rc = ass_render_event(frame_priv, priv, event, priv->eimg + cnt);
+			rc = ass_render_event(priv, event, priv->eimg + cnt);
 			if (!rc) ++cnt;
 		}
 	}
@@ -2594,11 +2579,11 @@ ass_image_t* ass_render_frame(ass_renderer_t *priv, ass_track_t* track, long lon
 	last = priv->eimg;
 	for (i = 1; i < cnt; ++i)
 		if (last->event->Layer != priv->eimg[i].event->Layer) {
-			fix_collisions(frame_priv, priv, last, priv->eimg + i - last);
+			fix_collisions(priv, last, priv->eimg + i - last);
 			last = priv->eimg + i;
 		}
 	if (cnt > 0)
-		fix_collisions(frame_priv, priv, last, priv->eimg + cnt - last);
+		fix_collisions(priv, last, priv->eimg + cnt - last);
 
 	// concat lists
 	tail = &priv->images_root;
