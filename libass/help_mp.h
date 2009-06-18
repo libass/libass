@@ -53,4 +53,3 @@
 #define MSGTR_LIBASS_NoCharmaps "[ass] font face with no charmaps\n"
 #define MSGTR_LIBASS_NoCharmapAutodetected "[ass] no charmap autodetected, trying the first one\n"
 #endif
-

@@ -8,8 +8,9 @@ unsigned utf8_get_char(char **str);
 void my_mp_msg(int lvl, char *lvl_str, char *fmt, ...);
 
 #ifdef __VISUALC__
-static void mp_msg(int mod, int level, const char *fmt, ...) {
-	// MSVC doesn't like the # used all around for mp_msg, so it breaks va_arg
+static void mp_msg(int mod, int level, const char *fmt, ...)
+{
+    // MSVC doesn't like the # used all around for mp_msg, so it breaks va_arg
 }
 #else
 #define mp_msg(mod, level, args...) my_mp_msg(level, #level, args)
@@ -24,10 +25,11 @@ static void mp_msg(int mod, int level, const char *fmt, ...) {
 #define MSGL_V 6
 #define MSGL_DBG2 7
 
-void blur(unsigned char *buffer, unsigned short *tmp2, int width, int height,
-          int stride, int *m2, int r, int mwidth);
+void blur(unsigned char *buffer, unsigned short *tmp2, int width,
+          int height, int stride, int *m2, int r, int mwidth);
 
-void* guess_buffer_cp(unsigned char* buffer, int buflen, char *preferred_language, char *fallback);
+void *guess_buffer_cp(unsigned char *buffer, int buflen,
+                      char *preferred_language, char *fallback);
 
 #define FFMAX(a,b) ((a) > (b) ? (a) : (b))
 #define FFMIN(a,b) ((a) > (b) ? (b) : (a))

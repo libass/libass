@@ -16,7 +16,7 @@
     { \
         struct structname *a = key1; \
         struct structname *b = key2; \
-        return // conditions follow
+        return                  // conditions follow
 #define GENERIC(type, member) \
             a->member == b->member &&
 #define FTVECTOR(member) \
@@ -47,41 +47,31 @@
 
 // describes a bitmap; bitmaps with equivalents structs are considered identical
 START(bitmap, bipmap_hash_key_s)
-    GENERIC(char, bitmap) // bool : true = bitmap, false = outline
+    GENERIC(char, bitmap)       // bool : true = bitmap, false = outline
     GENERIC(ass_font_t *, font)
-    GENERIC(double, size) // font size
-    GENERIC(uint32_t, ch) // character code
-    GENERIC(unsigned, outline) // border width, 16.16 fixed point value
-    GENERIC(int, bold)
-    GENERIC(int, italic)
-    GENERIC(char, be) // blur edges
-    GENERIC(double, blur) // gaussian blur
-    GENERIC(unsigned, scale_x) // 16.16
-    GENERIC(unsigned, scale_y) // 16.16
-    GENERIC(int, frx) // signed 16.16
-    GENERIC(int, fry) // signed 16.16
-    GENERIC(int, frz) // signed 16.16
+    GENERIC(double, size)       // font size
+    GENERIC(uint32_t, ch)           // character code
+    GENERIC(unsigned, outline)      // border width, 16.16 fixed point value
+    GENERIC(int, bold) GENERIC(int, italic) GENERIC(char, be)       // blur edges
+    GENERIC(double, blur)           // gaussian blur
+    GENERIC(unsigned, scale_x)      // 16.16
+    GENERIC(unsigned, scale_y)      // 16.16
+    GENERIC(int, frx)               // signed 16.16
+    GENERIC(int, fry)               // signed 16.16
+    GENERIC(int, frz)               // signed 16.16
     // shift vector that was added to glyph before applying rotation
     // = 0, if frx = fry = frx = 0
     // = (glyph base point) - (rotation origin), otherwise
-    GENERIC(int, shift_x)
-    GENERIC(int, shift_y)
-    FTVECTOR(advance) // subpixel shift vector
-END(bitmap_hash_key_t)
-
-// describes an outline glyph
-START(glyph, glyph_hash_key_s)
-    GENERIC(ass_font_t *, font)
-    GENERIC(double, size) // font size
-    GENERIC(uint32_t, ch) // character code
-    GENERIC(int, bold)
-    GENERIC(int, italic)
-    GENERIC(unsigned, scale_x) // 16.16
-    GENERIC(unsigned, scale_y) // 16.16
-    FTVECTOR(advance) // subpixel shift vector
-    GENERIC(unsigned, outline) // border width, 16.16
+    GENERIC(int, shift_x) GENERIC(int, shift_y) FTVECTOR(advance)   // subpixel shift vector
+    END(bitmap_hash_key_t)
+    // describes an outline glyph
+    START(glyph, glyph_hash_key_s) GENERIC(ass_font_t *, font) GENERIC(double, size)        // font size
+    GENERIC(uint32_t, ch)           // character code
+    GENERIC(int, bold) GENERIC(int, italic) GENERIC(unsigned, scale_x)      // 16.16
+    GENERIC(unsigned, scale_y)      // 16.16
+    FTVECTOR(advance)               // subpixel shift vector
+    GENERIC(unsigned, outline)      // border width, 16.16
 END(glyph_hash_key_t)
-
 #undef START
 #undef GENERIC
 #undef FTVECTOR
