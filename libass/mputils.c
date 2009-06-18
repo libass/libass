@@ -15,8 +15,7 @@
 
 void my_mp_msg(int lvl, char *lvl_str, char *fmt, ...) {
 	va_list va;
-	if(lvl > MSGL_V) return;
-	printf("[ass] **%s**: ", lvl_str);
+	if(lvl > MSGL_INFO) return;
 	va_start(va, fmt);
 	vprintf(fmt, va);
 	va_end(va);
