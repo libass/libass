@@ -1,0 +1,19 @@
+LibASS (0.9.6)
+ * Various fixes and updates to match VSFilter renderer.
+ * Support \blur tag and ScaledBordersAndShadow property.
+ * Fractional arguments and subpixel accuracy.
+ * Keep positions when pan-and-scan is used.
+ * Lots of bugfixes and other changes.
+
+LibASS (0.9.5)
+ * Support '=' and '.' in style name in arguments to ass_set_style_overrides().
+ * Allow overriding [Script Info] parameters with ass_set_style_overrides().
+ * Add workarounds for some buggy fonts.
+ * Remove buggy workarounds for some other fonts.
+ * Fixed ass_set_line_spacing() (was broken before).
+ * Negative margin sizes are now used for image cropping.
+ * Better handling of behind-the-camera objects.
+ * Case insensitive parsing of SSA/ASS section headers.
+ * Improved font matching.
+ * When 2 styles have the same name, the later one is used.
+ * Fixed several other bugs.
