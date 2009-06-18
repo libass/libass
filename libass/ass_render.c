@@ -203,7 +203,6 @@ typedef struct frame_context_s {
 	double border_scale;
 } frame_context_t;
 
-static ass_renderer_t* ass_renderer;
 static ass_settings_t* global_settings;
 static text_info_t text_info;
 static render_context_t render_context;
@@ -305,7 +304,7 @@ void ass_renderer_done(ass_renderer_t* priv)
 	if (priv && priv->fontconfig_priv) fontconfig_done(priv->fontconfig_priv);
 	if (priv && priv->synth_priv) ass_synth_done(priv->synth_priv);
 	if (priv && priv->eimg) free(priv->eimg);
-	if (priv) free(priv);
+	free(priv);
 	if (text_info.glyphs) free(text_info.glyphs);
 }
 
@@ -702,7 +701,7 @@ static void update_font(void)
  * \brief Change border width
  * negative value resets border to style value
  */
-static void change_border(double border)
+static void change_border(ass_renderer_t* render_priv, double border)
 {
 	int b;
 	if (!render_context.font) return;
@@ -720,7 +719,7 @@ static void change_border(double border)
 		if (!render_context.stroker) {
 			int error;
 #if (FREETYPE_MAJOR > 2) || ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR > 1))
-			error = FT_Stroker_New( ass_renderer->ftlibrary, &render_context.stroker );
+			error = FT_Stroker_New( render_priv->ftlibrary, &render_context.stroker );
 #else // < 2.2
 			error = FT_Stroker_New( render_context.font->faces[0]->memory, &render_context.stroker );
 #endif
@@ -802,14 +801,14 @@ static unsigned interpolate_alpha(long long now,
 	return a;
 }
 
-static void reset_render_context(void);
+static void reset_render_context(ass_renderer_t*);
 
 /**
  * \brief Parse style override tag.
  * \param p string to parse
  * \param pwr multiplier for some tag effects (comes from \t tags)
  */
-static char* parse_tag(char* p, double pwr) {
+static char* parse_tag(ass_renderer_t* render_priv, char* p, double pwr) {
 #define skip_to(x) while ((*p != (x)) && (*p != '}') && (*p != 0)) { ++p;}
 #define skip(x) if (*p == (x)) ++p; else { return p; }
 
@@ -901,7 +900,7 @@ static char* parse_tag(char* p, double pwr) {
 			val = render_context.border * ( 1 - pwr ) + val * pwr;
 		else
 			val = -1.; // reset to default
-		change_border(val);
+		change_border(render_priv, val);
 	} else if (mystrcmp(&p, "move")) {
 		double x1, x2, y1, y2;
 		long long t1, t2, delta_t, t;
@@ -1115,7 +1114,7 @@ static char* parse_tag(char* p, double pwr) {
 			k = pow(((double)(t - t1)) / delta_t, v3);
 		}
 		while (*p == '\\')
-			p = parse_tag(p, k); // maybe k*pwr ? no, specs forbid nested \t's
+			p = parse_tag(render_priv, p, k); // maybe k*pwr ? no, specs forbid nested \t's
 		skip_to(')'); // in case there is some unknown tag or a comment
 		skip(')');
 	} else if (mystrcmp(&p, "clip")) {
@@ -1168,7 +1167,7 @@ static char* parse_tag(char* p, double pwr) {
 		}
 		mp_msg(MSGT_ASS, MSGL_DBG2, "single c/a at %f: %c%c = %X   \n", pwr, n, cmd, render_context.c[cidx]);
 	} else if (mystrcmp(&p, "r")) {
-		reset_render_context();
+		reset_render_context(render_priv);
 	} else if (mystrcmp(&p, "be")) {
 		int val;
 		if (mystrtoi(&p, &val)) {
@@ -1243,14 +1242,14 @@ static char* parse_tag(char* p, double pwr) {
  * \return ucs4 code of the next char
  * On return str points to the unparsed part of the string
  */
-static unsigned get_next_char(char** str)
+static unsigned get_next_char(ass_renderer_t* render_priv, char** str)
 {
 	char* p = *str;
 	unsigned chr;
 	if (*p == '{') { // '\0' goes here
 		p++;
 		while (1) {
-			p = parse_tag(p, 1.);
+			p = parse_tag(render_priv, p, 1.);
 			if (*p == '}') { // end of tag
 				p++;
 				if (*p == '{') {
@@ -1280,7 +1279,7 @@ static unsigned get_next_char(char** str)
 			return ' ';
 		}
 	}
-	chr = utf8_get_char((const char **)&p);
+	chr = utf8_get_char((char **)&p);
 	*str = p;
 	return chr;
 }
@@ -1354,7 +1353,7 @@ static void apply_transition_effects(ass_event_t* event)
  * \brief partially reset render_context to style values
  * Works like {\r}: resets some style overrides
  */
-static void reset_render_context(void)
+static void reset_render_context(ass_renderer_t* render_priv)
 {
 	render_context.c[0] = render_context.style->PrimaryColour;
 	render_context.c[1] = render_context.style->SecondaryColour;
@@ -1370,7 +1369,7 @@ static void reset_render_context(void)
 	render_context.italic = render_context.style->Italic;
 	update_font();
 
-	change_border(-1.);
+	change_border(render_priv, -1.);
 	render_context.scale_x = render_context.style->ScaleX;
 	render_context.scale_y = render_context.style->ScaleY;
 	render_context.hspacing = render_context.style->Spacing;
@@ -1386,12 +1385,12 @@ static void reset_render_context(void)
 /**
  * \brief Start new event. Reset render_context.
  */
-static void init_render_context(ass_event_t* event)
+static void init_render_context(ass_renderer_t* render_priv, ass_event_t* event)
 {
 	render_context.event = event;
 	render_context.style = frame_context.track->styles + event->Style;
 
-	reset_render_context();
+	reset_render_context(render_priv);
 
 	render_context.evt_type = EVENT_NORMAL;
 	render_context.alignment = render_context.style->Alignment;
@@ -1491,7 +1490,7 @@ static void transform_3d(FT_Vector shift, FT_Glyph* glyph, FT_Glyph* glyph2, dou
  * After that, bitmaps are added to the cache.
  * They are returned in info->bm (glyph), info->bm_o (outline) and info->bm_s (shadow).
  */
-static void get_bitmap_glyph(glyph_info_t* info)
+static void get_bitmap_glyph(ass_renderer_t* render_priv, glyph_info_t* info)
 {
 	bitmap_hash_val_t* val;
 	bitmap_hash_key_t* key = &info->hash_key;
@@ -1516,7 +1515,7 @@ static void get_bitmap_glyph(glyph_info_t* info)
 			transform_3d(shift, &info->glyph, &info->outline_glyph, info->frx, info->fry, info->frz);
 
 			// render glyph
-			error = glyph_to_bitmap(ass_renderer->synth_priv,
+			error = glyph_to_bitmap(render_priv->synth_priv,
 					info->glyph, info->outline_glyph,
 					&info->bm, &info->bm_o,
 					&info->bm_s, info->be, info->blur * frame_context.border_scale);
@@ -1881,7 +1880,7 @@ static void transform_3d(FT_Vector shift, FT_Glyph* glyph, FT_Glyph* glyph2, dou
  * \param event_images struct containing resulting images, will also be initialized
  * Process event, appending resulting ass_image_t's to images_root.
  */
-static int ass_render_event(ass_event_t* event, event_images_t* event_images)
+static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, event_images_t* event_images)
 {
 	char* p;
 	FT_UInt previous;
@@ -1905,7 +1904,7 @@ static int ass_render_event(ass_event_t* event, event_images_t* event_images)
 		return 1;
 	}
 
-	init_render_context(event);
+	init_render_context(render_priv, event);
 
 	text_info.length = 0;
 	pen.x = 0;
@@ -1918,7 +1917,7 @@ static int ass_render_event(ass_event_t* event, event_images_t* event_images)
 		// get next char, executing style override
 		// this affects render_context
 		do {
-			code = get_next_char(&p);
+			code = get_next_char(render_priv, &p);
 		} while (code && render_context.drawing_mode); // skip everything in drawing mode
 
 		// face could have been changed in get_next_char
@@ -2170,7 +2169,7 @@ static int ass_render_event(ass_event_t* event, event_images_t* event_images)
 
 	// convert glyphs to bitmaps
 	for (i = 0; i < text_info.length; ++i)
-		get_bitmap_glyph(text_info.glyphs + i);
+		get_bitmap_glyph(render_priv, text_info.glyphs + i);
 
 	memset(event_images, 0, sizeof(*event_images));
 	event_images->top = device_y - d6_to_int(text_info.lines[0].asc);
@@ -2299,7 +2298,6 @@ int ass_set_fonts_nofc(ass_renderer_t* priv, const char* default_font, const cha
  */
 static int ass_start_frame(ass_renderer_t *priv, ass_track_t* track, long long now)
 {
-	ass_renderer = priv;
 	global_settings = &priv->settings;
 
 	if (!priv->settings.frame_width && !priv->settings.frame_height)
@@ -2356,14 +2354,14 @@ static int cmp_event_layer(const void* p1, const void* p2)
 
 #define MAX_EVENTS 100
 
-static render_priv_t* get_render_priv(ass_event_t* event)
+static render_priv_t* get_render_priv(ass_renderer_t* render_priv, ass_event_t* event)
 {
 	if (!event->render_priv)
 		event->render_priv = calloc(1, sizeof(render_priv_t));
 	// FIXME: check render_id
-	if (ass_renderer->render_id != event->render_priv->render_id) {
+	if (render_priv->render_id != event->render_priv->render_id) {
 		memset(event->render_priv, 0, sizeof(render_priv_t));
-		event->render_priv->render_id = ass_renderer->render_id;
+		event->render_priv->render_id = render_priv->render_id;
 	}
 	return event->render_priv;
 }
@@ -2437,7 +2435,7 @@ static int fit_segment(segment_t* s, segment_t* fixed, int* cnt, int dir)
 	return shift;
 }
 
-static void fix_collisions(event_images_t* imgs, int cnt)
+static void fix_collisions(ass_renderer_t* render_priv, event_images_t* imgs, int cnt)
 {
 	segment_t used[MAX_EVENTS];
 	int cnt_used = 0;
@@ -2447,7 +2445,7 @@ static void fix_collisions(event_images_t* imgs, int cnt)
 	for (i = 0; i < cnt; ++i) {
 		render_priv_t* priv;
 		if (!imgs[i].detect_collisions) continue;
-		priv = get_render_priv(imgs[i].event);
+		priv = get_render_priv(render_priv, imgs[i].event);
 		if (priv->height > 0) { // it's a fixed event
 			segment_t s;
 			s.a = priv->top;
@@ -2476,7 +2474,7 @@ static void fix_collisions(event_images_t* imgs, int cnt)
 	for (i = 0; i < cnt; ++i) {
 		render_priv_t* priv;
 		if (!imgs[i].detect_collisions) continue;
-		priv = get_render_priv(imgs[i].event);
+		priv = get_render_priv(render_priv, imgs[i].event);
 		if (priv->height == 0) { // not a fixed event
 			int shift;
 			segment_t s;
@@ -2576,7 +2574,7 @@ ass_image_t* ass_render_frame(ass_renderer_t *priv, ass_track_t* track, long lon
 				priv->eimg_size += 100;
 				priv->eimg = realloc(priv->eimg, priv->eimg_size * sizeof(event_images_t));
 			}
-			rc = ass_render_event(event, priv->eimg + cnt);
+			rc = ass_render_event(priv, event, priv->eimg + cnt);
 			if (!rc) ++cnt;
 		}
 	}
@@ -2588,14 +2586,14 @@ ass_image_t* ass_render_frame(ass_renderer_t *priv, ass_track_t* track, long lon
 	last = priv->eimg;
 	for (i = 1; i < cnt; ++i)
 		if (last->event->Layer != priv->eimg[i].event->Layer) {
-			fix_collisions(last, priv->eimg + i - last);
+			fix_collisions(priv, last, priv->eimg + i - last);
 			last = priv->eimg + i;
 		}
 	if (cnt > 0)
-		fix_collisions(last, priv->eimg + cnt - last);
+		fix_collisions(priv, last, priv->eimg + cnt - last);
 
 	// concat lists
-	tail = &ass_renderer->images_root;
+	tail = &priv->images_root;
 	for (i = 0; i < cnt; ++i) {
 		ass_image_t* cur = priv->eimg[i].imgs;
 		while (cur) {
@@ -2612,6 +2610,6 @@ ass_image_t* ass_render_frame(ass_renderer_t *priv, ass_track_t* track, long lon
 	ass_free_images(priv->prev_images_root);
 	priv->prev_images_root = 0;
 
-	return ass_renderer->images_root;
+	return priv->images_root;
 }
 
