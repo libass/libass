@@ -54,5 +54,8 @@ AC_CHECK_FUNCS([memset mkdir strcasecmp strchr strdup strerror strstr strtol])
 # Setup output beautifier.
 SHAVE_INIT([shave], [enable])
 
+# More sensible compile flags
+CFLAGS="$CFLAGS -Wall"
+
 AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile libass.pc shave/shave shave/shave-libtool])
 AC_OUTPUT
