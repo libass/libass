@@ -71,7 +71,7 @@ void blur(unsigned char *buffer,
             if (src) {
                 register unsigned short *dstp = t + x - r;
                 int mx;
-                unsigned *m3 = m2 + src * mwidth;
+                unsigned *m3 = (unsigned *) (m2 + src * mwidth);
                 for (mx = r - x; mx < mwidth; mx++) {
                     dstp[mx] += m3[mx];
                 }
@@ -83,7 +83,7 @@ void blur(unsigned char *buffer,
             if (src) {
                 register unsigned short *dstp = t + x - r;
                 int mx;
-                unsigned *m3 = m2 + src * mwidth;
+                unsigned *m3 = (unsigned *) (m2 + src * mwidth);
                 for (mx = 0; mx < mwidth; mx++) {
                     dstp[mx] += m3[mx];
                 }
@@ -96,7 +96,7 @@ void blur(unsigned char *buffer,
                 register unsigned short *dstp = t + x - r;
                 int mx;
                 const int x2 = r + width - x;
-                unsigned *m3 = m2 + src * mwidth;
+                unsigned *m3 = (unsigned *) (m2 + src * mwidth);
                 for (mx = 0; mx < x2; mx++) {
                     dstp[mx] += m3[mx];
                 }
@@ -115,7 +115,7 @@ void blur(unsigned char *buffer,
             if (src) {
                 register unsigned short *dstp = srcp - 1 + width + 1;
                 const int src2 = (src + 128) >> 8;
-                unsigned *m3 = m2 + src2 * mwidth;
+                unsigned *m3 = (unsigned *) (m2 + src2 * mwidth);
 
                 int mx;
                 *srcp = 128;
@@ -131,7 +131,7 @@ void blur(unsigned char *buffer,
             if (src) {
                 register unsigned short *dstp = srcp - 1 - r * (width + 1);
                 const int src2 = (src + 128) >> 8;
-                unsigned *m3 = m2 + src2 * mwidth;
+                unsigned *m3 = (unsigned *) (m2 + src2 * mwidth);
 
                 int mx;
                 *srcp = 128;
@@ -148,7 +148,7 @@ void blur(unsigned char *buffer,
                 const int y2 = r + height - y;
                 register unsigned short *dstp = srcp - 1 - r * (width + 1);
                 const int src2 = (src + 128) >> 8;
-                unsigned *m3 = m2 + src2 * mwidth;
+                unsigned *m3 = (unsigned *) (m2 + src2 * mwidth);
 
                 int mx;
                 *srcp = 128;

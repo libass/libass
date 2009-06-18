@@ -85,7 +85,7 @@ static char *_select_font(fc_instance_t *priv, const char *family,
     FcFontSet *fset = NULL;
     int curf;
     char *retval = NULL;
-    int family_cnt;
+    int family_cnt = 0;
 
     *index = 0;
 

@@ -1841,7 +1841,7 @@ static void measure_text(ass_renderer_t *render_priv)
 static void
 wrap_lines_smart(ass_renderer_t *render_priv, int max_text_width)
 {
-    int i, j;
+    int i;
     glyph_info_t *cur, *s1, *e1, *s2, *s3, *w;
     int last_space;
     int break_type;
@@ -2188,7 +2188,6 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
     int last_break;
     int alignment, halign, valign;
     int device_x = 0, device_y = 0;
-    ass_settings_t *settings_priv = &render_priv->settings;
     text_info_t *text_info = &render_priv->text_info;
 
     if (event->Style >= render_priv->track->n_styles) {
