@@ -203,7 +203,6 @@ typedef struct frame_context_s {
 	double border_scale;
 } frame_context_t;
 
-static ass_settings_t* global_settings;
 static text_info_t text_info;
 static render_context_t render_context;
 static frame_context_t frame_context;
@@ -213,7 +212,7 @@ struct render_priv_s {
 	int render_id;
 };
 
-static void ass_lazy_track_init(void)
+static void ass_lazy_track_init(ass_settings_t* settings_priv)
 {
 	ass_track_t* track = frame_context.track;
 	if (track->PlayResX && track->PlayResY)
@@ -223,7 +222,7 @@ static void ass_lazy_track_init(void)
 		track->PlayResX = 384;
 		track->PlayResY = 288;
 	} else {
-		double orig_aspect = (global_settings->aspect * frame_context.height * frame_context.orig_width) /
+		double orig_aspect = (settings_priv->aspect * frame_context.height * frame_context.orig_width) /
 			frame_context.orig_height / frame_context.width;
 		if (!track->PlayResY && track->PlayResX == 1280) {
 			track->PlayResY = 1024;
@@ -579,43 +578,43 @@ static ass_image_t* render_text(text_info_t* text_info, int dst_x, int dst_y)
 /**
  * \brief Mapping between script and screen coordinates
  */
-static int x2scr(double x) {
+static int x2scr(ass_settings_t* priv, double x) {
 	return x*frame_context.orig_width_nocrop / frame_context.track->PlayResX +
-		FFMAX(global_settings->left_margin, 0);
+		FFMAX(priv->left_margin, 0);
 }
-static double x2scr_pos(double x) {
+static double x2scr_pos(ass_settings_t* priv, double x) {
 	return x*frame_context.orig_width / frame_context.track->PlayResX +
-		global_settings->left_margin;
+		priv->left_margin;
 }
 /**
  * \brief Mapping between script and screen coordinates
  */
-static double y2scr(double y) {
+static double y2scr(ass_settings_t* priv, double y) {
 	return y * frame_context.orig_height_nocrop / frame_context.track->PlayResY +
-		FFMAX(global_settings->top_margin, 0);
+		FFMAX(priv->top_margin, 0);
 }
-static double y2scr_pos(double y) {
+static double y2scr_pos(ass_settings_t* priv, double y) {
 	return y * frame_context.orig_height / frame_context.track->PlayResY +
-		global_settings->top_margin;
+		priv->top_margin;
 }
 
 // the same for toptitles
-static int y2scr_top(double y) {
-	if (global_settings->use_margins)
+static int y2scr_top(ass_settings_t* priv, double y) {
+	if (priv->use_margins)
 		return y * frame_context.orig_height_nocrop / frame_context.track->PlayResY;
 	else
 		return y * frame_context.orig_height_nocrop / frame_context.track->PlayResY +
-			FFMAX(global_settings->top_margin, 0);
+			FFMAX(priv->top_margin, 0);
 }
 // the same for subtitles
-static int y2scr_sub(double y) {
-	if (global_settings->use_margins)
+static int y2scr_sub(ass_settings_t* priv, double y) {
+	if (priv->use_margins)
 		return y * frame_context.orig_height_nocrop / frame_context.track->PlayResY +
-			FFMAX(global_settings->top_margin, 0) +
-			FFMAX(global_settings->bottom_margin, 0);
+			FFMAX(priv->top_margin, 0) +
+			FFMAX(priv->bottom_margin, 0);
 	else
 		return y * frame_context.orig_height_nocrop / frame_context.track->PlayResY +
-			FFMAX(global_settings->top_margin, 0);
+			FFMAX(priv->top_margin, 0);
 }
 
 static void compute_string_bbox( text_info_t* info, FT_BBox *abbox ) {
@@ -1427,7 +1426,7 @@ static void free_render_context(void)
  * and add them to cache.
  * The glyphs are returned in info->glyph and info->outline_glyph
  */
-static void get_outline_glyph(int symbol, glyph_info_t* info, FT_Vector* advance)
+static void get_outline_glyph(ass_settings_t* priv, int symbol, glyph_info_t* info, FT_Vector* advance)
 {
 	int error;
 	glyph_hash_val_t* val;
@@ -1455,7 +1454,7 @@ static void get_outline_glyph(int symbol, glyph_info_t* info, FT_Vector* advance
 		info->advance.y = val->advance.y;
 	} else {
 		glyph_hash_val_t v;
-		info->glyph = ass_font_get_glyph(frame_context.ass_priv->fontconfig_priv, render_context.font, symbol, global_settings->hinting);
+		info->glyph = ass_font_get_glyph(frame_context.ass_priv->fontconfig_priv, render_context.font, symbol, priv->hinting);
 		if (!info->glyph)
 			return;
 		info->advance.x = d16_to_d6(info->glyph->advance.x);
@@ -1544,7 +1543,7 @@ static void get_bitmap_glyph(ass_renderer_t* render_priv, glyph_info_t* info)
  *   lines[].asc
  *   lines[].desc
  */
-static void measure_text(void)
+static void measure_text(ass_settings_t* priv)
 {
 	int cur_line = 0, max_asc = 0, max_desc = 0;
 	int i;
@@ -1565,7 +1564,7 @@ static void measure_text(void)
 				max_desc = cur->desc;
 		}
 	}
-	text_info.height += (text_info.n_lines - 1) * double_to_d6(global_settings->line_spacing);
+	text_info.height += (text_info.n_lines - 1) * double_to_d6(priv->line_spacing);
 }
 
 /**
@@ -1577,7 +1576,7 @@ static void measure_text(void)
  * the difference in lengths between this two lines.
  * The result may not be optimal, but usually is good enough.
  */
-static void wrap_lines_smart(int max_text_width)
+static void wrap_lines_smart(ass_settings_t* priv, int max_text_width)
 {
 	int i, j;
 	glyph_info_t *cur, *s1, *e1, *s2, *s3, *w;
@@ -1685,7 +1684,7 @@ static void wrap_lines_smart(int max_text_width)
 	assert(text_info.n_lines >= 1);
 #undef DIFF
 
-	measure_text();
+	measure_text(priv);
 
 	pen_shift_x = 0;
 	pen_shift_y = 0;
@@ -1696,7 +1695,7 @@ static void wrap_lines_smart(int max_text_width)
 			int height = text_info.lines[cur_line - 1].desc + text_info.lines[cur_line].asc;
 			cur_line ++;
 			pen_shift_x = - cur->pos.x;
-			pen_shift_y += d6_to_int(height + double_to_d6(global_settings->line_spacing));
+			pen_shift_y += d6_to_int(height + double_to_d6(priv->line_spacing));
 			mp_msg(MSGT_ASS, MSGL_DBG2, "shifting from %d to %d by (%d, %d)\n", i, text_info.length - 1, pen_shift_x, pen_shift_y);
 		}
 		cur->pos.x += pen_shift_x;
@@ -1894,6 +1893,7 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 	int last_break;
 	int alignment, halign, valign;
 	int device_x = 0, device_y = 0;
+	ass_settings_t* settings_priv = &render_priv->settings;
 
 	if (event->Style >= frame_context.track->n_styles) {
 		mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_NoStyleFound);
@@ -1946,8 +1946,8 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 		shift.y = pen.y & SUBPIXEL_MASK;
 
 		if (render_context.evt_type == EVENT_POSITIONED) {
-			shift.x += double_to_d6(x2scr_pos(render_context.pos_x)) & SUBPIXEL_MASK;
-			shift.y -= double_to_d6(y2scr_pos(render_context.pos_y)) & SUBPIXEL_MASK;
+			shift.x += double_to_d6(x2scr_pos(settings_priv, render_context.pos_x)) & SUBPIXEL_MASK;
+			shift.y -= double_to_d6(y2scr_pos(settings_priv, render_context.pos_y)) & SUBPIXEL_MASK;
 		}
 
 		ass_font_set_transform(render_context.font,
@@ -1955,7 +1955,7 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 				       render_context.scale_y,
 				       &shift );
 
-		get_outline_glyph(code, text_info.glyphs + text_info.length, &shift);
+		get_outline_glyph(settings_priv, code, text_info.glyphs + text_info.length, &shift);
 
 		text_info.glyphs[text_info.length].pos.x = pen.x >> 6;
 		text_info.glyphs[text_info.length].pos.y = pen.y >> 6;
@@ -2033,10 +2033,10 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 		int max_text_width;
 
 		// calculate max length of a line
-		max_text_width = x2scr(frame_context.track->PlayResX - MarginR) - x2scr(MarginL);
+		max_text_width = x2scr(settings_priv, frame_context.track->PlayResX - MarginR) - x2scr(settings_priv, MarginL);
 
 		// rearrange text in several lines
-		wrap_lines_smart(max_text_width);
+		wrap_lines_smart(settings_priv, max_text_width);
 
 		// align text
 		last_break = -1;
@@ -2064,7 +2064,7 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 			}
 		}
 	} else { // render_context.evt_type == EVENT_HSCROLL
-		measure_text();
+		measure_text(settings_priv);
 	}
 
 	// determing text bounding box
@@ -2075,36 +2075,36 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 	// x coordinate for everything except positioned events
 	if (render_context.evt_type == EVENT_NORMAL ||
 	    render_context.evt_type == EVENT_VSCROLL) {
-		device_x = x2scr(MarginL);
+		device_x = x2scr(settings_priv, MarginL);
 	} else if (render_context.evt_type == EVENT_HSCROLL) {
 		if (render_context.scroll_direction == SCROLL_RL)
-			device_x = x2scr(frame_context.track->PlayResX - render_context.scroll_shift);
+			device_x = x2scr(settings_priv, frame_context.track->PlayResX - render_context.scroll_shift);
 		else if (render_context.scroll_direction == SCROLL_LR)
-			device_x = x2scr(render_context.scroll_shift) - (bbox.xMax - bbox.xMin);
+			device_x = x2scr(settings_priv, render_context.scroll_shift) - (bbox.xMax - bbox.xMin);
 	}
 
 	// y coordinate for everything except positioned events
 	if (render_context.evt_type == EVENT_NORMAL ||
 	    render_context.evt_type == EVENT_HSCROLL) {
 		if (valign == VALIGN_TOP) { // toptitle
-			device_y = y2scr_top(MarginV) + d6_to_int(text_info.lines[0].asc);
+			device_y = y2scr_top(settings_priv, MarginV) + d6_to_int(text_info.lines[0].asc);
 		} else if (valign == VALIGN_CENTER) { // midtitle
-			int scr_y = y2scr(frame_context.track->PlayResY / 2);
+			int scr_y = y2scr(settings_priv, frame_context.track->PlayResY / 2);
 			device_y = scr_y - (bbox.yMax - bbox.yMin) / 2;
 		} else { // subtitle
 			int scr_y;
 			if (valign != VALIGN_SUB)
 				mp_msg(MSGT_ASS, MSGL_V, "Invalid valign, supposing 0 (subtitle)\n");
-			scr_y = y2scr_sub(frame_context.track->PlayResY - MarginV);
+			scr_y = y2scr_sub(settings_priv, frame_context.track->PlayResY - MarginV);
 			device_y = scr_y;
 			device_y -= d6_to_int(text_info.height);
 			device_y += d6_to_int(text_info.lines[0].asc);
 		}
 	} else if (render_context.evt_type == EVENT_VSCROLL) {
 		if (render_context.scroll_direction == SCROLL_TB)
-			device_y = y2scr(render_context.clip_y0 + render_context.scroll_shift) - (bbox.yMax - bbox.yMin);
+			device_y = y2scr(settings_priv, render_context.clip_y0 + render_context.scroll_shift) - (bbox.yMax - bbox.yMin);
 		else if (render_context.scroll_direction == SCROLL_BT)
-			device_y = y2scr(render_context.clip_y1 - render_context.scroll_shift);
+			device_y = y2scr(settings_priv, render_context.clip_y1 - render_context.scroll_shift);
 	}
 
 	// positioned events are totally different
@@ -2113,31 +2113,31 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 		int base_y = 0;
 		mp_msg(MSGT_ASS, MSGL_DBG2, "positioned event at %f, %f\n", render_context.pos_x, render_context.pos_y);
 		get_base_point(bbox, alignment, &base_x, &base_y);
-		device_x = x2scr_pos(render_context.pos_x) - base_x;
-		device_y = y2scr_pos(render_context.pos_y) - base_y;
+		device_x = x2scr_pos(settings_priv, render_context.pos_x) - base_x;
+		device_y = y2scr_pos(settings_priv, render_context.pos_y) - base_y;
 	}
 
 	// fix clip coordinates (they depend on alignment)
 	if (render_context.evt_type == EVENT_NORMAL ||
 	    render_context.evt_type == EVENT_HSCROLL ||
 	    render_context.evt_type == EVENT_VSCROLL) {
-		render_context.clip_x0 = x2scr(render_context.clip_x0);
-		render_context.clip_x1 = x2scr(render_context.clip_x1);
+		render_context.clip_x0 = x2scr(settings_priv, render_context.clip_x0);
+		render_context.clip_x1 = x2scr(settings_priv, render_context.clip_x1);
 		if (valign == VALIGN_TOP) {
-			render_context.clip_y0 = y2scr_top(render_context.clip_y0);
-			render_context.clip_y1 = y2scr_top(render_context.clip_y1);
+			render_context.clip_y0 = y2scr_top(settings_priv, render_context.clip_y0);
+			render_context.clip_y1 = y2scr_top(settings_priv, render_context.clip_y1);
 		} else if (valign == VALIGN_CENTER) {
-			render_context.clip_y0 = y2scr(render_context.clip_y0);
-			render_context.clip_y1 = y2scr(render_context.clip_y1);
+			render_context.clip_y0 = y2scr(settings_priv, render_context.clip_y0);
+			render_context.clip_y1 = y2scr(settings_priv, render_context.clip_y1);
 		} else if (valign == VALIGN_SUB) {
-			render_context.clip_y0 = y2scr_sub(render_context.clip_y0);
-			render_context.clip_y1 = y2scr_sub(render_context.clip_y1);
+			render_context.clip_y0 = y2scr_sub(settings_priv, render_context.clip_y0);
+			render_context.clip_y1 = y2scr_sub(settings_priv, render_context.clip_y1);
 		}
 	} else if (render_context.evt_type == EVENT_POSITIONED) {
-		render_context.clip_x0 = x2scr_pos(render_context.clip_x0);
-		render_context.clip_x1 = x2scr_pos(render_context.clip_x1);
-		render_context.clip_y0 = y2scr_pos(render_context.clip_y0);
-		render_context.clip_y1 = y2scr_pos(render_context.clip_y1);
+		render_context.clip_x0 = x2scr_pos(settings_priv, render_context.clip_x0);
+		render_context.clip_x1 = x2scr_pos(settings_priv, render_context.clip_x1);
+		render_context.clip_y0 = y2scr_pos(settings_priv, render_context.clip_y0);
+		render_context.clip_y1 = y2scr_pos(settings_priv, render_context.clip_y1);
 	}
 
 	// calculate rotation parameters
@@ -2145,8 +2145,8 @@ static int ass_render_event(ass_renderer_t* render_priv, ass_event_t* event, eve
 		FT_Vector center;
 
 		if (render_context.have_origin) {
-			center.x = x2scr(render_context.org_x);
-			center.y = y2scr(render_context.org_y);
+			center.x = x2scr(settings_priv, render_context.org_x);
+			center.y = y2scr(settings_priv, render_context.org_y);
 		} else {
 			int bx = 0, by = 0;
 			get_base_point(bbox, alignment, &bx, &by);
@@ -2298,7 +2298,7 @@ int ass_set_fonts_nofc(ass_renderer_t* priv, const char* default_font, const cha
  */
 static int ass_start_frame(ass_renderer_t *priv, ass_track_t* track, long long now)
 {
-	global_settings = &priv->settings;
+	ass_settings_t* settings_priv = &priv->settings;
 
 	if (!priv->settings.frame_width && !priv->settings.frame_height)
 		return 1; // library not initialized
@@ -2307,22 +2307,22 @@ static int ass_start_frame(ass_renderer_t *priv, ass_track_t* track, long long n
 		return 1; // nothing to do
 
 	frame_context.ass_priv = priv;
-	frame_context.width = global_settings->frame_width;
-	frame_context.height = global_settings->frame_height;
-	frame_context.orig_width = global_settings->frame_width - global_settings->left_margin - global_settings->right_margin;
-	frame_context.orig_height = global_settings->frame_height - global_settings->top_margin - global_settings->bottom_margin;
-	frame_context.orig_width_nocrop = global_settings->frame_width -
-		FFMAX(global_settings->left_margin, 0) -
-		FFMAX(global_settings->right_margin, 0);
-	frame_context.orig_height_nocrop = global_settings->frame_height -
-		FFMAX(global_settings->top_margin, 0) -
-		FFMAX(global_settings->bottom_margin, 0);
+	frame_context.width = settings_priv->frame_width;
+	frame_context.height = settings_priv->frame_height;
+	frame_context.orig_width = settings_priv->frame_width - settings_priv->left_margin - settings_priv->right_margin;
+	frame_context.orig_height = settings_priv->frame_height - settings_priv->top_margin - settings_priv->bottom_margin;
+	frame_context.orig_width_nocrop = settings_priv->frame_width -
+		FFMAX(settings_priv->left_margin, 0) -
+		FFMAX(settings_priv->right_margin, 0);
+	frame_context.orig_height_nocrop = settings_priv->frame_height -
+		FFMAX(settings_priv->top_margin, 0) -
+		FFMAX(settings_priv->bottom_margin, 0);
 	frame_context.track = track;
 	frame_context.time = now;
 
-	ass_lazy_track_init();
+	ass_lazy_track_init(settings_priv);
 
-	frame_context.font_scale = global_settings->font_size_coeff *
+	frame_context.font_scale = settings_priv->font_size_coeff *
 	                           frame_context.orig_height / frame_context.track->PlayResY;
 	if (frame_context.track->ScaledBorderAndShadow)
 		frame_context.border_scale = ((double)frame_context.orig_height) / frame_context.track->PlayResY;
