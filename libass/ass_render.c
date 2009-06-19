@@ -2641,7 +2641,7 @@ void ass_set_line_spacing(ass_renderer_t *priv, double line_spacing)
 }
 
 int ass_set_fonts(ass_renderer_t *priv, const char *default_font,
-                  const char *default_family, int fc)
+                  const char *default_family, int fc, const char *config)
 {
     if (priv->settings.default_font)
         free(priv->settings.default_font);
@@ -2656,7 +2656,7 @@ int ass_set_fonts(ass_renderer_t *priv, const char *default_font,
         fontconfig_done(priv->fontconfig_priv);
     priv->fontconfig_priv =
         fontconfig_init(priv->library, priv->ftlibrary, default_family,
-                        default_font, fc);
+                        default_font, fc, config);
 
     return !!priv->fontconfig_priv;
 }

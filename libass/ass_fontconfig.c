@@ -427,7 +427,7 @@ static void process_fontdata(fc_instance_t *priv, ass_library_t *library,
 */
 fc_instance_t *fontconfig_init(ass_library_t *library,
                                FT_Library ftlibrary, const char *family,
-                               const char *path, int fc)
+                               const char *path, int fc, const char *config)
 {
     int rc;
     fc_instance_t *priv = calloc(1, sizeof(fc_instance_t));
@@ -440,11 +440,19 @@ fc_instance_t *fontconfig_init(ass_library_t *library,
         goto exit;
     }
 
-    rc = FcInit();
-    assert(rc);
+    if (config) {
+        priv->config = FcConfigCreate();
+        rc = FcConfigParseAndLoad(priv->config, (unsigned char *)config,
+                                  FcTrue);
+        FcConfigBuildFonts(priv->config);
+        FcConfigSetCurrent(priv->config);
+    } else {
+        rc = FcInit();
+        assert(rc);
+        priv->config = FcConfigGetCurrent();
+    }
 
-    priv->config = FcConfigGetCurrent();
-    if (!priv->config) {
+    if (!rc || !priv->config) {
         mp_msg(MSGT_ASS, MSGL_FATAL,
                MSGTR_LIBASS_FcInitLoadConfigAndFontsFailed);
         goto exit;
