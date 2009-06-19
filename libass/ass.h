@@ -90,6 +90,7 @@ void ass_set_line_spacing(ass_renderer_t *priv, double line_spacing);
 
 /**
  * \brief set font lookup defaults
+ * \param fc bool, use fontconfig?
  */
 int ass_set_fonts(ass_renderer_t *priv, const char *default_font,
                   const char *default_family, int fc);
