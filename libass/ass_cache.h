@@ -83,14 +83,6 @@ hashmap_t *ass_bitmap_cache_reset(hashmap_t *bitmap_cache);
 void ass_bitmap_cache_done(hashmap_t *bitmap_cache);
 
 
-// Cache for composited bitmaps
-typedef struct composite_hash_key_s {
-    int aw, ah, bw, bh;
-    int ax, ay, bx, by;
-    bitmap_hash_key_t a;
-    bitmap_hash_key_t b;
-} composite_hash_key_t;
-
 typedef struct composite_hash_val_s {
     unsigned char *a;
     unsigned char *b;

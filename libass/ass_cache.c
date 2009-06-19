@@ -374,7 +374,8 @@ hashmap_t *ass_composite_cache_init(void)
     composite_cache = hashmap_init(sizeof(composite_hash_key_t),
                                    sizeof(composite_hash_val_t),
                                    0xFFFF + 13,
-                                   composite_hash_dtor, NULL, NULL);
+                                   composite_hash_dtor, composite_compare,
+                                   composite_hash);
     return composite_cache;
 }
 

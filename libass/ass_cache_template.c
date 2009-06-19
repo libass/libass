@@ -6,6 +6,8 @@
         type member;
 #define FTVECTOR(member) \
         FT_Vector member;
+#define BITMAPHASHKEY(member) \
+        bitmap_hash_key_t member;
 #define END(typedefnamename) \
     } typedefnamename;
 
@@ -21,6 +23,8 @@
             a->member == b->member &&
 #define FTVECTOR(member) \
             a->member.x == b->member.x && a->member.y == b->member.y &&
+#define BITMAPHASHKEY(member) \
+            bitmap_compare(&a->member, &b->member, sizeof(a->member)) &&
 #define END(typedefname) \
             1; \
     }
@@ -35,6 +39,10 @@
 #define GENERIC(type, member) \
         hval = fnv_32a_buf(&p->member, sizeof(p->member), hval);
 #define FTVECTOR(member) GENERIC(, member.x); GENERIC(, member.y);
+#define BITMAPHASHKEY(member) { \
+        unsigned temp = bitmap_hash(&p->member, sizeof(p->member)); \
+        hval = fnv_32a_buf(&temp, sizeof(temp), hval); \
+        }
 #define END(typedefname) \
         return hval; \
     }
@@ -82,7 +90,23 @@ START(glyph, glyph_hash_key_s)
     GENERIC(unsigned, outline) // border width, 16.16
 END(glyph_hash_key_t)
 
+// Cache for composited bitmaps
+START(composite, composite_hash_key_s)
+    GENERIC(int, aw)
+    GENERIC(int, ah)
+    GENERIC(int, bw)
+    GENERIC(int, bh)
+    GENERIC(int, ax)
+    GENERIC(int, ay)
+    GENERIC(int, bx)
+    GENERIC(int, by)
+    BITMAPHASHKEY(a)
+    BITMAPHASHKEY(b)
+END(composite_hash_key_t)
+
+
 #undef START
 #undef GENERIC
 #undef FTVECTOR
+#undef BITMAPHASHKEY
 #undef END
