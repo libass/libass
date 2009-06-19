@@ -892,7 +892,7 @@ void ass_process_chunk(ass_track_t *track, char *data, int size,
 **/
 static char *sub_recode(char *data, size_t size, char *codepage)
 {
-    static iconv_t icdsc = (iconv_t) (-1);
+    iconv_t icdsc;
     char *tocp = "UTF-8";
     char *outbuf;
     assert(codepage);
