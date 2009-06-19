@@ -1018,7 +1018,10 @@ static char* parse_tag(char* p, double pwr) {
 		mystrtod(&p, &v2);
 		skip(')');
 		mp_msg(MSGT_ASS, MSGL_DBG2, "pos(%f, %f)\n", v1, v2);
-		if (render_context.evt_type != EVENT_POSITIONED) {
+		if (render_context.evt_type == EVENT_POSITIONED) {
+			mp_msg(MSGT_ASS, MSGL_V, "Subtitle has a new \\pos "
+			       "after \\move or \\pos, ignoring\n");
+		} else {
 			render_context.evt_type = EVENT_POSITIONED;
 			render_context.detect_collisions = 0;
 			render_context.pos_x = v1;
