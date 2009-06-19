@@ -2224,6 +2224,14 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         if (code == 0)
             break;
 
+        // Insert space between two forced breaks to create empty lines
+        // FIXME: should probably be done in wrap_lines_smart,
+        // this is a hack
+        if (previous == '\n' && code == '\n') {
+            code = ' ';
+            p -= 2;
+        }
+
         if (text_info->length >= text_info->max_glyphs) {
             // Raise maximum number of glyphs
             text_info->max_glyphs *= 2;
