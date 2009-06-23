@@ -103,6 +103,7 @@ typedef struct glyph_info_s {
     double blur;                // gaussian blur
     double shadow;
     double frx, fry, frz;       // rotation
+    double fax, fay;            // text shearing
 
     bitmap_hash_key_t hash_key;
 } glyph_info_t;
@@ -135,6 +136,7 @@ typedef struct render_context_s {
     FT_Stroker stroker;
     int alignment;              // alignment overrides go here; if zero, style value will be used
     double frx, fry, frz;
+    double fax, fay;            // text shearing
     enum { EVENT_NORMAL,        // "normal" top-, sub- or mid- title
         EVENT_POSITIONED,       // happens after pos(,), margins are ignored
         EVENT_HSCROLL,          // "Banner" transition effect, text_width is unlimited
@@ -920,13 +922,17 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
         if (mystrtoi(&p, &val))
             mp_msg(MSGT_ASS, MSGL_V, "stub: \\yshad%d\n", val);
     } else if (mystrcmp(&p, "fax")) {
-        int val;
-        if (mystrtoi(&p, &val))
-            mp_msg(MSGT_ASS, MSGL_V, "stub: \\fax%d\n", val);
+        double val;
+        if (mystrtod(&p, &val))
+            render_priv->state.fax = val;
+        else
+            render_priv->state.fax = 0.;
     } else if (mystrcmp(&p, "fay")) {
-        int val;
-        if (mystrtoi(&p, &val))
-            mp_msg(MSGT_ASS, MSGL_V, "stub: \\fay%d\n", val);
+        double val;
+        if (mystrtod(&p, &val))
+            render_priv->state.fay = val;
+        else
+            render_priv->state.fay = 0.;
     } else if (mystrcmp(&p, "iclip")) {
         int x0, y0, x1, y1;
         int res = 1;
@@ -1536,6 +1542,7 @@ static void reset_render_context(ass_renderer_t *render_priv)
     render_priv->state.shadow = render_priv->state.style->Shadow;
     render_priv->state.frx = render_priv->state.fry = 0.;
     render_priv->state.frz = M_PI * render_priv->state.style->Angle / 180.;
+    render_priv->state.fax = render_priv->state.fay = 0.;
 
     // FIXME: does not reset unsupported attributes.
 }
@@ -1734,7 +1741,7 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
 
 static void transform_3d(FT_Vector shift, FT_Glyph * glyph,
                          FT_Glyph * glyph2, double frx, double fry,
-                         double frz);
+                         double frz, double fax, double fay);
 
 /**
  * \brief Get bitmaps for a glyph
@@ -1768,7 +1775,8 @@ get_bitmap_glyph(ass_renderer_t *render_priv, glyph_info_t *info)
             shift.y = int_to_d6(info->hash_key.shift_y);
             // apply rotation
             transform_3d(shift, &info->glyph, &info->outline_glyph,
-                         info->frx, info->fry, info->frz);
+                         info->frx, info->fry, info->frz, info->fax,
+                         info->fay);
 
             // render glyph
             error = glyph_to_bitmap(render_priv->synth_priv,
@@ -2101,7 +2109,7 @@ static void get_base_point(FT_BBox bbox, int alignment, int *bx, int *by)
  */
 static void
 transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
-                    double fry, double frz)
+                    double fry, double frz, double fax, double fay)
 {
     double sx = sin(frx);
     double sy = sin(fry);
@@ -2115,8 +2123,8 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
     int i;
 
     for (i = 0; i < outline->n_points; i++) {
-        x = p[i].x + shift.x;
-        y = p[i].y + shift.y;
+        x = (double) p[i].x + shift.x + (-fax * p[i].y);
+        y = (double) p[i].y + shift.y + (-fay * p[i].x);
         z = 0.;
 
         xx = x * cz + y * sz;
@@ -2152,16 +2160,16 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
  */
 static void
 transform_3d(FT_Vector shift, FT_Glyph * glyph, FT_Glyph * glyph2,
-             double frx, double fry, double frz)
+             double frx, double fry, double frz, double fax, double fay)
 {
     frx = -frx;
     frz = -frz;
-    if (frx != 0. || fry != 0. || frz != 0.) {
+    if (frx != 0. || fry != 0. || frz != 0. || fax != 0. || fay != 0.) {
         if (glyph && *glyph)
-            transform_3d_points(shift, *glyph, frx, fry, frz);
+            transform_3d_points(shift, *glyph, frx, fry, frz, fax, fay);
 
         if (glyph2 && *glyph2)
-            transform_3d_points(shift, *glyph2, frx, fry, frz);
+            transform_3d_points(shift, *glyph2, frx, fry, frz, fax, fay);
     }
 }
 
@@ -2301,6 +2309,8 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         text_info->glyphs[text_info->length].frx = render_priv->state.frx;
         text_info->glyphs[text_info->length].fry = render_priv->state.fry;
         text_info->glyphs[text_info->length].frz = render_priv->state.frz;
+        text_info->glyphs[text_info->length].fax = render_priv->state.fax;
+        text_info->glyphs[text_info->length].fay = render_priv->state.fay;
         ass_font_get_asc_desc(render_priv->state.font, code,
                               &text_info->glyphs[text_info->length].asc,
                               &text_info->glyphs[text_info->length].desc);
@@ -2326,6 +2336,10 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
             render_priv->state.fry * 0xFFFF;
         text_info->glyphs[text_info->length].hash_key.frz =
             render_priv->state.frz * 0xFFFF;
+        text_info->glyphs[text_info->length].hash_key.fax =
+            render_priv->state.fax * 0xFFFF;
+        text_info->glyphs[text_info->length].hash_key.fay =
+            render_priv->state.fay * 0xFFFF;
         text_info->glyphs[text_info->length].hash_key.bold =
             render_priv->state.bold;
         text_info->glyphs[text_info->length].hash_key.italic =
@@ -2535,7 +2549,8 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
             glyph_info_t *info = text_info->glyphs + i;
 
             if (info->hash_key.frx || info->hash_key.fry
-                || info->hash_key.frz) {
+                || info->hash_key.frz || info->hash_key.fax
+                || info->hash_key.fay) {
                 info->hash_key.shift_x = info->pos.x + device_x - center.x;
                 info->hash_key.shift_y =
                     -(info->pos.y + device_y - center.y);

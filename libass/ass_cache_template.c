@@ -69,6 +69,8 @@ START(bitmap, bipmap_hash_key_s)
     GENERIC(int, frx) // signed 16.16
     GENERIC(int, fry) // signed 16.16
     GENERIC(int, frz) // signed 16.16
+    GENERIC(int, fax) // signed 16.16
+    GENERIC(int, fay) // signed 16.16
     // shift vector that was added to glyph before applying rotation
     // = 0, if frx = fry = frx = 0
     // = (glyph base point) - (rotation origin), otherwise
