@@ -2285,6 +2285,8 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         pen.x += text_info->glyphs[text_info->length].advance.x;
         pen.x += double_to_d6(render_priv->state.hspacing);
         pen.y += text_info->glyphs[text_info->length].advance.y;
+        pen.y += render_priv->state.fay *
+                 text_info->glyphs[text_info->length].advance.x;
 
         previous = code;
 
