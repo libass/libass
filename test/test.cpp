@@ -88,8 +88,9 @@ static image_t* gen_image(int width, int height) {
   img->height = height;
   img->stride = width * 3;
   img->buffer = (unsigned char*)calloc(1, height * width * 3);
-  for (int i = 0; i < height * width * 3; ++i)
-   img->buffer[i] = (i/3/50) % 100;
+  memset(img->buffer, 63, img->stride * img->height);
+  //for (int i = 0; i < height * width * 3; ++i)
+  // img->buffer[i] = (i/3/50) % 100;
   return img;
 }
 
