@@ -82,7 +82,7 @@ int strtocolor(char **q, uint32_t *res)
     if (*p == '&')
         ++p;
     else
-        mp_msg(MSGT_ASS, MSGL_DBG2, "suspicious color format: \"%s\"\n", p);
+        ass_msg(MSGL_DBG2, "suspicious color format: \"%s\"\n", p);
 
     if (*p == 'H' || *p == 'h') {
         ++p;

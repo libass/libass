@@ -34,7 +34,7 @@
 #include <enca.h>
 #endif
 
-void my_mp_msg(int lvl, char *lvl_str, char *fmt, ...)
+void ass_msg(int lvl, char *fmt, ...)
 {
     va_list va;
     if (lvl > MSGL_INFO)
@@ -205,11 +205,11 @@ void *guess_buffer_cp(unsigned char *buffer, int buflen,
     int i;
 
     languages = enca_get_languages(&langcnt);
-    mp_msg(MSGT_ASS, MSGL_V, "ENCA supported languages: ");
+    ass_msg(MSGL_V, "ENCA supported languages: ");
     for (i = 0; i < langcnt; i++) {
-        mp_msg(MSGT_ASS, MSGL_V, "%s ", languages[i]);
+        ass_msg(MSGL_V, "%s ", languages[i]);
     }
-    mp_msg(MSGT_ASS, MSGL_V, "\n");
+    ass_msg(MSGL_V, "\n");
 
     for (i = 0; i < langcnt; i++) {
         const char *tmp;
@@ -221,7 +221,7 @@ void *guess_buffer_cp(unsigned char *buffer, int buflen,
         tmp = enca_charset_name(encoding.charset, ENCA_NAME_STYLE_ICONV);
         if (tmp && encoding.charset != ENCA_CS_UNKNOWN) {
             detected_sub_cp = strdup(tmp);
-            mp_msg(MSGT_ASS, MSGL_INFO, "ENCA detected charset: %s\n", tmp);
+            ass_msg(MSGL_INFO, "ENCA detected charset: %s\n", tmp);
         }
         enca_analyser_free(analyser);
     }
@@ -230,7 +230,7 @@ void *guess_buffer_cp(unsigned char *buffer, int buflen,
 
     if (!detected_sub_cp) {
         detected_sub_cp = strdup(fallback);
-        mp_msg(MSGT_ASS, MSGL_INFO,
+        ass_msg(MSGL_INFO,
                "ENCA detection failed: fallback to %s\n", fallback);
     }
 

@@ -57,10 +57,10 @@ static void charmap_magic(FT_Face face)
 
     if (!face->charmap) {
         if (face->num_charmaps == 0) {
-            mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_NoCharmaps);
+            ass_msg(MSGL_WARN, MSGTR_LIBASS_NoCharmaps);
             return;
         }
-        mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_NoCharmapAutodetected);
+        ass_msg(MSGL_WARN, MSGTR_LIBASS_NoCharmapAutodetected);
         FT_Set_Charmap(face, face->charmaps[0]);
         return;
     }
@@ -141,14 +141,14 @@ static int add_face(void *fc_priv, ass_font_t *font, uint32_t ch)
                                font->library->fontdata[mem_idx].size, 0,
                                &face);
         if (error) {
-            mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_ErrorOpeningMemoryFont,
+            ass_msg(MSGL_WARN, MSGTR_LIBASS_ErrorOpeningMemoryFont,
                    path);
             return -1;
         }
     } else {
         error = FT_New_Face(font->ftlibrary, path, index, &face);
         if (error) {
-            mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_ErrorOpeningFont, path,
+            ass_msg(MSGL_WARN, MSGTR_LIBASS_ErrorOpeningFont, path,
                    index);
             return -1;
         }
@@ -303,7 +303,7 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ass_font_t *font,
 #ifdef CONFIG_FONTCONFIG
     if (index == 0) {
         int face_idx;
-        mp_msg(MSGT_ASS, MSGL_INFO,
+        ass_msg(MSGL_INFO,
                MSGTR_LIBASS_GlyphNotFoundReselectingFont, ch,
                font->desc.family, font->desc.bold, font->desc.italic);
         face_idx = add_face(fontconfig_priv, font, ch);
@@ -311,7 +311,7 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ass_font_t *font,
             face = font->faces[face_idx];
             index = FT_Get_Char_Index(face, ch);
             if (index == 0) {
-                mp_msg(MSGT_ASS, MSGL_ERR, MSGTR_LIBASS_GlyphNotFound,
+                ass_msg(MSGL_ERR, MSGTR_LIBASS_GlyphNotFound,
                        ch, font->desc.family, font->desc.bold,
                        font->desc.italic);
             }
@@ -336,7 +336,7 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ass_font_t *font,
 
     error = FT_Load_Glyph(face, index, FT_LOAD_NO_BITMAP | flags);
     if (error) {
-        mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_ErrorLoadingGlyph);
+        ass_msg(MSGL_WARN, MSGTR_LIBASS_ErrorLoadingGlyph);
         return 0;
     }
 #if (FREETYPE_MAJOR > 2) || \
@@ -350,7 +350,7 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ass_font_t *font,
 #endif
     error = FT_Get_Glyph(face->glyph, &glyph);
     if (error) {
-        mp_msg(MSGT_ASS, MSGL_WARN, MSGTR_LIBASS_ErrorLoadingGlyph);
+        ass_msg(MSGL_WARN, MSGTR_LIBASS_ErrorLoadingGlyph);
         return 0;
     }
 
