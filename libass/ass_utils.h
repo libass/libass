@@ -21,7 +21,28 @@
 #ifndef LIBASS_UTILS_H
 #define LIBASS_UTILS_H
 
+#include <stdio.h>
+#include <stdarg.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
+#ifdef CONFIG_ENCA
+#include <enca.h>
+#endif
+
+#include "help_mp.h"
+
+#define MSGL_FATAL 0
+#define MSGL_ERR 1
+#define MSGL_WARN 2
+#define MSGL_INFO 4
+#define MSGL_V 6
+#define MSGL_DBG2 7
+
+#define FFMAX(a,b) ((a) > (b) ? (a) : (b))
+#define FFMIN(a,b) ((a) > (b) ? (b) : (a))
 
 int mystrtoi(char **p, int *res);
 int mystrtoll(char **p, long long *res);
@@ -29,6 +50,13 @@ int mystrtou32(char **p, int base, uint32_t *res);
 int mystrtod(char **p, double *res);
 int strtocolor(char **q, uint32_t *res);
 char parse_bool(char *str);
+unsigned ass_utf8_get_char(char **str);
+void ass_msg(int lvl, char *fmt, ...);
+void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
+                    int width, int height, int stride, int *m2,
+                    int r, int mwidth);
+void *ass_guess_buffer_cp(unsigned char *buffer, int buflen,
+                          char *preferred_language, char *fallback);
 
 static inline int d6_to_int(int x)
 {
