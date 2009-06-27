@@ -44,9 +44,21 @@
 #define BLUR_MAX_RADIUS 100.0
 #define MAX_BE 100
 #define ROUND(x) ((int) ((x) + .5))
-#define SUBPIXEL_MASK 56        // d6 bitmask for subpixel accuracy adjustment
+#define SUBPIXEL_MASK 63        // d6 bitmask for subpixel accuracy adjustment
 
 static int last_render_id = 0;
+
+typedef struct double_bbox_s {
+    double xMin;
+    double xMax;
+    double yMin;
+    double yMax;
+} double_bbox_t;
+
+typedef struct double_vector_s {
+    double x;
+    double y;
+} double_vector_t;
 
 typedef struct ass_settings_s {
     int frame_width;
@@ -109,7 +121,7 @@ typedef struct glyph_info_s {
 } glyph_info_t;
 
 typedef struct line_info_s {
-    int asc, desc;
+    double asc, desc;
 } line_info_t;
 
 typedef struct text_info_s {
@@ -117,7 +129,7 @@ typedef struct text_info_s {
     int length;
     line_info_t *lines;
     int n_lines;
-    int height;
+    double height;
     int max_glyphs;
     int max_lines;
 } text_info_t;
@@ -555,10 +567,10 @@ static ass_image_t *render_text(ass_renderer_t *render_priv, int dst_x,
             continue;
 
         pen_x =
-            dst_x + info->pos.x +
+            dst_x + (info->pos.x >> 6) +
             ROUND(info->shadow * render_priv->border_scale);
         pen_y =
-            dst_y + info->pos.y +
+            dst_y + (info->pos.y >> 6) +
             ROUND(info->shadow * render_priv->border_scale);
         bm = info->bm_s;
 
@@ -579,8 +591,8 @@ static ass_image_t *render_text(ass_renderer_t *render_priv, int dst_x,
         if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm_o)
             continue;
 
-        pen_x = dst_x + info->pos.x;
-        pen_y = dst_y + info->pos.y;
+        pen_x = dst_x + (info->pos.x >> 6);
+        pen_y = dst_y + (info->pos.y >> 6);
         bm = info->bm_o;
 
         if ((info->effect_type == EF_KARAOKE_KO)
@@ -603,8 +615,8 @@ static ass_image_t *render_text(ass_renderer_t *render_priv, int dst_x,
         if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm)
             continue;
 
-        pen_x = dst_x + info->pos.x;
-        pen_y = dst_y + info->pos.y;
+        pen_x = dst_x + (info->pos.x >> 6);
+        pen_y = dst_y + (info->pos.y >> 6);
         bm = info->bm;
 
         if ((info->effect_type == EF_KARAOKE)
@@ -634,7 +646,7 @@ static ass_image_t *render_text(ass_renderer_t *render_priv, int dst_x,
 /**
  * \brief Mapping between script and screen coordinates
  */
-static int x2scr(ass_renderer_t *render_priv, double x)
+static double x2scr(ass_renderer_t *render_priv, double x)
 {
     return x * render_priv->orig_width_nocrop /
         render_priv->track->PlayResX +
@@ -662,7 +674,7 @@ static double y2scr_pos(ass_renderer_t *render_priv, double y)
 }
 
 // the same for toptitles
-static int y2scr_top(ass_renderer_t *render_priv, double y)
+static double y2scr_top(ass_renderer_t *render_priv, double y)
 {
     if (render_priv->settings.use_margins)
         return y * render_priv->orig_height_nocrop /
@@ -674,7 +686,7 @@ static int y2scr_top(ass_renderer_t *render_priv, double y)
 }
 
 // the same for subtitles
-static int y2scr_sub(ass_renderer_t *render_priv, double y)
+static double y2scr_sub(ass_renderer_t *render_priv, double y)
 {
     if (render_priv->settings.use_margins)
         return y * render_priv->orig_height_nocrop /
@@ -687,30 +699,25 @@ static int y2scr_sub(ass_renderer_t *render_priv, double y)
             FFMAX(render_priv->settings.top_margin, 0);
 }
 
-static void compute_string_bbox(text_info_t *info, FT_BBox * abbox)
+static void compute_string_bbox(text_info_t *info, double_bbox_t *bbox)
 {
-    FT_BBox bbox;
     int i;
 
     if (info->length > 0) {
-        bbox.xMin = 32000;
-        bbox.xMax = -32000;
-        bbox.yMin = -d6_to_int(info->lines[0].asc) + info->glyphs[0].pos.y;
-        bbox.yMax =
-            d6_to_int(info->height - info->lines[0].asc) +
-            info->glyphs[0].pos.y;
+        bbox->xMin = 32000;
+        bbox->xMax = -32000;
+        bbox->yMin = -1 * info->lines[0].asc + d6_to_double(info->glyphs[0].pos.y);
+        bbox->yMax = info->height - info->lines[0].asc +
+                     d6_to_double(info->glyphs[0].pos.y);
 
         for (i = 0; i < info->length; ++i) {
-            int s = info->glyphs[i].pos.x;
-            int e = s + d6_to_int(info->glyphs[i].advance.x);
-            bbox.xMin = FFMIN(bbox.xMin, s);
-            bbox.xMax = FFMAX(bbox.xMax, e);
+            double s = d6_to_double(info->glyphs[i].pos.x);
+            double e = s + d6_to_double(info->glyphs[i].advance.x);
+            bbox->xMin = FFMIN(bbox->xMin, s);
+            bbox->xMax = FFMAX(bbox->xMax, e);
         }
     } else
-        bbox.xMin = bbox.xMax = bbox.yMin = bbox.yMax = 0;
-
-    /* return string bbox */
-    *abbox = bbox;
+        bbox->xMin = bbox->xMax = bbox->yMin = bbox->yMax = 0.;
 }
 
 
@@ -1712,7 +1719,7 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
             return;
         info->advance.x = d16_to_d6(info->glyph->advance.x);
         info->advance.y = d16_to_d6(info->glyph->advance.y);
-        FT_Glyph_Get_CBox(info->glyph, FT_GLYPH_BBOX_PIXELS, &info->bbox);
+        FT_Glyph_Get_CBox(info->glyph, FT_GLYPH_BBOX_SUBPIXELS, &info->bbox);
 
         if (render_priv->state.stroker) {
             FT_Glyph_Copy(info->glyph, &info->outline_glyph);
@@ -1741,7 +1748,7 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
 
 static void transform_3d(FT_Vector shift, FT_Glyph * glyph,
                          FT_Glyph * glyph2, double frx, double fry,
-                         double frz, double fax, double fay);
+                         double frz, double fax, double fay, FT_Vector subshift);
 
 /**
  * \brief Get bitmaps for a glyph
@@ -1758,7 +1765,6 @@ get_bitmap_glyph(ass_renderer_t *render_priv, glyph_info_t *info)
     bitmap_hash_key_t *key = &info->hash_key;
 
     val = cache_find_bitmap(render_priv->cache.bitmap_cache, key);
-    /*  val = 0; */
 
     if (val) {
         info->bm = val->bm;
@@ -1771,12 +1777,12 @@ get_bitmap_glyph(ass_renderer_t *render_priv, glyph_info_t *info)
         info->bm = info->bm_o = info->bm_s = 0;
         if (info->glyph && info->symbol != '\n' && info->symbol != 0) {
             // calculating rotation shift vector (from rotation origin to the glyph basepoint)
-            shift.x = int_to_d6(info->hash_key.shift_x);
-            shift.y = int_to_d6(info->hash_key.shift_y);
+            shift.x = info->hash_key.shift_x;
+            shift.y = info->hash_key.shift_y;
             // apply rotation
             transform_3d(shift, &info->glyph, &info->outline_glyph,
                          info->frx, info->fry, info->frz, info->fax,
-                         info->fay);
+                         info->fay, info->hash_key.advance);
 
             // render glyph
             error = glyph_to_bitmap(render_priv->synth_priv,
@@ -1813,28 +1819,29 @@ get_bitmap_glyph(ass_renderer_t *render_priv, glyph_info_t *info)
 static void measure_text(ass_renderer_t *render_priv)
 {
     text_info_t *text_info = &render_priv->text_info;
-    int cur_line = 0, max_asc = 0, max_desc = 0;
+    int cur_line = 0;
+    double max_asc = 0., max_desc = 0.;
     int i;
-    text_info->height = 0;
+    text_info->height = 0.;
     for (i = 0; i < text_info->length + 1; ++i) {
         if ((i == text_info->length) || text_info->glyphs[i].linebreak) {
             text_info->lines[cur_line].asc = max_asc;
             text_info->lines[cur_line].desc = max_desc;
             text_info->height += max_asc + max_desc;
             cur_line++;
-            max_asc = max_desc = 0;
+            max_asc = max_desc = 0.;
         }
         if (i < text_info->length) {
             glyph_info_t *cur = text_info->glyphs + i;
-            if (cur->asc > max_asc)
-                max_asc = cur->asc;
-            if (cur->desc > max_desc)
-                max_desc = cur->desc;
+            if (d6_to_double(cur->asc) > max_asc)
+                max_asc = d6_to_double(cur->asc);
+            if (d6_to_double(cur->desc) > max_desc)
+                max_desc = d6_to_double(cur->desc);
         }
     }
     text_info->height +=
         (text_info->n_lines -
-         1) * double_to_d6(render_priv->settings.line_spacing);
+         1) * render_priv->settings.line_spacing;
 }
 
 /**
@@ -1847,15 +1854,15 @@ static void measure_text(ass_renderer_t *render_priv)
  * The result may not be optimal, but usually is good enough.
  */
 static void
-wrap_lines_smart(ass_renderer_t *render_priv, int max_text_width)
+wrap_lines_smart(ass_renderer_t *render_priv, double max_text_width)
 {
     int i;
     glyph_info_t *cur, *s1, *e1, *s2, *s3, *w;
     int last_space;
     int break_type;
     int exit;
-    int pen_shift_x;
-    int pen_shift_y;
+    double pen_shift_x;
+    double pen_shift_y;
     int cur_line;
     text_info_t *text_info = &render_priv->text_info;
 
@@ -1864,11 +1871,12 @@ wrap_lines_smart(ass_renderer_t *render_priv, int max_text_width)
     break_type = 0;
     s1 = text_info->glyphs;     // current line start
     for (i = 0; i < text_info->length; ++i) {
-        int break_at, s_offset, len;
+        int break_at;
+        double s_offset, len;
         cur = text_info->glyphs + i;
         break_at = -1;
-        s_offset = s1->bbox.xMin + s1->pos.x;
-        len = (cur->bbox.xMax + cur->pos.x) - s_offset;
+        s_offset = d6_to_double(s1->bbox.xMin + s1->pos.x);
+        len = d6_to_double(cur->bbox.xMax + cur->pos.x) - s_offset;
 
         if (cur->symbol == '\n') {
             break_type = 2;
@@ -1904,7 +1912,7 @@ wrap_lines_smart(ass_renderer_t *render_priv, int max_text_width)
                 text_info->glyphs[lead].linebreak = break_type;
             last_space = -1;
             s1 = text_info->glyphs + lead;
-            s_offset = s1->bbox.xMin + s1->pos.x;
+            s_offset = d6_to_double(s1->bbox.xMin + s1->pos.x);
             text_info->n_lines++;
         }
 
@@ -1929,7 +1937,7 @@ wrap_lines_smart(ass_renderer_t *render_priv, int max_text_width)
                 s2 = s3;
                 s3 = cur;
                 if (s1 && (s2->linebreak == 1)) {       // have at least 2 lines, and linebreak is 'soft'
-                    int l1, l2, l1_new, l2_new;
+                    double l1, l2, l1_new, l2_new;
 
                     w = s2;
                     do {
@@ -1945,16 +1953,16 @@ wrap_lines_smart(ass_renderer_t *render_priv, int max_text_width)
                     if (w->symbol == ' ')
                         ++w;
 
-                    l1 = ((s2 - 1)->bbox.xMax + (s2 - 1)->pos.x) -
-                        (s1->bbox.xMin + s1->pos.x);
-                    l2 = ((s3 - 1)->bbox.xMax + (s3 - 1)->pos.x) -
-                        (s2->bbox.xMin + s2->pos.x);
-                    l1_new =
+                    l1 = d6_to_double(((s2 - 1)->bbox.xMax + (s2 - 1)->pos.x) -
+                        (s1->bbox.xMin + s1->pos.x));
+                    l2 = d6_to_double(((s3 - 1)->bbox.xMax + (s3 - 1)->pos.x) -
+                        (s2->bbox.xMin + s2->pos.x));
+                    l1_new = d6_to_double(
                         (e1->bbox.xMax + e1->pos.x) -
-                        (s1->bbox.xMin + s1->pos.x);
-                    l2_new =
+                        (s1->bbox.xMin + s1->pos.x));
+                    l2_new = d6_to_double(
                         ((s3 - 1)->bbox.xMax + (s3 - 1)->pos.x) -
-                        (w->bbox.xMin + w->pos.x);
+                        (w->bbox.xMin + w->pos.x));
 
                     if (DIFF(l1_new, l2_new) < DIFF(l1, l2)) {
                         w->linebreak = 1;
@@ -1973,26 +1981,24 @@ wrap_lines_smart(ass_renderer_t *render_priv, int max_text_width)
 
     measure_text(render_priv);
 
-    pen_shift_x = 0;
-    pen_shift_y = 0;
+    pen_shift_x = 0.;
+    pen_shift_y = 0.;
     cur_line = 1;
     for (i = 0; i < text_info->length; ++i) {
         cur = text_info->glyphs + i;
         if (cur->linebreak) {
-            int height =
+            double height =
                 text_info->lines[cur_line - 1].desc +
                 text_info->lines[cur_line].asc;
             cur_line++;
-            pen_shift_x = -cur->pos.x;
-            pen_shift_y +=
-                d6_to_int(height +
-                          double_to_d6(render_priv->settings.line_spacing));
+            pen_shift_x = d6_to_double(-cur->pos.x);
+            pen_shift_y += height + render_priv->settings.line_spacing;
             mp_msg(MSGT_ASS, MSGL_DBG2,
-                   "shifting from %d to %d by (%d, %d)\n", i,
+                   "shifting from %d to %d by (%f, %f)\n", i,
                    text_info->length - 1, pen_shift_x, pen_shift_y);
         }
-        cur->pos.x += pen_shift_x;
-        cur->pos.y += pen_shift_y;
+        cur->pos.x += double_to_d6(pen_shift_x);
+        cur->pos.y += double_to_d6(pen_shift_y);
     }
 }
 
@@ -2072,32 +2078,32 @@ static void process_karaoke_effects(ass_renderer_t *render_priv)
  * \param alignment alignment
  * \param bx, by out: base point coordinates
  */
-static void get_base_point(FT_BBox bbox, int alignment, int *bx, int *by)
+static void get_base_point(double_bbox_t *bbox, int alignment, double *bx, double *by)
 {
     const int halign = alignment & 3;
     const int valign = alignment & 12;
     if (bx)
         switch (halign) {
         case HALIGN_LEFT:
-            *bx = bbox.xMin;
+            *bx = bbox->xMin;
             break;
         case HALIGN_CENTER:
-            *bx = (bbox.xMax + bbox.xMin) / 2;
+            *bx = (bbox->xMax + bbox->xMin) / 2.0;
             break;
         case HALIGN_RIGHT:
-            *bx = bbox.xMax;
+            *bx = bbox->xMax;
             break;
         }
     if (by)
         switch (valign) {
         case VALIGN_TOP:
-            *by = bbox.yMin;
+            *by = bbox->yMin;
             break;
         case VALIGN_CENTER:
-            *by = (bbox.yMax + bbox.yMin) / 2;
+            *by = (bbox->yMax + bbox->yMin) / 2.0;
             break;
         case VALIGN_SUB:
-            *by = bbox.yMax;
+            *by = bbox->yMax;
             break;
         }
 }
@@ -2109,7 +2115,7 @@ static void get_base_point(FT_BBox bbox, int alignment, int *bx, int *by)
  */
 static void
 transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
-                    double fry, double frz, double fax, double fay)
+                    double fry, double frz, double fax, double fay, FT_Vector subshift)
 {
     double sx = sin(frx);
     double sy = sin(fry);
@@ -2123,8 +2129,8 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
     int i;
 
     for (i = 0; i < outline->n_points; i++) {
-        x = (double) p[i].x + shift.x + (-fax * p[i].y);
-        y = (double) p[i].y + shift.y + (-fay * p[i].x);
+        x = (double) p[i].x + shift.x + (-fax * p[i].y) + subshift.x;
+        y = (double) p[i].y + shift.y + (-fay * p[i].x) - subshift.y;
         z = 0.;
 
         xx = x * cz + y * sz;
@@ -2160,16 +2166,17 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
  */
 static void
 transform_3d(FT_Vector shift, FT_Glyph * glyph, FT_Glyph * glyph2,
-             double frx, double fry, double frz, double fax, double fay)
+             double frx, double fry, double frz, double fax, double fay, FT_Vector subshift)
 {
     frx = -frx;
     frz = -frz;
-    if (frx != 0. || fry != 0. || frz != 0. || fax != 0. || fay != 0.) {
+    if (frx != 0. || fry != 0. || frz != 0. || fax != 0. || fay != 0.
+        || subshift.x != 0 || subshift.y != 0) {
         if (glyph && *glyph)
-            transform_3d_points(shift, *glyph, frx, fry, frz, fax, fay);
+            transform_3d_points(shift, *glyph, frx, fry, frz, fax, fay, subshift);
 
         if (glyph2 && *glyph2)
-            transform_3d_points(shift, *glyph2, frx, fry, frz, fax, fay);
+            transform_3d_points(shift, *glyph2, frx, fry, frz, fax, fay, subshift);
     }
 }
 
@@ -2189,13 +2196,14 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
     FT_UInt num_glyphs;
     FT_Vector pen;
     unsigned code;
-    FT_BBox bbox;
+    double_bbox_t bbox;
     int i, j;
     FT_Vector shift;
     int MarginL, MarginR, MarginV;
     int last_break;
     int alignment, halign, valign;
-    int device_x = 0, device_y = 0;
+    double device_x = 0;
+    double device_y = 0;
     text_info_t *text_info = &render_priv->text_info;
 
     if (event->Style >= render_priv->track->n_styles) {
@@ -2248,6 +2256,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
                         sizeof(glyph_info_t) * text_info->max_glyphs);
         }
 
+        // Add kerning to pen
         if (previous && code) {
             FT_Vector delta;
             delta =
@@ -2257,19 +2266,9 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
             pen.y += delta.y * render_priv->state.scale_y;
         }
 
-        shift.x = pen.x & SUBPIXEL_MASK;
-        shift.y = pen.y & SUBPIXEL_MASK;
-
-        if (render_priv->state.evt_type == EVENT_POSITIONED) {
-            shift.x +=
-                double_to_d6(x2scr_pos
-                             (render_priv,
-                              render_priv->state.pos_x)) & SUBPIXEL_MASK;
-            shift.y -=
-                double_to_d6(y2scr_pos
-                             (render_priv,
-                              render_priv->state.pos_y)) & SUBPIXEL_MASK;
-        }
+        // We won't shift anymore...
+        shift.x = 0;
+        shift.y = 0;
 
         ass_font_set_transform(render_priv->state.font,
                                render_priv->state.scale_x *
@@ -2279,8 +2278,8 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         get_outline_glyph(render_priv, code,
                           text_info->glyphs + text_info->length, &shift);
 
-        text_info->glyphs[text_info->length].pos.x = pen.x >> 6;
-        text_info->glyphs[text_info->length].pos.y = pen.y >> 6;
+        text_info->glyphs[text_info->length].pos.x = pen.x;
+        text_info->glyphs[text_info->length].pos.y = pen.y;
 
         pen.x += text_info->glyphs[text_info->length].advance.x;
         pen.x += double_to_d6(render_priv->state.hspacing);
@@ -2347,7 +2346,8 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         text_info->glyphs[text_info->length].hash_key.italic =
             render_priv->state.italic;
         text_info->glyphs[text_info->length].hash_key.ch = code;
-        text_info->glyphs[text_info->length].hash_key.advance = shift;
+        text_info->glyphs[text_info->length].hash_key.advance.x = pen.x;
+        text_info->glyphs[text_info->length].hash_key.advance.y = pen.y;
         text_info->glyphs[text_info->length].hash_key.be =
             render_priv->state.be;
         text_info->glyphs[text_info->length].hash_key.blur =
@@ -2384,7 +2384,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         MarginV;
 
     if (render_priv->state.evt_type != EVENT_HSCROLL) {
-        int max_text_width;
+        double max_text_width;
 
         // calculate max length of a line
         max_text_width =
@@ -2400,7 +2400,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         for (i = 1; i < text_info->length + 1; ++i) {   // (text_info->length + 1) is the end of the last line
             if ((i == text_info->length)
                 || text_info->glyphs[i].linebreak) {
-                int width, shift = 0;
+                double width, shift = 0;
                 glyph_info_t *first_glyph =
                     text_info->glyphs + last_break + 1;
                 glyph_info_t *last_glyph = text_info->glyphs + i - 1;
@@ -2410,18 +2410,18 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
                            || (last_glyph->symbol == 0)))
                     last_glyph--;
 
-                width =
-                    last_glyph->pos.x +
-                    d6_to_int(last_glyph->advance.x) - first_glyph->pos.x;
+                width = d6_to_double(
+                    last_glyph->pos.x + last_glyph->advance.x - 
+                    first_glyph->pos.x);
                 if (halign == HALIGN_LEFT) {    // left aligned, no action
                     shift = 0;
                 } else if (halign == HALIGN_RIGHT) {    // right aligned
                     shift = max_text_width - width;
                 } else if (halign == HALIGN_CENTER) {   // centered
-                    shift = (max_text_width - width) / 2;
+                    shift = (max_text_width - width) / 2.0;
                 }
                 for (j = last_break + 1; j < i; ++j) {
-                    text_info->glyphs[j].pos.x += shift;
+                    text_info->glyphs[j].pos.x += double_to_d6(shift);
                 }
                 last_break = i - 1;
             }
@@ -2457,13 +2457,13 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         if (valign == VALIGN_TOP) {     // toptitle
             device_y =
                 y2scr_top(render_priv,
-                          MarginV) + d6_to_int(text_info->lines[0].asc);
+                          MarginV) + text_info->lines[0].asc;
         } else if (valign == VALIGN_CENTER) {   // midtitle
-            int scr_y =
-                y2scr(render_priv, render_priv->track->PlayResY / 2);
-            device_y = scr_y - (bbox.yMax - bbox.yMin) / 2;
+            double scr_y =
+                y2scr(render_priv, render_priv->track->PlayResY / 2.0);
+            device_y = scr_y - (bbox.yMax - bbox.yMin) / 2.0;
         } else {                // subtitle
-            int scr_y;
+            double scr_y;
             if (valign != VALIGN_SUB)
                 mp_msg(MSGT_ASS, MSGL_V,
                        "Invalid valign, supposing 0 (subtitle)\n");
@@ -2471,8 +2471,8 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
                 y2scr_sub(render_priv,
                           render_priv->track->PlayResY - MarginV);
             device_y = scr_y;
-            device_y -= d6_to_int(text_info->height);
-            device_y += d6_to_int(text_info->lines[0].asc);
+            device_y -= text_info->height;
+            device_y += text_info->lines[0].asc;
         }
     } else if (render_priv->state.evt_type == EVENT_VSCROLL) {
         if (render_priv->state.scroll_direction == SCROLL_TB)
@@ -2489,11 +2489,11 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
     }
     // positioned events are totally different
     if (render_priv->state.evt_type == EVENT_POSITIONED) {
-        int base_x = 0;
-        int base_y = 0;
+        double base_x = 0;
+        double base_y = 0;
         mp_msg(MSGT_ASS, MSGL_DBG2, "positioned event at %f, %f\n",
                render_priv->state.pos_x, render_priv->state.pos_y);
-        get_base_point(bbox, alignment, &base_x, &base_y);
+        get_base_point(&bbox, alignment, &base_x, &base_y);
         device_x =
             x2scr_pos(render_priv, render_priv->state.pos_x) - base_x;
         device_y =
@@ -2535,14 +2535,14 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
     }
     // calculate rotation parameters
     {
-        FT_Vector center;
+        double_vector_t center;
 
         if (render_priv->state.have_origin) {
             center.x = x2scr(render_priv, render_priv->state.org_x);
             center.y = y2scr(render_priv, render_priv->state.org_y);
         } else {
-            int bx = 0, by = 0;
-            get_base_point(bbox, alignment, &bx, &by);
+            double bx = 0., by = 0.;
+            get_base_point(&bbox, alignment, &bx, &by);
             center.x = device_x + bx;
             center.y = device_y + by;
         }
@@ -2553,9 +2553,9 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
             if (info->hash_key.frx || info->hash_key.fry
                 || info->hash_key.frz || info->hash_key.fax
                 || info->hash_key.fay) {
-                info->hash_key.shift_x = info->pos.x + device_x - center.x;
+                info->hash_key.shift_x = info->pos.x + double_to_d6(device_x - center.x);
                 info->hash_key.shift_y =
-                    -(info->pos.y + device_y - center.y);
+                    -(info->pos.y + double_to_d6(device_y - center.y));
             } else {
                 info->hash_key.shift_x = 0;
                 info->hash_key.shift_y = 0;
@@ -2564,16 +2564,24 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
     }
 
     // convert glyphs to bitmaps
-    for (i = 0; i < text_info->length; ++i)
+    for (i = 0; i < text_info->length; ++i) {
+        glyph_info_t *g = text_info->glyphs + i;
+        g->hash_key.advance.x =
+            (double_to_d6(device_x) & SUBPIXEL_MASK) + 
+            (g->pos.x & SUBPIXEL_MASK);
+        g->hash_key.advance.y = 
+            (double_to_d6(device_y) & SUBPIXEL_MASK) +
+            (g->pos.y & SUBPIXEL_MASK);
         get_bitmap_glyph(render_priv, text_info->glyphs + i);
-
+    }
+    
     memset(event_images, 0, sizeof(*event_images));
-    event_images->top = device_y - d6_to_int(text_info->lines[0].asc);
-    event_images->height = d6_to_int(text_info->height);
+    event_images->top = device_y - text_info->lines[0].asc;
+    event_images->height = text_info->height;
     event_images->detect_collisions = render_priv->state.detect_collisions;
     event_images->shift_direction = (valign == VALIGN_TOP) ? 1 : -1;
     event_images->event = event;
-    event_images->imgs = render_text(render_priv, device_x, device_y);
+    event_images->imgs = render_text(render_priv, (int) device_x, (int) device_y);
 
     free_render_context();
 
