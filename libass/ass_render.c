@@ -929,13 +929,15 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
     } else if (mystrcmp(&p, "fax")) {
         double val;
         if (mystrtod(&p, &val))
-            render_priv->state.fax = val;
+            render_priv->state.fax =
+                val * pwr + render_priv->state.fax * (1 - pwr);
         else
             render_priv->state.fax = 0.;
     } else if (mystrcmp(&p, "fay")) {
         double val;
         if (mystrtod(&p, &val))
-            render_priv->state.fay = val;
+            render_priv->state.fay =
+                val * pwr + render_priv->state.fay * (1 - pwr);
         else
             render_priv->state.fay = 0.;
     } else if (mystrcmp(&p, "iclip")) {
