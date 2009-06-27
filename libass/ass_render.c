@@ -465,7 +465,7 @@ render_overlap(ass_renderer_t *render_priv, ass_image_t **last_tail,
     char m;
     composite_hash_key_t hk;
     composite_hash_val_t *hv;
-    composite_hash_key_t *nhk;
+    composite_hash_val_t chv;
     int ax = (*last_tail)->dst_x;
     int ay = (*last_tail)->dst_y;
     int aw = (*last_tail)->w;
@@ -536,12 +536,9 @@ render_overlap(ass_renderer_t *render_priv, ass_image_t **last_tail,
         }
 
     // Insert bitmaps into the cache
-    nhk = calloc(1, sizeof(*nhk));
-    memcpy(nhk, &hk, sizeof(*nhk));
-    hv = calloc(1, sizeof(*hv));
-    hv->a = (*last_tail)->bitmap;
-    hv->b = (*tail)->bitmap;
-    cache_add_composite(render_priv->cache.composite_cache, nhk, hv);
+    chv.a = (*last_tail)->bitmap;
+    chv.b = (*tail)->bitmap;
+    cache_add_composite(render_priv->cache.composite_cache, &hk, &chv);
 }
 
 /**
