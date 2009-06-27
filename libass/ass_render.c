@@ -2198,7 +2198,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
     unsigned code;
     double_bbox_t bbox;
     int i, j;
-    FT_Vector shift;
+    FT_Vector shift = { .x = 0, .y = 0};
     int MarginL, MarginR, MarginV;
     int last_break;
     int alignment, halign, valign;
@@ -2265,10 +2265,6 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
             pen.x += delta.x * render_priv->state.scale_x;
             pen.y += delta.y * render_priv->state.scale_y;
         }
-
-        // We won't shift anymore...
-        shift.x = 0;
-        shift.y = 0;
 
         ass_font_set_transform(render_priv->state.font,
                                render_priv->state.scale_x *
