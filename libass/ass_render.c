@@ -111,7 +111,8 @@ typedef struct glyph_info_s {
 //      int height;
     int be;                     // blur edges
     double blur;                // gaussian blur
-    double shadow;
+    double shadow_x;
+    double shadow_y;
     double frx, fry, frz;       // rotation
     double fax, fay;            // text shearing
 
@@ -166,7 +167,8 @@ typedef struct render_context_s {
     uint32_t fade;              // alpha from \fad
     char be;                    // blur edges
     double blur;                // gaussian blur
-    double shadow;
+    double shadow_x;
+    double shadow_y;
     int drawing_mode;           // not implemented; when != 0 text is discarded, except for style override tags
 
     effect_t effect_type;
@@ -567,15 +569,15 @@ static ass_image_t *render_text(ass_renderer_t *render_priv, int dst_x,
     for (i = 0; i < text_info->length; ++i) {
         glyph_info_t *info = text_info->glyphs + i;
         if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm_s
-            || (info->shadow == 0))
+            || (info->shadow_x == 0 && info->shadow_y == 0))
             continue;
 
         pen_x =
             dst_x + (info->pos.x >> 6) +
-            ROUND(info->shadow * render_priv->border_scale);
+            ROUND(info->shadow_x * render_priv->border_scale);
         pen_y =
             dst_y + (info->pos.y >> 6) +
-            ROUND(info->shadow * render_priv->border_scale);
+            ROUND(info->shadow_y * render_priv->border_scale);
         bm = info->bm_s;
 
         here_tail = tail;
@@ -965,13 +967,13 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
             val = -1.;
         change_border(render_priv, render_priv->state.border_x, val);
     } else if (mystrcmp(&p, "xshad")) {
-        int val;
-        if (mystrtoi(&p, &val))
-            ass_msg(MSGL_V, "stub: \\xshad%d\n", val);
+        double val;
+        if (mystrtod(&p, &val))
+            render_priv->state.shadow_x = val;
     } else if (mystrcmp(&p, "yshad")) {
-        int val;
-        if (mystrtoi(&p, &val))
-            ass_msg(MSGL_V, "stub: \\yshad%d\n", val);
+        double val;
+        if (mystrtod(&p, &val))
+            render_priv->state.shadow_y = val;
     } else if (mystrcmp(&p, "fax")) {
         double val;
         if (mystrtod(&p, &val))
@@ -1421,9 +1423,10 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
     } else if (mystrcmp(&p, "shad")) {
         int val;
         if (mystrtoi(&p, &val))
-            render_priv->state.shadow = val;
+            render_priv->state.shadow_x = render_priv->state.shadow_y = val;
         else
-            render_priv->state.shadow = render_priv->state.style->Shadow;
+            render_priv->state.shadow_x = render_priv->state.shadow_y = 
+                render_priv->state.style->Shadow;
     } else if (mystrcmp(&p, "pbo")) {
         int val = 0;
         mystrtoi(&p, &val);     // ignored
@@ -1593,7 +1596,8 @@ static void reset_render_context(ass_renderer_t *render_priv)
     render_priv->state.hspacing = render_priv->state.style->Spacing;
     render_priv->state.be = 0;
     render_priv->state.blur = 0.0;
-    render_priv->state.shadow = render_priv->state.style->Shadow;
+    render_priv->state.shadow_x = render_priv->state.style->Shadow;
+    render_priv->state.shadow_y = render_priv->state.style->Shadow;
     render_priv->state.frx = render_priv->state.fry = 0.;
     render_priv->state.frz = M_PI * render_priv->state.style->Angle / 180.;
     render_priv->state.fax = render_priv->state.fay = 0.;
@@ -2377,8 +2381,10 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
             render_priv->state.effect_skip_timing;
         text_info->glyphs[text_info->length].be = render_priv->state.be;
         text_info->glyphs[text_info->length].blur = render_priv->state.blur;
-        text_info->glyphs[text_info->length].shadow =
-            render_priv->state.shadow;
+        text_info->glyphs[text_info->length].shadow_x =
+            render_priv->state.shadow_x;
+        text_info->glyphs[text_info->length].shadow_y =
+            render_priv->state.shadow_y;
         text_info->glyphs[text_info->length].frx = render_priv->state.frx;
         text_info->glyphs[text_info->length].fry = render_priv->state.fry;
         text_info->glyphs[text_info->length].frz = render_priv->state.frz;
