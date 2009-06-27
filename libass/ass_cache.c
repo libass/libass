@@ -27,7 +27,7 @@
 
 #include <assert.h>
 
-#include "mputils.h"
+#include "ass_utils.h"
 #include "ass.h"
 #include "ass_fontconfig.h"
 #include "ass_font.h"

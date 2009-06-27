@@ -25,7 +25,6 @@
 #include <ft2build.h>
 #include FT_GLYPH_H
 
-#include "mputils.h"
 #include "ass_utils.h"
 
 int mystrtoi(char **p, int *res)

@@ -30,7 +30,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#include "mputils.h"
+#include "ass_utils.h"
 #include "ass.h"
 #include "ass_library.h"
 #include "ass_fontconfig.h"

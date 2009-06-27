@@ -37,7 +37,6 @@
 #include "ass.h"
 #include "ass_utils.h"
 #include "ass_library.h"
-#include "mputils.h"
 
 typedef enum { PST_UNKNOWN =
         0, PST_INFO, PST_STYLES, PST_EVENTS, PST_FONTS } parser_state_t;

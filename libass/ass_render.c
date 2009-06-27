@@ -29,8 +29,6 @@
 #include FT_GLYPH_H
 #include FT_SYNTHESIS_H
 
-#include "mputils.h"
-
 #include "ass.h"
 #include "ass_font.h"
 #include "ass_bitmap.h"

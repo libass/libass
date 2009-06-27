@@ -34,7 +34,6 @@
 #include "ass_cache.h"
 #include "ass_fontconfig.h"
 #include "ass_utils.h"
-#include "mputils.h"
 
 /**
  * Select Microfost Unicode CharMap, if the font has one.
