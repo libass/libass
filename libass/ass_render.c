@@ -143,7 +143,8 @@ typedef struct render_context_s {
     char *font_path;
     double font_size;
 
-    FT_Stroker stroker;
+    FT_Stroker stroker_x;
+    FT_Stroker stroker_y;
     int alignment;              // alignment overrides go here; if zero, style value will be used
     double frx, fry, frz;
     double fax, fay;            // text shearing
@@ -157,7 +158,8 @@ typedef struct render_context_s {
     char have_origin;           // origin is explicitly defined; if 0, get_base_point() is used
     double scale_x, scale_y;
     double hspacing;            // distance between letters, in pixels
-    double border;              // outline width
+    double border_x;              // outline width
+    double border_y;
     uint32_t c[4];              // colors(Primary, Secondary, so on) in RGBA
     int clip_x0, clip_y0, clip_x1, clip_y1;
     char detect_collisions;
@@ -323,9 +325,13 @@ void ass_renderer_done(ass_renderer_t *render_priv)
     ass_bitmap_cache_done(render_priv->cache.bitmap_cache);
     ass_composite_cache_done(render_priv->cache.composite_cache);
     ass_glyph_cache_done(render_priv->cache.glyph_cache);
-    if (render_priv->state.stroker) {
-        FT_Stroker_Done(render_priv->state.stroker);
-        render_priv->state.stroker = 0;
+    if (render_priv->state.stroker_x) {
+        FT_Stroker_Done(render_priv->state.stroker_x);
+        render_priv->state.stroker_x = 0;
+    }
+    if (render_priv->state.stroker_y) {
+        FT_Stroker_Done(render_priv->state.stroker_y);
+        render_priv->state.stroker_y = 0;
     }
     if (render_priv && render_priv->ftlibrary)
         FT_Done_FreeType(render_priv->ftlibrary);
@@ -786,45 +792,79 @@ static void update_font(ass_renderer_t *render_priv)
  * \brief Change border width
  * negative value resets border to style value
  */
-static void change_border(ass_renderer_t *render_priv, double border)
+static void change_border(ass_renderer_t *render_priv, double border_x,
+                          double border_y)
 {
-    int b;
+    int bx, by;
     if (!render_priv->state.font)
         return;
 
-    if (border < 0) {
+    if (border_x < 0 && border_y < 0) {
         if (render_priv->state.style->BorderStyle == 1)
-            border = render_priv->state.style->Outline;
+            border_x = border_y = render_priv->state.style->Outline;
         else
-            border = 1.;
+            border_x = border_y = 1.;
     }
-    render_priv->state.border = border;
 
-    b = 64 * border * render_priv->border_scale;
-    if (b > 0) {
-        if (!render_priv->state.stroker) {
+    render_priv->state.border_x = border_x;
+    render_priv->state.border_y = border_y;
+
+    bx = 64 * border_x * render_priv->border_scale;
+    by = 64 * border_y * render_priv->border_scale;
+    // Set border to some miniscule size in case only one direction is set
+    if (bx > 0 && by <= 0) by = 1;
+    if (by > 0 && bx <= 0) bx = 1;
+    if (bx > 0) {
+        if (!render_priv->state.stroker_x) {
             int error;
 #if (FREETYPE_MAJOR > 2) || ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR > 1))
             error =
                 FT_Stroker_New(render_priv->ftlibrary,
-                               &render_priv->state.stroker);
+                               &render_priv->state.stroker_x);
 #else                           // < 2.2
             error =
                 FT_Stroker_New(render_priv->state.font->faces[0]->
-                               memory, &render_priv->state.stroker);
+                               memory, &render_priv->state.stroker_x);
 #endif
             if (error) {
                 ass_msg(MSGL_V, "failed to get stroker\n");
-                render_priv->state.stroker = 0;
+                render_priv->state.stroker_x = 0;
             }
         }
-        if (render_priv->state.stroker)
-            FT_Stroker_Set(render_priv->state.stroker, b,
+        if (render_priv->state.stroker_x)
+            FT_Stroker_Set(render_priv->state.stroker_x, bx,
                            FT_STROKER_LINECAP_ROUND,
                            FT_STROKER_LINEJOIN_ROUND, 0);
     } else {
-        FT_Stroker_Done(render_priv->state.stroker);
-        render_priv->state.stroker = 0;
+        FT_Stroker_Done(render_priv->state.stroker_x);
+        render_priv->state.stroker_x = 0;
+    }
+
+    // FIXME: less code duplication
+    if (by > 0) {
+        if (!render_priv->state.stroker_y) {
+            int error;
+#if (FREETYPE_MAJOR > 2) || ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR > 1))
+            error =
+                FT_Stroker_New(render_priv->ftlibrary,
+                               &render_priv->state.stroker_y);
+#else                           // < 2.2
+            error =
+                FT_Stroker_New(render_priv->state.font->faces[0]->
+                               memory, &render_priv->state.stroker_y);
+#endif
+            if (error) {
+                ass_msg(MSGL_V, "failed to get stroker\n");
+                render_priv->state.stroker_y = 0;
+            }
+        }
+        if (render_priv->state.stroker_y)
+            FT_Stroker_Set(render_priv->state.stroker_y, by,
+                           FT_STROKER_LINECAP_ROUND,
+                           FT_STROKER_LINEJOIN_ROUND, 0);
+    } else {
+        FT_Stroker_Done(render_priv->state.stroker_y);
+        render_priv->state.stroker_y = 0;
     }
 }
 
@@ -913,11 +953,17 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
     if (mystrcmp(&p, "xbord")) {
         double val;
         if (mystrtod(&p, &val))
-            ass_msg(MSGL_V, "stub: \\xbord%.2f\n", val);
+            val = render_priv->state.border_x * (1 - pwr) + val * pwr;
+        else
+            val = -1.;
+        change_border(render_priv, val, render_priv->state.border_y);
     } else if (mystrcmp(&p, "ybord")) {
         double val;
         if (mystrtod(&p, &val))
-            ass_msg(MSGL_V, "stub: \\ybord%.2f\n", val);
+            val = render_priv->state.border_y * (1 - pwr) + val * pwr;
+        else
+            val = -1.;
+        change_border(render_priv, render_priv->state.border_x, val);
     } else if (mystrcmp(&p, "xshad")) {
         int val;
         if (mystrtoi(&p, &val))
@@ -1001,11 +1047,12 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
             change_font_size(render_priv, val);
     } else if (mystrcmp(&p, "bord")) {
         double val;
-        if (mystrtod(&p, &val))
-            val = render_priv->state.border * (1 - pwr) + val * pwr;
-        else
+        if (mystrtod(&p, &val)) {
+            if (render_priv->state.border_x == render_priv->state.border_y)
+                val = render_priv->state.border_x * (1 - pwr) + val * pwr;
+        } else
             val = -1.;          // reset to default
-        change_border(render_priv, val);
+        change_border(render_priv, val, val);
     } else if (mystrcmp(&p, "move")) {
         double x1, x2, y1, y2;
         long long t1, t2, delta_t, t;
@@ -1540,7 +1587,7 @@ static void reset_render_context(ass_renderer_t *render_priv)
     render_priv->state.italic = render_priv->state.style->Italic;
     update_font(render_priv);
 
-    change_border(render_priv, -1.);
+    change_border(render_priv, -1., -1.);
     render_priv->state.scale_x = render_priv->state.style->ScaleX;
     render_priv->state.scale_y = render_priv->state.style->ScaleY;
     render_priv->state.hspacing = render_priv->state.style->Spacing;
@@ -1610,7 +1657,8 @@ get_contour_cbox(FT_BBox *box, FT_Vector *points, int start, int end)
  * \brief Fix-up stroker result for huge borders by removing the contours from
  * the outline that are harmful.
 */
-static void fix_freetype_stroker(FT_OutlineGlyph glyph, int border)
+static void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x,
+                                 int border_y)
 {
     int nc = glyph->outline.n_contours;
     int begin, stop;
@@ -1643,7 +1691,7 @@ static void fix_freetype_stroker(FT_OutlineGlyph glyph, int border)
                 boxes[i].yMax <= boxes[j].yMax) {
                 int width = boxes[i].xMax - boxes[i].xMin;
                 int height = boxes[i].yMax - boxes[i].yMin;
-                if (width < border * 2 || height < border * 2) {
+                if (width < border_x * 2 || height < border_y * 2) {
                     valid_cont[i] = 0;
                     modified = 1;
                     break;
@@ -1697,7 +1745,8 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
     key.advance = *advance;
     key.bold = render_priv->state.bold;
     key.italic = render_priv->state.italic;
-    key.outline = render_priv->state.border * 0xFFFF;
+    key.outline.x = render_priv->state.border_x * 0xFFFF;
+    key.outline.y = render_priv->state.border_y * 0xFFFF;
 
     memset(info, 0, sizeof(glyph_info_t));
 
@@ -1721,18 +1770,43 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
         info->advance.y = d16_to_d6(info->glyph->advance.y);
         FT_Glyph_Get_CBox(info->glyph, FT_GLYPH_BBOX_SUBPIXELS, &info->bbox);
 
-        if (render_priv->state.stroker) {
+        if (render_priv->state.stroker_x && render_priv->state.stroker_y) {
             FT_Glyph_Copy(info->glyph, &info->outline_glyph);
+
             fix_freetype_stroker((FT_OutlineGlyph) info->outline_glyph,
-                                 double_to_d6(render_priv->state.
-                                              border *
+                                 double_to_d6(render_priv->state.border_x *
+                                              render_priv->border_scale),
+                                 double_to_d6(render_priv->state.border_y *
                                               render_priv->border_scale));
+
             error =
                 FT_Glyph_StrokeBorder(&(info->outline_glyph),
-                                      render_priv->state.stroker, 0, 1);
-            if (error) {
+                                      render_priv->state.stroker_y, 0, 1);
+
+            if (error)
                 ass_msg(MSGL_WARN,
-                       MSGTR_LIBASS_FT_Glyph_Stroke_Error, error);
+                        MSGTR_LIBASS_FT_Glyph_Stroke_Error, error);
+
+            // 2nd pass if x/y borders are different
+            if (render_priv->state.border_x != render_priv->state.border_y) {
+                int i;
+                FT_Glyph g;
+                FT_OutlineGlyph go, gi;
+
+                FT_Glyph_Copy(info->glyph, &g);
+                error = FT_Glyph_StrokeBorder(&g,
+                                              render_priv->state.stroker_x,
+                                              0, 1);
+                if (error)
+                    ass_msg(MSGL_WARN,
+                            MSGTR_LIBASS_FT_Glyph_Stroke_Error, error);
+
+                // Replace x coordinates
+                go = (FT_OutlineGlyph) info->outline_glyph;
+                gi = (FT_OutlineGlyph) g;
+                for (i = 0; i < go->outline.n_points; i++)
+                    go->outline.points[i].x = gi->outline.points[i].x;
+                FT_Done_Glyph(g);
             }
         }
 
@@ -2323,8 +2397,10 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
             render_priv->state.font;
         text_info->glyphs[text_info->length].hash_key.size =
             render_priv->state.font_size;
-        text_info->glyphs[text_info->length].hash_key.outline =
-            render_priv->state.border * 0xFFFF;
+        text_info->glyphs[text_info->length].hash_key.outline.x =
+            render_priv->state.border_x * 0xFFFF;
+        text_info->glyphs[text_info->length].hash_key.outline.y =
+            render_priv->state.border_y * 0xFFFF;
         text_info->glyphs[text_info->length].hash_key.scale_x =
             render_priv->state.scale_x * 0xFFFF;
         text_info->glyphs[text_info->length].hash_key.scale_y =

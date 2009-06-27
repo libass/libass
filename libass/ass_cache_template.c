@@ -59,7 +59,7 @@ START(bitmap, bipmap_hash_key_s)
     GENERIC(ass_font_t *, font)
     GENERIC(double, size) // font size
     GENERIC(uint32_t, ch) // character code
-    GENERIC(unsigned, outline) // border width, 16.16 fixed point value
+    FTVECTOR(outline) // border width, 16.16 fixed point value
     GENERIC(int, bold)
     GENERIC(int, italic)
     GENERIC(char, be) // blur edges
@@ -89,7 +89,7 @@ START(glyph, glyph_hash_key_s)
     GENERIC(unsigned, scale_x) // 16.16
     GENERIC(unsigned, scale_y) // 16.16
     FTVECTOR(advance) // subpixel shift vector
-    GENERIC(unsigned, outline) // border width, 16.16
+    FTVECTOR(outline) // border width, 16.16
 END(glyph_hash_key_t)
 
 // Cache for composited bitmaps
