@@ -2127,8 +2127,8 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
     int i;
 
     for (i = 0; i < outline->n_points; i++) {
-        x = (double) p[i].x + shift.x + (-fax * p[i].y) + subshift.x;
-        y = (double) p[i].y + shift.y + (-fay * p[i].x) - subshift.y;
+        x = (double) p[i].x + shift.x + (-fax * p[i].y);
+        y = (double) p[i].y + shift.y + (-fay * p[i].x);
         z = 0.;
 
         xx = x * cz + y * sz;
@@ -2149,6 +2149,8 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
         y = (yy * 20000) / (zz + 20000);
         p[i].x = x - shift.x + 0.5;
         p[i].y = y - shift.y + 0.5;
+        p[i].x += subshift.x;
+        p[i].y -= subshift.y;
     }
 }
 
