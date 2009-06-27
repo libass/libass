@@ -969,11 +969,17 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
     } else if (mystrcmp(&p, "xshad")) {
         double val;
         if (mystrtod(&p, &val))
-            render_priv->state.shadow_x = val;
+            val = render_priv->state.shadow_x * (1 - pwr) + val * pwr;
+        else
+            val = 0.;
+        render_priv->state.shadow_x = val;
     } else if (mystrcmp(&p, "yshad")) {
         double val;
         if (mystrtod(&p, &val))
-            render_priv->state.shadow_y = val;
+            val = render_priv->state.shadow_y * (1 - pwr) + val * pwr;
+        else
+            val = 0.;
+        render_priv->state.shadow_y = val;
     } else if (mystrcmp(&p, "fax")) {
         double val;
         if (mystrtod(&p, &val))
@@ -1421,12 +1427,13 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
                 render_priv->state.effect_timing;
         render_priv->state.effect_timing = val * 10;
     } else if (mystrcmp(&p, "shad")) {
-        int val;
-        if (mystrtoi(&p, &val))
-            render_priv->state.shadow_x = render_priv->state.shadow_y = val;
-        else
-            render_priv->state.shadow_x = render_priv->state.shadow_y = 
-                render_priv->state.style->Shadow;
+        double val;
+        if (mystrtod(&p, &val)) {
+            if (render_priv->state.shadow_x == render_priv->state.shadow_y)
+                val = render_priv->state.shadow_x * (1 - pwr) + val * pwr;
+        } else
+            val = 0.;
+        render_priv->state.shadow_x = render_priv->state.shadow_y = val;
     } else if (mystrcmp(&p, "pbo")) {
         int val = 0;
         mystrtoi(&p, &val);     // ignored
