@@ -142,6 +142,7 @@ static int add_face(void *fc_priv, ass_font_t *font, uint32_t ch)
         if (error) {
             ass_msg(MSGL_WARN, MSGTR_LIBASS_ErrorOpeningMemoryFont,
                    path);
+            free(path);
             return -1;
         }
     } else {
@@ -149,6 +150,7 @@ static int add_face(void *fc_priv, ass_font_t *font, uint32_t ch)
         if (error) {
             ass_msg(MSGL_WARN, MSGTR_LIBASS_ErrorOpeningFont, path,
                    index);
+            free(path);
             return -1;
         }
     }
@@ -158,6 +160,7 @@ static int add_face(void *fc_priv, ass_font_t *font, uint32_t ch)
     font->faces[font->n_faces++] = face;
     update_transform(font);
     face_set_size(face, font->size);
+    free(path);
     return font->n_faces - 1;
 }
 

@@ -338,6 +338,9 @@ void ass_renderer_done(ass_renderer_t *render_priv)
     free(render_priv);
     free(render_priv->text_info.glyphs);
     free(render_priv->text_info.lines);
+
+    free(render_priv->settings.default_font);
+    free(render_priv->settings.default_family);
 }
 
 /**
@@ -2679,6 +2682,8 @@ int ass_set_fonts(ass_renderer_t *priv, const char *default_font,
     if (priv->settings.default_family)
         free(priv->settings.default_family);
 
+    free(priv->settings.default_font);
+    free(priv->settings.default_family);
     priv->settings.default_font = default_font ? strdup(default_font) : 0;
     priv->settings.default_family =
         default_family ? strdup(default_family) : 0;
