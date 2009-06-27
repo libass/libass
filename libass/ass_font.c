@@ -201,7 +201,7 @@ ass_font_t *ass_font_new(void *font_cache, ass_library_t *library,
  * \brief Set font transformation matrix and shift vector
  **/
 void ass_font_set_transform(ass_font_t *font, double scale_x,
-                            double scale_y, FT_Vector * v)
+                            double scale_y, FT_Vector *v)
 {
     font->scale_x = scale_x;
     font->scale_y = scale_y;

@@ -378,7 +378,7 @@ static ass_image_t *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
 static ass_image_t **render_glyph(ass_renderer_t *render_priv,
                                   bitmap_t *bm, int dst_x, int dst_y,
                                   uint32_t color, uint32_t color2, int brk,
-                                  ass_image_t ** tail)
+                                  ass_image_t **tail)
 {
     // brk is relative to dst_x
     // color = color left of brk
@@ -454,8 +454,8 @@ static ass_image_t **render_glyph(ass_renderer_t *render_priv,
  * luminance adding up where they overlap (which looks ugly)
  */
 static void
-render_overlap(ass_renderer_t *render_priv, ass_image_t ** last_tail,
-               ass_image_t ** tail, bitmap_hash_key_t *last_hash,
+render_overlap(ass_renderer_t *render_priv, ass_image_t **last_tail,
+               ass_image_t **tail, bitmap_hash_key_t *last_hash,
                bitmap_hash_key_t *hash)
 {
     int left, top, bottom, right;
@@ -1592,7 +1592,7 @@ static void free_render_context(void)
 
 // Calculate the cbox of a series of points
 static void
-get_contour_cbox(FT_BBox * box, FT_Vector * points, int start, int end)
+get_contour_cbox(FT_BBox *box, FT_Vector *points, int start, int end)
 {
     box->xMin = box->yMin = INT_MAX;
     box->xMax = box->yMax = INT_MIN;
@@ -1683,7 +1683,7 @@ static void fix_freetype_stroker(FT_OutlineGlyph glyph, int border)
  */
 static void
 get_outline_glyph(ass_renderer_t *render_priv, int symbol,
-                  glyph_info_t *info, FT_Vector * advance)
+                  glyph_info_t *info, FT_Vector *advance)
 {
     int error;
     glyph_hash_val_t *val;
@@ -1746,8 +1746,8 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
     }
 }
 
-static void transform_3d(FT_Vector shift, FT_Glyph * glyph,
-                         FT_Glyph * glyph2, double frx, double fry,
+static void transform_3d(FT_Vector shift, FT_Glyph *glyph,
+                         FT_Glyph *glyph2, double frx, double fry,
                          double frz, double fax, double fay, FT_Vector subshift);
 
 /**
@@ -2165,7 +2165,7 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
  * Rotates both glyphs by frx, fry and frz. Shift vector is added before rotation and subtracted after it.
  */
 static void
-transform_3d(FT_Vector shift, FT_Glyph * glyph, FT_Glyph * glyph2,
+transform_3d(FT_Vector shift, FT_Glyph *glyph, FT_Glyph *glyph2,
              double frx, double fry, double frz, double fax, double fay, FT_Vector subshift)
 {
     frx = -frx;
