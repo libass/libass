@@ -340,13 +340,15 @@ int glyph_to_bitmap(ass_synth_priv_t *priv_blur,
         if (blur_radius > 0.0) {
             generate_tables(priv_blur, blur_radius);
             if (*bm_o)
-                blur((*bm_o)->buffer, priv_blur->tmp, (*bm_o)->w,
-                     (*bm_o)->h, (*bm_o)->w, (int *) priv_blur->gt2,
-                     priv_blur->g_r, priv_blur->g_w);
+                ass_gauss_blur((*bm_o)->buffer, priv_blur->tmp,
+                               (*bm_o)->w, (*bm_o)->h, (*bm_o)->w,
+                               (int *) priv_blur->gt2, priv_blur->g_r,
+                               priv_blur->g_w);
             else
-                blur((*bm_g)->buffer, priv_blur->tmp, (*bm_g)->w,
-                     (*bm_g)->h, (*bm_g)->w, (int *) priv_blur->gt2,
-                     priv_blur->g_r, priv_blur->g_w);
+                ass_gauss_blur((*bm_g)->buffer, priv_blur->tmp,
+                               (*bm_g)->w, (*bm_g)->h, (*bm_g)->w,
+                               (int *) priv_blur->gt2, priv_blur->g_r,
+                               priv_blur->g_w);
         }
     }
     if (*bm_o)

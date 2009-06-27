@@ -905,7 +905,7 @@ static char *sub_recode(char *data, size_t size, char *codepage)
             || sscanf(codepage, "ENCA:%2s:%99s", enca_lang,
                       enca_fallback) == 2) {
             cp_tmp =
-                guess_buffer_cp((unsigned char *) data, size, enca_lang,
+                ass_guess_buffer_cp((unsigned char *) data, size, enca_lang,
                                 enca_fallback);
         }
 #endif

@@ -44,7 +44,7 @@ void ass_msg(int lvl, char *fmt, ...)
     va_end(va);
 }
 
-unsigned utf8_get_char(char **str)
+unsigned ass_utf8_get_char(char **str)
 {
     uint8_t *strp = (uint8_t *) * str;
     unsigned c = *strp++;
@@ -75,7 +75,7 @@ unsigned utf8_get_char(char **str)
 }
 
 // gaussian blur
-void blur(unsigned char *buffer,
+void ass_gauss_blur(unsigned char *buffer,
           unsigned short *tmp2,
           int width, int height, int stride, int *m2, int r, int mwidth)
 {
@@ -194,7 +194,7 @@ void blur(unsigned char *buffer,
 }
 
 #ifdef CONFIG_ENCA
-void *guess_buffer_cp(unsigned char *buffer, int buflen,
+void *ass_guess_buffer_cp(unsigned char *buffer, int buflen,
                       char *preferred_language, char *fallback)
 {
     const char **languages;

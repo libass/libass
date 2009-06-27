@@ -1438,7 +1438,7 @@ static unsigned get_next_char(ass_renderer_t *render_priv, char **str)
             return ' ';
         }
     }
-    chr = utf8_get_char((char **) &p);
+    chr = ass_utf8_get_char((char **) &p);
     *str = p;
     return chr;
 }

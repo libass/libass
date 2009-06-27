@@ -292,7 +292,7 @@ static char *validate_fname(char *name)
     q = fname = malloc(sz + 1);
     p = name;
     while (*p) {
-        code = utf8_get_char(&p);
+        code = ass_utf8_get_char(&p);
         if (code == 0)
             break;
         if ((code > 0x7F) ||
