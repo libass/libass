@@ -2654,11 +2654,11 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
     for (i = 0; i < text_info->length; ++i) {
         glyph_info_t *g = text_info->glyphs + i;
         g->hash_key.advance.x =
-            (double_to_d6(device_x) & SUBPIXEL_MASK) + 
-            (g->pos.x & SUBPIXEL_MASK);
+            double_to_d6(device_x - (int) device_x +
+            d6_to_double(g->pos.x & SUBPIXEL_MASK));
         g->hash_key.advance.y = 
-            (double_to_d6(device_y) & SUBPIXEL_MASK) +
-            (g->pos.y & SUBPIXEL_MASK);
+            double_to_d6(device_y - (int) device_y +
+            d6_to_double(g->pos.y & SUBPIXEL_MASK));
         get_bitmap_glyph(render_priv, text_info->glyphs + i);
     }
     
