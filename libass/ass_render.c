@@ -1799,7 +1799,7 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
 
             // 2nd pass if x/y borders are different
             if (render_priv->state.border_x != render_priv->state.border_y) {
-                int i;
+                int i, m;
                 FT_Glyph g;
                 FT_OutlineGlyph go, gi;
 
@@ -1814,7 +1814,8 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
                 // Replace x coordinates
                 go = (FT_OutlineGlyph) info->outline_glyph;
                 gi = (FT_OutlineGlyph) g;
-                for (i = 0; i < go->outline.n_points; i++)
+                m = FFMIN(go->outline.n_points, gi->outline.n_points);
+                for (i = 0; i < m; i++)
                     go->outline.points[i].x = gi->outline.points[i].x;
                 FT_Done_Glyph(g);
             }
