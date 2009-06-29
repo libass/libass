@@ -346,7 +346,7 @@ static int process_event_tail(ass_track_t *track, ass_event_t *event,
  * \param track track to apply overrides to
  * The format for overrides is [StyleName.]Field=Value
  */
-void process_force_style(ass_track_t *track)
+void ass_process_force_style(ass_track_t *track)
 {
     char **fs, *eq, *dt, *style, *tname, *token;
     ass_style_t *target;
@@ -813,7 +813,7 @@ void ass_process_codec_private(ass_track_t *track, char *data, int size)
                 ("Format: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text");
     }
 
-    process_force_style(track);
+    ass_process_force_style(track);
 }
 
 static int check_duplicate_event(ass_track_t *track, int ReadOrder)
@@ -1048,7 +1048,7 @@ static ass_track_t *parse_memory(ass_library_t *library, char *buf)
         return 0;
     }
 
-    process_force_style(track);
+    ass_process_force_style(track);
 
     return track;
 }

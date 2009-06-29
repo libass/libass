@@ -67,6 +67,8 @@ void ass_set_extract_fonts(ass_library_t *priv, int extract);
 
 void ass_set_style_overrides(ass_library_t *priv, char **list);
 
+void ass_process_force_style(ass_track_t *track);
+
 /**
  * \brief initialize the renderer
  * \param priv library handle
