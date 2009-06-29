@@ -77,6 +77,7 @@ START(bitmap, bipmap_hash_key_s)
     GENERIC(int, shift_x)
     GENERIC(int, shift_y)
     FTVECTOR(advance) // subpixel shift vector
+    FTVECTOR(shadow_offset) // shadow subpixel shift
 END(bitmap_hash_key_t)
 
 // describes an outline glyph

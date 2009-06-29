@@ -273,6 +273,56 @@ static bitmap_t *fix_outline_and_shadow(bitmap_t *bm_g, bitmap_t *bm_o)
 }
 
 /**
+ * \brief Shift a bitmap by the fraction of a pixel in x and y direction
+ * expressed in 26.6 fixed point
+ */
+static void shift_bitmap(unsigned char *buf, int w, int h, int shift_x,
+                         int shift_y)
+{
+    int x, y, b;
+
+    // Shift in x direction
+    if (shift_x > 0) {
+        for (y = 0; y < h; y++) {
+            for (x = w - 1; x > 0; x--) {
+                b = (buf[x + y * w - 1] * shift_x) / 64;
+                buf[x + y * w - 1] -= b;
+                buf[x + y * w] += b;
+            }
+        }
+    } else if (shift_x < 0) {
+        shift_x = -shift_x;
+        for (y = 0; y < h; y++) {
+            for (x = 0; x < w - 1; x++) {
+                b = (buf[x + y * w + 1] * shift_x) / 64;
+                buf[x + y * w + 1] -= b;
+                buf[x + y * w] += b;
+            }
+        }
+    }
+
+    // Shift in y direction
+    if (shift_y > 0) {
+        for (x = 0; x < w; x++) {
+            for (y = h - 1; y > 0; y--) {
+                b = (buf[x + (y - 1) * w] * shift_y) / 64;
+                buf[x + (y - 1) * w] -= b;
+                buf[x + y * w] += b;
+            }
+        }
+    } else if (shift_y < 0) {
+        shift_y = -shift_y;
+        for (x = 0; x < w; x++) {
+            for (y = 0; y < h - 1; y++) {
+                b = (buf[x + (y + 1) * w] * shift_y) / 64;
+                buf[x + (y + 1) * w] -= b;
+                buf[x + y * w] += b;
+            }
+        }
+    }
+}
+
+/**
  * \brief Blur with [[1,2,1]. [2,4,2], [1,2,1]] kernel
  * This blur is the same as the one employed by vsfilter.
  */
@@ -303,11 +353,13 @@ static void be_blur(unsigned char *buf, int w, int h)
 int glyph_to_bitmap(ass_synth_priv_t *priv_blur,
                     FT_Glyph glyph, FT_Glyph outline_glyph,
                     bitmap_t **bm_g, bitmap_t **bm_o, bitmap_t **bm_s,
-                    int be, double blur_radius)
+                    int be, double blur_radius, FT_Vector shadow_offset)
 {
     int bord = be ? (be / 4 + 1) : 0;
     blur_radius *= 2;
     bord = (blur_radius > 0.0) ? blur_radius + 1 : bord;
+    if (bord == 0 && (shadow_offset.x || shadow_offset.y))
+        bord = 1;
 
     assert(bm_g && bm_o && bm_s);
 
@@ -355,6 +407,9 @@ int glyph_to_bitmap(ass_synth_priv_t *priv_blur,
         *bm_s = fix_outline_and_shadow(*bm_g, *bm_o);
     else
         *bm_s = copy_bitmap(*bm_g);
+
+    shift_bitmap((*bm_s)->buffer, (*bm_s)->w,(*bm_s)->h,
+                 shadow_offset.x, shadow_offset.y);
 
     assert(bm_s);
     return 0;

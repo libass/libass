@@ -41,7 +41,6 @@
 #define MAX_LINES_INITIAL 64
 #define BLUR_MAX_RADIUS 100.0
 #define MAX_BE 100
-#define ROUND(x) ((int) ((x) + .5))
 #define SUBPIXEL_MASK 63        // d6 bitmask for subpixel accuracy adjustment
 
 static int last_render_id = 0;
@@ -574,10 +573,10 @@ static ass_image_t *render_text(ass_renderer_t *render_priv, int dst_x,
 
         pen_x =
             dst_x + (info->pos.x >> 6) +
-            ROUND(info->shadow_x * render_priv->border_scale);
+            (int) (info->shadow_x * render_priv->border_scale);
         pen_y =
             dst_y + (info->pos.y >> 6) +
-            ROUND(info->shadow_y * render_priv->border_scale);
+            (int) (info->shadow_y * render_priv->border_scale);
         bm = info->bm_s;
 
         here_tail = tail;
@@ -1874,7 +1873,8 @@ get_bitmap_glyph(ass_renderer_t *render_priv, glyph_info_t *info)
                                     info->glyph, info->outline_glyph,
                                     &info->bm, &info->bm_o,
                                     &info->bm_s, info->be,
-                                    info->blur * render_priv->border_scale);
+                                    info->blur * render_priv->border_scale,
+                                    info->hash_key.shadow_offset);
             if (error)
                 info->symbol = 0;
 
@@ -2439,6 +2439,16 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
             render_priv->state.be;
         text_info->glyphs[text_info->length].hash_key.blur =
             render_priv->state.blur;
+        text_info->glyphs[text_info->length].hash_key.shadow_offset.x =
+            double_to_d6(
+                render_priv->state.shadow_x * render_priv->border_scale -
+                (int) (render_priv->state.shadow_x *
+                render_priv->border_scale));
+        text_info->glyphs[text_info->length].hash_key.shadow_offset.y =
+            double_to_d6(
+                render_priv->state.shadow_y * render_priv->border_scale -
+                (int) (render_priv->state.shadow_y *
+                render_priv->border_scale));
 
         text_info->length++;
 
