@@ -285,7 +285,7 @@ static void shift_bitmap(unsigned char *buf, int w, int h, int shift_x,
     if (shift_x > 0) {
         for (y = 0; y < h; y++) {
             for (x = w - 1; x > 0; x--) {
-                b = (buf[x + y * w - 1] * shift_x) / 64;
+                b = (buf[x + y * w - 1] * shift_x) >> 6;
                 buf[x + y * w - 1] -= b;
                 buf[x + y * w] += b;
             }
@@ -294,7 +294,7 @@ static void shift_bitmap(unsigned char *buf, int w, int h, int shift_x,
         shift_x = -shift_x;
         for (y = 0; y < h; y++) {
             for (x = 0; x < w - 1; x++) {
-                b = (buf[x + y * w + 1] * shift_x) / 64;
+                b = (buf[x + y * w + 1] * shift_x) >> 6;
                 buf[x + y * w + 1] -= b;
                 buf[x + y * w] += b;
             }
@@ -305,7 +305,7 @@ static void shift_bitmap(unsigned char *buf, int w, int h, int shift_x,
     if (shift_y > 0) {
         for (x = 0; x < w; x++) {
             for (y = h - 1; y > 0; y--) {
-                b = (buf[x + (y - 1) * w] * shift_y) / 64;
+                b = (buf[x + (y - 1) * w] * shift_y) >> 6;
                 buf[x + (y - 1) * w] -= b;
                 buf[x + y * w] += b;
             }
@@ -314,7 +314,7 @@ static void shift_bitmap(unsigned char *buf, int w, int h, int shift_x,
         shift_y = -shift_y;
         for (x = 0; x < w; x++) {
             for (y = 0; y < h - 1; y++) {
-                b = (buf[x + (y + 1) * w] * shift_y) / 64;
+                b = (buf[x + (y + 1) * w] * shift_y) >> 6;
                 buf[x + (y + 1) * w] -= b;
                 buf[x + y * w] += b;
             }
