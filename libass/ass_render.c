@@ -1834,7 +1834,7 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
 
 static void transform_3d(FT_Vector shift, FT_Glyph *glyph,
                          FT_Glyph *glyph2, double frx, double fry,
-                         double frz, double fax, double fay, FT_Vector subshift);
+                         double frz, double fax, double fay);
 
 /**
  * \brief Get bitmaps for a glyph
@@ -1868,7 +1868,19 @@ get_bitmap_glyph(ass_renderer_t *render_priv, glyph_info_t *info)
             // apply rotation
             transform_3d(shift, &info->glyph, &info->outline_glyph,
                          info->frx, info->fry, info->frz, info->fax,
-                         info->fay, info->hash_key.advance);
+                         info->fay);
+
+            // subpixel shift
+            if (info->glyph)
+                FT_Outline_Translate(
+                    &((FT_OutlineGlyph) info->glyph)->outline,
+                    info->hash_key.advance.x,
+                    -info->hash_key.advance.y);
+            if (info->outline_glyph)
+                FT_Outline_Translate(
+                    &((FT_OutlineGlyph) info->outline_glyph)->outline,
+                    info->hash_key.advance.x,
+                    -info->hash_key.advance.y);
 
             // render glyph
             error = glyph_to_bitmap(render_priv->synth_priv,
@@ -2202,7 +2214,7 @@ static void get_base_point(double_bbox_t *bbox, int alignment, double *bx, doubl
  */
 static void
 transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
-                    double fry, double frz, double fax, double fay, FT_Vector subshift)
+                    double fry, double frz, double fax, double fay)
 {
     double sx = sin(frx);
     double sy = sin(fry);
@@ -2238,8 +2250,6 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
         y = (yy * 20000) / (zz + 20000);
         p[i].x = x - shift.x + 0.5;
         p[i].y = y - shift.y + 0.5;
-        p[i].x += subshift.x;
-        p[i].y -= subshift.y;
     }
 }
 
@@ -2255,17 +2265,16 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
  */
 static void
 transform_3d(FT_Vector shift, FT_Glyph *glyph, FT_Glyph *glyph2,
-             double frx, double fry, double frz, double fax, double fay, FT_Vector subshift)
+             double frx, double fry, double frz, double fax, double fay)
 {
     frx = -frx;
     frz = -frz;
-    if (frx != 0. || fry != 0. || frz != 0. || fax != 0. || fay != 0.
-        || subshift.x != 0 || subshift.y != 0) {
+    if (frx != 0. || fry != 0. || frz != 0. || fax != 0. || fay != 0.) {
         if (glyph && *glyph)
-            transform_3d_points(shift, *glyph, frx, fry, frz, fax, fay, subshift);
+            transform_3d_points(shift, *glyph, frx, fry, frz, fax, fay);
 
         if (glyph2 && *glyph2)
-            transform_3d_points(shift, *glyph2, frx, fry, frz, fax, fay, subshift);
+            transform_3d_points(shift, *glyph2, frx, fry, frz, fax, fay);
     }
 }
 
