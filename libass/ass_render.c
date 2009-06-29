@@ -1269,11 +1269,11 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
         }
         if (cnt == 3) {
             v1 = v[0];
-            v2 = v[1];
+            v2 = (v[1] <= v1) ? render_priv->state.event->Duration : v[1];
             v3 = v[2];
         } else if (cnt == 2) {
             v1 = v[0];
-            v2 = v[1];
+            v2 = (v[1] <= v1) ? render_priv->state.event->Duration : v[1];
             v3 = 1.;
         } else if (cnt == 1) {
             v1 = 0;
