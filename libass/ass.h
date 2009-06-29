@@ -83,7 +83,7 @@ void ass_renderer_done(ass_renderer_t *priv);
 void ass_set_frame_size(ass_renderer_t *priv, int w, int h);
 void ass_set_margins(ass_renderer_t *priv, int t, int b, int l, int r);
 void ass_set_use_margins(ass_renderer_t *priv, int use);
-void ass_set_aspect_ratio(ass_renderer_t *priv, double ar);
+void ass_set_aspect_ratio(ass_renderer_t *priv, double ar, double par);
 void ass_set_font_scale(ass_renderer_t *priv, double font_scale);
 void ass_set_hinting(ass_renderer_t *priv, ass_hinting_t ht);
 void ass_set_line_spacing(ass_renderer_t *priv, double line_spacing);

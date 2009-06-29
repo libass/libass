@@ -69,6 +69,7 @@ typedef struct ass_settings_s {
     int use_margins;            // 0 - place all subtitles inside original frame
     // 1 - use margins for placing toptitles and subtitles
     double aspect;              // frame aspect ratio, d_width / d_height.
+    double pixel_ratio;         // pixel ratio of the source image
     ass_hinting_t hinting;
 
     char *default_font;
@@ -2742,10 +2743,11 @@ void ass_set_use_margins(ass_renderer_t *priv, int use)
     priv->settings.use_margins = use;
 }
 
-void ass_set_aspect_ratio(ass_renderer_t *priv, double ar)
+void ass_set_aspect_ratio(ass_renderer_t *priv, double ar, double par)
 {
-    if (priv->settings.aspect != ar) {
+    if (priv->settings.aspect != ar || priv->settings.pixel_ratio != par) {
         priv->settings.aspect = ar;
+        priv->settings.pixel_ratio = par;
         ass_reconfigure(priv);
     }
 }
@@ -2840,7 +2842,9 @@ ass_start_frame(ass_renderer_t *render_priv, ass_track_t *track,
     else
         render_priv->border_scale = 1.;
 
-    render_priv->font_scale_x = 1.;
+    // PAR correction
+    render_priv->font_scale_x = render_priv->settings.aspect /
+                                render_priv->settings.pixel_ratio;
 
     render_priv->prev_images_root = render_priv->images_root;
     render_priv->images_root = 0;
