@@ -1959,7 +1959,7 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
 
 static void transform_3d(FT_Vector shift, FT_Glyph *glyph,
                          FT_Glyph *glyph2, double frx, double fry,
-                         double frz, double fax, double fay);
+                         double frz, double fax, double fay, double scale);
 
 /**
  * \brief Get bitmaps for a glyph
@@ -1993,7 +1993,7 @@ get_bitmap_glyph(ass_renderer_t *render_priv, glyph_info_t *info)
             // apply rotation
             transform_3d(shift, &info->glyph, &info->outline_glyph,
                          info->frx, info->fry, info->frz, info->fax,
-                         info->fay);
+                         info->fay, render_priv->font_scale);
 
             // subpixel shift
             if (info->glyph)
@@ -2339,7 +2339,8 @@ static void get_base_point(double_bbox_t *bbox, int alignment, double *bx, doubl
  */
 static void
 transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
-                    double fry, double frz, double fax, double fay)
+                    double fry, double frz, double fax, double fay,
+                    double scale)
 {
     double sx = sin(frx);
     double sy = sin(fry);
@@ -2350,8 +2351,9 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
     FT_Outline *outline = &((FT_OutlineGlyph) glyph)->outline;
     FT_Vector *p = outline->points;
     double x, y, z, xx, yy, zz;
-    int i;
+    int i, dist;
 
+    dist = 20000 * scale;
     for (i = 0; i < outline->n_points; i++) {
         x = (double) p[i].x + shift.x + (-fax * p[i].y);
         y = (double) p[i].y + shift.y + (-fay * p[i].x);
@@ -2369,10 +2371,10 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
         yy = y;
         zz = x * sy - z * cy;
 
-        zz = FFMAX(zz, -19000);
+        zz = FFMAX(zz, 1000 - dist);
 
-        x = (xx * 20000) / (zz + 20000);
-        y = (yy * 20000) / (zz + 20000);
+        x = (xx * dist) / (zz + dist);
+        y = (yy * dist) / (zz + dist);
         p[i].x = x - shift.x + 0.5;
         p[i].y = y - shift.y + 0.5;
     }
@@ -2390,16 +2392,19 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
  */
 static void
 transform_3d(FT_Vector shift, FT_Glyph *glyph, FT_Glyph *glyph2,
-             double frx, double fry, double frz, double fax, double fay)
+             double frx, double fry, double frz, double fax, double fay,
+             double scale)
 {
     frx = -frx;
     frz = -frz;
     if (frx != 0. || fry != 0. || frz != 0. || fax != 0. || fay != 0.) {
         if (glyph && *glyph)
-            transform_3d_points(shift, *glyph, frx, fry, frz, fax, fay);
+            transform_3d_points(shift, *glyph, frx, fry, frz,
+                                fax, fay, scale);
 
         if (glyph2 && *glyph2)
-            transform_3d_points(shift, *glyph2, frx, fry, frz, fax, fay);
+            transform_3d_points(shift, *glyph2, frx, fry, frz,
+                                fax, fay, scale);
     }
 }
 
