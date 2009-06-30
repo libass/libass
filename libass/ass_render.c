@@ -163,6 +163,7 @@ typedef struct render_context_s {
     double border_y;
     uint32_t c[4];              // colors(Primary, Secondary, so on) in RGBA
     int clip_x0, clip_y0, clip_x1, clip_y1;
+    char clip_mode;             // 1 = iclip
     char detect_collisions;
     uint32_t fade;              // alpha from \fad
     char be;                    // blur edges
@@ -372,6 +373,115 @@ static ass_image_t *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
     return img;
 }
 
+static double x2scr_pos(ass_renderer_t *render_priv, double x);
+static double y2scr_pos(ass_renderer_t *render_priv, double y);
+
+typedef struct rect_s {
+    int x0;
+    int y0;
+    int x1;
+    int y1;
+} rect_t;
+
+/*
+ * \brief Convert bitmap glyphs into ass_image_t list with inverse clipping
+ *
+ * Inverse clipping with the following strategy:
+ * - find rectangle from (x0, y0) to (cx0, y1)
+ * - find rectangle from (cx0, y0) to (cx1, cy0)
+ * - find rectangle from (cx0, cy1) to (cx1, y1)
+ * - find rectangle from (cx1, y0) to (x1, y1)
+ * These rectangles can be invalid and in this case are discarded.
+ * Afterwards, they are clipped against the screen coordinates.
+ * In an additional pass, the rectangles need to be split up left/right for
+ * karaoke effects.  This can result in a lot of bitmaps (6 to be exact).
+ */
+static ass_image_t **render_glyph_i(ass_renderer_t *render_priv,
+                                    bitmap_t *bm, int dst_x, int dst_y,
+                                    uint32_t color, uint32_t color2, int brk,
+                                    ass_image_t **tail)
+{
+    int i, j, x0, y0, x1, y1, cx0, cy0, cx1, cy1, sx, sy, zx, zy;
+    rect_t r[4];
+    ass_image_t *img;
+
+    dst_x += bm->left;
+    dst_y += bm->top;
+
+    // we still need to clip against screen boundaries
+    zx = x2scr_pos(render_priv, 0);
+    zy = y2scr_pos(render_priv, 0);
+    sx = x2scr_pos(render_priv, render_priv->track->PlayResX);
+    sy = y2scr_pos(render_priv, render_priv->track->PlayResY);
+
+    x0 = 0;
+    y0 = 0;
+    x1 = bm->w;
+    y1 = bm->h;
+    cx0 = render_priv->state.clip_x0 - dst_x;
+    cy0 = render_priv->state.clip_y0 - dst_y;
+    cx1 = render_priv->state.clip_x1 - dst_x;
+    cy1 = render_priv->state.clip_y1 - dst_y;
+
+    // calculate rectangles and discard invalid ones while we're at it.
+    i = 0;
+    r[i].x0 = x0;
+    r[i].y0 = y0;
+    r[i].x1 = (cx0 > x1) ? x1 : cx0;
+    r[i].y1 = y1;
+    if (r[i].x1 > r[i].x0 && r[i].y1 > r[i].y0) i++;
+    r[i].x0 = (cx0 < 0) ? x0 : cx0;
+    r[i].y0 = y0;
+    r[i].x1 = (cx1 > x1) ? x1 : cx1;
+    r[i].y1 = (cy0 > y1) ? y1 : cy0;
+    if (r[i].x1 > r[i].x0 && r[i].y1 > r[i].y0) i++;
+    r[i].x0 = (cx0 < 0) ? x0 : cx0;
+    r[i].y0 = (cy1 < 0) ? y0 : cy1;
+    r[i].x1 = (cx1 > x1) ? x1 : cx1;
+    r[i].y1 = y1;
+    if (r[i].x1 > r[i].x0 && r[i].y1 > r[i].y0) i++;
+    r[i].x0 = (cx1 < 0) ? x0 : cx1;
+    r[i].y0 = y0;
+    r[i].x1 = x1;
+    r[i].y1 = y1;
+    if (r[i].x1 > r[i].x0 && r[i].y1 > r[i].y0) i++;
+
+    // clip each rectangle to screen coordinates
+    for (j = 0; j < i; j++) {
+        r[j].x0 = (r[j].x0 + dst_x < zx) ? zx - dst_x : r[j].x0;
+        r[j].y0 = (r[j].y0 + dst_y < zy) ? zy - dst_y : r[j].y0;
+        r[j].x1 = (r[j].x1 + dst_x > sx) ? sx - dst_x : r[j].x1;
+        r[j].y1 = (r[j].y1 + dst_y > sy) ? sy - dst_y : r[j].y1;
+    }
+
+    // draw the rectangles
+    for (j = 0; j < i; j++) {
+        int lbrk = brk;
+        // kick out rectangles that are invalid now
+        if (r[j].x1 <= r[j].x0 || r[j].y1 <= r[j].y0)
+            continue;
+        // split up into left and right for karaoke, if needed
+        if (lbrk > r[j].x0) {
+            if (lbrk > r[j].x1) lbrk = r[j].x1;
+            img = my_draw_bitmap(bm->buffer + r[j].y0 * bm->w + r[j].x0,
+                lbrk - r[j].x0, r[j].y1 - r[j].y0,
+                bm->w, dst_x + r[j].x0, dst_y + r[j].y0, color);
+            *tail = img;
+            tail = &img->next;
+        }
+        if (lbrk < r[j].x1) {
+            if (lbrk < r[j].x0) lbrk = r[j].x0;
+            img = my_draw_bitmap(bm->buffer + r[j].y0 * bm->w + lbrk,
+                r[j].x1 - lbrk, r[j].y1 - r[j].y0,
+                bm->w, dst_x + lbrk, dst_y + r[j].y0, color2);
+            *tail = img;
+            tail = &img->next;
+        }
+    }
+
+    return tail;
+}
+
 /**
  * \brief convert bitmap glyph into ass_image_t struct(s)
  * \param bit freetype bitmap glyph, FT_PIXEL_MODE_GRAY
@@ -389,6 +499,11 @@ static ass_image_t **render_glyph(ass_renderer_t *render_priv,
                                   uint32_t color, uint32_t color2, int brk,
                                   ass_image_t **tail)
 {
+    // Inverse clipping in use?
+    if (render_priv->state.clip_mode)
+        return render_glyph_i(render_priv, bm, dst_x, dst_y, color, color2,
+                              brk, tail);
+
     // brk is relative to dst_x
     // color = color left of brk
     // color2 = color right of brk
@@ -1006,8 +1121,18 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
         skip(',');
         res &= mystrtoi(&p, &y1);
         skip(')');
-        ass_msg(MSGL_V, "stub: \\iclip(%d,%d,%d,%d)\n", x0, y0,
-               x1, y1);
+        if (res) {
+            render_priv->state.clip_x0 =
+                render_priv->state.clip_x0 * (1 - pwr) + x0 * pwr;
+            render_priv->state.clip_x1 =
+                render_priv->state.clip_x1 * (1 - pwr) + x1 * pwr;
+            render_priv->state.clip_y0 =
+                render_priv->state.clip_y0 * (1 - pwr) + y0 * pwr;
+            render_priv->state.clip_y1 =
+                render_priv->state.clip_y1 * (1 - pwr) + y1 * pwr;
+            render_priv->state.clip_mode = 1;
+        } else
+            render_priv->state.clip_mode = 0;
     } else if (mystrcmp(&p, "blur")) {
         double val;
         if (mystrtod(&p, &val)) {
