@@ -2852,8 +2852,10 @@ void ass_set_frame_size(ass_renderer_t *priv, int w, int h)
     if (priv->settings.frame_width != w || priv->settings.frame_height != h) {
         priv->settings.frame_width = w;
         priv->settings.frame_height = h;
-        if (priv->settings.aspect == 0.)
+        if (priv->settings.aspect == 0.) {
             priv->settings.aspect = ((double) w) / h;
+            priv->settings.pixel_ratio = ((double) w) / h;
+        }
         ass_reconfigure(priv);
     }
 }
