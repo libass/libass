@@ -180,8 +180,6 @@ void ass_process_codec_private(ass_track_t *track, char *data, int size);
 void ass_process_chunk(ass_track_t *track, char *data, int size,
                        long long timecode, long long duration);
 
-char *read_file_recode(char *fname, char *codepage, size_t *size);
-
 /**
  * \brief Read subtitles from file.
  * \param fname file name

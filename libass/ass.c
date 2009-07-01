@@ -1089,7 +1089,7 @@ ass_track_t *ass_read_memory(ass_library_t *library, char *buf,
     return track;
 }
 
-char *read_file_recode(char *fname, char *codepage, size_t *size)
+static char *read_file_recode(char *fname, char *codepage, size_t *size)
 {
     char *buf;
     size_t bufsize;
