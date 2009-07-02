@@ -147,6 +147,10 @@ int main(int argc, char* argv[]) {
 
   init(frame_w, frame_h);
   ass_track_t* track = ass_read_file(ass_library, subfile, NULL);
+  if (!track) {
+    printf("track init failed!\n");
+    return 1;
+  }
   
   ass_image_t* img = ass_render_frame(ass_renderer, track, (int)(tm * 1000), NULL);
   image_t* frame = gen_image(frame_w, frame_h);
