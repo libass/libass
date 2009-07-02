@@ -560,6 +560,20 @@ static int process_info_line(ass_track_t *track, char *str)
     return 0;
 }
 
+static void event_format_fallback(ass_track_t *track)
+{
+    track->parser_priv->state = PST_EVENTS;
+    if (track->track_type == TRACK_TYPE_SSA)
+        track->event_format =
+            strdup
+            ("Format: Marked, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text");
+    else
+        track->event_format =
+            strdup
+            ("Format: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text");
+    ass_msg(MSGL_V, "No event format found, using fallback.\n");
+}
+
 static int process_events_line(ass_track_t *track, char *str)
 {
     if (!strncmp(str, "Format:", 7)) {
@@ -580,6 +594,10 @@ static int process_events_line(ass_track_t *track, char *str)
 
         eid = ass_alloc_event(track);
         event = track->events + eid;
+
+        // We can't parse events with event_format
+        if (!track->event_format)
+            event_format_fallback(track);
 
         process_event_tail(track, event, str, 0);
     } else {
@@ -799,19 +817,10 @@ void ass_process_codec_private(ass_track_t *track, char *data, int size)
 {
     ass_process_data(track, data, size);
 
-    if (!track->event_format) {
-        // probably an mkv produced by ancient mkvtoolnix
-        // such files don't have [Events] and Format: headers
-        track->parser_priv->state = PST_EVENTS;
-        if (track->track_type == TRACK_TYPE_SSA)
-            track->event_format =
-                strdup
-                ("Format: Marked, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text");
-        else
-            track->event_format =
-                strdup
-                ("Format: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text");
-    }
+    // probably an mkv produced by ancient mkvtoolnix
+    // such files don't have [Events] and Format: headers
+    if (!track->event_format)
+        event_format_fallback(track);
 
     ass_process_force_style(track);
 }
