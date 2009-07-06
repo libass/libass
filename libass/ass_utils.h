@@ -99,4 +99,30 @@ static inline int double_to_d16(double x)
     return (int) (x * 0x10000);
 }
 
+#define FNV1_32A_INIT (unsigned)0x811c9dc5
+
+static inline unsigned fnv_32a_buf(void *buf, size_t len, unsigned hval)
+{
+    unsigned char *bp = buf;
+    unsigned char *be = bp + len;
+    while (bp < be) {
+        hval ^= (unsigned) *bp++;
+        hval +=
+            (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) +
+            (hval << 24);
+    }
+    return hval;
+}
+static inline unsigned fnv_32a_str(char *str, unsigned hval)
+{
+    unsigned char *s = (unsigned char *) str;
+    while (*s) {
+        hval ^= (unsigned) *s++;
+        hval +=
+            (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) +
+            (hval << 24);
+    }
+    return hval;
+}
+
 #endif                          /* LIBASS_UTILS_H */

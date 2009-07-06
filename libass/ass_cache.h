@@ -102,6 +102,7 @@ typedef struct glyph_hash_val_s {
     FT_Glyph outline_glyph;
     FT_BBox bbox_scaled;        // bbox after scaling, but before rotation
     FT_Vector advance;          // 26.6, advance distance to the next bitmap in line
+    int asc, desc;              // ascender/descender of a drawing
 } glyph_hash_val_t;
 
 hashmap_t *ass_glyph_cache_init(void);
