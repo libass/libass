@@ -276,12 +276,93 @@ void ass_font_get_asc_desc(ass_font_t *font, uint32_t ch, int *asc,
     *asc = *desc = 0;
 }
 
+/*
+ * Strike a glyph with a horizontal line; it's possible to underline it
+ * and/or strike through it.  For the line's position and size, truetype
+ * tables are consulted.  Obviously this relies on the data in the tables
+ * being accurate.
+ *
+ */
+static int ass_strike_outline_glyph(FT_Face face, ass_font_t *font,
+                                    FT_Glyph glyph, int under, int through)
+{
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
+    TT_Postscript *ps = FT_Get_Sfnt_Table(face, ft_sfnt_post);
+    FT_Outline *ol = &((FT_OutlineGlyph) glyph)->outline;
+    int bear, advance, y_scale, i;
+
+    // Grow outline
+    i = (under ? 4 : 0) + (through ? 4 : 0);
+    ol->points = realloc(ol->points, sizeof(FT_Vector) *
+                         (ol->n_points + i));
+    ol->tags = realloc(ol->tags, ol->n_points + i);
+    i = !!under + !!through;
+    ol->contours = realloc(ol->contours, sizeof(short) *
+                           (ol->n_contours + i));
+
+    // If the bearing is negative, the glyph starts left of the current
+    // pen position
+    bear = FFMIN(face->glyph->metrics.horiBearingX, 0);
+    // We're adding half a pixel to avoid small gaps
+    advance = d16_to_d6(glyph->advance.x) + 32;
+    y_scale = face->size->metrics.y_scale;
+
+    // Add points to the outline
+    if (under) {
+        int pos, size;
+        pos = FT_MulFix(ps->underlinePosition, y_scale * font->scale_y);
+        size = FT_MulFix(ps->underlineThickness,
+                         y_scale * font->scale_y / 2);
+
+        if (pos > 0 || size <= 0)
+            return 0;
+
+        FT_Vector points[4] = {
+            {.x = bear,      .y = pos + size},
+            {.x = advance,   .y = pos + size},
+            {.x = advance,   .y = pos - size},
+            {.x = bear,      .y = pos - size},
+        };
+
+        for (i = 0; i < 4; i++) {
+            ol->points[ol->n_points] = points[i];
+            ol->tags[ol->n_points++] = 1;
+        }
+        ol->contours[ol->n_contours++] = ol->n_points - 1;
+    }
+
+    if (through) {
+        int pos, size;
+        pos = FT_MulFix(os2->yStrikeoutPosition, y_scale * font->scale_y);
+        size = FT_MulFix(os2->yStrikeoutSize, y_scale * font->scale_y / 2);
+
+        if (pos < 0 || size <= 0)
+            return 0;
+
+        FT_Vector points[4] = {
+            {.x = bear,      .y = pos + size},
+            {.x = advance,   .y = pos + size},
+            {.x = advance,   .y = pos - size},
+            {.x = bear,      .y = pos - size},
+        };
+
+        for (i = 0; i < 4; i++) {
+            ol->points[ol->n_points] = points[i];
+            ol->tags[ol->n_points++] = 1;
+        }
+
+        ol->contours[ol->n_contours++] = ol->n_points - 1;
+    }
+
+    return 1;
+}
+
 /**
  * \brief Get a glyph
  * \param ch character code
  **/
 FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ass_font_t *font,
-                            uint32_t ch, ass_hinting_t hinting)
+                            uint32_t ch, ass_hinting_t hinting, int deco)
 {
     int error;
     int index = 0;
@@ -355,6 +436,9 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ass_font_t *font,
         ass_msg(MSGL_WARN, MSGTR_LIBASS_ErrorLoadingGlyph);
         return 0;
     }
+
+    ass_strike_outline_glyph(face, font, glyph, deco & DECO_UNDERLINE,
+                             deco & DECO_STRIKETHROUGH);
 
     return glyph;
 }

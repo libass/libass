@@ -93,6 +93,7 @@ START(glyph, glyph_hash_key_s)
     FTVECTOR(advance) // subpixel shift vector
     FTVECTOR(outline) // border width, 16.16
     GENERIC(unsigned, drawing_hash) // hashcode of a drawing
+    GENERIC(unsigned, flags)    // glyph decoration flags
 END(glyph_hash_key_t)
 
 // Cache for composited bitmaps

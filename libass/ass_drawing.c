@@ -40,7 +40,7 @@ static void drawing_make_glyph(ass_drawing_t *drawing, void *fontconfig_priv,
 
     // This is hacky...
     glyph = (FT_OutlineGlyph) ass_font_get_glyph(fontconfig_priv, font,
-                                                 (uint32_t) ' ', hint);
+                                                 (uint32_t) ' ', hint, 0);
 
     FT_Outline_Done(drawing->ftlibrary, &glyph->outline);
     FT_Outline_New(drawing->ftlibrary, GLYPH_INITIAL_POINTS,

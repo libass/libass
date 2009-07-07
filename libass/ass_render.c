@@ -144,6 +144,7 @@ typedef struct render_context_s {
     ass_font_t *font;
     char *font_path;
     double font_size;
+    int flags;                  // decoration flags (underline/strike-through)
 
     FT_Stroker stroker_x;
     FT_Stroker stroker_y;
@@ -1561,6 +1562,18 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
         } else
             val = 0.;
         render_priv->state.shadow_x = render_priv->state.shadow_y = val;
+    } else if (mystrcmp(&p, "s")) {
+        int val;
+        if (mystrtoi(&p, &val) && val)
+            render_priv->state.flags |= DECO_STRIKETHROUGH;
+        else
+            render_priv->state.flags &= ~DECO_STRIKETHROUGH;
+    } else if (mystrcmp(&p, "u")) {
+        int val;
+        if (mystrtoi(&p, &val) && val)
+            render_priv->state.flags |= DECO_UNDERLINE;
+        else
+            render_priv->state.flags &= ~DECO_UNDERLINE;
     } else if (mystrcmp(&p, "pbo")) {
         double val = 0;
         if (mystrtod(&p, &val))
@@ -1716,6 +1729,9 @@ static void reset_render_context(ass_renderer_t *render_priv)
     render_priv->state.c[1] = render_priv->state.style->SecondaryColour;
     render_priv->state.c[2] = render_priv->state.style->OutlineColour;
     render_priv->state.c[3] = render_priv->state.style->BackColour;
+    render_priv->state.flags =
+        (render_priv->state.style->Underline ? DECO_UNDERLINE : 0) |
+        (render_priv->state.style->StrikeOut ? DECO_STRIKETHROUGH : 0);
     render_priv->state.font_size = render_priv->state.style->FontSize;
 
     if (render_priv->state.family)
@@ -1904,6 +1920,7 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
         key.advance = *advance;
         key.outline.x = render_priv->state.border_x * 0xFFFF;
         key.outline.y = render_priv->state.border_y * 0xFFFF;
+        key.flags = render_priv->state.flags;
     }
     memset(info, 0, sizeof(glyph_info_t));
 
@@ -1928,7 +1945,8 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
             info->glyph =
                 ass_font_get_glyph(render_priv->fontconfig_priv,
                                    render_priv->state.font, symbol,
-                                   render_priv->settings.hinting);
+                                   render_priv->settings.hinting,
+                                   render_priv->state.flags);
         }
         if (!info->glyph)
             return;
