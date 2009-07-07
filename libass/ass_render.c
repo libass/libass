@@ -42,7 +42,8 @@
 #define MAX_LINES_INITIAL 64
 #define BLUR_MAX_RADIUS 100.0
 #define MAX_BE 100
-#define SUBPIXEL_MASK 63        // d6 bitmask for subpixel accuracy adjustment
+#define SUBPIXEL_MASK 63
+#define SUBPIXEL_ACCURACY 7    // d6 mask for subpixel accuracy adjustment
 
 static int last_render_id = 0;
 
@@ -2895,10 +2896,10 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         glyph_info_t *g = text_info->glyphs + i;
         g->hash_key.advance.x =
             double_to_d6(device_x - (int) device_x +
-            d6_to_double(g->pos.x & SUBPIXEL_MASK));
+            d6_to_double(g->pos.x & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
         g->hash_key.advance.y = 
             double_to_d6(device_y - (int) device_y +
-            d6_to_double(g->pos.y & SUBPIXEL_MASK));
+            d6_to_double(g->pos.y & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
         get_bitmap_glyph(render_priv, text_info->glyphs + i);
     }
 
