@@ -147,8 +147,7 @@ typedef struct render_context_s {
     double font_size;
     int flags;                  // decoration flags (underline/strike-through)
 
-    FT_Stroker stroker_x;
-    FT_Stroker stroker_y;
+    FT_Stroker stroker;
     int alignment;              // alignment overrides go here; if zero, style value will be used
     double frx, fry, frz;
     double fax, fay;            // text shearing
@@ -332,13 +331,9 @@ void ass_renderer_done(ass_renderer_t *render_priv)
     ass_bitmap_cache_done(render_priv->cache.bitmap_cache);
     ass_composite_cache_done(render_priv->cache.composite_cache);
     ass_glyph_cache_done(render_priv->cache.glyph_cache);
-    if (render_priv->state.stroker_x) {
-        FT_Stroker_Done(render_priv->state.stroker_x);
-        render_priv->state.stroker_x = 0;
-    }
-    if (render_priv->state.stroker_y) {
-        FT_Stroker_Done(render_priv->state.stroker_y);
-        render_priv->state.stroker_y = 0;
+    if (render_priv->state.stroker) {
+        FT_Stroker_Done(render_priv->state.stroker);
+        render_priv->state.stroker = 0;
     }
     if (render_priv && render_priv->ftlibrary)
         FT_Done_FreeType(render_priv->ftlibrary);
@@ -916,7 +911,7 @@ static void update_font(ass_renderer_t *render_priv)
 static void change_border(ass_renderer_t *render_priv, double border_x,
                           double border_y)
 {
-    int bx, by;
+    int bord;
     if (!render_priv->state.font)
         return;
 
@@ -930,62 +925,31 @@ static void change_border(ass_renderer_t *render_priv, double border_x,
     render_priv->state.border_x = border_x;
     render_priv->state.border_y = border_y;
 
-    bx = 64 * border_x * render_priv->border_scale;
-    by = 64 * border_y * render_priv->border_scale;
-    // Set border to some miniscule size in case only one direction is set
-    if (bx > 0 && by <= 0) by = 1;
-    if (by > 0 && bx <= 0) bx = 1;
-    if (bx > 0) {
-        if (!render_priv->state.stroker_x) {
+    bord = 64 * border_x * render_priv->border_scale;
+    if (bord > 0 && border_x == border_y) {
+        if (!render_priv->state.stroker) {
             int error;
 #if (FREETYPE_MAJOR > 2) || ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR > 1))
             error =
                 FT_Stroker_New(render_priv->ftlibrary,
-                               &render_priv->state.stroker_x);
+                               &render_priv->state.stroker);
 #else                           // < 2.2
             error =
                 FT_Stroker_New(render_priv->state.font->faces[0]->
-                               memory, &render_priv->state.stroker_x);
+                               memory, &render_priv->state.stroker);
 #endif
             if (error) {
                 ass_msg(MSGL_V, "failed to get stroker\n");
-                render_priv->state.stroker_x = 0;
+                render_priv->state.stroker = 0;
             }
         }
-        if (render_priv->state.stroker_x)
-            FT_Stroker_Set(render_priv->state.stroker_x, bx,
+        if (render_priv->state.stroker)
+            FT_Stroker_Set(render_priv->state.stroker, bord,
                            FT_STROKER_LINECAP_ROUND,
                            FT_STROKER_LINEJOIN_ROUND, 0);
     } else {
-        FT_Stroker_Done(render_priv->state.stroker_x);
-        render_priv->state.stroker_x = 0;
-    }
-
-    // FIXME: less code duplication
-    if (by > 0) {
-        if (!render_priv->state.stroker_y) {
-            int error;
-#if (FREETYPE_MAJOR > 2) || ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR > 1))
-            error =
-                FT_Stroker_New(render_priv->ftlibrary,
-                               &render_priv->state.stroker_y);
-#else                           // < 2.2
-            error =
-                FT_Stroker_New(render_priv->state.font->faces[0]->
-                               memory, &render_priv->state.stroker_y);
-#endif
-            if (error) {
-                ass_msg(MSGL_V, "failed to get stroker\n");
-                render_priv->state.stroker_y = 0;
-            }
-        }
-        if (render_priv->state.stroker_y)
-            FT_Stroker_Set(render_priv->state.stroker_y, by,
-                           FT_STROKER_LINECAP_ROUND,
-                           FT_STROKER_LINEJOIN_ROUND, 0);
-    } else {
-        FT_Stroker_Done(render_priv->state.stroker_y);
-        render_priv->state.stroker_y = 0;
+        FT_Stroker_Done(render_priv->state.stroker);
+        render_priv->state.stroker = 0;
     }
 }
 
@@ -1883,6 +1847,48 @@ static void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x,
     free(valid_cont);
 }
 
+/*
+ * Stroke an outline glyph in x/y direction.  Applies various fixups to get
+ * around limitations of the FreeType stroker.
+ */
+static void stroke_outline_glyph(ass_renderer_t *render_priv,
+                                 FT_OutlineGlyph *glyph, int sx, int sy)
+{
+    if (sx <= 0 || sy <= 0)
+        return;
+
+    fix_freetype_stroker(*glyph, sx, sy);
+
+    // Borders are equal; use the regular stroker
+    if (sx == sy && render_priv->state.stroker) {
+        int error;
+        error = FT_Glyph_StrokeBorder((FT_Glyph *) glyph,
+                                      render_priv->state.stroker, 0, 1);
+        if (error)
+            ass_msg(MSGL_WARN, MSGTR_LIBASS_FT_Glyph_Stroke_Error, error);
+
+    // "Stroke" with the outline emboldener in two passes.
+    // The outlines look uglier, but the emboldening never adds any points
+    } else {
+        int i;
+        FT_Outline *ol = &(*glyph)->outline;
+        FT_Outline nol;
+        FT_Outline_New(render_priv->ftlibrary, ol->n_points,
+                       ol->n_contours, &nol);
+        FT_Outline_Copy(ol, &nol);
+
+        FT_Outline_Embolden(ol, sx * 2);
+        FT_Outline_Translate(ol, -sx, -sx);
+        FT_Outline_Embolden(&nol, sy * 2);
+        FT_Outline_Translate(&nol, -sy, -sy);
+
+        for (i = 0; i < ol->n_points; i++)
+            ol->points[i].y = nol.points[i].y;
+
+        FT_Outline_Done(render_priv->ftlibrary, &nol);
+    }
+}
+
 /**
  * \brief Get normal and outline (border) glyphs
  * \param symbol ucs4 char
@@ -1898,7 +1904,6 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
                   glyph_info_t *info, FT_Vector *advance,
                   ass_drawing_t *drawing)
 {
-    int error;
     glyph_hash_val_t *val;
     glyph_hash_key_t key;
     memset(&key, 0, sizeof(key));
@@ -1955,45 +1960,16 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
         info->advance.y = d16_to_d6(info->glyph->advance.y);
         FT_Glyph_Get_CBox(info->glyph, FT_GLYPH_BBOX_SUBPIXELS, &info->bbox);
 
-        if (render_priv->state.stroker_x && render_priv->state.stroker_y) {
-            FT_Glyph_Copy(info->glyph, &info->outline_glyph);
+        if (render_priv->state.border_x > 0 ||
+            render_priv->state.border_y > 0) {
 
-            fix_freetype_stroker((FT_OutlineGlyph) info->outline_glyph,
+            FT_Glyph_Copy(info->glyph, &info->outline_glyph);
+            stroke_outline_glyph(render_priv,
+                                 (FT_OutlineGlyph *) &info->outline_glyph,
                                  double_to_d6(render_priv->state.border_x *
                                               render_priv->border_scale),
                                  double_to_d6(render_priv->state.border_y *
                                               render_priv->border_scale));
-
-            error =
-                FT_Glyph_StrokeBorder(&(info->outline_glyph),
-                                      render_priv->state.stroker_y, 0, 1);
-
-            if (error)
-                ass_msg(MSGL_WARN,
-                        MSGTR_LIBASS_FT_Glyph_Stroke_Error, error);
-
-            // 2nd pass if x/y borders are different
-            if (render_priv->state.border_x != render_priv->state.border_y) {
-                int i, m;
-                FT_Glyph g;
-                FT_OutlineGlyph go, gi;
-
-                FT_Glyph_Copy(info->glyph, &g);
-                error = FT_Glyph_StrokeBorder(&g,
-                                              render_priv->state.stroker_x,
-                                              0, 1);
-                if (error)
-                    ass_msg(MSGL_WARN,
-                            MSGTR_LIBASS_FT_Glyph_Stroke_Error, error);
-
-                // Replace x coordinates
-                go = (FT_OutlineGlyph) info->outline_glyph;
-                gi = (FT_OutlineGlyph) g;
-                m = FFMIN(go->outline.n_points, gi->outline.n_points);
-                for (i = 0; i < m; i++)
-                    go->outline.points[i].x = gi->outline.points[i].x;
-                FT_Done_Glyph(g);
-            }
         }
 
         memset(&v, 0, sizeof(v));
