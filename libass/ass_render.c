@@ -41,7 +41,7 @@
 #define MAX_GLYPHS_INITIAL 1024
 #define MAX_LINES_INITIAL 64
 #define BLUR_MAX_RADIUS 100.0
-#define MAX_BE 100
+#define MAX_BE 127
 #define SUBPIXEL_MASK 63
 #define SUBPIXEL_ACCURACY 7    // d6 mask for subpixel accuracy adjustment
 

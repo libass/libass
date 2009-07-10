@@ -355,7 +355,7 @@ int glyph_to_bitmap(ass_synth_priv_t *priv_blur,
                     bitmap_t **bm_g, bitmap_t **bm_o, bitmap_t **bm_s,
                     int be, double blur_radius, FT_Vector shadow_offset)
 {
-    int bord = be ? (be / 4 + 1) : 0;
+    int bord = be ? (be / 8 + 1) : 0;
     blur_radius *= 2;
     bord = (blur_radius > 0.0) ? blur_radius + 1 : bord;
     if (bord == 0 && (shadow_offset.x || shadow_offset.y))
@@ -377,9 +377,6 @@ int glyph_to_bitmap(ass_synth_priv_t *priv_blur,
             return 1;
         }
     }
-    if (*bm_o)
-        resize_tmp(priv_blur, (*bm_o)->w, (*bm_o)->h);
-    resize_tmp(priv_blur, (*bm_g)->w, (*bm_g)->h);
 
     if (be) {
         while (be--) {
@@ -390,6 +387,9 @@ int glyph_to_bitmap(ass_synth_priv_t *priv_blur,
         }
     } else {
         if (blur_radius > 0.0) {
+            if (*bm_o)
+                resize_tmp(priv_blur, (*bm_o)->w, (*bm_o)->h);
+            resize_tmp(priv_blur, (*bm_g)->w, (*bm_g)->h);
             generate_tables(priv_blur, blur_radius);
             if (*bm_o)
                 ass_gauss_blur((*bm_o)->buffer, priv_blur->tmp,
