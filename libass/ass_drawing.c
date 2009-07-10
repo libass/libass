@@ -138,6 +138,9 @@ static void drawing_finish(ass_drawing_t *drawing)
                                                     drawing->scale_y);
     for (i = 0; i < ol->n_points; i++)
         ol->points[i].y += offset;
+
+    ass_msg(MSGL_V, "Parsed drawing with %d points and %d contours",
+            ol->n_points, ol->n_contours);
 }
 
 /*

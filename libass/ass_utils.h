@@ -32,8 +32,6 @@
 #include <enca.h>
 #endif
 
-#include "help_mp.h"
-
 #define MSGL_FATAL 0
 #define MSGL_ERR 1
 #define MSGL_WARN 2

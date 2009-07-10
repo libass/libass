@@ -29,7 +29,6 @@
 
 int mystrtoi(char **p, int *res)
 {
-    // NOTE: base argument is ignored, but not used in libass anyway
     double temp_res;
     char *start = *p;
     temp_res = strtod(*p, p);
@@ -126,7 +125,9 @@ void ass_msg(int lvl, char *fmt, ...)
     if (lvl > MSGL_INFO)
         return;
     va_start(va, fmt);
+    printf("[ass] ");
     vprintf(fmt, va);
+    printf("\n");
     va_end(va);
 }
 

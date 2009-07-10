@@ -173,7 +173,7 @@ static int check_glyph_area(FT_Glyph glyph)
     dx = bbox.xMax - bbox.xMin;
     dy = bbox.yMax - bbox.yMin;
     if (dx * dy > 8000000) {
-        ass_msg(MSGL_WARN, MSGTR_LIBASS_GlyphBBoxTooLarge,
+        ass_msg(MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
                (int) dx, (int) dy);
         return 1;
     } else
@@ -195,7 +195,7 @@ static bitmap_t *glyph_to_bitmap_internal(FT_Glyph glyph, int bord)
         return 0;
     error = FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 0);
     if (error) {
-        ass_msg(MSGL_WARN, MSGTR_LIBASS_FT_Glyph_To_BitmapError,
+        ass_msg(MSGL_WARN, "FT_Glyph_To_Bitmap error %d",
                error);
         return 0;
     }
@@ -203,7 +203,7 @@ static bitmap_t *glyph_to_bitmap_internal(FT_Glyph glyph, int bord)
     bg = (FT_BitmapGlyph) glyph;
     bit = &(bg->bitmap);
     if (bit->pixel_mode != FT_PIXEL_MODE_GRAY) {
-        ass_msg(MSGL_WARN, MSGTR_LIBASS_UnsupportedPixelMode,
+        ass_msg(MSGL_WARN, "Unsupported pixel mode: %d",
                (int) (bit->pixel_mode));
         FT_Done_Glyph(glyph);
         return 0;

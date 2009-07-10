@@ -73,7 +73,8 @@ void hashmap_done(hashmap_t *map)
     // print stats
     if (map->count > 0 || map->hit_count + map->miss_count > 0)
         ass_msg(MSGL_V,
-               "cache statistics: \n  total accesses: %d\n  hits: %d\n  misses: %d\n  object count: %d\n",
+               "cache statistics: \n  total accesses: %d\n  hits: %d\n  "
+               "misses: %d\n  object count: %d",
                map->hit_count + map->miss_count, map->hit_count,
                map->miss_count, map->count);
 
