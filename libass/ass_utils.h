@@ -52,9 +52,6 @@ int strtocolor(char **q, uint32_t *res);
 char parse_bool(char *str);
 unsigned ass_utf8_get_char(char **str);
 void ass_msg(int lvl, char *fmt, ...);
-void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
-                    int width, int height, int stride, int *m2,
-                    int r, int mwidth);
 void *ass_guess_buffer_cp(unsigned char *buffer, int buflen,
                           char *preferred_language, char *fallback);
 
