@@ -2,7 +2,10 @@ AC_PREREQ(2.60a)
 AC_INIT(libass, 0.9.6)
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([shave])
-AM_PROG_LIBTOOL
+# Disable C++/Fortran checks
+define([AC_LIBTOOL_LANG_CXX_CONFIG], [:])
+define([AC_LIBTOOL_LANG_F77_CONFIG], [:])
+AC_PROG_LIBTOOL
 AC_CONFIG_SRCDIR([libass/ass.c])
 AC_CONFIG_HEADER([config.h])
 
