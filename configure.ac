@@ -3,7 +3,7 @@ AC_INIT(libass, 0.9.6)
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([shave])
 AM_PROG_LIBTOOL
-AC_CONFIG_SRCDIR([test/test.cpp])
+AC_CONFIG_SRCDIR([libass/ass.c])
 AC_CONFIG_HEADER([config.h])
 
 # Checks for programs.
@@ -12,14 +12,13 @@ AC_PROG_CC
 AC_PROG_CPP
 
 # Checks for libraries.
-AC_CHECK_LIB([png], [png_create_write_struct], AC_DEFINE(CONFIG_LIBPNG, 1, [use libpng]))
 AC_SEARCH_LIBS([iconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))
-AC_CHECK_LIB([enca], [enca_analyser_alloc], [AC_DEFINE(CONFIG_ENCA, 1, [use enca])  LIBS="$LIBS -lenca"])
 
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([inttypes.h stdint.h stdlib.h string.h sys/time.h unistd.h iconv.h enca.h])
 
+# Check for libraries via pkg-config
 PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.2.0, [
     CFLAGS="$CFLAGS $FONTCONFIG_CFLAGS"
     LIBS="$LIBS $FONTCONFIG_LIBS"
@@ -31,6 +30,18 @@ PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.6.3, [
     LIBS="$LIBS $FREETYPE_LIBS"
     AC_DEFINE(CONFIG_FREETYPE, 1, [found freetype2 via pkg-config])
     ])
+
+PKG_CHECK_MODULES([ENCA], enca, [
+    CFLAGS="$CFLAGS $ENCA_CFLAGS"
+    LIBS="$LIBS $ENCA_LIBS"
+    AC_DEFINE(CONFIG_ENCA, 1, [found enca via pkg-config])
+	])
+
+PKG_CHECK_MODULES([LIBPNG], libpng >= 1.2.0, [
+    CFLAGS="$CFLAGS $LIBPNG_CFLAGS"
+    LIBS="$LIBS $LIBPNG_LIBS"
+    AC_DEFINE(CONFIG_LIBPNG, 1, [found libpng via pkg-config])
+	])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
