@@ -68,7 +68,7 @@ void ass_font_cache_done(hashmap_t *);
 
 // Create definitions for bitmap_hash_key and glyph_hash_key
 #define CREATE_STRUCT_DEFINITIONS
-#include "ass_cache_template.c"
+#include "ass_cache_template.h"
 
 typedef struct bitmap_hash_val_s {
     bitmap_t *bm;               // the actual bitmaps

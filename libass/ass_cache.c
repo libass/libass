@@ -199,9 +199,9 @@ void ass_font_cache_done(hashmap_t *font_cache)
 
 // Create hash/compare functions for bitmap and glyph
 #define CREATE_HASH_FUNCTIONS
-#include "ass_cache_template.c"
+#include "ass_cache_template.h"
 #define CREATE_COMPARISON_FUNCTIONS
-#include "ass_cache_template.c"
+#include "ass_cache_template.h"
 
 //---------------------------------
 // bitmap cache
