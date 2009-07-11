@@ -39,7 +39,7 @@
  * Select Microfost Unicode CharMap, if the font has one.
  * Otherwise, let FreeType decide.
  */
-static void charmap_magic(FT_Face face)
+static void charmap_magic(ass_library_t *library, FT_Face face)
 {
     int i;
     for (i = 0; i < face->num_charmaps; ++i) {
@@ -56,10 +56,11 @@ static void charmap_magic(FT_Face face)
 
     if (!face->charmap) {
         if (face->num_charmaps == 0) {
-            ass_msg(MSGL_WARN, "Font face with no charmaps");
+            ass_msg(library, MSGL_WARN, "Font face with no charmaps");
             return;
         }
-        ass_msg(MSGL_WARN, "No charmap autodetected, trying the first one");
+        ass_msg(library, MSGL_WARN,
+                "No charmap autodetected, trying the first one");
         FT_Set_Charmap(face, face->charmaps[0]);
         return;
     }
@@ -125,7 +126,7 @@ static int add_face(void *fc_priv, ass_font_t *font, uint32_t ch)
         return -1;
 
     path =
-        fontconfig_select(fc_priv, font->desc.family,
+        fontconfig_select(font->library, fc_priv, font->desc.family,
                           font->desc.treat_family_as_pattern,
                           font->desc.bold, font->desc.italic, &index, ch);
     if (!path)
@@ -140,19 +141,21 @@ static int add_face(void *fc_priv, ass_font_t *font, uint32_t ch)
                                font->library->fontdata[mem_idx].size, 0,
                                &face);
         if (error) {
-            ass_msg(MSGL_WARN, "Error opening memory font: '%s'", path);
+            ass_msg(font->library, MSGL_WARN,
+                    "Error opening memory font: '%s'", path);
             free(path);
             return -1;
         }
     } else {
         error = FT_New_Face(font->ftlibrary, path, index, &face);
         if (error) {
-            ass_msg(MSGL_WARN, "Error opening font: '%s', %d", path, index);
+            ass_msg(font->library, MSGL_WARN,
+                    "Error opening font: '%s', %d", path, index);
             free(path);
             return -1;
         }
     }
-    charmap_magic(face);
+    charmap_magic(font->library, face);
     buggy_font_workaround(face);
 
     font->faces[font->n_faces++] = face;
@@ -384,7 +387,7 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ass_font_t *font,
 #ifdef CONFIG_FONTCONFIG
     if (index == 0) {
         int face_idx;
-        ass_msg(MSGL_INFO,
+        ass_msg(font->library, MSGL_INFO,
                 "Glyph 0x%X not found, selecting one more "
                 "font for (%s, %d, %d)", ch, font->desc.family,
                 font->desc.bold, font->desc.italic);
@@ -393,9 +396,10 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ass_font_t *font,
             face = font->faces[face_idx];
             index = FT_Get_Char_Index(face, ch);
             if (index == 0) {
-                ass_msg(MSGL_ERR, "Glyph 0x%X not found in font "
-                        "for (%s, %d, %d)", ch, font->desc.family,
-                        font->desc.bold, font->desc.italic);
+                ass_msg(font->library, MSGL_ERR,
+                        "Glyph 0x%X not found in font for (%s, %d, %d)",
+                        ch, font->desc.family, font->desc.bold,
+                        font->desc.italic);
             }
         }
     }
@@ -418,7 +422,8 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ass_font_t *font,
 
     error = FT_Load_Glyph(face, index, FT_LOAD_NO_BITMAP | flags);
     if (error) {
-        ass_msg(MSGL_WARN, "Error loading glyph, index %d", index);
+        ass_msg(font->library, MSGL_WARN, "Error loading glyph, index %d",
+                index);
         return 0;
     }
 #if (FREETYPE_MAJOR > 2) || \
@@ -432,7 +437,8 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ass_font_t *font,
 #endif
     error = FT_Get_Glyph(face->glyph, &glyph);
     if (error) {
-        ass_msg(MSGL_WARN, "Error loading glyph, index %d", index);
+        ass_msg(font->library, MSGL_WARN, "Error loading glyph, index %d",
+                index);
         return 0;
     }
 

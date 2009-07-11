@@ -139,8 +139,9 @@ static void drawing_finish(ass_drawing_t *drawing)
     for (i = 0; i < ol->n_points; i++)
         ol->points[i].y += offset;
 
-    ass_msg(MSGL_V, "Parsed drawing with %d points and %d contours",
-            ol->n_points, ol->n_contours);
+    ass_msg(drawing->library, MSGL_V,
+            "Parsed drawing with %d points and %d contours", ol->n_points,
+            ol->n_contours);
 }
 
 /*
@@ -364,6 +365,7 @@ ass_drawing_t *ass_drawing_new(void *fontconfig_priv, ass_font_t *font,
     drawing->size = DRAWING_INITIAL_SIZE;
 
     drawing->ftlibrary = lib;
+    drawing->library = font->library;
     drawing_make_glyph(drawing, fontconfig_priv, font, hint);
 
     drawing->scale_x = 1.;

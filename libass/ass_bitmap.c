@@ -165,7 +165,7 @@ static bitmap_t *copy_bitmap(const bitmap_t *src)
     return dst;
 }
 
-static int check_glyph_area(FT_Glyph glyph)
+static int check_glyph_area(ass_library_t *library, FT_Glyph glyph)
 {
     FT_BBox bbox;
     long long dx, dy;
@@ -173,14 +173,15 @@ static int check_glyph_area(FT_Glyph glyph)
     dx = bbox.xMax - bbox.xMin;
     dy = bbox.yMax - bbox.yMin;
     if (dx * dy > 8000000) {
-        ass_msg(MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
+        ass_msg(library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
                (int) dx, (int) dy);
         return 1;
     } else
         return 0;
 }
 
-static bitmap_t *glyph_to_bitmap_internal(FT_Glyph glyph, int bord)
+static bitmap_t *glyph_to_bitmap_internal(ass_library_t *library,
+                                          FT_Glyph glyph, int bord)
 {
     FT_BitmapGlyph bg;
     FT_Bitmap *bit;
@@ -191,11 +192,11 @@ static bitmap_t *glyph_to_bitmap_internal(FT_Glyph glyph, int bord)
     int i;
     int error;
 
-    if (check_glyph_area(glyph))
+    if (check_glyph_area(library, glyph))
         return 0;
     error = FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 0);
     if (error) {
-        ass_msg(MSGL_WARN, "FT_Glyph_To_Bitmap error %d",
+        ass_msg(library, MSGL_WARN, "FT_Glyph_To_Bitmap error %d",
                error);
         return 0;
     }
@@ -203,7 +204,7 @@ static bitmap_t *glyph_to_bitmap_internal(FT_Glyph glyph, int bord)
     bg = (FT_BitmapGlyph) glyph;
     bit = &(bg->bitmap);
     if (bit->pixel_mode != FT_PIXEL_MODE_GRAY) {
-        ass_msg(MSGL_WARN, "Unsupported pixel mode: %d",
+        ass_msg(library, MSGL_WARN, "Unsupported pixel mode: %d",
                (int) (bit->pixel_mode));
         FT_Done_Glyph(glyph);
         return 0;
@@ -471,7 +472,7 @@ static void be_blur(unsigned char *buf, int w, int h)
     }
 }
 
-int glyph_to_bitmap(ass_synth_priv_t *priv_blur,
+int glyph_to_bitmap(ass_library_t *library, ass_synth_priv_t *priv_blur,
                     FT_Glyph glyph, FT_Glyph outline_glyph,
                     bitmap_t **bm_g, bitmap_t **bm_o, bitmap_t **bm_s,
                     int be, double blur_radius, FT_Vector shadow_offset)
@@ -487,12 +488,12 @@ int glyph_to_bitmap(ass_synth_priv_t *priv_blur,
     *bm_g = *bm_o = *bm_s = 0;
 
     if (glyph)
-        *bm_g = glyph_to_bitmap_internal(glyph, bord);
+        *bm_g = glyph_to_bitmap_internal(library, glyph, bord);
     if (!*bm_g)
         return 1;
 
     if (outline_glyph) {
-        *bm_o = glyph_to_bitmap_internal(outline_glyph, bord);
+        *bm_o = glyph_to_bitmap_internal(library, outline_glyph, bord);
         if (!*bm_o) {
             ass_free_bitmap(*bm_g);
             return 1;

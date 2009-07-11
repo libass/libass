@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdexcept>
+#include <stdarg.h>
 
 extern "C" {
 #include <ass.h>
@@ -15,6 +16,15 @@ struct image_t {
 
 ass_library_t* ass_library;
 ass_renderer_t* ass_renderer;
+
+void msg_callback(int level, char *fmt, va_list *va)
+{
+    if (level > 6)
+        return;
+    printf("libass: ");
+    vprintf(fmt, *va);
+    printf("\n");
+}
 
 static void write_png(char *fname, image_t* img)
 {
@@ -71,6 +81,7 @@ static void init(int frame_w, int frame_h) {
   ass_set_fonts_dir(ass_library, "");
   ass_set_extract_fonts(ass_library, 0);
   ass_set_style_overrides(ass_library, NULL);
+  ass_set_message_cb(ass_library, msg_callback);
 
   ass_renderer = ass_renderer_init(ass_library);
   if (!ass_renderer) throw std::runtime_error("ass_renderer_init failed");

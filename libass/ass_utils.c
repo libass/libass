@@ -21,10 +21,13 @@
 #include "config.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <inttypes.h>
 #include <ft2build.h>
 #include FT_GLYPH_H
 
+#include "ass_library.h"
+#include "ass.h"
 #include "ass_utils.h"
 
 int mystrtoi(char **p, int *res)
@@ -71,7 +74,7 @@ int mystrtod(char **p, double *res)
         return 0;
 }
 
-int strtocolor(char **q, uint32_t *res)
+int strtocolor(ass_library_t *library, char **q, uint32_t *res)
 {
     uint32_t color = 0;
     int result;
@@ -80,7 +83,7 @@ int strtocolor(char **q, uint32_t *res)
     if (*p == '&')
         ++p;
     else
-        ass_msg(MSGL_DBG2, "suspicious color format: \"%s\"\n", p);
+        ass_msg(library, MSGL_DBG2, "suspicious color format: \"%s\"\n", p);
 
     if (*p == 'H' || *p == 'h') {
         ++p;
@@ -119,15 +122,11 @@ char parse_bool(char *str)
     return 0;
 }
 
-void ass_msg(int lvl, char *fmt, ...)
+void ass_msg(ass_library_t *priv, int lvl, char *fmt, ...)
 {
     va_list va;
-    if (lvl > MSGL_INFO)
-        return;
     va_start(va, fmt);
-    printf("[ass] ");
-    vprintf(fmt, va);
-    printf("\n");
+    priv->msg_callback(lvl, fmt, &va);
     va_end(va);
 }
 
@@ -162,8 +161,9 @@ unsigned ass_utf8_get_char(char **str)
 }
 
 #ifdef CONFIG_ENCA
-void *ass_guess_buffer_cp(unsigned char *buffer, int buflen,
-                      char *preferred_language, char *fallback)
+void *ass_guess_buffer_cp(ass_library_t *library, unsigned char *buffer,
+                          int buflen, char *preferred_language,
+                          char *fallback)
 {
     const char **languages;
     size_t langcnt;
@@ -173,11 +173,10 @@ void *ass_guess_buffer_cp(unsigned char *buffer, int buflen,
     int i;
 
     languages = enca_get_languages(&langcnt);
-    ass_msg(MSGL_V, "ENCA supported languages: ");
+    ass_msg(library, MSGL_V, "ENCA supported languages");
     for (i = 0; i < langcnt; i++) {
-        ass_msg(MSGL_V, "%s ", languages[i]);
+        ass_msg(library, MSGL_V, "lang %s", languages[i]);
     }
-    ass_msg(MSGL_V, "\n");
 
     for (i = 0; i < langcnt; i++) {
         const char *tmp;
@@ -189,7 +188,7 @@ void *ass_guess_buffer_cp(unsigned char *buffer, int buflen,
         tmp = enca_charset_name(encoding.charset, ENCA_NAME_STYLE_ICONV);
         if (tmp && encoding.charset != ENCA_CS_UNKNOWN) {
             detected_sub_cp = strdup(tmp);
-            ass_msg(MSGL_INFO, "ENCA detected charset: %s\n", tmp);
+            ass_msg(library, MSGL_INFO, "ENCA detected charset: %s", tmp);
         }
         enca_analyser_free(analyser);
     }
@@ -198,8 +197,8 @@ void *ass_guess_buffer_cp(unsigned char *buffer, int buflen,
 
     if (!detected_sub_cp) {
         detected_sub_cp = strdup(fallback);
-        ass_msg(MSGL_INFO,
-               "ENCA detection failed: fallback to %s\n", fallback);
+        ass_msg(library, MSGL_INFO,
+               "ENCA detection failed: fallback to %s", fallback);
     }
 
     return detected_sub_cp;

@@ -245,7 +245,7 @@ static void ass_lazy_track_init(ass_renderer_t *render_priv)
     if (track->PlayResX && track->PlayResY)
         return;
     if (!track->PlayResX && !track->PlayResY) {
-        ass_msg(MSGL_WARN,
+        ass_msg(render_priv->library, MSGL_WARN,
                "Neither PlayResX nor PlayResY defined. Assuming 384x288");
         track->PlayResX = 384;
         track->PlayResY = 288;
@@ -256,19 +256,19 @@ static void ass_lazy_track_init(ass_renderer_t *render_priv)
             render_priv->width;
         if (!track->PlayResY && track->PlayResX == 1280) {
             track->PlayResY = 1024;
-            ass_msg(MSGL_WARN,
+            ass_msg(render_priv->library, MSGL_WARN,
                    "PlayResY undefined, setting to %d", track->PlayResY);
         } else if (!track->PlayResY) {
             track->PlayResY = track->PlayResX / orig_aspect + .5;
-            ass_msg(MSGL_WARN,
+            ass_msg(render_priv->library, MSGL_WARN,
                    "PlayResY undefined, setting to %d", track->PlayResY);
         } else if (!track->PlayResX && track->PlayResY == 1024) {
             track->PlayResX = 1280;
-            ass_msg(MSGL_WARN,
+            ass_msg(render_priv->library, MSGL_WARN,
                    "PlayResX undefined, setting to %d", track->PlayResX);
         } else if (!track->PlayResX) {
             track->PlayResX = track->PlayResY * orig_aspect + .5;
-            ass_msg(MSGL_WARN,
+            ass_msg(render_priv->library, MSGL_WARN,
                    "PlayResX undefined, setting to %d", track->PlayResX);
         }
     }
@@ -283,14 +283,14 @@ ass_renderer_t *ass_renderer_init(ass_library_t *library)
 
     error = FT_Init_FreeType(&ft);
     if (error) {
-        ass_msg(MSGL_FATAL, "%s failed", "FT_Init_FreeType");
+        ass_msg(library, MSGL_FATAL, "%s failed", "FT_Init_FreeType");
         goto ass_init_exit;
     }
 
     FT_Library_Version(ft, &vmajor, &vminor, &vpatch);
-    ass_msg(MSGL_V, "FreeType library version: %d.%d.%d",
+    ass_msg(library, MSGL_V, "FreeType library version: %d.%d.%d",
            vmajor, vminor, vpatch);
-    ass_msg(MSGL_V, "FreeType headers version: %d.%d.%d",
+    ass_msg(library, MSGL_V, "FreeType headers version: %d.%d.%d",
            FREETYPE_MAJOR, FREETYPE_MINOR, FREETYPE_PATCH);
 
     priv = calloc(1, sizeof(ass_renderer_t));
@@ -305,10 +305,10 @@ ass_renderer_t *ass_renderer_init(ass_library_t *library)
     priv->ftlibrary = ft;
     // images_root and related stuff is zero-filled in calloc
 
-    priv->cache.font_cache = ass_font_cache_init();
-    priv->cache.bitmap_cache = ass_bitmap_cache_init();
-    priv->cache.composite_cache = ass_composite_cache_init();
-    priv->cache.glyph_cache = ass_glyph_cache_init();
+    priv->cache.font_cache = ass_font_cache_init(library);
+    priv->cache.bitmap_cache = ass_bitmap_cache_init(library);
+    priv->cache.composite_cache = ass_composite_cache_init(library);
+    priv->cache.glyph_cache = ass_glyph_cache_init(library);
 
     priv->text_info.max_glyphs = MAX_GLYPHS_INITIAL;
     priv->text_info.max_lines = MAX_LINES_INITIAL;
@@ -318,9 +318,9 @@ ass_renderer_t *ass_renderer_init(ass_library_t *library)
 
   ass_init_exit:
     if (priv)
-        ass_msg(MSGL_INFO, "Init");
+        ass_msg(library, MSGL_INFO, "Init");
     else
-        ass_msg(MSGL_ERR, "Init failed");
+        ass_msg(library, MSGL_ERR, "Init failed");
 
     return priv;
 }
@@ -527,22 +527,22 @@ static ass_image_t **render_glyph(ass_renderer_t *render_priv,
 
     tmp = dst_x - clip_x0;
     if (tmp < 0) {
-        ass_msg(MSGL_DBG2, "clip left");
+        ass_msg(render_priv->library, MSGL_DBG2, "clip left");
         b_x0 = -tmp;
     }
     tmp = dst_y - clip_y0;
     if (tmp < 0) {
-        ass_msg(MSGL_DBG2, "clip top");
+        ass_msg(render_priv->library, MSGL_DBG2, "clip top");
         b_y0 = -tmp;
     }
     tmp = clip_x1 - dst_x - bm->w;
     if (tmp < 0) {
-        ass_msg(MSGL_DBG2, "clip right");
+        ass_msg(render_priv->library, MSGL_DBG2, "clip right");
         b_x1 = bm->w + tmp;
     }
     tmp = clip_y1 - dst_y - bm->h;
     if (tmp < 0) {
-        ass_msg(MSGL_DBG2, "clip bottom");
+        ass_msg(render_priv->library, MSGL_DBG2, "clip bottom");
         b_y1 = bm->h + tmp;
     }
 
@@ -939,7 +939,8 @@ static void change_border(ass_renderer_t *render_priv, double border_x,
                                memory, &render_priv->state.stroker);
 #endif
             if (error) {
-                ass_msg(MSGL_V, "failed to get stroker");
+                ass_msg(render_priv->library, MSGL_V,
+                        "failed to get stroker");
                 render_priv->state.stroker = 0;
             }
         }
@@ -1172,14 +1173,14 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
             mystrtoll(&p, &t1);
             skip(',');
             mystrtoll(&p, &t2);
-            ass_msg(MSGL_DBG2,
+            ass_msg(render_priv->library, MSGL_DBG2,
                    "movement6: (%f, %f) -> (%f, %f), (%" PRId64 " .. %"
                    PRId64 ")\n", x1, y1, x2, y2, (int64_t) t1,
                    (int64_t) t2);
         } else {
             t1 = 0;
             t2 = render_priv->state.event->Duration;
-            ass_msg(MSGL_DBG2,
+            ass_msg(render_priv->library, MSGL_DBG2,
                    "movement: (%f, %f) -> (%f, %f)", x1, y1, x2, y2);
         }
         skip(')');
@@ -1241,7 +1242,7 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
     } else if (mystrcmp(&p, "alpha")) {
         uint32_t val;
         int i;
-        if (strtocolor(&p, &val)) {
+        if (strtocolor(render_priv->library, &p, &val)) {
             unsigned char a = val >> 24;
             for (i = 0; i < 4; ++i)
                 change_alpha(&render_priv->state.c[i], a, pwr);
@@ -1260,12 +1261,12 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
         int val;
         if (mystrtoi(&p, &val) && val) {
             int v = (val - 1) / 3;      // 0, 1 or 2 for vertical alignment
-            ass_msg(MSGL_DBG2, "an %d", val);
+            ass_msg(render_priv->library, MSGL_DBG2, "an %d", val);
             if (v != 0)
                 v = 3 - v;
             val = ((val - 1) % 3) + 1;  // horizontal alignment
             val += v * 4;
-            ass_msg(MSGL_DBG2, "align %d", val);
+            ass_msg(render_priv->library, MSGL_DBG2, "align %d", val);
             render_priv->state.alignment = val;
         } else
             render_priv->state.alignment =
@@ -1284,9 +1285,9 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
         skip(',');
         mystrtod(&p, &v2);
         skip(')');
-        ass_msg(MSGL_DBG2, "pos(%f, %f)", v1, v2);
+        ass_msg(render_priv->library, MSGL_DBG2, "pos(%f, %f)", v1, v2);
         if (render_priv->state.evt_type == EVENT_POSITIONED) {
-            ass_msg(MSGL_V, "Subtitle has a new \\pos "
+            ass_msg(render_priv->library, MSGL_V, "Subtitle has a new \\pos "
                    "after \\move or \\pos, ignoring");
         } else {
             render_priv->state.evt_type = EVENT_POSITIONED;
@@ -1339,7 +1340,7 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
         skip(',');
         mystrtoi(&p, &v2);
         skip(')');
-        ass_msg(MSGL_DBG2, "org(%d, %d)", v1, v2);
+        ass_msg(render_priv->library, MSGL_DBG2, "org(%d, %d)", v1, v2);
         if (!render_priv->state.have_origin) {
             render_priv->state.org_x = v1;
             render_priv->state.org_y = v2;
@@ -1425,9 +1426,9 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
         }
     } else if (mystrcmp(&p, "c")) {
         uint32_t val;
-        if (!strtocolor(&p, &val))
+        if (!strtocolor(render_priv->library, &p, &val))
             val = render_priv->state.style->PrimaryColour;
-        ass_msg(MSGL_DBG2, "color: %X", val);
+        ass_msg(render_priv->library, MSGL_DBG2, "color: %X", val);
         change_color(&render_priv->state.c[0], val, pwr);
     } else if ((*p >= '1') && (*p <= '4') && (++p)
                && (mystrcmp(&p, "c") || mystrcmp(&p, "a"))) {
@@ -1436,7 +1437,7 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
         char cmd = *(p - 1);
         uint32_t val;
         assert((n >= '1') && (n <= '4'));
-        if (!strtocolor(&p, &val))
+        if (!strtocolor(render_priv->library, &p, &val))
             switch (n) {
             case '1':
                 val = render_priv->state.style->PrimaryColour;
@@ -1462,10 +1463,11 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
             change_alpha(render_priv->state.c + cidx, val >> 24, pwr);
             break;
         default:
-            ass_msg(MSGL_WARN, "Bad command: %c%c", n, cmd);
+            ass_msg(render_priv->library, MSGL_WARN, "Bad command: %c%c",
+                    n, cmd);
             break;
         }
-        ass_msg(MSGL_DBG2, "single c/a at %f: %c%c = %X",
+        ass_msg(render_priv->library, MSGL_DBG2, "single c/a at %f: %c%c = %X",
                pwr, n, cmd, render_priv->state.c[cidx]);
     } else if (mystrcmp(&p, "r")) {
         reset_render_context(render_priv);
@@ -1579,7 +1581,8 @@ static unsigned get_next_char(ass_renderer_t *render_priv, char **str)
                 } else
                     break;
             } else if (*p != '\\')
-                ass_msg(MSGL_V, "Unable to parse: '%s'", p);
+                ass_msg(render_priv->library, MSGL_V,
+                        "Unable to parse: '%s'", p);
             if (*p == 0)
                 break;
         }
@@ -1625,8 +1628,8 @@ apply_transition_effects(ass_renderer_t *render_priv, ass_event_t *event)
     if (strncmp(event->Effect, "Banner;", 7) == 0) {
         int delay;
         if (cnt < 1) {
-            ass_msg(MSGL_V, "Error parsing effect: '%s'",
-                   event->Effect);
+            ass_msg(render_priv->library, MSGL_V,
+                    "Error parsing effect: '%s'", event->Effect);
             return;
         }
         if (cnt >= 2 && v[1] == 0)      // right-to-left
@@ -1648,8 +1651,8 @@ apply_transition_effects(ass_renderer_t *render_priv, ass_event_t *event)
     } else if (strncmp(event->Effect, "Scroll down;", 12) == 0) {
         render_priv->state.scroll_direction = SCROLL_TB;
     } else {
-        ass_msg(MSGL_V, "Unknown transition effect: '%s'",
-               event->Effect);
+        ass_msg(render_priv->library, MSGL_V,
+                "Unknown transition effect: '%s'", event->Effect);
         return;
     }
     // parse scroll up/down parameters
@@ -1657,8 +1660,8 @@ apply_transition_effects(ass_renderer_t *render_priv, ass_event_t *event)
         int delay;
         int y0, y1;
         if (cnt < 3) {
-            ass_msg(MSGL_V, "Error parsing effect: '%s'",
-                   event->Effect);
+            ass_msg(render_priv->library, MSGL_V,
+                    "Error parsing effect: '%s'", event->Effect);
             return;
         }
         delay = v[2];
@@ -1864,7 +1867,8 @@ static void stroke_outline_glyph(ass_renderer_t *render_priv,
         error = FT_Glyph_StrokeBorder((FT_Glyph *) glyph,
                                       render_priv->state.stroker, 0, 1);
         if (error)
-            ass_msg(MSGL_WARN, "FT_Glyph_Stroke error: %d", error);
+            ass_msg(render_priv->library, MSGL_WARN,
+                    "FT_Glyph_Stroke error: %d", error);
 
     // "Stroke" with the outline emboldener in two passes.
     // The outlines look uglier, but the emboldening never adds any points
@@ -2036,7 +2040,8 @@ get_bitmap_glyph(ass_renderer_t *render_priv, glyph_info_t *info)
                     -info->hash_key.advance.y);
 
             // render glyph
-            error = glyph_to_bitmap(render_priv->synth_priv,
+            error = glyph_to_bitmap(render_priv->library,
+                                    render_priv->synth_priv,
                                     info->glyph, info->outline_glyph,
                                     &info->bm, &info->bm_o,
                                     &info->bm_s, info->be,
@@ -2133,8 +2138,8 @@ wrap_lines_smart(ass_renderer_t *render_priv, double max_text_width)
         if (cur->symbol == '\n') {
             break_type = 2;
             break_at = i;
-            ass_msg(MSGL_DBG2, "forced line break at %d",
-                   break_at);
+            ass_msg(render_priv->library, MSGL_DBG2,
+                    "forced line break at %d", break_at);
         }
 
         if ((len >= max_text_width)
@@ -2145,8 +2150,9 @@ wrap_lines_smart(ass_renderer_t *render_priv, double max_text_width)
                 break_at = i - 1;
             if (break_at == -1)
                 break_at = 0;
-            ass_msg(MSGL_DBG2, "overfill at %d", i);
-            ass_msg(MSGL_DBG2, "line break at %d", break_at);
+            ass_msg(render_priv->library, MSGL_DBG2, "overfill at %d", i);
+            ass_msg(render_priv->library, MSGL_DBG2, "line break at %d",
+                    break_at);
         }
 
         if (break_at != -1) {
@@ -2245,7 +2251,7 @@ wrap_lines_smart(ass_renderer_t *render_priv, double max_text_width)
             cur_line++;
             pen_shift_x = d6_to_double(-cur->pos.x);
             pen_shift_y += height + render_priv->settings.line_spacing;
-            ass_msg(MSGL_DBG2,
+            ass_msg(render_priv->library, MSGL_DBG2,
                    "shifting from %d to %d by (%f, %f)", i,
                    text_info->length - 1, pen_shift_x, pen_shift_y);
         }
@@ -2310,7 +2316,8 @@ static void process_karaoke_effects(ass_renderer_t *render_priv)
                     dt /= (tm_end - tm_start);
                     x = x_start + (x_end - x_start) * dt;
                 } else {
-                    ass_msg(MSGL_ERR, "Unknown effect type");
+                    ass_msg(render_priv->library, MSGL_ERR,
+                            "Unknown effect type");
                     continue;
                 }
 
@@ -2463,11 +2470,11 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
     ass_drawing_t *drawing;
 
     if (event->Style >= render_priv->track->n_styles) {
-        ass_msg(MSGL_WARN, "No style found");
+        ass_msg(render_priv->library, MSGL_WARN, "No style found");
         return 1;
     }
     if (!event->Text) {
-        ass_msg(MSGL_WARN, "Empty event");
+        ass_msg(render_priv->library, MSGL_WARN, "Empty event");
         return 1;
     }
 
@@ -2767,7 +2774,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         } else {                // subtitle
             double scr_y;
             if (valign != VALIGN_SUB)
-                ass_msg(MSGL_V,
+                ass_msg(render_priv->library, MSGL_V,
                        "Invalid valign, supposing 0 (subtitle)");
             scr_y =
                 y2scr_sub(render_priv,
@@ -2793,7 +2800,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
     if (render_priv->state.evt_type == EVENT_POSITIONED) {
         double base_x = 0;
         double base_y = 0;
-        ass_msg(MSGL_DBG2, "positioned event at %f, %f",
+        ass_msg(render_priv->library, MSGL_DBG2, "positioned event at %f, %f",
                render_priv->state.pos_x, render_priv->state.pos_y);
         get_base_point(&bbox, alignment, &base_x, &base_y);
         device_x =
@@ -3174,7 +3181,8 @@ fix_collisions(ass_renderer_t *render_priv, event_images_t *imgs, int cnt)
             s.a = priv->top;
             s.b = priv->top + priv->height;
             if (priv->height != imgs[i].height) {       // no, it's not
-                ass_msg(MSGL_WARN, "Warning! Event height has changed");
+                ass_msg(render_priv->library, MSGL_WARN,
+                        "Warning! Event height has changed");
                 priv->top = 0;
                 priv->height = 0;
             }
