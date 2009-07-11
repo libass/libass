@@ -1,5 +1,5 @@
 AC_PREREQ(2.60a)
-AC_INIT(libass, 0.9.6)
+AC_INIT(libass, 0.9.7)
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([shave])
 # Disable C++/Fortran checks

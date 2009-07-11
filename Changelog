@@ -1,3 +1,21 @@
+libass (0.9.7)
+ * Build system fixes
+ * Fixed cache lookup and overload problems
+ * All globals have been eliminated, libass is reentrant
+ * Dynamically allocate glyph and line buffers
+ * Fix up stroker for big border sizes
+ * Support empty lines (\N\N)
+ * Support for the following override tags:
+   \fax, \fay, \xshad, \yshad, \ybord, \xbord, \iclip, \u, \s, \p, \pbo
+ * Full subpixel accuracy for positioning
+ * PAR correction
+ * Rotation viewer distance correction
+ * Drawing mode (not for \clip yet)
+ * Fixed a few memory leaks
+ * Removed MPlayer compatibility code
+ * Introduced message handling callback
+ * Lots of bugfixes
+
 LibASS (0.9.6)
  * Various fixes and updates to match VSFilter renderer.
  * Support \blur tag and ScaledBordersAndShadow property.
