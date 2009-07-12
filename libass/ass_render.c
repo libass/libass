@@ -3015,6 +3015,9 @@ static int
 ass_start_frame(ass_renderer_t *render_priv, ass_track_t *track,
                 long long now)
 {
+    if (render_priv->library != track->library)
+        return 1;
+
     ass_settings_t *settings_priv = &render_priv->settings;
 
     if (!render_priv->settings.frame_width
