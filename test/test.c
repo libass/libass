@@ -12,7 +12,7 @@ typedef struct image_s {
 ass_library_t *ass_library;
 ass_renderer_t *ass_renderer;
 
-void msg_callback(int level, char *fmt, va_list * va)
+void msg_callback(int level, char *fmt, va_list * va, void *data)
 {
     if (level > 6)
         return;
@@ -81,7 +81,7 @@ static void init(int frame_w, int frame_h)
     ass_set_fonts_dir(ass_library, "");
     ass_set_extract_fonts(ass_library, 0);
     ass_set_style_overrides(ass_library, NULL);
-    ass_set_message_cb(ass_library, msg_callback);
+    ass_set_message_cb(ass_library, msg_callback, NULL);
 
     ass_renderer = ass_renderer_init(ass_library);
     if (!ass_renderer) {

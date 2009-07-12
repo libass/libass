@@ -71,7 +71,8 @@ void ass_set_style_overrides(ass_library_t *priv, char **list);
 void ass_process_force_style(ass_track_t *track);
 
 void ass_set_message_cb(ass_library_t *priv,
-                        void (*msg_cb)(int, char *, va_list *));
+                        void (*msg_cb)(int, char *, va_list *, void *),
+                        void *data);
 
 /**
  * \brief initialize the renderer
