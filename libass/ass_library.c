@@ -32,9 +32,9 @@ static void ass_msg_handler(int level, char *fmt, va_list *va, void *data)
 {
     if (level > MSGL_INFO)
         return;
-    printf("[ass] "); 
-    vprintf(fmt, *va);
-    printf("\n");
+    fprintf(stderr, "[ass] ");
+    vfprintf(stderr, fmt, *va);
+    fprintf(stderr, "\n");
 }
 
 ass_library_t *ass_library_init(void)
