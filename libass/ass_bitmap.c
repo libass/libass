@@ -477,9 +477,10 @@ int glyph_to_bitmap(ass_library_t *library, ass_synth_priv_t *priv_blur,
                     bitmap_t **bm_g, bitmap_t **bm_o, bitmap_t **bm_s,
                     int be, double blur_radius, FT_Vector shadow_offset)
 {
-    int bord = be ? (be / 8 + 1) : 0;
     blur_radius *= 2;
-    bord = (blur_radius > 0.0) ? blur_radius + 1 : bord;
+    int bbord = be > 0 ? sqrt(2 * be) : 0;
+    int gbord = blur_radius > 0.0 ? blur_radius + 1 : 0;
+    int bord = FFMAX(bbord, gbord);
     if (bord == 0 && (shadow_offset.x || shadow_offset.y))
         bord = 1;
 
@@ -500,31 +501,33 @@ int glyph_to_bitmap(ass_library_t *library, ass_synth_priv_t *priv_blur,
         }
     }
 
-    if (be) {
-        while (be--) {
-            if (*bm_o)
-                be_blur((*bm_o)->buffer, (*bm_o)->w, (*bm_o)->h);
-            else
-                be_blur((*bm_g)->buffer, (*bm_g)->w, (*bm_g)->h);
-        }
-    } else {
-        if (blur_radius > 0.0) {
-            if (*bm_o)
-                resize_tmp(priv_blur, (*bm_o)->w, (*bm_o)->h);
-            resize_tmp(priv_blur, (*bm_g)->w, (*bm_g)->h);
-            generate_tables(priv_blur, blur_radius);
-            if (*bm_o)
-                ass_gauss_blur((*bm_o)->buffer, priv_blur->tmp,
-                               (*bm_o)->w, (*bm_o)->h, (*bm_o)->w,
-                               (int *) priv_blur->gt2, priv_blur->g_r,
-                               priv_blur->g_w);
-            else
-                ass_gauss_blur((*bm_g)->buffer, priv_blur->tmp,
-                               (*bm_g)->w, (*bm_g)->h, (*bm_g)->w,
-                               (int *) priv_blur->gt2, priv_blur->g_r,
-                               priv_blur->g_w);
-        }
+    // Apply box blur (multiple passes, if requested)
+    while (be--) {
+        if (*bm_o)
+            be_blur((*bm_o)->buffer, (*bm_o)->w, (*bm_o)->h);
+        else
+            be_blur((*bm_g)->buffer, (*bm_g)->w, (*bm_g)->h);
     }
+
+    // Apply gaussian blur
+    if (blur_radius > 0.0) {
+        if (*bm_o)
+            resize_tmp(priv_blur, (*bm_o)->w, (*bm_o)->h);
+        else
+            resize_tmp(priv_blur, (*bm_g)->w, (*bm_g)->h);
+        generate_tables(priv_blur, blur_radius);
+        if (*bm_o)
+            ass_gauss_blur((*bm_o)->buffer, priv_blur->tmp,
+                           (*bm_o)->w, (*bm_o)->h, (*bm_o)->w,
+                           (int *) priv_blur->gt2, priv_blur->g_r,
+                           priv_blur->g_w);
+        else
+            ass_gauss_blur((*bm_g)->buffer, priv_blur->tmp,
+                           (*bm_g)->w, (*bm_g)->h, (*bm_g)->w,
+                           (int *) priv_blur->gt2, priv_blur->g_r,
+                           priv_blur->g_w);
+    }
+
     if (*bm_o)
         *bm_s = fix_outline_and_shadow(*bm_g, *bm_o);
     else
