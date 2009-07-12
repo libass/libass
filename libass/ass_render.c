@@ -2079,15 +2079,22 @@ static void measure_text(ass_renderer_t *render_priv)
     int cur_line = 0;
     double max_asc = 0., max_desc = 0.;
     int i;
+    int empty_line = 1;
     text_info->height = 0.;
     for (i = 0; i < text_info->length + 1; ++i) {
         if ((i == text_info->length) || text_info->glyphs[i].linebreak) {
+            if (empty_line && cur_line > 0) {
+                max_asc = text_info->lines[cur_line - 1].asc / 2.0;
+                max_desc = text_info->lines[cur_line - 1].desc / 2.0;
+            }
             text_info->lines[cur_line].asc = max_asc;
             text_info->lines[cur_line].desc = max_desc;
             text_info->height += max_asc + max_desc;
             cur_line++;
             max_asc = max_desc = 0.;
-        }
+            empty_line = 1;
+        } else
+            empty_line = 0;
         if (i < text_info->length) {
             glyph_info_t *cur = text_info->glyphs + i;
             if (d6_to_double(cur->asc) > max_asc)
@@ -2517,14 +2524,6 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
 
         if (code == 0)
             break;
-
-        // Insert space between two forced breaks to create empty lines
-        // FIXME: should probably be done in wrap_lines_smart,
-        // this is a hack
-        if (previous == '\n' && code == '\n') {
-            code = ' ';
-            p -= 2;
-        }
 
         if (text_info->length >= text_info->max_glyphs) {
             // Raise maximum number of glyphs
