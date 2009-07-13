@@ -1,4 +1,3 @@
-AC_PREREQ(2.60a)
 AC_INIT(libass, 0.9.7)
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([shave])
@@ -14,12 +13,24 @@ AC_PROG_CC
 AC_PROG_CPP
 AM_PROG_CC_C_O
 
-# Checks for libraries.
-AC_SEARCH_LIBS([iconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))
-
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([inttypes.h stdint.h stdlib.h string.h sys/time.h unistd.h iconv.h enca.h])
+AC_HEADER_STDBOOL
+AC_CHECK_HEADERS([inttypes.h stdint.h stdlib.h string.h sys/time.h unistd.h iconv.h])
+
+# Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_C_INLINE
+AC_TYPE_INT64_T
+AC_TYPE_SIZE_T
+AC_TYPE_UINT32_T
+AC_TYPE_UINT8_T
+
+# Checks for library functions.
+AC_CHECK_FUNCS([mkdir strcasecmp strdup strtol])
+
+# Checks for libraries.
+AC_SEARCH_LIBS([iconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))
 
 # Check for libraries via pkg-config
 PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.2.0, [
@@ -38,32 +49,16 @@ PKG_CHECK_MODULES([ENCA], enca, [
     CFLAGS="$CFLAGS $ENCA_CFLAGS"
     LIBS="$LIBS $ENCA_LIBS"
     AC_DEFINE(CONFIG_ENCA, 1, [found enca via pkg-config])
-	])
+	], [true])
 
 PKG_CHECK_MODULES([LIBPNG], libpng >= 1.2.0, [
     CFLAGS="$CFLAGS $LIBPNG_CFLAGS"
     LIBS="$LIBS $LIBPNG_LIBS"
     AC_DEFINE(CONFIG_LIBPNG, 1, [found libpng via pkg-config])
-	])
+    libpng=true
+	], [libpng=false])
 
-# Checks for typedefs, structures, and compiler characteristics.
-AC_HEADER_STDBOOL
-AC_C_CONST
-AC_C_INLINE
-AC_TYPE_INT64_T
-AC_TYPE_SIZE_T
-AC_STRUCT_TM
-AC_TYPE_UINT32_T
-AC_TYPE_UINT8_T
-
-# Checks for library functions.
-AC_FUNC_MALLOC
-AC_FUNC_MEMCMP
-AC_FUNC_REALLOC
-AC_FUNC_STAT
-AC_FUNC_STRTOD
-AC_FUNC_VPRINTF
-AC_CHECK_FUNCS([memset mkdir strcasecmp strchr strdup strerror strstr strtol])
+AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
 
 # Setup output beautifier.
 SHAVE_INIT([shave], [enable])
