@@ -335,6 +335,20 @@ ass_renderer_t *ass_renderer_init(ass_library_t *library)
     return priv;
 }
 
+static void free_list_clear(ass_renderer_t *render_priv)
+{
+    if (render_priv->free_head) {
+        free_list_t *item = render_priv->free_head;
+        while(item) {
+            free_list_t *oi = item;
+            free(item->object);
+            item = item->next;
+            free(oi);
+        }
+        render_priv->free_head = NULL;
+    }
+}
+
 void ass_renderer_done(ass_renderer_t *render_priv)
 {
     ass_font_cache_done(render_priv->cache.font_cache);
@@ -359,6 +373,8 @@ void ass_renderer_done(ass_renderer_t *render_priv)
 
     free(render_priv->settings.default_font);
     free(render_priv->settings.default_family);
+
+    free_list_clear(render_priv);
 }
 
 /**
@@ -3203,17 +3219,7 @@ ass_start_frame(ass_renderer_t *render_priv, ass_track_t *track,
     if (render_priv->library != track->library)
         return 1;
 
-    // Clear the list of object to be freed.
-    if (render_priv->free_head) {
-        free_list_t *item = render_priv->free_head;
-        while(item) {
-            free_list_t *oi = item;
-            free(item->object);
-            item = item->next;
-            free(oi);
-        }
-        render_priv->free_head = NULL;
-    }
+    free_list_clear(render_priv);
 
     ass_settings_t *settings_priv = &render_priv->settings;
 
