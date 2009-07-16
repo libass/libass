@@ -3,17 +3,17 @@ libass (0.9.7)
  * Fixed cache lookup and overload problems
  * All globals have been eliminated, libass is reentrant
  * Dynamically allocate glyph and line buffers
- * Fix up stroker for big border sizes
+ * Fix up stroking of big borders
  * Support empty lines (\N\N)
  * Support for the following override tags:
    \fax, \fay, \xshad, \yshad, \ybord, \xbord, \iclip, \u, \s, \p, \pbo
  * Full subpixel accuracy for positioning
- * PAR correction
- * Rotation viewer distance correction
- * Drawing mode (not for \clip yet)
+ * PAR and rotation correction for EOSD rendering
+ * Drawing mode (including vector \clip and \iclip)
  * Fixed a few memory leaks
  * Removed MPlayer compatibility code
  * Introduced message handling callback
+ * Various fixes to match VSFilter quirks and Windows font metrics
  * Lots of bugfixes
 
 LibASS (0.9.6)
