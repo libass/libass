@@ -93,7 +93,7 @@ static void init(int frame_w, int frame_h)
     ass_set_margins(ass_renderer, 0, 0, 0, 0);
     ass_set_use_margins(ass_renderer, 0);
     ass_set_font_scale(ass_renderer, 1.);
-    ass_set_fonts(ass_renderer, NULL, "Sans", 1, NULL);
+    ass_set_fonts(ass_renderer, NULL, "Sans", 1, NULL, 1);
 }
 
 static image_t *gen_image(int width, int height)

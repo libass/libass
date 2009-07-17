@@ -100,9 +100,16 @@ void ass_set_line_spacing(ass_renderer_t *priv, double line_spacing);
  * \param fc bool, use fontconfig?
  * \param config path to fontconfig configuration file, or NULL. Only matters
  * if fontconfig is used
+ * \param update whether fontconfig cache should be built/updated now. Make
+ * sure to call ass_fonts_update later if 0! Only matters if fontconfig
+ * is used.
+ * \return success
  */
-int ass_set_fonts(ass_renderer_t *priv, const char *default_font,
-                  const char *default_family, int fc, const char *config);
+void ass_set_fonts(ass_renderer_t *priv, const char *default_font,
+                   const char *default_family, int fc, const char *config,
+                   int update);
+
+int ass_fonts_update(ass_renderer_t *priv);
 
 /**
  * \brief render a frame, producing a list of ass_image_t

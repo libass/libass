@@ -31,3 +31,4 @@ ass_clear_fonts
 ass_step_sub
 ass_process_force_style
 ass_set_message_cb
+ass_fonts_update
