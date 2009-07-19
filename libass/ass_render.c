@@ -2974,7 +2974,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         } else if (valign == VALIGN_CENTER) {   // midtitle
             double scr_y =
                 y2scr(render_priv, render_priv->track->PlayResY / 2.0);
-            device_y = scr_y - (bbox.yMax - bbox.yMin) / 2.0;
+            device_y = scr_y - (bbox.yMax + bbox.yMin) / 2.0;
         } else {                // subtitle
             double scr_y;
             if (valign != VALIGN_SUB)
