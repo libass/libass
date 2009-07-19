@@ -2280,14 +2280,15 @@ static void measure_text(ass_renderer_t *render_priv)
     text_info_t *text_info = &render_priv->text_info;
     int cur_line = 0;
     double max_asc = 0., max_desc = 0.;
+    glyph_info_t *last = NULL;
     int i;
     int empty_line = 1;
     text_info->height = 0.;
     for (i = 0; i < text_info->length + 1; ++i) {
         if ((i == text_info->length) || text_info->glyphs[i].linebreak) {
-            if (empty_line && cur_line > 0) {
-                max_asc = text_info->lines[cur_line - 1].asc / 2.0;
-                max_desc = text_info->lines[cur_line - 1].desc / 2.0;
+            if (empty_line && cur_line > 0 && last && i < text_info->length) {
+                max_asc = d6_to_double(last->asc) / 2.0;
+                max_desc = d6_to_double(last->desc) / 2.0;
             }
             text_info->lines[cur_line].asc = max_asc;
             text_info->lines[cur_line].desc = max_desc;
@@ -2303,6 +2304,8 @@ static void measure_text(ass_renderer_t *render_priv)
                 max_asc = d6_to_double(cur->asc);
             if (d6_to_double(cur->desc) > max_desc)
                 max_desc = d6_to_double(cur->desc);
+            if (cur->symbol != '\n' && cur->symbol != 0)
+                last = cur;
         }
     }
     text_info->height +=
@@ -2921,7 +2924,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
                     last_glyph--;
 
                 width = d6_to_double(
-                    last_glyph->pos.x + last_glyph->advance.x - 
+                    last_glyph->pos.x + last_glyph->advance.x -
                     first_glyph->pos.x);
                 if (halign == HALIGN_LEFT) {    // left aligned, no action
                     shift = 0;
@@ -3079,7 +3082,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         g->hash_key.advance.x =
             double_to_d6(device_x - (int) device_x +
             d6_to_double(g->pos.x & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
-        g->hash_key.advance.y = 
+        g->hash_key.advance.y =
             double_to_d6(device_y - (int) device_y +
             d6_to_double(g->pos.y & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
         get_bitmap_glyph(render_priv, text_info->glyphs + i);
