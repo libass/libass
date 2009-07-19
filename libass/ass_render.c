@@ -817,7 +817,6 @@ static void blend_vector_clip(ass_renderer_t *render_priv,
     }
 
     // Free clip vector and its bitmap, we don't need it anymore
-    FT_Done_Glyph((FT_Glyph) drawing->glyph);
     FT_Done_Glyph(glyph);
     ass_drawing_free(render_priv->state.clip_drawing);
     render_priv->state.clip_drawing = 0;

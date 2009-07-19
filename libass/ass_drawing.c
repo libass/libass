@@ -384,6 +384,7 @@ ass_drawing_t *ass_drawing_new(void *fontconfig_priv, ass_font_t *font,
  */
 void ass_drawing_free(ass_drawing_t* drawing)
 {
+    FT_Done_Glyph((FT_Glyph) drawing->glyph);
     free(drawing->text);
     free(drawing);
 }
@@ -481,5 +482,3 @@ FT_OutlineGlyph *ass_drawing_parse(ass_drawing_t *drawing, int raw_mode)
     drawing_free_tokens(drawing->tokens);
     return &drawing->glyph;
 }
-
-
