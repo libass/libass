@@ -2071,7 +2071,7 @@ static void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x,
 static void stroke_outline_glyph(ass_renderer_t *render_priv,
                                  FT_OutlineGlyph *glyph, int sx, int sy)
 {
-    if (sx <= 0 || sy <= 0)
+    if (sx <= 0 && sy <= 0)
         return;
 
     fix_freetype_stroker(*glyph, sx, sy);
