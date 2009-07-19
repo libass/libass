@@ -316,7 +316,7 @@ static int ass_strike_outline_glyph(FT_Face face, ass_font_t *font,
     y_scale = face->size->metrics.y_scale;
 
     // Add points to the outline
-    if (under) {
+    if (under && ps) {
         int pos, size;
         pos = FT_MulFix(ps->underlinePosition, y_scale * font->scale_y);
         size = FT_MulFix(ps->underlineThickness,
@@ -339,7 +339,7 @@ static int ass_strike_outline_glyph(FT_Face face, ass_font_t *font,
         ol->contours[ol->n_contours++] = ol->n_points - 1;
     }
 
-    if (through) {
+    if (through && os2) {
         int pos, size;
         pos = FT_MulFix(os2->yStrikeoutPosition, y_scale * font->scale_y);
         size = FT_MulFix(os2->yStrikeoutSize, y_scale * font->scale_y / 2);
