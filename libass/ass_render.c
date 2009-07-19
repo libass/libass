@@ -44,6 +44,8 @@
 #define MAX_BE 127
 #define SUBPIXEL_MASK 63
 #define SUBPIXEL_ACCURACY 7    // d6 mask for subpixel accuracy adjustment
+#define GLYPH_CACHE_MAX 1000
+#define BITMAP_CACHE_MAX_SIZE 50 * 1048576;
 
 static int last_render_id = 0;
 
@@ -206,6 +208,8 @@ typedef struct cache_store_s {
     hashmap_t *glyph_cache;
     hashmap_t *bitmap_cache;
     hashmap_t *composite_cache;
+    size_t glyph_max;
+    size_t bitmap_max_size;
 } cache_store_t;
 
 struct ass_renderer_s {
@@ -319,6 +323,8 @@ ass_renderer_t *ass_renderer_init(ass_library_t *library)
     priv->cache.bitmap_cache = ass_bitmap_cache_init(library);
     priv->cache.composite_cache = ass_composite_cache_init(library);
     priv->cache.glyph_cache = ass_glyph_cache_init(library);
+    priv->cache.glyph_max = GLYPH_CACHE_MAX;
+    priv->cache.bitmap_max_size = BITMAP_CACHE_MAX_SIZE;
 
     priv->text_info.max_glyphs = MAX_GLYPHS_INITIAL;
     priv->text_info.max_lines = MAX_LINES_INITIAL;
@@ -333,6 +339,14 @@ ass_renderer_t *ass_renderer_init(ass_library_t *library)
         ass_msg(library, MSGL_ERR, "Init failed");
 
     return priv;
+}
+
+void ass_set_cache_limits(ass_renderer_t *render_priv, int glyph_max,
+                          int bitmap_max)
+{
+    render_priv->cache.glyph_max = glyph_max ? glyph_max : GLYPH_CACHE_MAX;
+    render_priv->cache.bitmap_max_size = bitmap_max ? 1048576 * bitmap_max :
+                                         BITMAP_CACHE_MAX_SIZE;
 }
 
 static void free_list_clear(ass_renderer_t *render_priv)
@@ -2873,6 +2887,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         }
     }
 
+
     if (text_info->length == 0) {
         // no valid symbols in the event; this can be smth like {comment}
         free_render_context(render_priv);
@@ -3223,16 +3238,17 @@ static int
 ass_start_frame(ass_renderer_t *render_priv, ass_track_t *track,
                 long long now)
 {
-    if (render_priv->library != track->library)
-        return 1;
-
-    free_list_clear(render_priv);
-
     ass_settings_t *settings_priv = &render_priv->settings;
+    cache_store_t *cache = &render_priv->cache;
 
     if (!render_priv->settings.frame_width
         && !render_priv->settings.frame_height)
         return 1;               // library not initialized
+
+    if (render_priv->library != track->library)
+        return 1;
+
+    free_list_clear(render_priv);
 
     if (track->n_events == 0)
         return 1;               // nothing to do
@@ -3273,6 +3289,24 @@ ass_start_frame(ass_renderer_t *render_priv, ass_track_t *track,
 
     render_priv->prev_images_root = render_priv->images_root;
     render_priv->images_root = 0;
+
+    if (cache->bitmap_cache->cache_size > cache->bitmap_max_size) {
+        ass_msg(render_priv->library, MSGL_V,
+                "Hitting hard bitmap cache limit (was: %ld bytes), "
+                "resetting.", (long) cache->bitmap_cache->cache_size);
+        cache->bitmap_cache = ass_bitmap_cache_reset(cache->bitmap_cache);
+        cache->composite_cache = ass_composite_cache_reset(
+            cache->composite_cache);
+        ass_free_images(render_priv->prev_images_root);
+        render_priv->prev_images_root = 0;
+    }
+
+    if (cache->glyph_cache->count > cache->glyph_max) {
+        ass_msg(render_priv->library, MSGL_V,
+            "Hitting hard glyph cache limit (was: %ld glyphs), resetting.",
+            (long) cache->glyph_cache->count);
+        cache->glyph_cache = ass_glyph_cache_reset(cache->glyph_cache);
+    }
 
     return 0;
 }

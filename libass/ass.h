@@ -202,6 +202,17 @@ void ass_set_fonts(ass_renderer_t *priv, const char *default_font,
 int ass_fonts_update(ass_renderer_t *priv);
 
 /**
+ * \brief Set hard cache limits.  Do not set, or set to zero, for reasonable
+ * defaults.
+ *
+ * \param priv renderer handle
+ * \param glyph_max maximum number of cached glyphs
+ * \param bitmap_max_size maximum bitmap cache size (in MB)
+ */
+void ass_set_cache_limits(ass_renderer_t *priv, int glyph_max,
+                          int bitmap_max_size);
+
+/**
  * \brief Render a frame, producing a list of ass_image_t.
  * \param priv renderer handle
  * \param track subtitle track
