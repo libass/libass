@@ -46,8 +46,8 @@ static void charmap_magic(ass_library_t *library, FT_Face face)
         FT_CharMap cmap = face->charmaps[i];
         unsigned pid = cmap->platform_id;
         unsigned eid = cmap->encoding_id;
-        if (pid == 3 /*microsoft */ 
-            && (eid == 1 /*unicode bmp */ 
+        if (pid == 3 /*microsoft */
+            && (eid == 1 /*unicode bmp */
                 || eid == 10 /*full unicode */ )) {
             FT_Set_Charmap(face, cmap);
             return;
@@ -267,10 +267,16 @@ void ass_font_get_asc_desc(ass_font_t *font, uint32_t ch, int *asc,
     int i;
     for (i = 0; i < font->n_faces; ++i) {
         FT_Face face = font->faces[i];
+        TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
         if (FT_Get_Char_Index(face, ch)) {
             int y_scale = face->size->metrics.y_scale;
-            *asc = FT_MulFix(face->ascender, y_scale);
-            *desc = FT_MulFix(-face->descender, y_scale);
+            if (os2) {
+                *asc = FT_MulFix(os2->usWinAscent, y_scale);
+                *desc = FT_MulFix(os2->usWinDescent, y_scale);
+            } else {
+                *asc = FT_MulFix(face->ascender, y_scale);
+                *desc = FT_MulFix(-face->descender, y_scale);
+            }
             return;
         }
     }
