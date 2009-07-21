@@ -556,10 +556,10 @@ static ass_image_t **render_glyph(ass_renderer_t *render_priv,
     brk -= bm->left;
 
     // clipping
-    clip_x0 = render_priv->state.clip_x0;
-    clip_y0 = render_priv->state.clip_y0;
-    clip_x1 = render_priv->state.clip_x1;
-    clip_y1 = render_priv->state.clip_y1;
+    clip_x0 = FFMINMAX(render_priv->state.clip_x0, 0, render_priv->width);
+    clip_y0 = FFMINMAX(render_priv->state.clip_y0, 0, render_priv->height);
+    clip_x1 = FFMINMAX(render_priv->state.clip_x1, 0, render_priv->width);
+    clip_y1 = FFMINMAX(render_priv->state.clip_y1, 0, render_priv->height);
     b_x0 = 0;
     b_y0 = 0;
     b_x1 = bm->w;
