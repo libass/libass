@@ -31,6 +31,7 @@ AC_CHECK_FUNCS([mkdir strcasecmp strdup strtol])
 
 # Checks for libraries.
 AC_SEARCH_LIBS([iconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))
+AC_CHECK_LIB([m], [fabs])
 
 # Check for libraries via pkg-config
 PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.2.0, [
