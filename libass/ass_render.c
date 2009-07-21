@@ -611,6 +611,20 @@ static ass_image_t **render_glyph(ass_renderer_t *render_priv,
 }
 
 /**
+ * \brief Replace the bitmap buffer in ass_image_t with a copy
+ * \param img ass_image_t to operate on
+ * \return pointer to old bitmap buffer
+ */
+static unsigned char *clone_bitmap_buffer(ass_image_t *img)
+{
+    unsigned char *old_bitmap = img->bitmap;
+    int size = img->stride * (img->h - 1) + img->w;
+    img->bitmap = malloc(size);
+    memcpy(img->bitmap, old_bitmap, size);
+    return old_bitmap;
+}
+
+/**
  * \brief Calculate overlapping area of two consecutive bitmaps and in case they
  * overlap, composite them together
  * Mainly useful for translucent glyphs and especially borders, to avoid the
@@ -680,12 +694,8 @@ render_overlap(ass_renderer_t *render_priv, ass_image_t **last_tail,
         return;
     }
     // Allocate new bitmaps and copy over data
-    a = (*last_tail)->bitmap;
-    b = (*tail)->bitmap;
-    (*last_tail)->bitmap = malloc(as * ah);
-    (*tail)->bitmap = malloc(bs * bh);
-    memcpy((*last_tail)->bitmap, a, as * ah);
-    memcpy((*tail)->bitmap, b, bs * bh);
+    a = clone_bitmap_buffer(*last_tail);
+    b = clone_bitmap_buffer(*tail);
 
     // Composite overlapping area
     for (y = 0; y < h; y++)

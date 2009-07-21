@@ -30,11 +30,21 @@
 /* Libass renderer object. Contents are private. */
 typedef struct ass_renderer_s ass_renderer_t;
 
-/* A linked list of images produced by ass renderer. */
+/*
+ * A linked list of images produced by an ass renderer.
+ *
+ * These images have to be rendered in-order for the correct screen
+ * composition.  The libass renderer clips these bitmaps to the frame size.
+ * w/h can be zero, in this case the bitmap should not be rendered at all.
+ * The last bitmap row is not guaranteed to be padded up to stride size,
+ * e.g. in the worst case a bitmap has the size stride * (h - 1) + w.
+ */
 typedef struct ass_image_s {
     int w, h;                   // Bitmap width/height
     int stride;                 // Bitmap stride
     unsigned char *bitmap;      // 1bpp stride*h alpha buffer
+                                // Note: the last row may not be padded to
+                                // bitmap stride!
     uint32_t color;             // Bitmap color and alpha, RGBA
     int dst_x, dst_y;           // Bitmap placement inside the video frame
 
