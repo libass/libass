@@ -496,7 +496,6 @@ int glyph_to_bitmap(ass_library_t *library, ass_synth_priv_t *priv_blur,
     if (outline_glyph) {
         *bm_o = glyph_to_bitmap_internal(library, outline_glyph, bord);
         if (!*bm_o) {
-            ass_free_bitmap(*bm_g);
             return 1;
         }
     }
