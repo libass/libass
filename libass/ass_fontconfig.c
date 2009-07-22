@@ -453,12 +453,20 @@ fc_instance_t *fontconfig_init(ass_library_t *library,
 
     priv->config = FcConfigCreate();
     rc = FcConfigParseAndLoad(priv->config, (unsigned char *) config, FcTrue);
+    if (!rc) {
+        ass_msg(library, MSGL_WARN, "No usable fontconfig configuration "
+                "file found, using fallback.");
+        FcConfigDestroy(priv->config);
+        priv->config = FcInitLoadConfig();
+        rc++;
+    }
     if (rc && update) {
         FcConfigBuildFonts(priv->config);
     }
 
     if (!rc || !priv->config) {
-        ass_msg(library, MSGL_FATAL, "%s failed", "FcInitLoadConfigAndFonts");
+        ass_msg(library, MSGL_FATAL,
+                "No valid fontconfig configuration found!");
         FcConfigDestroy(priv->config);
         goto exit;
     }
