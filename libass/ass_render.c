@@ -47,8 +47,6 @@
 #define GLYPH_CACHE_MAX 1000
 #define BITMAP_CACHE_MAX_SIZE 50 * 1048576;
 
-static int last_render_id = 0;
-
 typedef struct double_bbox_s {
     double xMin;
     double xMax;
@@ -3140,7 +3138,7 @@ static void ass_free_images(ass_image_t *img)
 
 static void ass_reconfigure(ass_renderer_t *priv)
 {
-    priv->render_id = ++last_render_id;
+    priv->render_id++;
     priv->cache.glyph_cache =
         ass_glyph_cache_reset(priv->cache.glyph_cache);
     priv->cache.bitmap_cache =
