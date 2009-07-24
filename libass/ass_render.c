@@ -361,12 +361,18 @@ static void free_list_clear(ass_renderer_t *render_priv)
     }
 }
 
+static void ass_free_images(ass_image_t *img);
+
 void ass_renderer_done(ass_renderer_t *render_priv)
 {
     ass_font_cache_done(render_priv->cache.font_cache);
     ass_bitmap_cache_done(render_priv->cache.bitmap_cache);
     ass_composite_cache_done(render_priv->cache.composite_cache);
     ass_glyph_cache_done(render_priv->cache.glyph_cache);
+
+    ass_free_images(render_priv->images_root);
+    ass_free_images(render_priv->prev_images_root);
+
     if (render_priv->state.stroker) {
         FT_Stroker_Done(render_priv->state.stroker);
         render_priv->state.stroker = 0;
@@ -379,7 +385,6 @@ void ass_renderer_done(ass_renderer_t *render_priv)
         ass_synth_done(render_priv->synth_priv);
     if (render_priv && render_priv->eimg)
         free(render_priv->eimg);
-    free(render_priv);
     free(render_priv->text_info.glyphs);
     free(render_priv->text_info.lines);
 
@@ -387,6 +392,7 @@ void ass_renderer_done(ass_renderer_t *render_priv)
     free(render_priv->settings.default_family);
 
     free_list_clear(render_priv);
+    free(render_priv);
 }
 
 /**
@@ -1924,8 +1930,8 @@ static void reset_render_context(ass_renderer_t *render_priv)
         (render_priv->state.style->StrikeOut ? DECO_STRIKETHROUGH : 0);
     render_priv->state.font_size = render_priv->state.style->FontSize;
 
-    if (render_priv->state.family)
-        free(render_priv->state.family);
+    free(render_priv->state.family);
+    render_priv->state.family = NULL;
     render_priv->state.family = strdup(render_priv->state.style->FontName);
     render_priv->state.treat_family_as_pattern =
         render_priv->state.style->treat_fontname_as_pattern;
@@ -1987,7 +1993,11 @@ init_render_context(ass_renderer_t *render_priv, ass_event_t *event)
 
 static void free_render_context(ass_renderer_t *render_priv)
 {
+    free(render_priv->state.family);
     ass_drawing_free(render_priv->state.drawing);
+
+    render_priv->state.family = NULL;
+    render_priv->state.drawing = NULL;
 }
 
 // Calculate the cbox of a series of points
