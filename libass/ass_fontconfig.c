@@ -531,9 +531,10 @@ int fontconfig_update(fc_instance_t *priv)
 
 #else                           /* CONFIG_FONTCONFIG */
 
-char *fontconfig_select(fc_instance_t *priv, const char *family,
-                        int treat_family_as_pattern, unsigned bold,
-                        unsigned italic, int *index, uint32_t code)
+char *fontconfig_select(ass_library_t *library, fc_instance_t *priv,
+                        const char *family, int treat_family_as_pattern,
+                        unsigned bold, unsigned italic, int *index,
+                        uint32_t code)
 {
     *index = priv->index_default;
     return priv->path_default;
@@ -559,6 +560,7 @@ fc_instance_t *fontconfig_init(ass_library_t *library,
 int fontconfig_update(fc_instance_t *priv)
 {
     // Do nothing
+    return 1;
 }
 
 #endif
