@@ -51,7 +51,13 @@ typedef struct ass_image_s {
     struct ass_image_s *next;   // Next image, or NULL
 } ass_image_t;
 
-/* Hinting type. */
+/*
+ * Hintint type. (see ass_set_hinting below)
+ *
+ * FreeType's native hinter is still buggy sometimes and it is recommended
+ * to use the light autohinter, ASS_HINTING_LIGHT, instead.  For best
+ * compatibility with problematic fonts, disable hinting.
+ */
 typedef enum {
     ASS_HINTING_NONE = 0,
     ASS_HINTING_LIGHT,
