@@ -175,6 +175,11 @@ int main(int argc, char *argv[])
         ass_render_frame(ass_renderer, track, (int) (tm * 1000), NULL);
     image_t *frame = gen_image(frame_w, frame_h);
     blend(frame, img);
+
+    ass_free_track(track);
+    ass_renderer_done(ass_renderer);
+    ass_library_done(ass_library);
+
     write_png(imgfile, frame);
 
     return 0;
