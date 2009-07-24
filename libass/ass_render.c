@@ -743,13 +743,19 @@ static void blend_vector_clip(ass_renderer_t *render_priv,
     FT_BitmapGlyph clip_bm;
     ass_image_t *cur;
     ass_drawing_t *drawing = render_priv->state.clip_drawing;
+    int error;
 
     if (!drawing)
         return;
 
     // Rasterize it
     FT_Glyph_Copy((FT_Glyph) drawing->glyph, &glyph);
-    FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
+    error = FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
+    if (error) {
+        ass_msg(render_priv->library, MSGL_V,
+            "Clip vector rasterization failed: %d. Skipping.", error);
+        goto blend_vector_exit;
+    }
     clip_bm = (FT_BitmapGlyph) glyph;
     clip_bm->top = -clip_bm->top;
 
@@ -832,6 +838,7 @@ static void blend_vector_clip(ass_renderer_t *render_priv,
 
     // Free clip vector and its bitmap, we don't need it anymore
     FT_Done_Glyph(glyph);
+blend_vector_exit:
     ass_drawing_free(render_priv->state.clip_drawing);
     render_priv->state.clip_drawing = 0;
 }
