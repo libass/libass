@@ -448,9 +448,6 @@ fc_instance_t *fontconfig_init(ass_library_t *library,
         goto exit;
     }
 
-    if (!config)
-        config = (char *) FcConfigFilename(NULL);
-
     priv->config = FcConfigCreate();
     rc = FcConfigParseAndLoad(priv->config, (unsigned char *) config, FcTrue);
     if (!rc) {
@@ -567,7 +564,8 @@ int fontconfig_update(fc_instance_t *priv)
 
 void fontconfig_done(fc_instance_t *priv)
 {
-    // don't call FcFini() here, library can still be used by some code
+    if (priv && priv->config)
+        FcConfigDestroy(priv->config);
     if (priv && priv->path_default)
         free(priv->path_default);
     if (priv && priv->family_default)
