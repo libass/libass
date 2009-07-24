@@ -77,6 +77,8 @@ void ass_free_track(ass_track_t *track)
             ass_free_event(track, i);
         free(track->events);
     }
+    free(track->name);
+    free(track);
 }
 
 /// \brief Allocate a new style struct
