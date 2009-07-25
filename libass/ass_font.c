@@ -208,8 +208,10 @@ void ass_font_set_transform(ass_font_t *font, double scale_x,
 {
     font->scale_x = scale_x;
     font->scale_y = scale_y;
-    font->v.x = v->x;
-    font->v.y = v->y;
+    if (v) {
+        font->v.x = v->x;
+        font->v.y = v->y;
+    }
     update_transform(font);
 }
 

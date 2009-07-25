@@ -90,7 +90,6 @@ START(glyph, glyph_hash_key_s)
     GENERIC(int, italic)
     GENERIC(unsigned, scale_x) // 16.16
     GENERIC(unsigned, scale_y) // 16.16
-    FTVECTOR(advance) // subpixel shift vector
     FTVECTOR(outline) // border width, 16.16
     GENERIC(unsigned, drawing_hash) // hashcode of a drawing
     GENERIC(unsigned, flags)    // glyph decoration flags

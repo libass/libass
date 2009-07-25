@@ -2131,7 +2131,6 @@ static void stroke_outline_glyph(ass_renderer_t *render_priv,
  * \brief Get normal and outline (border) glyphs
  * \param symbol ucs4 char
  * \param info out: struct filled with extracted data
- * \param advance subpixel shift vector used for cache lookup
  * Tries to get both glyphs from cache.
  * If they can't be found, gets a glyph from font face, generates outline with FT_Stroker,
  * and add them to cache.
@@ -2139,8 +2138,7 @@ static void stroke_outline_glyph(ass_renderer_t *render_priv,
  */
 static void
 get_outline_glyph(ass_renderer_t *render_priv, int symbol,
-                  glyph_info_t *info, FT_Vector *advance,
-                  ass_drawing_t *drawing)
+                  glyph_info_t *info, ass_drawing_t *drawing)
 {
     glyph_hash_val_t *val;
     glyph_hash_key_t key;
@@ -2149,7 +2147,6 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
     if (drawing->hash) {
         key.scale_x = double_to_d16(render_priv->state.scale_x);
         key.scale_y = double_to_d16(render_priv->state.scale_y);
-        key.advance = *advance;
         key.outline.x = render_priv->state.border_x * 0xFFFF;
         key.outline.y = render_priv->state.border_y * 0xFFFF;
         key.drawing_hash = drawing->hash;
@@ -2161,7 +2158,6 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
         key.italic = render_priv->state.italic;
         key.scale_x = double_to_d16(render_priv->state.scale_x);
         key.scale_y = double_to_d16(render_priv->state.scale_y);
-        key.advance = *advance;
         key.outline.x = render_priv->state.border_x * 0xFFFF;
         key.outline.y = render_priv->state.border_y * 0xFFFF;
         key.flags = render_priv->state.flags;
@@ -2705,7 +2701,6 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
     unsigned code;
     double_bbox_t bbox;
     int i, j;
-    FT_Vector shift = { .x = 0, .y = 0};
     int MarginL, MarginR, MarginV;
     int last_break;
     int alignment, halign, valign;
@@ -2784,11 +2779,10 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         ass_font_set_transform(render_priv->state.font,
                                render_priv->state.scale_x *
                                render_priv->font_scale_x,
-                               render_priv->state.scale_y, &shift);
+                               render_priv->state.scale_y, NULL);
 
         get_outline_glyph(render_priv, code,
-                          text_info->glyphs + text_info->length, &shift,
-                          drawing);
+                          text_info->glyphs + text_info->length, drawing);
 
         text_info->glyphs[text_info->length].pos.x = pen.x;
         text_info->glyphs[text_info->length].pos.y = pen.y;
