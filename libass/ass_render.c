@@ -252,7 +252,6 @@ struct render_priv_s {
 static void ass_lazy_track_init(ass_renderer_t *render_priv)
 {
     ass_track_t *track = render_priv->track;
-    ass_settings_t *settings_priv = &render_priv->settings;
 
     if (track->PlayResX && track->PlayResY)
         return;
@@ -262,16 +261,12 @@ static void ass_lazy_track_init(ass_renderer_t *render_priv)
         track->PlayResX = 384;
         track->PlayResY = 288;
     } else {
-        double orig_aspect =
-            (settings_priv->aspect * render_priv->height *
-             render_priv->orig_width) / render_priv->orig_height /
-            render_priv->width;
         if (!track->PlayResY && track->PlayResX == 1280) {
             track->PlayResY = 1024;
             ass_msg(render_priv->library, MSGL_WARN,
                    "PlayResY undefined, setting to %d", track->PlayResY);
         } else if (!track->PlayResY) {
-            track->PlayResY = track->PlayResX / orig_aspect + .5;
+            track->PlayResY = track->PlayResX * 3 / 4;
             ass_msg(render_priv->library, MSGL_WARN,
                    "PlayResY undefined, setting to %d", track->PlayResY);
         } else if (!track->PlayResX && track->PlayResY == 1024) {
@@ -279,7 +274,7 @@ static void ass_lazy_track_init(ass_renderer_t *render_priv)
             ass_msg(render_priv->library, MSGL_WARN,
                    "PlayResX undefined, setting to %d", track->PlayResX);
         } else if (!track->PlayResX) {
-            track->PlayResX = track->PlayResY * orig_aspect + .5;
+            track->PlayResX = track->PlayResY * 4 / 3;
             ass_msg(render_priv->library, MSGL_WARN,
                    "PlayResX undefined, setting to %d", track->PlayResX);
         }
