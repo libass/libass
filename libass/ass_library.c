@@ -28,12 +28,12 @@
 #include "ass_library.h"
 #include "ass_utils.h"
 
-static void ass_msg_handler(int level, char *fmt, va_list *va, void *data)
+static void ass_msg_handler(int level, const char *fmt, va_list va, void *data)
 {
     if (level > MSGL_INFO)
         return;
     fprintf(stderr, "[ass] ");
-    vfprintf(stderr, fmt, *va);
+    vfprintf(stderr, fmt, va);
     fprintf(stderr, "\n");
 }
 
@@ -137,7 +137,7 @@ void ass_clear_fonts(ass_library_t *priv)
  * \param data additional data that will be passed to the callback
  */
 void ass_set_message_cb(ass_library_t *priv,
-                        void (*msg_cb)(int, char *, va_list *, void *),
+                        void (*msg_cb)(int, const char *, va_list, void *),
                         void *data)
 {
     if (msg_cb) {
@@ -145,4 +145,3 @@ void ass_set_message_cb(ass_library_t *priv,
         priv->msg_callback_data = data;
     }
 }
-

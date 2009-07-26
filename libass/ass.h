@@ -124,8 +124,8 @@ void ass_process_force_style(ass_track_t *track);
  * \param msg_cb pointer to callback function
  * \param data additional data, will be passed to callback
  */
-void ass_set_message_cb(ass_library_t *priv,
-                        void (*msg_cb)(int, char *, va_list *, void *),
+void ass_set_message_cb(ass_library_t *priv, void (*msg_cb)
+                        (int level, const char *fmt, va_list args, void *data),
                         void *data);
 
 /**

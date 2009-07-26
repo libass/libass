@@ -12,12 +12,12 @@ typedef struct image_s {
 ass_library_t *ass_library;
 ass_renderer_t *ass_renderer;
 
-void msg_callback(int level, char *fmt, va_list * va, void *data)
+void msg_callback(int level, const char *fmt, va_list va, void *data)
 {
     if (level > 6)
         return;
     printf("libass: ");
-    vprintf(fmt, *va);
+    vprintf(fmt, va);
     printf("\n");
 }
 

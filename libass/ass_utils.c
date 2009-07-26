@@ -126,7 +126,7 @@ void ass_msg(ass_library_t *priv, int lvl, char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
-    priv->msg_callback(lvl, fmt, &va, priv->msg_callback_data);
+    priv->msg_callback(lvl, fmt, va, priv->msg_callback_data);
     va_end(va);
 }
 
