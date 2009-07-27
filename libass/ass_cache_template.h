@@ -54,7 +54,7 @@
 
 
 // describes a bitmap; bitmaps with equivalents structs are considered identical
-START(bitmap, bipmap_hash_key_s)
+START(bitmap, bipmap_hash_key)
     GENERIC(char, bitmap) // bool : true = bitmap, false = outline
     GENERIC(ass_font_t *, font)
     GENERIC(double, size) // font size
@@ -82,7 +82,7 @@ START(bitmap, bipmap_hash_key_s)
 END(bitmap_hash_key_t)
 
 // describes an outline glyph
-START(glyph, glyph_hash_key_s)
+START(glyph, glyph_hash_key)
     GENERIC(ass_font_t *, font)
     GENERIC(double, size) // font size
     GENERIC(uint32_t, ch) // character code
@@ -96,7 +96,7 @@ START(glyph, glyph_hash_key_s)
 END(glyph_hash_key_t)
 
 // Cache for composited bitmaps
-START(composite, composite_hash_key_s)
+START(composite, composite_hash_key)
     GENERIC(int, aw)
     GENERIC(int, ah)
     GENERIC(int, bw)

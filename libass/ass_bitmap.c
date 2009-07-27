@@ -28,7 +28,7 @@
 #include "ass_utils.h"
 #include "ass_bitmap.h"
 
-struct ass_synth_priv_s {
+struct ass_synth_priv {
     int tmp_w, tmp_h;
     unsigned short *tmp;
 

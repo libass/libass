@@ -41,7 +41,7 @@
 typedef enum { PST_UNKNOWN =
         0, PST_INFO, PST_STYLES, PST_EVENTS, PST_FONTS } parser_state_t;
 
-struct parser_priv_s {
+struct parser_priv {
     parser_state_t state;
     char *fontname;
     char *fontdata;

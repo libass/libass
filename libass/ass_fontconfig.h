@@ -31,7 +31,7 @@
 #include <fontconfig/fontconfig.h>
 #endif
 
-typedef struct fc_instance_s fc_instance_t;
+typedef struct fc_instance fc_instance_t;
 
 fc_instance_t *fontconfig_init(ass_library_t *library,
                                FT_Library ftlibrary, const char *family,

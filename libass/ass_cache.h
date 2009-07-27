@@ -31,14 +31,14 @@ typedef int (*hashmap_key_compare_t) (void *key1, void *key2,
                                       size_t key_size);
 typedef unsigned (*hashmap_hash_t) (void *key, size_t key_size);
 
-typedef struct hashmap_item_s {
+typedef struct hashmap_item {
     void *key;
     void *value;
-    struct hashmap_item_s *next;
+    struct hashmap_item *next;
 } hashmap_item_t;
 typedef hashmap_item_t *hashmap_item_p;
 
-typedef struct hashmap_s {
+typedef struct {
     int nbuckets;
     size_t key_size, value_size;
     hashmap_item_p *root;
@@ -71,7 +71,7 @@ void ass_font_cache_done(hashmap_t *);
 #define CREATE_STRUCT_DEFINITIONS
 #include "ass_cache_template.h"
 
-typedef struct bitmap_hash_val_s {
+typedef struct {
     bitmap_t *bm;               // the actual bitmaps
     bitmap_t *bm_o;
     bitmap_t *bm_s;
@@ -86,7 +86,7 @@ hashmap_t *ass_bitmap_cache_reset(hashmap_t *bitmap_cache);
 void ass_bitmap_cache_done(hashmap_t *bitmap_cache);
 
 
-typedef struct composite_hash_val_s {
+typedef struct {
     unsigned char *a;
     unsigned char *b;
 } composite_hash_val_t;
@@ -100,7 +100,7 @@ hashmap_t *ass_composite_cache_reset(hashmap_t *composite_cache);
 void ass_composite_cache_done(hashmap_t *composite_cache);
 
 
-typedef struct glyph_hash_val_s {
+typedef struct {
     FT_Glyph glyph;
     FT_Glyph outline_glyph;
     FT_BBox bbox_scaled;        // bbox after scaling, but before rotation

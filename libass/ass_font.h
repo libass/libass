@@ -31,14 +31,14 @@
 #define DECO_UNDERLINE 1
 #define DECO_STRIKETHROUGH 2
 
-typedef struct ass_font_desc_s {
+typedef struct {
     char *family;
     unsigned bold;
     unsigned italic;
     int treat_family_as_pattern;
 } ass_font_desc_t;
 
-typedef struct ass_font_s {
+typedef struct {
     ass_font_desc_t desc;
     ass_library_t *library;
     FT_Library ftlibrary;

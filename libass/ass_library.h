@@ -23,13 +23,13 @@
 
 #include <stdarg.h>
 
-typedef struct ass_fontdata_s {
+typedef struct {
     char *name;
     char *data;
     int size;
 } ass_fontdata_t;
 
-struct ass_library_s {
+struct ass_library {
     char *fonts_dir;
     int extract_fonts;
     char **style_overrides;

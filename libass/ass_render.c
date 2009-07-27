@@ -47,24 +47,24 @@
 #define GLYPH_CACHE_MAX 1000
 #define BITMAP_CACHE_MAX_SIZE 50 * 1048576;
 
-typedef struct double_bbox_s {
+typedef struct {
     double xMin;
     double xMax;
     double yMin;
     double yMax;
 } double_bbox_t;
 
-typedef struct double_vector_s {
+typedef struct {
     double x;
     double y;
 } double_vector_t;
 
-typedef struct free_list_s {
+typedef struct free_list {
     void *object;
-    struct free_list_s *next;
+    struct free_list *next;
 } free_list_t;
 
-typedef struct ass_settings_s {
+typedef struct {
     int frame_width;
     int frame_height;
     double font_size_coeff;     // font size multiplier
@@ -84,7 +84,7 @@ typedef struct ass_settings_s {
 } ass_settings_t;
 
 // a rendered event
-typedef struct event_images_s {
+typedef struct {
     ass_image_t *imgs;
     int top, height;
     int detect_collisions;
@@ -97,7 +97,7 @@ typedef enum { EF_NONE = 0, EF_KARAOKE, EF_KARAOKE_KF, EF_KARAOKE_KO
 
 // describes a glyph
 // glyph_info_t and text_info_t are used for text centering and word-wrapping operations
-typedef struct glyph_info_s {
+typedef struct {
     unsigned symbol;
     FT_Glyph glyph;
     FT_Glyph outline_glyph;
@@ -126,11 +126,11 @@ typedef struct glyph_info_s {
     bitmap_hash_key_t hash_key;
 } glyph_info_t;
 
-typedef struct line_info_s {
+typedef struct {
     double asc, desc;
 } line_info_t;
 
-typedef struct text_info_s {
+typedef struct {
     glyph_info_t *glyphs;
     int length;
     line_info_t *lines;
@@ -143,7 +143,7 @@ typedef struct text_info_s {
 
 // Renderer state.
 // Values like current font face, color, screen position, clipping and so on are stored here.
-typedef struct render_context_s {
+typedef struct {
     ass_event_t *event;
     ass_style_t *style;
 
@@ -201,7 +201,7 @@ typedef struct render_context_s {
 
 } render_context_t;
 
-typedef struct cache_store_s {
+typedef struct {
     hashmap_t *font_cache;
     hashmap_t *glyph_cache;
     hashmap_t *bitmap_cache;
@@ -210,7 +210,7 @@ typedef struct cache_store_s {
     size_t bitmap_max_size;
 } cache_store_t;
 
-struct ass_renderer_s {
+struct ass_renderer {
     ass_library_t *library;
     FT_Library ftlibrary;
     fc_instance_t *fontconfig_priv;
@@ -244,7 +244,7 @@ struct ass_renderer_s {
     free_list_t *free_tail;
 };
 
-struct render_priv_s {
+struct render_priv {
     int top, height;
     int render_id;
 };
@@ -414,7 +414,7 @@ static ass_image_t *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
 static double x2scr_pos(ass_renderer_t *render_priv, double x);
 static double y2scr_pos(ass_renderer_t *render_priv, double y);
 
-typedef struct rect_s {
+typedef struct {
     int x0;
     int y0;
     int x1;
@@ -3349,7 +3349,7 @@ static render_priv_t *get_render_priv(ass_renderer_t *render_priv,
     return event->render_priv;
 }
 
-typedef struct segment_s {
+typedef struct {
     int a, b;                   // top and height
 } segment_t;
 

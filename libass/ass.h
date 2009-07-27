@@ -27,9 +27,6 @@
 
 #define LIBASS_VERSION 0x00907000
 
-/* Libass renderer object. Contents are private. */
-typedef struct ass_renderer_s ass_renderer_t;
-
 /*
  * A linked list of images produced by an ass renderer.
  *
@@ -39,7 +36,7 @@ typedef struct ass_renderer_s ass_renderer_t;
  * The last bitmap row is not guaranteed to be padded up to stride size,
  * e.g. in the worst case a bitmap has the size stride * (h - 1) + w.
  */
-typedef struct ass_image_s {
+typedef struct ass_image {
     int w, h;                   // Bitmap width/height
     int stride;                 // Bitmap stride
     unsigned char *bitmap;      // 1bpp stride*h alpha buffer
@@ -48,7 +45,7 @@ typedef struct ass_image_s {
     uint32_t color;             // Bitmap color and alpha, RGBA
     int dst_x, dst_y;           // Bitmap placement inside the video frame
 
-    struct ass_image_s *next;   // Next image, or NULL
+    struct ass_image *next;   // Next image, or NULL
 } ass_image_t;
 
 /*

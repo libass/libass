@@ -26,12 +26,12 @@
 
 #include "ass.h"
 
-typedef struct ass_synth_priv_s ass_synth_priv_t;
+typedef struct ass_synth_priv ass_synth_priv_t;
 
 ass_synth_priv_t *ass_synth_init(double);
 void ass_synth_done(ass_synth_priv_t *priv);
 
-typedef struct bitmap_s {
+typedef struct {
     int left, top;
     int w, h;                   // width, height
     unsigned char *buffer;      // w x h buffer

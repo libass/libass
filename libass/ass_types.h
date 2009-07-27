@@ -30,8 +30,14 @@
 #define HALIGN_CENTER 2
 #define HALIGN_RIGHT 3
 
+/* Opaque objects internally used by libass.  Contents are private. */
+typedef struct ass_renderer ass_renderer_t;
+typedef struct render_priv render_priv_t;
+typedef struct parser_priv parser_priv_t;
+typedef struct ass_library ass_library_t;
+
 /* ASS Style: line */
-typedef struct ass_style_s {
+typedef struct {
     char *Name;
     char *FontName;
     double FontSize;
@@ -58,13 +64,11 @@ typedef struct ass_style_s {
     int treat_fontname_as_pattern;
 } ass_style_t;
 
-typedef struct render_priv_s render_priv_t;
-
 /*
  * ass_event_t corresponds to a single Dialogue line;
  * text is stored as-is, style overrides will be parsed later.
  */
-typedef struct ass_event_s {
+typedef struct {
     long long Start;            // ms
     long long Duration;         // ms
 
@@ -81,15 +85,12 @@ typedef struct ass_event_s {
     render_priv_t *render_priv;
 } ass_event_t;
 
-typedef struct parser_priv_s parser_priv_t;
-typedef struct ass_library_s ass_library_t;
-
 /*
  * ass track represent either an external script or a matroska subtitle stream
  * (no real difference between them); it can be used in rendering after the
  * headers are parsed (i.e. events format line read).
  */
-typedef struct ass_track_s {
+typedef struct {
     int n_styles;           // amount used
     int max_styles;         // amount allocated
     int n_events;

@@ -26,7 +26,7 @@
 
 #define DRAWING_INITIAL_SIZE 256
 
-enum ass_token_type {
+typedef enum {
     TOKEN_MOVE,
     TOKEN_MOVE_NC,
     TOKEN_LINE,
@@ -35,16 +35,16 @@ enum ass_token_type {
     TOKEN_B_SPLINE,
     TOKEN_EXTEND_SPLINE,
     TOKEN_CLOSE
-};
+} ass_token_type_t;
 
-typedef struct ass_drawing_token_s {
-    enum ass_token_type type;
+typedef struct ass_drawing_token {
+    ass_token_type_t type;
     FT_Vector point;
-    struct ass_drawing_token_s *next;
-    struct ass_drawing_token_s *prev;
+    struct ass_drawing_token *next;
+    struct ass_drawing_token *prev;
 } ass_drawing_token_t;
 
-typedef struct ass_drawing_s {
+typedef struct {
     char *text; // drawing string
     int i;      // text index
     int scale;  // scale (1-64) for subpixel accuracy
