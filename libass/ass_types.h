@@ -37,7 +37,7 @@ typedef struct parser_priv parser_priv_t;
 typedef struct ass_library ass_library_t;
 
 /* ASS Style: line */
-typedef struct {
+typedef struct ass_style {
     char *Name;
     char *FontName;
     double FontSize;
@@ -68,7 +68,7 @@ typedef struct {
  * ass_event_t corresponds to a single Dialogue line;
  * text is stored as-is, style overrides will be parsed later.
  */
-typedef struct {
+typedef struct ass_event {
     long long Start;            // ms
     long long Duration;         // ms
 
@@ -90,7 +90,7 @@ typedef struct {
  * (no real difference between them); it can be used in rendering after the
  * headers are parsed (i.e. events format line read).
  */
-typedef struct {
+typedef struct ass_track {
     int n_styles;           // amount used
     int max_styles;         // amount allocated
     int n_events;
