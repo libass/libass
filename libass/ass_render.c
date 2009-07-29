@@ -891,7 +891,7 @@ static ass_image_t *render_text(ass_renderer_t *render_priv, int dst_x,
         bm = info->bm_o;
 
         if ((info->effect_type == EF_KARAOKE_KO)
-            && (info->effect_timing <= d6_to_int(info->bbox.xMax))) {
+            && (info->effect_timing <= (info->bbox.xMax >> 6))) {
             // do nothing
         } else {
             here_tail = tail;
@@ -916,7 +916,7 @@ static ass_image_t *render_text(ass_renderer_t *render_priv, int dst_x,
 
         if ((info->effect_type == EF_KARAOKE)
             || (info->effect_type == EF_KARAOKE_KO)) {
-            if (info->effect_timing > d6_to_int(info->bbox.xMax))
+            if (info->effect_timing > (info->bbox.xMax >> 6))
                 tail =
                     render_glyph(render_priv, bm, pen_x, pen_y,
                                  info->c[0], 0, 1000000, tail);
