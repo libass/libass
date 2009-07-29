@@ -3334,8 +3334,6 @@ static int cmp_event_layer(const void *p1, const void *p2)
     return 0;
 }
 
-#define MAX_EVENTS 100
-
 static render_priv_t *get_render_priv(ass_renderer_t *render_priv,
                                       ass_event_t *event)
 {
@@ -3421,7 +3419,7 @@ static int fit_segment(segment_t *s, segment_t *fixed, int *cnt, int dir)
 static void
 fix_collisions(ass_renderer_t *render_priv, event_images_t *imgs, int cnt)
 {
-    segment_t used[MAX_EVENTS];
+    segment_t *used = malloc(cnt * sizeof(*used));
     int cnt_used = 0;
     int i, j;
 
@@ -3477,6 +3475,8 @@ fix_collisions(ass_renderer_t *render_priv, event_images_t *imgs, int cnt)
         }
 
     }
+
+    free(used);
 }
 
 /**
