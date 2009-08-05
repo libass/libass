@@ -72,7 +72,7 @@ ass_library_t *ass_library_init(void);
  * \brief Finalize the library
  * \param priv library handle
  */
-void ass_library_done(ass_library_t *);
+void ass_library_done(ass_library_t *priv);
 
 /**
  * \brief Set private font directory.
