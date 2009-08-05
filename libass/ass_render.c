@@ -45,7 +45,7 @@
 #define SUBPIXEL_MASK 63
 #define SUBPIXEL_ACCURACY 7    // d6 mask for subpixel accuracy adjustment
 #define GLYPH_CACHE_MAX 1000
-#define BITMAP_CACHE_MAX_SIZE 50 * 1048576;
+#define BITMAP_CACHE_MAX_SIZE 50 * 1048576
 
 typedef struct {
     double xMin;
