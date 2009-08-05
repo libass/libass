@@ -167,10 +167,10 @@ void ass_set_use_margins(ass_renderer_t *priv, int use);
 /**
  * \brief Set aspect ratio parameters.
  * \param priv renderer handle
- * \param ar physical aspect ratio
- * \param par pixel ratio, e.g. width / height of the video
+ * \param dar display aspect ratio (DAR), prescaled for output PAR
+ * \param sar storage aspect ratio (SAR)
  */
-void ass_set_aspect_ratio(ass_renderer_t *priv, double ar, double par);
+void ass_set_aspect_ratio(ass_renderer_t *priv, double dar, double sar);
 
 /**
  * \brief Set a fixed font scaling factor.
