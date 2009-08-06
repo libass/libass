@@ -31,10 +31,10 @@
 #define HALIGN_RIGHT 3
 
 /* Opaque objects internally used by libass.  Contents are private. */
-typedef struct ass_renderer ass_renderer_t;
-typedef struct render_priv render_priv_t;
-typedef struct parser_priv parser_priv_t;
-typedef struct ass_library ass_library_t;
+typedef struct ass_renderer ASS_Renderer;
+typedef struct render_priv ASS_RenderPriv;
+typedef struct parser_priv ASS_ParserPriv;
+typedef struct ass_library ASS_Library;
 
 /* ASS Style: line */
 typedef struct ass_style {
@@ -62,10 +62,10 @@ typedef struct ass_style {
     int MarginV;
     int Encoding;
     int treat_fontname_as_pattern;
-} ass_style_t;
+} ASS_Style;
 
 /*
- * ass_event_t corresponds to a single Dialogue line;
+ * ASS_Event corresponds to a single Dialogue line;
  * text is stored as-is, style overrides will be parsed later.
  */
 typedef struct ass_event {
@@ -82,8 +82,8 @@ typedef struct ass_event {
     char *Effect;
     char *Text;
 
-    render_priv_t *render_priv;
-} ass_event_t;
+    ASS_RenderPriv *render_priv;
+} ASS_Event;
 
 /*
  * ass track represent either an external script or a matroska subtitle stream
@@ -95,8 +95,8 @@ typedef struct ass_track {
     int max_styles;         // amount allocated
     int n_events;
     int max_events;
-    ass_style_t *styles;    // array of styles, max_styles length, n_styles used
-    ass_event_t *events;    // the same as styles
+    ASS_Style *styles;    // array of styles, max_styles length, n_styles used
+    ASS_Event *events;    // the same as styles
 
     char *style_format;     // style format line (everything after "Format: ")
     char *event_format;     // event format line
@@ -114,12 +114,11 @@ typedef struct ass_track {
     int WrapStyle;
     char ScaledBorderAndShadow;
 
-
     int default_style;      // index of default style
     char *name;             // file name in case of external subs, 0 for streams
 
-    ass_library_t *library;
-    parser_priv_t *parser_priv;
-} ass_track_t;
+    ASS_Library *library;
+    ASS_ParserPriv *parser_priv;
+} ASS_Track;
 
 #endif /* LIBASS_TYPES_H */

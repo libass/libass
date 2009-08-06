@@ -9,8 +9,8 @@ typedef struct image_s {
     unsigned char *buffer;      // RGB24
 } image_t;
 
-ass_library_t *ass_library;
-ass_renderer_t *ass_renderer;
+ASS_Library *ass_library;
+ASS_Renderer *ass_renderer;
 
 void msg_callback(int level, const char *fmt, va_list va, void *data)
 {
@@ -21,7 +21,7 @@ void msg_callback(int level, const char *fmt, va_list va, void *data)
     printf("\n");
 }
 
-static void write_png(char *fname, image_t * img)
+static void write_png(char *fname, image_t *img)
 {
     FILE *fp;
     png_structp png_ptr;
@@ -114,7 +114,7 @@ static image_t *gen_image(int width, int height)
 #define _b(c)  (((c)>>8)&0xFF)
 #define _a(c)  ((c)&0xFF)
 
-static void blend_single(image_t * frame, ass_image_t * img)
+static void blend_single(image_t * frame, ASS_Image *img)
 {
     int x, y;
     unsigned char opacity = 255 - _a(img->color);
@@ -140,7 +140,7 @@ static void blend_single(image_t * frame, ass_image_t * img)
     }
 }
 
-static void blend(image_t * frame, ass_image_t * img)
+static void blend(image_t * frame, ASS_Image *img)
 {
     int cnt = 0;
     while (img) {
@@ -165,13 +165,13 @@ int main(int argc, char *argv[])
     double tm = strtod(argv[3], 0);
 
     init(frame_w, frame_h);
-    ass_track_t *track = ass_read_file(ass_library, subfile, NULL);
+    ASS_Track *track = ass_read_file(ass_library, subfile, NULL);
     if (!track) {
         printf("track init failed!\n");
         return 1;
     }
 
-    ass_image_t *img =
+    ASS_Image *img =
         ass_render_frame(ass_renderer, track, (int) (tm * 1000), NULL);
     image_t *frame = gen_image(frame_w, frame_h);
     blend(frame, img);

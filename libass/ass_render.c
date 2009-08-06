@@ -52,17 +52,17 @@ typedef struct {
     double xMax;
     double yMin;
     double yMax;
-} double_bbox_t;
+} DBBox;
 
 typedef struct {
     double x;
     double y;
-} double_vector_t;
+} DVector;
 
 typedef struct free_list {
     void *object;
     struct free_list *next;
-} free_list_t;
+} FreeList;
 
 typedef struct {
     int frame_width;
@@ -77,45 +77,44 @@ typedef struct {
     // 1 - use margins for placing toptitles and subtitles
     double aspect;              // frame aspect ratio, d_width / d_height.
     double storage_aspect;      // pixel ratio of the source image
-    ass_hinting_t hinting;
+    ASS_Hinting hinting;
 
     char *default_font;
     char *default_family;
-} ass_settings_t;
+} ASS_Settings;
 
 // a rendered event
 typedef struct {
-    ass_image_t *imgs;
+    ASS_Image *imgs;
     int top, height;
     int detect_collisions;
     int shift_direction;
-    ass_event_t *event;
-} event_images_t;
+    ASS_Event *event;
+} EventImages;
 
 typedef enum { EF_NONE = 0, EF_KARAOKE, EF_KARAOKE_KF, EF_KARAOKE_KO
-} effect_t;
+} Effect;
 
 // describes a glyph
-// glyph_info_t and text_info_t are used for text centering and word-wrapping operations
+// GlyphInfo and TextInfo are used for text centering and word-wrapping operations
 typedef struct {
     unsigned symbol;
     FT_Glyph glyph;
     FT_Glyph outline_glyph;
-    bitmap_t *bm;               // glyph bitmap
-    bitmap_t *bm_o;             // outline bitmap
-    bitmap_t *bm_s;             // shadow bitmap
+    Bitmap *bm;                 // glyph bitmap
+    Bitmap *bm_o;               // outline bitmap
+    Bitmap *bm_s;               // shadow bitmap
     FT_BBox bbox;
     FT_Vector pos;
     char linebreak;             // the first (leading) glyph of some line ?
     uint32_t c[4];              // colors
     FT_Vector advance;          // 26.6
-    effect_t effect_type;
+    Effect effect_type;
     int effect_timing;          // time duration of current karaoke word
     // after process_karaoke_effects: distance in pixels from the glyph origin.
     // part of the glyph to the left of it is displayed in a different color.
     int effect_skip_timing;     // delay after the end of last karaoke word
     int asc, desc;              // font max ascender and descender
-//      int height;
     int be;                     // blur edges
     double blur;                // gaussian blur
     double shadow_x;
@@ -123,31 +122,31 @@ typedef struct {
     double frx, fry, frz;       // rotation
     double fax, fay;            // text shearing
 
-    bitmap_hash_key_t hash_key;
-} glyph_info_t;
+    BitmapHashKey hash_key;
+} GlyphInfo;
 
 typedef struct {
     double asc, desc;
-} line_info_t;
+} LineInfo;
 
 typedef struct {
-    glyph_info_t *glyphs;
+    GlyphInfo *glyphs;
     int length;
-    line_info_t *lines;
+    LineInfo *lines;
     int n_lines;
     double height;
     int max_glyphs;
     int max_lines;
-} text_info_t;
+} TextInfo;
 
 
 // Renderer state.
 // Values like current font face, color, screen position, clipping and so on are stored here.
 typedef struct {
-    ass_event_t *event;
-    ass_style_t *style;
+    ASS_Event *event;
+    ASS_Style *style;
 
-    ass_font_t *font;
+    ASS_Font *font;
     char *font_path;
     double font_size;
     int flags;                  // decoration flags (underline/strike-through)
@@ -156,7 +155,8 @@ typedef struct {
     int alignment;              // alignment overrides go here; if zero, style value will be used
     double frx, fry, frz;
     double fax, fay;            // text shearing
-    enum { EVENT_NORMAL,        // "normal" top-, sub- or mid- title
+    enum {
+        EVENT_NORMAL,           // "normal" top-, sub- or mid- title
         EVENT_POSITIONED,       // happens after pos(,), margins are ignored
         EVENT_HSCROLL,          // "Banner" transition effect, text_width is unlimited
         EVENT_VSCROLL           // "Scroll up", "Scroll down" transition effects
@@ -166,7 +166,7 @@ typedef struct {
     char have_origin;           // origin is explicitly defined; if 0, get_base_point() is used
     double scale_x, scale_y;
     double hspacing;            // distance between letters, in pixels
-    double border_x;              // outline width
+    double border_x;            // outline width
     double border_y;
     uint32_t c[4];              // colors(Primary, Secondary, so on) in RGBA
     int clip_x0, clip_y0, clip_x1, clip_y1;
@@ -178,15 +178,16 @@ typedef struct {
     double shadow_x;
     double shadow_y;
     int drawing_mode;           // not implemented; when != 0 text is discarded, except for style override tags
-    ass_drawing_t *drawing;     // current drawing
-    ass_drawing_t *clip_drawing;// clip vector
+    ASS_Drawing *drawing;       // current drawing
+    ASS_Drawing *clip_drawing;  // clip vector
     int clip_drawing_mode;      // 0 = regular clip, 1 = inverse clip
 
-    effect_t effect_type;
+    Effect effect_type;
     int effect_timing;
     int effect_skip_timing;
 
-    enum { SCROLL_LR,           // left-to-right
+    enum {
+        SCROLL_LR,              // left-to-right
         SCROLL_RL,
         SCROLL_TB,              // top-to-bottom
         SCROLL_BT
@@ -199,29 +200,29 @@ typedef struct {
     unsigned italic;
     int treat_family_as_pattern;
 
-} render_context_t;
+} RenderContext;
 
 typedef struct {
-    hashmap_t *font_cache;
-    hashmap_t *glyph_cache;
-    hashmap_t *bitmap_cache;
-    hashmap_t *composite_cache;
+    Hashmap *font_cache;
+    Hashmap *glyph_cache;
+    Hashmap *bitmap_cache;
+    Hashmap *composite_cache;
     size_t glyph_max;
     size_t bitmap_max_size;
-} cache_store_t;
+} CacheStore;
 
 struct ass_renderer {
-    ass_library_t *library;
+    ASS_Library *library;
     FT_Library ftlibrary;
-    fc_instance_t *fontconfig_priv;
-    ass_settings_t settings;
+    FCInstance *fontconfig_priv;
+    ASS_Settings settings;
     int render_id;
-    ass_synth_priv_t *synth_priv;
+    ASS_SynthPriv *synth_priv;
 
-    ass_image_t *images_root;   // rendering result is stored here
-    ass_image_t *prev_images_root;
+    ASS_Image *images_root;     // rendering result is stored here
+    ASS_Image *prev_images_root;
 
-    event_images_t *eimg;       // temporary buffer for sorting rendered events
+    EventImages *eimg;          // temporary buffer for sorting rendered events
     int eimg_size;              // allocated buffer size
 
     // frame-global data
@@ -230,18 +231,18 @@ struct ass_renderer {
     int orig_width;             // frame width ( = screen width - margins )
     int orig_height_nocrop;     // frame height ( = screen height - margins + cropheight)
     int orig_width_nocrop;      // frame width ( = screen width - margins + cropwidth)
-    ass_track_t *track;
+    ASS_Track *track;
     long long time;             // frame's timestamp, ms
     double font_scale;
     double font_scale_x;        // x scale applied to all glyphs to preserve text aspect ratio
     double border_scale;
 
-    render_context_t state;
-    text_info_t text_info;
-    cache_store_t cache;
+    RenderContext state;
+    TextInfo text_info;
+    CacheStore cache;
 
-    free_list_t *free_head;
-    free_list_t *free_tail;
+    FreeList *free_head;
+    FreeList *free_tail;
 };
 
 struct render_priv {
@@ -249,9 +250,22 @@ struct render_priv {
     int render_id;
 };
 
-static void ass_lazy_track_init(ass_renderer_t *render_priv)
+typedef struct {
+    int x0;
+    int y0;
+    int x1;
+    int y1;
+} Rect;
+
+typedef struct {
+    int a, b;                   // top and height
+} Segment;
+
+/* End of type definitions */
+
+static void ass_lazy_track_init(ASS_Renderer *render_priv)
 {
-    ass_track_t *track = render_priv->track;
+    ASS_Track *track = render_priv->track;
 
     if (track->PlayResX && track->PlayResY)
         return;
@@ -281,11 +295,11 @@ static void ass_lazy_track_init(ass_renderer_t *render_priv)
     }
 }
 
-ass_renderer_t *ass_renderer_init(ass_library_t *library)
+ASS_Renderer *ass_renderer_init(ASS_Library *library)
 {
     int error;
     FT_Library ft;
-    ass_renderer_t *priv = 0;
+    ASS_Renderer *priv = 0;
     int vmajor, vminor, vpatch;
 
     error = FT_Init_FreeType(&ft);
@@ -300,7 +314,7 @@ ass_renderer_t *ass_renderer_init(ass_library_t *library)
     ass_msg(library, MSGL_V, "FreeType headers version: %d.%d.%d",
            FREETYPE_MAJOR, FREETYPE_MINOR, FREETYPE_PATCH);
 
-    priv = calloc(1, sizeof(ass_renderer_t));
+    priv = calloc(1, sizeof(ASS_Renderer));
     if (!priv) {
         FT_Done_FreeType(ft);
         goto ass_init_exit;
@@ -322,8 +336,8 @@ ass_renderer_t *ass_renderer_init(ass_library_t *library)
     priv->text_info.max_glyphs = MAX_GLYPHS_INITIAL;
     priv->text_info.max_lines = MAX_LINES_INITIAL;
     priv->text_info.glyphs =
-        calloc(MAX_GLYPHS_INITIAL, sizeof(glyph_info_t));
-    priv->text_info.lines = calloc(MAX_LINES_INITIAL, sizeof(line_info_t));
+        calloc(MAX_GLYPHS_INITIAL, sizeof(GlyphInfo));
+    priv->text_info.lines = calloc(MAX_LINES_INITIAL, sizeof(LineInfo));
 
   ass_init_exit:
     if (priv)
@@ -334,7 +348,7 @@ ass_renderer_t *ass_renderer_init(ass_library_t *library)
     return priv;
 }
 
-void ass_set_cache_limits(ass_renderer_t *render_priv, int glyph_max,
+void ass_set_cache_limits(ASS_Renderer *render_priv, int glyph_max,
                           int bitmap_max)
 {
     render_priv->cache.glyph_max = glyph_max ? glyph_max : GLYPH_CACHE_MAX;
@@ -342,12 +356,12 @@ void ass_set_cache_limits(ass_renderer_t *render_priv, int glyph_max,
                                          BITMAP_CACHE_MAX_SIZE;
 }
 
-static void free_list_clear(ass_renderer_t *render_priv)
+static void free_list_clear(ASS_Renderer *render_priv)
 {
     if (render_priv->free_head) {
-        free_list_t *item = render_priv->free_head;
+        FreeList *item = render_priv->free_head;
         while(item) {
-            free_list_t *oi = item;
+            FreeList *oi = item;
             free(item->object);
             item = item->next;
             free(oi);
@@ -356,9 +370,9 @@ static void free_list_clear(ass_renderer_t *render_priv)
     }
 }
 
-static void ass_free_images(ass_image_t *img);
+static void ass_free_images(ASS_Image *img);
 
-void ass_renderer_done(ass_renderer_t *render_priv)
+void ass_renderer_done(ASS_Renderer *render_priv)
 {
     ass_font_cache_done(render_priv->cache.font_cache);
     ass_bitmap_cache_done(render_priv->cache.bitmap_cache);
@@ -391,14 +405,14 @@ void ass_renderer_done(ass_renderer_t *render_priv)
 }
 
 /**
- * \brief Create a new ass_image_t
- * Parameters are the same as ass_image_t fields.
+ * \brief Create a new ASS_Image
+ * Parameters are the same as ASS_Image fields.
  */
-static ass_image_t *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
+static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
                                    int bitmap_h, int stride, int dst_x,
                                    int dst_y, uint32_t color)
 {
-    ass_image_t *img = calloc(1, sizeof(ass_image_t));
+    ASS_Image *img = calloc(1, sizeof(ASS_Image));
 
     img->w = bitmap_w;
     img->h = bitmap_h;
@@ -411,18 +425,11 @@ static ass_image_t *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
     return img;
 }
 
-static double x2scr_pos(ass_renderer_t *render_priv, double x);
-static double y2scr_pos(ass_renderer_t *render_priv, double y);
-
-typedef struct {
-    int x0;
-    int y0;
-    int x1;
-    int y1;
-} rect_t;
+static double x2scr_pos(ASS_Renderer *render_priv, double x);
+static double y2scr_pos(ASS_Renderer *render_priv, double y);
 
 /*
- * \brief Convert bitmap glyphs into ass_image_t list with inverse clipping
+ * \brief Convert bitmap glyphs into ASS_Image list with inverse clipping
  *
  * Inverse clipping with the following strategy:
  * - find rectangle from (x0, y0) to (cx0, y1)
@@ -434,14 +441,14 @@ typedef struct {
  * In an additional pass, the rectangles need to be split up left/right for
  * karaoke effects.  This can result in a lot of bitmaps (6 to be exact).
  */
-static ass_image_t **render_glyph_i(ass_renderer_t *render_priv,
-                                    bitmap_t *bm, int dst_x, int dst_y,
+static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
+                                    Bitmap *bm, int dst_x, int dst_y,
                                     uint32_t color, uint32_t color2, int brk,
-                                    ass_image_t **tail)
+                                    ASS_Image **tail)
 {
     int i, j, x0, y0, x1, y1, cx0, cy0, cx1, cy1, sx, sy, zx, zy;
-    rect_t r[4];
-    ass_image_t *img;
+    Rect r[4];
+    ASS_Image *img;
 
     dst_x += bm->left;
     dst_y += bm->top;
@@ -521,7 +528,7 @@ static ass_image_t **render_glyph_i(ass_renderer_t *render_priv,
 }
 
 /**
- * \brief convert bitmap glyph into ass_image_t struct(s)
+ * \brief convert bitmap glyph into ASS_Image struct(s)
  * \param bit freetype bitmap glyph, FT_PIXEL_MODE_GRAY
  * \param dst_x bitmap x coordinate in video frame
  * \param dst_y bitmap y coordinate in video frame
@@ -532,10 +539,10 @@ static ass_image_t **render_glyph_i(ass_renderer_t *render_priv,
  * \return pointer to the new list tail
  * Performs clipping. Uses my_draw_bitmap for actual bitmap convertion.
  */
-static ass_image_t **render_glyph(ass_renderer_t *render_priv,
-                                  bitmap_t *bm, int dst_x, int dst_y,
+static ASS_Image **render_glyph(ASS_Renderer *render_priv,
+                                  Bitmap *bm, int dst_x, int dst_y,
                                   uint32_t color, uint32_t color2, int brk,
-                                  ass_image_t **tail)
+                                  ASS_Image **tail)
 {
     // Inverse clipping in use?
     if (render_priv->state.clip_mode)
@@ -548,7 +555,7 @@ static ass_image_t **render_glyph(ass_renderer_t *render_priv,
     int b_x0, b_y0, b_x1, b_y1; // visible part of the bitmap
     int clip_x0, clip_y0, clip_x1, clip_y1;
     int tmp;
-    ass_image_t *img;
+    ASS_Image *img;
 
     dst_x += bm->left;
     dst_y += bm->top;
@@ -610,11 +617,11 @@ static ass_image_t **render_glyph(ass_renderer_t *render_priv,
 }
 
 /**
- * \brief Replace the bitmap buffer in ass_image_t with a copy
- * \param img ass_image_t to operate on
+ * \brief Replace the bitmap buffer in ASS_Image with a copy
+ * \param img ASS_Image to operate on
  * \return pointer to old bitmap buffer
  */
-static unsigned char *clone_bitmap_buffer(ass_image_t *img)
+static unsigned char *clone_bitmap_buffer(ASS_Image *img)
 {
     unsigned char *old_bitmap = img->bitmap;
     int size = img->stride * (img->h - 1) + img->w;
@@ -630,17 +637,17 @@ static unsigned char *clone_bitmap_buffer(ass_image_t *img)
  * luminance adding up where they overlap (which looks ugly)
  */
 static void
-render_overlap(ass_renderer_t *render_priv, ass_image_t **last_tail,
-               ass_image_t **tail, bitmap_hash_key_t *last_hash,
-               bitmap_hash_key_t *hash)
+render_overlap(ASS_Renderer *render_priv, ASS_Image **last_tail,
+               ASS_Image **tail, BitmapHashKey *last_hash,
+               BitmapHashKey *hash)
 {
     int left, top, bottom, right;
     int old_left, old_top, w, h, cur_left, cur_top;
     int x, y, opos, cpos;
     char m;
-    composite_hash_key_t hk;
-    composite_hash_val_t *hv;
-    composite_hash_val_t chv;
+    CompositeHashKey hk;
+    CompositeHashValue *hv;
+    CompositeHashValue chv;
     int ax = (*last_tail)->dst_x;
     int ay = (*last_tail)->dst_y;
     int aw = (*last_tail)->w;
@@ -712,14 +719,14 @@ render_overlap(ass_renderer_t *render_priv, ass_image_t **last_tail,
     cache_add_composite(render_priv->cache.composite_cache, &hk, &chv);
 }
 
-static void free_list_add(ass_renderer_t *render_priv, void *object)
+static void free_list_add(ASS_Renderer *render_priv, void *object)
 {
     if (!render_priv->free_head) {
-        render_priv->free_head = calloc(1, sizeof(free_list_t));
+        render_priv->free_head = calloc(1, sizeof(FreeList));
         render_priv->free_head->object = object;
         render_priv->free_tail = render_priv->free_head;
     } else {
-        free_list_t *l = calloc(1, sizeof(free_list_t));
+        FreeList *l = calloc(1, sizeof(FreeList));
         l->object = object;
         render_priv->free_tail->next = l;
         render_priv->free_tail = render_priv->free_tail->next;
@@ -731,13 +738,13 @@ static void free_list_add(ass_renderer_t *render_priv, void *object)
  * applicable. The blended bitmaps are added to a free list which is freed
  * at the start of a new frame.
  */
-static void blend_vector_clip(ass_renderer_t *render_priv,
-                              ass_image_t *head)
+static void blend_vector_clip(ASS_Renderer *render_priv,
+                              ASS_Image *head)
 {
     FT_Glyph glyph;
     FT_BitmapGlyph clip_bm;
-    ass_image_t *cur;
-    ass_drawing_t *drawing = render_priv->state.clip_drawing;
+    ASS_Image *cur;
+    ASS_Drawing *drawing = render_priv->state.clip_drawing;
     int error;
 
     if (!drawing)
@@ -839,24 +846,24 @@ blend_vector_exit:
 }
 
 /**
- * \brief Convert text_info_t struct to ass_image_t list
+ * \brief Convert TextInfo struct to ASS_Image list
  * Splits glyphs in halves when needed (for \kf karaoke).
  */
-static ass_image_t *render_text(ass_renderer_t *render_priv, int dst_x,
+static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x,
                                 int dst_y)
 {
     int pen_x, pen_y;
     int i;
-    bitmap_t *bm;
-    ass_image_t *head;
-    ass_image_t **tail = &head;
-    ass_image_t **last_tail = 0;
-    ass_image_t **here_tail = 0;
-    bitmap_hash_key_t *last_hash = 0;
-    text_info_t *text_info = &render_priv->text_info;
+    Bitmap *bm;
+    ASS_Image *head;
+    ASS_Image **tail = &head;
+    ASS_Image **last_tail = 0;
+    ASS_Image **here_tail = 0;
+    BitmapHashKey *last_hash = 0;
+    TextInfo *text_info = &render_priv->text_info;
 
     for (i = 0; i < text_info->length; ++i) {
-        glyph_info_t *info = text_info->glyphs + i;
+        GlyphInfo *info = text_info->glyphs + i;
         if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm_s
             || (info->shadow_x == 0 && info->shadow_y == 0))
             continue;
@@ -882,7 +889,7 @@ static ass_image_t *render_text(ass_renderer_t *render_priv, int dst_x,
 
     last_tail = 0;
     for (i = 0; i < text_info->length; ++i) {
-        glyph_info_t *info = text_info->glyphs + i;
+        GlyphInfo *info = text_info->glyphs + i;
         if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm_o)
             continue;
 
@@ -906,7 +913,7 @@ static ass_image_t *render_text(ass_renderer_t *render_priv, int dst_x,
         }
     }
     for (i = 0; i < text_info->length; ++i) {
-        glyph_info_t *info = text_info->glyphs + i;
+        GlyphInfo *info = text_info->glyphs + i;
         if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm)
             continue;
 
@@ -943,13 +950,13 @@ static ass_image_t *render_text(ass_renderer_t *render_priv, int dst_x,
 /**
  * \brief Mapping between script and screen coordinates
  */
-static double x2scr(ass_renderer_t *render_priv, double x)
+static double x2scr(ASS_Renderer *render_priv, double x)
 {
     return x * render_priv->orig_width_nocrop /
         render_priv->track->PlayResX +
         FFMAX(render_priv->settings.left_margin, 0);
 }
-static double x2scr_pos(ass_renderer_t *render_priv, double x)
+static double x2scr_pos(ASS_Renderer *render_priv, double x)
 {
     return x * render_priv->orig_width / render_priv->track->PlayResX +
         render_priv->settings.left_margin;
@@ -958,20 +965,20 @@ static double x2scr_pos(ass_renderer_t *render_priv, double x)
 /**
  * \brief Mapping between script and screen coordinates
  */
-static double y2scr(ass_renderer_t *render_priv, double y)
+static double y2scr(ASS_Renderer *render_priv, double y)
 {
     return y * render_priv->orig_height_nocrop /
         render_priv->track->PlayResY +
         FFMAX(render_priv->settings.top_margin, 0);
 }
-static double y2scr_pos(ass_renderer_t *render_priv, double y)
+static double y2scr_pos(ASS_Renderer *render_priv, double y)
 {
     return y * render_priv->orig_height / render_priv->track->PlayResY +
         render_priv->settings.top_margin;
 }
 
 // the same for toptitles
-static double y2scr_top(ass_renderer_t *render_priv, double y)
+static double y2scr_top(ASS_Renderer *render_priv, double y)
 {
     if (render_priv->settings.use_margins)
         return y * render_priv->orig_height_nocrop /
@@ -983,7 +990,7 @@ static double y2scr_top(ass_renderer_t *render_priv, double y)
 }
 
 // the same for subtitles
-static double y2scr_sub(ass_renderer_t *render_priv, double y)
+static double y2scr_sub(ASS_Renderer *render_priv, double y)
 {
     if (render_priv->settings.use_margins)
         return y * render_priv->orig_height_nocrop /
@@ -996,7 +1003,7 @@ static double y2scr_sub(ass_renderer_t *render_priv, double y)
             FFMAX(render_priv->settings.top_margin, 0);
 }
 
-static void compute_string_bbox(text_info_t *info, double_bbox_t *bbox)
+static void compute_string_bbox(TextInfo *info, DBBox *bbox)
 {
     int i;
 
@@ -1031,7 +1038,7 @@ static inline int mystrcmp(char **p, const char *sample)
         return 0;
 }
 
-static void change_font_size(ass_renderer_t *render_priv, double sz)
+static void change_font_size(ASS_Renderer *render_priv, double sz)
 {
     double size = sz * render_priv->font_scale;
 
@@ -1048,10 +1055,10 @@ static void change_font_size(ass_renderer_t *render_priv, double sz)
 /**
  * \brief Change current font, using setting from render_priv->state.
  */
-static void update_font(ass_renderer_t *render_priv)
+static void update_font(ASS_Renderer *render_priv)
 {
     unsigned val;
-    ass_font_desc_t desc;
+    ASS_FontDesc desc;
     desc.family = strdup(render_priv->state.family);
     desc.treat_family_as_pattern =
         render_priv->state.treat_family_as_pattern;
@@ -1085,7 +1092,7 @@ static void update_font(ass_renderer_t *render_priv)
  * \brief Change border width
  * negative value resets border to style value
  */
-static void change_border(ass_renderer_t *render_priv, double border_x,
+static void change_border(ASS_Renderer *render_priv, double border_x,
                           double border_y)
 {
     int bord;
@@ -1203,11 +1210,11 @@ interpolate_alpha(long long now,
  * Parse a vector clip into an outline, using the proper scaling
  * parameters.  Translate it to correct for screen borders, if needed.
  */
-static char *parse_vector_clip(ass_renderer_t *render_priv, char *p)
+static char *parse_vector_clip(ASS_Renderer *render_priv, char *p)
 {
     int scale = 1;
     int res = 0;
-    ass_drawing_t *drawing;
+    ASS_Drawing *drawing;
     render_priv->state.clip_drawing = ass_drawing_new(
         render_priv->fontconfig_priv,
         render_priv->state.font,
@@ -1242,14 +1249,14 @@ static char *parse_vector_clip(ass_renderer_t *render_priv, char *p)
     return p;
 }
 
-static void reset_render_context(ass_renderer_t *);
+static void reset_render_context(ASS_Renderer *);
 
 /**
  * \brief Parse style override tag.
  * \param p string to parse
  * \param pwr multiplier for some tag effects (comes from \t tags)
  */
-static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
+static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
 {
     skip_to('\\');
     skip('\\');
@@ -1796,7 +1803,7 @@ static char *parse_tag(ass_renderer_t *render_priv, char *p, double pwr)
  * \return ucs4 code of the next char
  * On return str points to the unparsed part of the string
  */
-static unsigned get_next_char(ass_renderer_t *render_priv, char **str)
+static unsigned get_next_char(ASS_Renderer *render_priv, char **str)
 {
     char *p = *str;
     unsigned chr;
@@ -1842,7 +1849,7 @@ static unsigned get_next_char(ass_renderer_t *render_priv, char **str)
 }
 
 static void
-apply_transition_effects(ass_renderer_t *render_priv, ass_event_t *event)
+apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
 {
     int v[4];
     int cnt;
@@ -1921,7 +1928,7 @@ apply_transition_effects(ass_renderer_t *render_priv, ass_event_t *event)
  * \brief partially reset render_context to style values
  * Works like {\r}: resets some style overrides
  */
-static void reset_render_context(ass_renderer_t *render_priv)
+static void reset_render_context(ASS_Renderer *render_priv)
 {
     render_priv->state.c[0] = render_priv->state.style->PrimaryColour;
     render_priv->state.c[1] = render_priv->state.style->SecondaryColour;
@@ -1960,7 +1967,7 @@ static void reset_render_context(ass_renderer_t *render_priv)
  * \brief Start new event. Reset render_priv->state.
  */
 static void
-init_render_context(ass_renderer_t *render_priv, ass_event_t *event)
+init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
 {
     render_priv->state.event = event;
     render_priv->state.style = render_priv->track->styles + event->Style;
@@ -1993,7 +2000,7 @@ init_render_context(ass_renderer_t *render_priv, ass_event_t *event)
     apply_transition_effects(render_priv, event);
 }
 
-static void free_render_context(ass_renderer_t *render_priv)
+static void free_render_context(ASS_Renderer *render_priv)
 {
     free(render_priv->state.family);
     ass_drawing_free(render_priv->state.drawing);
@@ -2088,7 +2095,7 @@ static void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x,
  * Stroke an outline glyph in x/y direction.  Applies various fixups to get
  * around limitations of the FreeType stroker.
  */
-static void stroke_outline_glyph(ass_renderer_t *render_priv,
+static void stroke_outline_glyph(ASS_Renderer *render_priv,
                                  FT_OutlineGlyph *glyph, int sx, int sy)
 {
     if (sx <= 0 && sy <= 0)
@@ -2137,11 +2144,11 @@ static void stroke_outline_glyph(ass_renderer_t *render_priv,
  * The glyphs are returned in info->glyph and info->outline_glyph
  */
 static void
-get_outline_glyph(ass_renderer_t *render_priv, int symbol,
-                  glyph_info_t *info, ass_drawing_t *drawing)
+get_outline_glyph(ASS_Renderer *render_priv, int symbol,
+                  GlyphInfo *info, ASS_Drawing *drawing)
 {
-    glyph_hash_val_t *val;
-    glyph_hash_key_t key;
+    GlyphHashValue *val;
+    GlyphHashKey key;
     memset(&key, 0, sizeof(key));
 
     if (drawing->hash) {
@@ -2162,7 +2169,7 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
         key.outline.y = render_priv->state.border_y * 0xFFFF;
         key.flags = render_priv->state.flags;
     }
-    memset(info, 0, sizeof(glyph_info_t));
+    memset(info, 0, sizeof(GlyphInfo));
 
     val = cache_find_glyph(render_priv->cache.glyph_cache, &key);
     if (val) {
@@ -2177,7 +2184,7 @@ get_outline_glyph(ass_renderer_t *render_priv, int symbol,
             drawing->desc = val->desc;
         }
     } else {
-        glyph_hash_val_t v;
+        GlyphHashValue v;
         if (drawing->hash) {
             ass_drawing_parse(drawing, 0);
             FT_Glyph_Copy((FT_Glyph) drawing->glyph, &info->glyph);
@@ -2233,10 +2240,10 @@ static void transform_3d(FT_Vector shift, FT_Glyph *glyph,
  * They are returned in info->bm (glyph), info->bm_o (outline) and info->bm_s (shadow).
  */
 static void
-get_bitmap_glyph(ass_renderer_t *render_priv, glyph_info_t *info)
+get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 {
-    bitmap_hash_val_t *val;
-    bitmap_hash_key_t *key = &info->hash_key;
+    BitmapHashValue *val;
+    BitmapHashKey *key = &info->hash_key;
 
     val = cache_find_bitmap(render_priv->cache.bitmap_cache, key);
 
@@ -2246,7 +2253,7 @@ get_bitmap_glyph(ass_renderer_t *render_priv, glyph_info_t *info)
         info->bm_s = val->bm_s;
     } else {
         FT_Vector shift;
-        bitmap_hash_val_t hash_val;
+        BitmapHashValue hash_val;
         int error;
         info->bm = info->bm_o = info->bm_s = 0;
         if (info->glyph && info->symbol != '\n' && info->symbol != 0) {
@@ -2304,12 +2311,12 @@ get_bitmap_glyph(ass_renderer_t *render_priv, glyph_info_t *info)
  *   lines[].asc
  *   lines[].desc
  */
-static void measure_text(ass_renderer_t *render_priv)
+static void measure_text(ASS_Renderer *render_priv)
 {
-    text_info_t *text_info = &render_priv->text_info;
+    TextInfo *text_info = &render_priv->text_info;
     int cur_line = 0;
     double max_asc = 0., max_desc = 0.;
-    glyph_info_t *last = NULL;
+    GlyphInfo *last = NULL;
     int i;
     int empty_line = 1;
     text_info->height = 0.;
@@ -2328,7 +2335,7 @@ static void measure_text(ass_renderer_t *render_priv)
         } else
             empty_line = 0;
         if (i < text_info->length) {
-            glyph_info_t *cur = text_info->glyphs + i;
+            GlyphInfo *cur = text_info->glyphs + i;
             if (d6_to_double(cur->asc) > max_asc)
                 max_asc = d6_to_double(cur->asc);
             if (d6_to_double(cur->desc) > max_desc)
@@ -2352,17 +2359,17 @@ static void measure_text(ass_renderer_t *render_priv)
  * The result may not be optimal, but usually is good enough.
  */
 static void
-wrap_lines_smart(ass_renderer_t *render_priv, double max_text_width)
+wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
 {
     int i;
-    glyph_info_t *cur, *s1, *e1, *s2, *s3, *w;
+    GlyphInfo *cur, *s1, *e1, *s2, *s3, *w;
     int last_space;
     int break_type;
     int exit;
     double pen_shift_x;
     double pen_shift_y;
     int cur_line;
-    text_info_t *text_info = &render_priv->text_info;
+    TextInfo *text_info = &render_priv->text_info;
 
     last_space = -1;
     text_info->n_lines = 1;
@@ -2404,7 +2411,7 @@ wrap_lines_smart(ass_renderer_t *render_priv, double max_text_width)
                 // Raise maximum number of lines
                 text_info->max_lines *= 2;
                 text_info->lines = realloc(text_info->lines,
-                                           sizeof(line_info_t) *
+                                           sizeof(LineInfo) *
                                            text_info->max_lines);
             }
             if (lead < text_info->length)
@@ -2512,11 +2519,11 @@ wrap_lines_smart(ass_renderer_t *render_priv, double max_text_width)
  * 2. sets effect_timing for all glyphs to x coordinate of the border line between the left and right karaoke parts
  * (left part is filled with PrimaryColour, right one - with SecondaryColour).
  */
-static void process_karaoke_effects(ass_renderer_t *render_priv)
+static void process_karaoke_effects(ASS_Renderer *render_priv)
 {
-    glyph_info_t *cur, *cur2;
-    glyph_info_t *s1, *e1;      // start and end of the current word
-    glyph_info_t *s2;           // start of the next word
+    GlyphInfo *cur, *cur2;
+    GlyphInfo *s1, *e1;      // start and end of the current word
+    GlyphInfo *s2;           // start of the next word
     int i;
     int timing;                 // current timing
     int tm_start, tm_end;       // timings at start and end of the current word
@@ -2577,7 +2584,7 @@ static void process_karaoke_effects(ass_renderer_t *render_priv)
  * \param alignment alignment
  * \param bx, by out: base point coordinates
  */
-static void get_base_point(double_bbox_t *bbox, int alignment, double *bx, double *by)
+static void get_base_point(DBBox *bbox, int alignment, double *bx, double *by)
 {
     const int halign = alignment & 3;
     const int valign = alignment & 12;
@@ -2688,26 +2695,26 @@ transform_3d(FT_Vector shift, FT_Glyph *glyph, FT_Glyph *glyph2,
  * \brief Main ass rendering function, glues everything together
  * \param event event to render
  * \param event_images struct containing resulting images, will also be initialized
- * Process event, appending resulting ass_image_t's to images_root.
+ * Process event, appending resulting ASS_Image's to images_root.
  */
 static int
-ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
-                 event_images_t *event_images)
+ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
+                 EventImages *event_images)
 {
     char *p;
     FT_UInt previous;
     FT_UInt num_glyphs;
     FT_Vector pen;
     unsigned code;
-    double_bbox_t bbox;
+    DBBox bbox;
     int i, j;
     int MarginL, MarginR, MarginV;
     int last_break;
     int alignment, halign, valign;
     double device_x = 0;
     double device_y = 0;
-    text_info_t *text_info = &render_priv->text_info;
-    ass_drawing_t *drawing;
+    TextInfo *text_info = &render_priv->text_info;
+    ASS_Drawing *drawing;
 
     if (event->Style >= render_priv->track->n_styles) {
         ass_msg(render_priv->library, MSGL_WARN, "No style found");
@@ -2763,7 +2770,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
             text_info->max_glyphs *= 2;
             text_info->glyphs =
                 realloc(text_info->glyphs,
-                        sizeof(glyph_info_t) * text_info->max_glyphs);
+                        sizeof(GlyphInfo) * text_info->max_glyphs);
         }
 
         // Add kerning to pen
@@ -2942,9 +2949,9 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
             if ((i == text_info->length)
                 || text_info->glyphs[i].linebreak) {
                 double width, shift = 0;
-                glyph_info_t *first_glyph =
+                GlyphInfo *first_glyph =
                     text_info->glyphs + last_break + 1;
-                glyph_info_t *last_glyph = text_info->glyphs + i - 1;
+                GlyphInfo *last_glyph = text_info->glyphs + i - 1;
 
                 while ((last_glyph > first_glyph)
                        && ((last_glyph->symbol == '\n')
@@ -3076,7 +3083,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
     }
     // calculate rotation parameters
     {
-        double_vector_t center;
+        DVector center;
 
         if (render_priv->state.have_origin) {
             center.x = x2scr(render_priv, render_priv->state.org_x);
@@ -3089,7 +3096,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
         }
 
         for (i = 0; i < text_info->length; ++i) {
-            glyph_info_t *info = text_info->glyphs + i;
+            GlyphInfo *info = text_info->glyphs + i;
 
             if (info->hash_key.frx || info->hash_key.fry
                 || info->hash_key.frz || info->hash_key.fax
@@ -3106,7 +3113,7 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
 
     // convert glyphs to bitmaps
     for (i = 0; i < text_info->length; ++i) {
-        glyph_info_t *g = text_info->glyphs + i;
+        GlyphInfo *g = text_info->glyphs + i;
         g->hash_key.advance.x =
             double_to_d6(device_x - (int) device_x +
             d6_to_double(g->pos.x & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
@@ -3133,16 +3140,16 @@ ass_render_event(ass_renderer_t *render_priv, ass_event_t *event,
  * \brief deallocate image list
  * \param img list pointer
  */
-static void ass_free_images(ass_image_t *img)
+static void ass_free_images(ASS_Image *img)
 {
     while (img) {
-        ass_image_t *next = img->next;
+        ASS_Image *next = img->next;
         free(img);
         img = next;
     }
 }
 
-static void ass_reconfigure(ass_renderer_t *priv)
+static void ass_reconfigure(ASS_Renderer *priv)
 {
     priv->render_id++;
     priv->cache.glyph_cache =
@@ -3155,7 +3162,7 @@ static void ass_reconfigure(ass_renderer_t *priv)
     priv->prev_images_root = 0;
 }
 
-void ass_set_frame_size(ass_renderer_t *priv, int w, int h)
+void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
 {
     if (priv->settings.frame_width != w || priv->settings.frame_height != h) {
         priv->settings.frame_width = w;
@@ -3168,7 +3175,7 @@ void ass_set_frame_size(ass_renderer_t *priv, int w, int h)
     }
 }
 
-void ass_set_margins(ass_renderer_t *priv, int t, int b, int l, int r)
+void ass_set_margins(ASS_Renderer *priv, int t, int b, int l, int r)
 {
     if (priv->settings.left_margin != l ||
         priv->settings.right_margin != r ||
@@ -3182,12 +3189,12 @@ void ass_set_margins(ass_renderer_t *priv, int t, int b, int l, int r)
     }
 }
 
-void ass_set_use_margins(ass_renderer_t *priv, int use)
+void ass_set_use_margins(ASS_Renderer *priv, int use)
 {
     priv->settings.use_margins = use;
 }
 
-void ass_set_aspect_ratio(ass_renderer_t *priv, double dar, double sar)
+void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar)
 {
     if (priv->settings.aspect != dar || priv->settings.storage_aspect != sar) {
         priv->settings.aspect = dar;
@@ -3196,7 +3203,7 @@ void ass_set_aspect_ratio(ass_renderer_t *priv, double dar, double sar)
     }
 }
 
-void ass_set_font_scale(ass_renderer_t *priv, double font_scale)
+void ass_set_font_scale(ASS_Renderer *priv, double font_scale)
 {
     if (priv->settings.font_size_coeff != font_scale) {
         priv->settings.font_size_coeff = font_scale;
@@ -3204,7 +3211,7 @@ void ass_set_font_scale(ass_renderer_t *priv, double font_scale)
     }
 }
 
-void ass_set_hinting(ass_renderer_t *priv, ass_hinting_t ht)
+void ass_set_hinting(ASS_Renderer *priv, ASS_Hinting ht)
 {
     if (priv->settings.hinting != ht) {
         priv->settings.hinting = ht;
@@ -3212,12 +3219,12 @@ void ass_set_hinting(ass_renderer_t *priv, ass_hinting_t ht)
     }
 }
 
-void ass_set_line_spacing(ass_renderer_t *priv, double line_spacing)
+void ass_set_line_spacing(ASS_Renderer *priv, double line_spacing)
 {
     priv->settings.line_spacing = line_spacing;
 }
 
-void ass_set_fonts(ass_renderer_t *priv, const char *default_font,
+void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
                    const char *default_family, int fc, const char *config,
                    int update)
 {
@@ -3234,7 +3241,7 @@ void ass_set_fonts(ass_renderer_t *priv, const char *default_font,
                         default_font, fc, config, update);
 }
 
-int ass_fonts_update(ass_renderer_t *render_priv)
+int ass_fonts_update(ASS_Renderer *render_priv)
 {
     return fontconfig_update(render_priv->fontconfig_priv);
 }
@@ -3243,11 +3250,11 @@ int ass_fonts_update(ass_renderer_t *render_priv)
  * \brief Start a new frame
  */
 static int
-ass_start_frame(ass_renderer_t *render_priv, ass_track_t *track,
+ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
                 long long now)
 {
-    ass_settings_t *settings_priv = &render_priv->settings;
-    cache_store_t *cache = &render_priv->cache;
+    ASS_Settings *settings_priv = &render_priv->settings;
+    CacheStore *cache = &render_priv->cache;
 
     if (!render_priv->settings.frame_width
         && !render_priv->settings.frame_height)
@@ -3321,8 +3328,8 @@ ass_start_frame(ass_renderer_t *render_priv, ass_track_t *track,
 
 static int cmp_event_layer(const void *p1, const void *p2)
 {
-    ass_event_t *e1 = ((event_images_t *) p1)->event;
-    ass_event_t *e2 = ((event_images_t *) p2)->event;
+    ASS_Event *e1 = ((EventImages *) p1)->event;
+    ASS_Event *e2 = ((EventImages *) p2)->event;
     if (e1->Layer < e2->Layer)
         return -1;
     if (e1->Layer > e2->Layer)
@@ -3334,24 +3341,20 @@ static int cmp_event_layer(const void *p1, const void *p2)
     return 0;
 }
 
-static render_priv_t *get_render_priv(ass_renderer_t *render_priv,
-                                      ass_event_t *event)
+static ASS_RenderPriv *get_render_priv(ASS_Renderer *render_priv,
+                                      ASS_Event *event)
 {
     if (!event->render_priv)
-        event->render_priv = calloc(1, sizeof(render_priv_t));
+        event->render_priv = calloc(1, sizeof(ASS_RenderPriv));
     // FIXME: check render_id
     if (render_priv->render_id != event->render_priv->render_id) {
-        memset(event->render_priv, 0, sizeof(render_priv_t));
+        memset(event->render_priv, 0, sizeof(ASS_RenderPriv));
         event->render_priv->render_id = render_priv->render_id;
     }
     return event->render_priv;
 }
 
-typedef struct {
-    int a, b;                   // top and height
-} segment_t;
-
-static int overlap(segment_t *s1, segment_t *s2)
+static int overlap(Segment *s1, Segment *s2)
 {
     if (s1->a >= s2->b || s2->a >= s1->b)
         return 0;
@@ -3360,13 +3363,13 @@ static int overlap(segment_t *s1, segment_t *s2)
 
 static int cmp_segment(const void *p1, const void *p2)
 {
-    return ((segment_t *) p1)->a - ((segment_t *) p2)->a;
+    return ((Segment *) p1)->a - ((Segment *) p2)->a;
 }
 
 static void
-shift_event(ass_renderer_t *render_priv, event_images_t *ei, int shift)
+shift_event(ASS_Renderer *render_priv, EventImages *ei, int shift)
 {
-    ass_image_t *cur = ei->imgs;
+    ASS_Image *cur = ei->imgs;
     while (cur) {
         cur->dst_y += shift;
         // clip top and bottom
@@ -3391,7 +3394,7 @@ shift_event(ass_renderer_t *render_priv, event_images_t *ei, int shift)
 
 // dir: 1 - move down
 //      -1 - move up
-static int fit_segment(segment_t *s, segment_t *fixed, int *cnt, int dir)
+static int fit_segment(Segment *s, Segment *fixed, int *cnt, int dir)
 {
     int i;
     int shift = 0;
@@ -3411,26 +3414,26 @@ static int fit_segment(segment_t *s, segment_t *fixed, int *cnt, int dir)
     fixed[*cnt].a = s->a + shift;
     fixed[*cnt].b = s->b + shift;
     (*cnt)++;
-    qsort(fixed, *cnt, sizeof(segment_t), cmp_segment);
+    qsort(fixed, *cnt, sizeof(Segment), cmp_segment);
 
     return shift;
 }
 
 static void
-fix_collisions(ass_renderer_t *render_priv, event_images_t *imgs, int cnt)
+fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
 {
-    segment_t *used = malloc(cnt * sizeof(*used));
+    Segment *used = malloc(cnt * sizeof(*used));
     int cnt_used = 0;
     int i, j;
 
     // fill used[] with fixed events
     for (i = 0; i < cnt; ++i) {
-        render_priv_t *priv;
+        ASS_RenderPriv *priv;
         if (!imgs[i].detect_collisions)
             continue;
         priv = get_render_priv(render_priv, imgs[i].event);
         if (priv->height > 0) { // it's a fixed event
-            segment_t s;
+            Segment s;
             s.a = priv->top;
             s.b = priv->top + priv->height;
             if (priv->height != imgs[i].height) {       // no, it's not
@@ -3452,17 +3455,17 @@ fix_collisions(ass_renderer_t *render_priv, event_images_t *imgs, int cnt)
             }
         }
     }
-    qsort(used, cnt_used, sizeof(segment_t), cmp_segment);
+    qsort(used, cnt_used, sizeof(Segment), cmp_segment);
 
     // try to fit other events in free spaces
     for (i = 0; i < cnt; ++i) {
-        render_priv_t *priv;
+        ASS_RenderPriv *priv;
         if (!imgs[i].detect_collisions)
             continue;
         priv = get_render_priv(render_priv, imgs[i].event);
         if (priv->height == 0) {        // not a fixed event
             int shift;
-            segment_t s;
+            Segment s;
             s.a = imgs[i].top;
             s.b = imgs[i].top + imgs[i].height;
             shift =
@@ -3485,7 +3488,7 @@ fix_collisions(ass_renderer_t *render_priv, event_images_t *imgs, int cnt)
  * \param i2 second image
  * \return 0 if identical, 1 if different positions, 2 if different content
  */
-static int ass_image_compare(ass_image_t *i1, ass_image_t *i2)
+static int ass_image_compare(ASS_Image *i1, ASS_Image *i2)
 {
     if (i1->w != i2->w)
         return 2;
@@ -3509,16 +3512,16 @@ static int ass_image_compare(ass_image_t *i1, ass_image_t *i2)
  * \param priv library handle
  * \return 0 if identical, 1 if different positions, 2 if different content
  */
-static int ass_detect_change(ass_renderer_t *priv)
+static int ass_detect_change(ASS_Renderer *priv)
 {
-    ass_image_t *img, *img2;
+    ASS_Image *img, *img2;
     int diff;
 
     img = priv->prev_images_root;
     img2 = priv->images_root;
     diff = 0;
     while (img && diff < 2) {
-        ass_image_t *next, *next2;
+        ASS_Image *next, *next2;
         next = img->next;
         if (img2) {
             int d = ass_image_compare(img, img2);
@@ -3550,12 +3553,12 @@ static int ass_detect_change(ass_renderer_t *priv)
  *        0 if identical, 1 if different positions, 2 if different content.
  *        Can be NULL, in that case no detection is performed.
  */
-ass_image_t *ass_render_frame(ass_renderer_t *priv, ass_track_t *track,
+ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
                               long long now, int *detect_change)
 {
     int i, cnt, rc;
-    event_images_t *last;
-    ass_image_t **tail;
+    EventImages *last;
+    ASS_Image **tail;
 
     // init frame
     rc = ass_start_frame(priv, track, now);
@@ -3565,14 +3568,14 @@ ass_image_t *ass_render_frame(ass_renderer_t *priv, ass_track_t *track,
     // render events separately
     cnt = 0;
     for (i = 0; i < track->n_events; ++i) {
-        ass_event_t *event = track->events + i;
+        ASS_Event *event = track->events + i;
         if ((event->Start <= now)
             && (now < (event->Start + event->Duration))) {
             if (cnt >= priv->eimg_size) {
                 priv->eimg_size += 100;
                 priv->eimg =
                     realloc(priv->eimg,
-                            priv->eimg_size * sizeof(event_images_t));
+                            priv->eimg_size * sizeof(EventImages));
             }
             rc = ass_render_event(priv, event, priv->eimg + cnt);
             if (!rc)
@@ -3581,7 +3584,7 @@ ass_image_t *ass_render_frame(ass_renderer_t *priv, ass_track_t *track,
     }
 
     // sort by layer
-    qsort(priv->eimg, cnt, sizeof(event_images_t), cmp_event_layer);
+    qsort(priv->eimg, cnt, sizeof(EventImages), cmp_event_layer);
 
     // call fix_collisions for each group of events with the same layer
     last = priv->eimg;
@@ -3596,7 +3599,7 @@ ass_image_t *ass_render_frame(ass_renderer_t *priv, ass_track_t *track,
     // concat lists
     tail = &priv->images_root;
     for (i = 0; i < cnt; ++i) {
-        ass_image_t *cur = priv->eimg[i].imgs;
+        ASS_Image *cur = priv->eimg[i].imgs;
         while (cur) {
             *tail = cur;
             tail = &cur->next;

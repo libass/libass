@@ -71,7 +71,7 @@ struct fc_instance {
  * \param code: the character that should be present in the font, can be 0
  * \return font file path
 */
-static char *_select_font(ass_library_t *library, fc_instance_t *priv,
+static char *_select_font(ASS_Library *library, FCInstance *priv,
                           const char *family, int treat_family_as_pattern,
                           unsigned bold, unsigned italic, int *index,
                           uint32_t code)
@@ -242,7 +242,7 @@ static char *_select_font(ass_library_t *library, fc_instance_t *priv,
  * \param code: the character that should be present in the font, can be 0
  * \return font file path
 */
-char *fontconfig_select(ass_library_t *library, fc_instance_t *priv,
+char *fontconfig_select(ASS_Library *library, FCInstance *priv,
                         const char *family, int treat_family_as_pattern,
                         unsigned bold, unsigned italic, int *index,
                         uint32_t code)
@@ -331,7 +331,7 @@ static char *validate_fname(char *name)
  * With FontConfig >= 2.4.2, builds a font pattern in memory via FT_New_Memory_Face/FcFreeTypeQueryFace.
  * With older FontConfig versions, save the font to ~/.mplayer/fonts.
 */
-static void process_fontdata(fc_instance_t *priv, ass_library_t *library,
+static void process_fontdata(FCInstance *priv, ASS_Library *library,
                              FT_Library ftlibrary, int idx)
 {
     int rc;
@@ -432,13 +432,13 @@ static void process_fontdata(fc_instance_t *priv, ass_library_t *library,
  * \param update whether the fontconfig cache should be built/updated
  * \return pointer to fontconfig private data
 */
-fc_instance_t *fontconfig_init(ass_library_t *library,
-                               FT_Library ftlibrary, const char *family,
-                               const char *path, int fc, const char *config,
-                               int update)
+FCInstance *fontconfig_init(ASS_Library *library,
+                            FT_Library ftlibrary, const char *family,
+                            const char *path, int fc, const char *config,
+                            int update)
 {
     int rc;
-    fc_instance_t *priv = calloc(1, sizeof(fc_instance_t));
+    FCInstance *priv = calloc(1, sizeof(FCInstance));
     const char *dir = library->fonts_dir;
     int i;
 
@@ -521,14 +521,14 @@ exit:
     return priv;
 }
 
-int fontconfig_update(fc_instance_t *priv)
+int fontconfig_update(FCInstance *priv)
 {
         return FcConfigBuildFonts(priv->config);
 }
 
 #else                           /* CONFIG_FONTCONFIG */
 
-char *fontconfig_select(ass_library_t *library, fc_instance_t *priv,
+char *fontconfig_select(ASS_Library *library, FCInstance *priv,
                         const char *family, int treat_family_as_pattern,
                         unsigned bold, unsigned italic, int *index,
                         uint32_t code)
@@ -537,24 +537,24 @@ char *fontconfig_select(ass_library_t *library, fc_instance_t *priv,
     return priv->path_default;
 }
 
-fc_instance_t *fontconfig_init(ass_library_t *library,
-                               FT_Library ftlibrary, const char *family,
-                               const char *path, int fc, const char *config,
-                               int update)
+FCInstance *fontconfig_init(ASS_Library *library,
+                            FT_Library ftlibrary, const char *family,
+                            const char *path, int fc, const char *config,
+                            int update)
 {
-    fc_instance_t *priv;
+    FCInstance *priv;
 
     ass_msg(library, MSGL_WARN,
         "Fontconfig disabled, only default font will be used.");
 
-    priv = calloc(1, sizeof(fc_instance_t));
+    priv = calloc(1, sizeof(FCInstance));
 
     priv->path_default = strdup(path);
     priv->index_default = 0;
     return priv;
 }
 
-int fontconfig_update(fc_instance_t *priv)
+int fontconfig_update(FCInstance *priv)
 {
     // Do nothing
     return 1;
@@ -562,7 +562,7 @@ int fontconfig_update(fc_instance_t *priv)
 
 #endif
 
-void fontconfig_done(fc_instance_t *priv)
+void fontconfig_done(FCInstance *priv)
 {
     if (priv && priv->config)
         FcConfigDestroy(priv->config);

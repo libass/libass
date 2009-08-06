@@ -39,7 +39,7 @@
  * Select Microfost Unicode CharMap, if the font has one.
  * Otherwise, let FreeType decide.
  */
-static void charmap_magic(ass_library_t *library, FT_Face face)
+static void charmap_magic(ASS_Library *library, FT_Face face)
 {
     int i;
     for (i = 0; i < face->num_charmaps; ++i) {
@@ -66,7 +66,7 @@ static void charmap_magic(ass_library_t *library, FT_Face face)
     }
 }
 
-static void update_transform(ass_font_t *font)
+static void update_transform(ASS_Font *font)
 {
     int i;
     FT_Matrix m;
@@ -80,7 +80,7 @@ static void update_transform(ass_font_t *font)
 /**
  * \brief find a memory font by name
  */
-static int find_font(ass_library_t *library, char *name)
+static int find_font(ASS_Library *library, char *name)
 {
     int i;
     for (i = 0; i < library->num_fontdata; ++i)
@@ -111,10 +111,10 @@ static void buggy_font_workaround(FT_Face face)
 }
 
 /**
- * \brief Select a face with the given charcode and add it to ass_font_t
+ * \brief Select a face with the given charcode and add it to ASS_Font
  * \return index of the new face in font->faces, -1 if failed
  */
-static int add_face(void *fc_priv, ass_font_t *font, uint32_t ch)
+static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
 {
     char *path;
     int index;
@@ -166,17 +166,17 @@ static int add_face(void *fc_priv, ass_font_t *font, uint32_t ch)
 }
 
 /**
- * \brief Create a new ass_font_t according to "desc" argument
+ * \brief Create a new ASS_Font according to "desc" argument
  */
-ass_font_t *ass_font_new(void *font_cache, ass_library_t *library,
-                         FT_Library ftlibrary, void *fc_priv,
-                         ass_font_desc_t *desc)
+ASS_Font *ass_font_new(void *font_cache, ASS_Library *library,
+                       FT_Library ftlibrary, void *fc_priv,
+                       ASS_FontDesc *desc)
 {
     int error;
-    ass_font_t *fontp;
-    ass_font_t font;
+    ASS_Font *fontp;
+    ASS_Font font;
 
-    fontp = ass_font_cache_find((hashmap_t *) font_cache, desc);
+    fontp = ass_font_cache_find((Hashmap *) font_cache, desc);
     if (fontp)
         return fontp;
 
@@ -197,13 +197,13 @@ ass_font_t *ass_font_new(void *font_cache, ass_library_t *library,
         free(font.desc.family);
         return 0;
     } else
-        return ass_font_cache_add((hashmap_t *) font_cache, &font);
+        return ass_font_cache_add((Hashmap *) font_cache, &font);
 }
 
 /**
  * \brief Set font transformation matrix and shift vector
  **/
-void ass_font_set_transform(ass_font_t *font, double scale_x,
+void ass_font_set_transform(ASS_Font *font, double scale_x,
                             double scale_y, FT_Vector *v)
 {
     font->scale_x = scale_x;
@@ -248,7 +248,7 @@ static void face_set_size(FT_Face face, double size)
 /**
  * \brief Set font size
  **/
-void ass_font_set_size(ass_font_t *font, double size)
+void ass_font_set_size(ASS_Font *font, double size)
 {
     int i;
     if (font->size != size) {
@@ -263,7 +263,7 @@ void ass_font_set_size(ass_font_t *font, double size)
  * \param ch character code
  * The values are extracted from the font face that provides glyphs for the given character
  **/
-void ass_font_get_asc_desc(ass_font_t *font, uint32_t ch, int *asc,
+void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
                            int *desc)
 {
     int i;
@@ -293,7 +293,7 @@ void ass_font_get_asc_desc(ass_font_t *font, uint32_t ch, int *asc,
  * being accurate.
  *
  */
-static int ass_strike_outline_glyph(FT_Face face, ass_font_t *font,
+static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
                                     FT_Glyph glyph, int under, int through)
 {
     TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
@@ -371,8 +371,8 @@ static int ass_strike_outline_glyph(FT_Face face, ass_font_t *font,
  * \brief Get a glyph
  * \param ch character code
  **/
-FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ass_font_t *font,
-                            uint32_t ch, ass_hinting_t hinting, int deco)
+FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
+                            uint32_t ch, ASS_Hinting hinting, int deco)
 {
     int error;
     int index = 0;
@@ -460,7 +460,7 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ass_font_t *font,
 /**
  * \brief Get kerning for the pair of glyphs.
  **/
-FT_Vector ass_font_get_kerning(ass_font_t *font, uint32_t c1, uint32_t c2)
+FT_Vector ass_font_get_kerning(ASS_Font *font, uint32_t c1, uint32_t c2)
 {
     FT_Vector v = { 0, 0 };
     int i;
@@ -481,9 +481,9 @@ FT_Vector ass_font_get_kerning(ass_font_t *font, uint32_t c1, uint32_t c2)
 }
 
 /**
- * \brief Deallocate ass_font_t
+ * \brief Deallocate ASS_Font
  **/
-void ass_font_free(ass_font_t *font)
+void ass_font_free(ASS_Font *font)
 {
     int i;
     for (i = 0; i < font->n_faces; ++i)

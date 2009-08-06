@@ -27,14 +27,14 @@ typedef struct {
     char *name;
     char *data;
     int size;
-} ass_fontdata_t;
+} ASS_Fontdata;
 
 struct ass_library {
     char *fonts_dir;
     int extract_fonts;
     char **style_overrides;
 
-    ass_fontdata_t *fontdata;
+    ASS_Fontdata *fontdata;
     int num_fontdata;
     void (*msg_callback)(int, const char *, va_list, void *);
     void *msg_callback_data;
