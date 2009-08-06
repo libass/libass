@@ -112,7 +112,7 @@ typedef struct ass_track {
     int PlayResY;
     double Timer;
     int WrapStyle;
-    char ScaledBorderAndShadow;
+    int ScaledBorderAndShadow;
 
     int default_style;      // index of default style
     char *name;             // file name in case of external subs, 0 for streams
