@@ -885,7 +885,8 @@ static void change_border(ASS_Renderer *render_priv, double border_x,
         return;
 
     if (border_x < 0 && border_y < 0) {
-        if (render_priv->state.style->BorderStyle == 1)
+        if (render_priv->state.style->BorderStyle == 1 ||
+            render_priv->state.style->BorderStyle == 3)
             border_x = border_y = render_priv->state.style->Outline;
         else
             border_x = border_y = 1.;
@@ -1877,6 +1878,43 @@ static void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x,
 }
 
 /*
+ * Replace the outline of a glyph by a contour which makes up a simple
+ * opaque rectangle.
+ */
+static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
+                            FT_Glyph glyph, int sx, int sy)
+{
+    int asc = 0, desc = 0;
+    int i;
+    int adv = d16_to_d6(glyph->advance.x);
+    FT_OutlineGlyph og = (FT_OutlineGlyph) glyph;
+    FT_Outline *ol;
+
+    // to avoid gaps
+    sx = FFMAX(64, sx);
+    sy = FFMAX(64, sy);
+
+    ass_font_get_asc_desc(render_priv->state.font, ch, &asc, &desc);
+    FT_Vector points[4] = {
+        { .x = -sx,         .y = asc + sy },
+        { .x = adv + sx,    .y = asc + sy },
+        { .x = adv + sx,    .y = -desc - sy },
+        { .x = -sx,         .y = -desc - sy },
+    };
+
+    FT_Outline_Done(render_priv->ftlibrary, &og->outline);
+    FT_Outline_New(render_priv->ftlibrary, 4, 1, &og->outline);
+
+    ol = &og->outline;
+    ol->n_points = ol->n_contours = 0;
+    for (i = 0; i < 4; i++) {
+        ol->points[ol->n_points] = points[i];
+        ol->tags[ol->n_points++] = 1;
+    }
+    ol->contours[ol->n_contours++] = ol->n_points - 1;
+}
+
+/*
  * Stroke an outline glyph in x/y direction.  Applies various fixups to get
  * around limitations of the FreeType stroker.
  */
@@ -1986,8 +2024,15 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol,
         info->advance.y = d16_to_d6(info->glyph->advance.y);
         FT_Glyph_Get_CBox(info->glyph, FT_GLYPH_BBOX_SUBPIXELS, &info->bbox);
 
-        if (render_priv->state.border_x > 0 ||
-            render_priv->state.border_y > 0) {
+        if (render_priv->state.style->BorderStyle == 3) {
+            FT_Glyph_Copy(info->glyph, &info->outline_glyph);
+            draw_opaque_box(render_priv, symbol, info->outline_glyph,
+                            double_to_d6(render_priv->state.border_x *
+                                         render_priv->border_scale),
+                            double_to_d6(render_priv->state.border_y *
+                                         render_priv->border_scale));
+        } else if (render_priv->state.border_x > 0 ||
+                   render_priv->state.border_y > 0) {
 
             FT_Glyph_Copy(info->glyph, &info->outline_glyph);
             stroke_outline_glyph(render_priv,
