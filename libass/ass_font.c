@@ -26,6 +26,7 @@
 #include FT_SYNTHESIS_H
 #include FT_GLYPH_H
 #include FT_TRUETYPE_TABLES_H
+#include FT_OUTLINE_H
 
 #include "ass.h"
 #include "ass_library.h"
@@ -368,6 +369,22 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
 }
 
 /**
+ * Slightly embold a glyph without touching its metrics
+ */
+static void ass_glyph_embolden(FT_GlyphSlot slot)
+{
+    int str;
+
+    if (slot->format != FT_GLYPH_FORMAT_OUTLINE)
+        return;
+
+    str = FT_MulFix(slot->face->units_per_EM,
+                    slot->face->size->metrics.y_scale) / 64;
+
+    FT_Outline_Embolden(&slot->outline, str);
+}
+
+/**
  * \brief Get a glyph
  * \param ch character code
  **/
@@ -442,6 +459,11 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
     if (!(face->style_flags & FT_STYLE_FLAG_ITALIC) &&
         (font->desc.italic > 55)) {
         FT_GlyphSlot_Oblique(face->glyph);
+    }
+
+    if (!(face->style_flags & FT_STYLE_FLAG_BOLD) &&
+        (font->desc.bold > 80)) {
+        ass_glyph_embolden(face->glyph);
     }
 #endif
     error = FT_Get_Glyph(face->glyph, &glyph);
