@@ -74,11 +74,12 @@ int mystrtod(char **p, double *res)
         return 0;
 }
 
-int strtocolor(ASS_Library *library, char **q, uint32_t *res)
+int strtocolor(ASS_Library *library, char **q, uint32_t *res, int hex)
 {
     uint32_t color = 0;
     int result;
     char *p = *q;
+    int base = hex ? 16 : 10;
 
     if (*p == '&')
         ++p;
@@ -89,7 +90,7 @@ int strtocolor(ASS_Library *library, char **q, uint32_t *res)
         ++p;
         result = mystrtou32(&p, 16, &color);
     } else {
-        result = mystrtou32(&p, 0, &color);
+        result = mystrtou32(&p, base, &color);
     }
 
     {

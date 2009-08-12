@@ -1260,7 +1260,8 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
     } else if (mystrcmp(&p, "alpha")) {
         uint32_t val;
         int i;
-        if (strtocolor(render_priv->library, &p, &val)) {
+        int hex = render_priv->track->track_type == TRACK_TYPE_ASS;
+        if (strtocolor(render_priv->library, &p, &val, hex)) {
             unsigned char a = val >> 24;
             for (i = 0; i < 4; ++i)
                 change_alpha(&render_priv->state.c[i], a, pwr);
@@ -1449,7 +1450,8 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         }
     } else if (mystrcmp(&p, "c")) {
         uint32_t val;
-        if (!strtocolor(render_priv->library, &p, &val))
+        int hex = render_priv->track->track_type == TRACK_TYPE_ASS;
+        if (!strtocolor(render_priv->library, &p, &val, hex))
             val = render_priv->state.style->PrimaryColour;
         ass_msg(render_priv->library, MSGL_DBG2, "color: %X", val);
         change_color(&render_priv->state.c[0], val, pwr);
@@ -1459,8 +1461,9 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         int cidx = n - '1';
         char cmd = *(p - 1);
         uint32_t val;
+        int hex = render_priv->track->track_type == TRACK_TYPE_ASS;
         assert((n >= '1') && (n <= '4'));
-        if (!strtocolor(render_priv->library, &p, &val))
+        if (!strtocolor(render_priv->library, &p, &val, hex))
             switch (n) {
             case '1':
                 val = render_priv->state.style->PrimaryColour;

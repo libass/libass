@@ -198,7 +198,7 @@ static int lookup_style(ASS_Track *track, char *name)
 static uint32_t string2color(ASS_Library *library, char *p)
 {
     uint32_t tmp;
-    (void) strtocolor(library, &p, &tmp);
+    (void) strtocolor(library, &p, &tmp, 0);
     return tmp;
 }
 
