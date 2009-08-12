@@ -1574,6 +1574,11 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         if (val)
             render_priv->state.drawing->scale = val;
         render_priv->state.drawing_mode = !!val;
+    } else if (mystrcmp(&p, "q")) {
+        int val;
+        if (!mystrtoi(&p, &val))
+            val = render_priv->track->WrapStyle;
+        render_priv->state.wrap_style = val;
     }
 
     return p;
@@ -1619,7 +1624,7 @@ static unsigned get_next_char(ASS_Renderer *render_priv, char **str)
     if (*p == '\\') {
         if ((*(p + 1) == 'N')
             || ((*(p + 1) == 'n')
-                && (render_priv->track->WrapStyle == 2))) {
+                && (render_priv->state.wrap_style == 2))) {
             p += 2;
             *str = p;
             return '\n';
@@ -1745,6 +1750,7 @@ static void reset_render_context(ASS_Renderer *render_priv)
     render_priv->state.frx = render_priv->state.fry = 0.;
     render_priv->state.frz = M_PI * render_priv->state.style->Angle / 180.;
     render_priv->state.fax = render_priv->state.fay = 0.;
+    render_priv->state.wrap_style = render_priv->track->WrapStyle;
 
     // FIXME: does not reset unsupported attributes.
 }
@@ -2187,6 +2193,8 @@ static void measure_text(ASS_Renderer *render_priv)
  * 2. Try moving words from the end of a line to the beginning of the next one while it reduces
  * the difference in lengths between this two lines.
  * The result may not be optimal, but usually is good enough.
+ *
+ * FIXME: implement style 0 and 3 correctly, add support for style 1
  */
 static void
 wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
@@ -2221,7 +2229,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
         }
 
         if ((len >= max_text_width)
-            && (render_priv->track->WrapStyle != 2)) {
+            && (render_priv->state.wrap_style != 2)) {
             break_type = 1;
             break_at = last_space;
             if (break_at == -1)

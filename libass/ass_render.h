@@ -193,7 +193,7 @@ typedef struct {
     unsigned bold;
     unsigned italic;
     int treat_family_as_pattern;
-
+    int wrap_style;
 } RenderContext;
 
 typedef struct {
