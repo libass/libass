@@ -2035,7 +2035,9 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol,
         info->advance.y = d16_to_d6(info->glyph->advance.y);
         FT_Glyph_Get_CBox(info->glyph, FT_GLYPH_BBOX_SUBPIXELS, &info->bbox);
 
-        if (render_priv->state.style->BorderStyle == 3) {
+        if (render_priv->state.style->BorderStyle == 3 &&
+            (render_priv->state.border_x > 0||
+             render_priv->state.border_y > 0)) {
             FT_Glyph_Copy(info->glyph, &info->outline_glyph);
             draw_opaque_box(render_priv, symbol, info->outline_glyph,
                             double_to_d6(render_priv->state.border_x *
