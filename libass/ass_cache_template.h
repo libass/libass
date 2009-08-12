@@ -79,6 +79,7 @@ START(bitmap, bipmap_hash_key)
     FTVECTOR(advance) // subpixel shift vector
     FTVECTOR(shadow_offset) // shadow subpixel shift
     GENERIC(unsigned, drawing_hash) // hashcode of a drawing
+    GENERIC(unsigned, border_style)
 END(BitmapHashKey)
 
 // describes an outline glyph
@@ -93,6 +94,7 @@ START(glyph, glyph_hash_key)
     FTVECTOR(outline) // border width, 16.16
     GENERIC(unsigned, drawing_hash) // hashcode of a drawing
     GENERIC(unsigned, flags)    // glyph decoration flags
+    GENERIC(unsigned, border_style)
 END(GlyphHashKey)
 
 // Cache for composited bitmaps

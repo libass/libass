@@ -1988,6 +1988,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol,
         key.scale_y = double_to_d16(render_priv->state.scale_y);
         key.outline.x = render_priv->state.border_x * 0xFFFF;
         key.outline.y = render_priv->state.border_y * 0xFFFF;
+        key.border_style = render_priv->state.style->BorderStyle;
         key.drawing_hash = drawing->hash;
     } else {
         key.font = render_priv->state.font;
@@ -2000,6 +2001,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol,
         key.outline.x = render_priv->state.border_x * 0xFFFF;
         key.outline.y = render_priv->state.border_y * 0xFFFF;
         key.flags = render_priv->state.flags;
+        key.border_style = render_priv->state.style->BorderStyle;
     }
     memset(info, 0, sizeof(GlyphInfo));
 
@@ -2732,6 +2734,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             render_priv->state.be;
         text_info->glyphs[text_info->length].hash_key.blur =
             render_priv->state.blur;
+        text_info->glyphs[text_info->length].hash_key.border_style =
+            render_priv->state.style->BorderStyle;
         text_info->glyphs[text_info->length].hash_key.shadow_offset.x =
             double_to_d6(
                 render_priv->state.shadow_x * render_priv->border_scale -
