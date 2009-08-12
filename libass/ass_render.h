@@ -77,7 +77,7 @@ typedef struct {
 // a rendered event
 typedef struct {
     ASS_Image *imgs;
-    int top, height;
+    int top, height, left, width;
     int detect_collisions;
     int shift_direction;
     ASS_Event *event;
@@ -240,7 +240,7 @@ struct ass_renderer {
 };
 
 typedef struct render_priv {
-    int top, height;
+    int top, height, left, width;
     int render_id;
 } RenderPriv;
 
@@ -253,6 +253,7 @@ typedef struct {
 
 typedef struct {
     int a, b;                   // top and height
+    int ha, hb;                 // left and width
 } Segment;
 
 #endif /* LIBASS_RENDER_H */

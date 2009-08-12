@@ -2988,6 +2988,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     memset(event_images, 0, sizeof(*event_images));
     event_images->top = device_y - text_info->lines[0].asc;
     event_images->height = text_info->height;
+    event_images->left = device_x + bbox.xMin + 0.5;
+    event_images->width = bbox.xMax - bbox.xMin + 0.5;
     event_images->detect_collisions = render_priv->state.detect_collisions;
     event_images->shift_direction = (valign == VALIGN_TOP) ? 1 : -1;
     event_images->event = event;
@@ -3204,7 +3206,7 @@ static int cmp_event_layer(const void *p1, const void *p2)
 }
 
 static ASS_RenderPriv *get_render_priv(ASS_Renderer *render_priv,
-                                      ASS_Event *event)
+                                       ASS_Event *event)
 {
     if (!event->render_priv)
         event->render_priv = calloc(1, sizeof(ASS_RenderPriv));
@@ -3218,7 +3220,8 @@ static ASS_RenderPriv *get_render_priv(ASS_Renderer *render_priv,
 
 static int overlap(Segment *s1, Segment *s2)
 {
-    if (s1->a >= s2->b || s2->a >= s1->b)
+    if (s1->a >= s2->b || s2->a >= s1->b ||
+        s1->ha >= s2->hb || s2->ha >= s1->hb)
         return 0;
     return 1;
 }
@@ -3263,18 +3266,22 @@ static int fit_segment(Segment *s, Segment *fixed, int *cnt, int dir)
 
     if (dir == 1)               // move down
         for (i = 0; i < *cnt; ++i) {
-            if (s->b + shift <= fixed[i].a || s->a + shift >= fixed[i].b)
+            if (s->b + shift <= fixed[i].a || s->a + shift >= fixed[i].b ||
+                s->hb <= fixed[i].ha || s->ha >= fixed[i].hb)
                 continue;
             shift = fixed[i].b - s->a;
     } else                      // dir == -1, move up
         for (i = *cnt - 1; i >= 0; --i) {
-            if (s->b + shift <= fixed[i].a || s->a + shift >= fixed[i].b)
+            if (s->b + shift <= fixed[i].a || s->a + shift >= fixed[i].b ||
+                s->hb <= fixed[i].ha || s->ha >= fixed[i].hb)
                 continue;
             shift = fixed[i].a - s->b;
         }
 
     fixed[*cnt].a = s->a + shift;
     fixed[*cnt].b = s->b + shift;
+    fixed[*cnt].ha = s->ha;
+    fixed[*cnt].hb = s->hb;
     (*cnt)++;
     qsort(fixed, *cnt, sizeof(Segment), cmp_segment);
 
@@ -3298,20 +3305,28 @@ fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
             Segment s;
             s.a = priv->top;
             s.b = priv->top + priv->height;
+            s.ha = priv->left;
+            s.hb = priv->left + priv->width;
             if (priv->height != imgs[i].height) {       // no, it's not
                 ass_msg(render_priv->library, MSGL_WARN,
                         "Warning! Event height has changed");
                 priv->top = 0;
                 priv->height = 0;
+                priv->left = 0;
+                priv->width = 0;
             }
             for (j = 0; j < cnt_used; ++j)
                 if (overlap(&s, used + j)) {    // no, it's not
                     priv->top = 0;
                     priv->height = 0;
+                    priv->left = 0;
+                    priv->width = 0;
                 }
             if (priv->height > 0) {     // still a fixed event
                 used[cnt_used].a = priv->top;
                 used[cnt_used].b = priv->top + priv->height;
+                used[cnt_used].ha = priv->left;
+                used[cnt_used].hb = priv->left + priv->width;
                 cnt_used++;
                 shift_event(render_priv, imgs + i, priv->top - imgs[i].top);
             }
@@ -3330,13 +3345,16 @@ fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
             Segment s;
             s.a = imgs[i].top;
             s.b = imgs[i].top + imgs[i].height;
-            shift =
-                fit_segment(&s, used, &cnt_used, imgs[i].shift_direction);
+            s.ha = imgs[i].left;
+            s.hb = imgs[i].left + imgs[i].width;
+            shift = fit_segment(&s, used, &cnt_used, imgs[i].shift_direction);
             if (shift)
                 shift_event(render_priv, imgs + i, shift);
             // make it fixed
             priv->top = imgs[i].top;
             priv->height = imgs[i].height;
+            priv->left = imgs[i].left;
+            priv->width = imgs[i].width;
         }
 
     }
