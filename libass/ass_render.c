@@ -1625,13 +1625,12 @@ static unsigned get_next_char(ASS_Renderer *render_priv, char **str)
         return ' ';
     }
     if (*p == '\\') {
-        if ((*(p + 1) == 'N')
-            || ((*(p + 1) == 'n')
-                && (render_priv->state.wrap_style == 2))) {
+        if ((p[1] == 'N') || ((p[1] == 'n') &&
+                              (render_priv->state.wrap_style == 2))) {
             p += 2;
             *str = p;
             return '\n';
-        } else if ((*(p + 1) == 'n') || (*(p + 1) == 'h')) {
+        } else if ((p[1] == 'n') || (p[1] == 'h')) {
             p += 2;
             *str = p;
             return ' ';
@@ -2281,7 +2280,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     }
 #define DIFF(x,y) (((x) < (y)) ? (y - x) : (x - y))
     exit = 0;
-    while (!exit) {
+    while (!exit && render_priv->state.wrap_style != 1) {
         exit = 1;
         w = s3 = text_info->glyphs;
         s1 = s2 = 0;
