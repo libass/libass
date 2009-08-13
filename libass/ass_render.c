@@ -194,8 +194,8 @@ void ass_renderer_done(ASS_Renderer *render_priv)
  * Parameters are the same as ASS_Image fields.
  */
 static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
-                                   int bitmap_h, int stride, int dst_x,
-                                   int dst_y, uint32_t color)
+                                 int bitmap_h, int stride, int dst_x,
+                                 int dst_y, uint32_t color)
 {
     ASS_Image *img = calloc(1, sizeof(ASS_Image));
 
@@ -227,9 +227,9 @@ static double y2scr_pos(ASS_Renderer *render_priv, double y);
  * karaoke effects.  This can result in a lot of bitmaps (6 to be exact).
  */
 static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
-                                    Bitmap *bm, int dst_x, int dst_y,
-                                    uint32_t color, uint32_t color2, int brk,
-                                    ASS_Image **tail)
+                                  Bitmap *bm, int dst_x, int dst_y,
+                                  uint32_t color, uint32_t color2, int brk,
+                                  ASS_Image **tail)
 {
     int i, j, x0, y0, x1, y1, cx0, cy0, cx1, cy1, sx, sy, zx, zy;
     Rect r[4];
@@ -324,10 +324,9 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
  * \return pointer to the new list tail
  * Performs clipping. Uses my_draw_bitmap for actual bitmap convertion.
  */
-static ASS_Image **render_glyph(ASS_Renderer *render_priv,
-                                  Bitmap *bm, int dst_x, int dst_y,
-                                  uint32_t color, uint32_t color2, int brk,
-                                  ASS_Image **tail)
+static ASS_Image **
+render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
+             uint32_t color, uint32_t color2, int brk, ASS_Image **tail)
 {
     // Inverse clipping in use?
     if (render_priv->state.clip_mode)
@@ -965,9 +964,8 @@ static uint32_t mult_alpha(uint32_t a, uint32_t b)
  * Used for \fad, \fade implementation.
  */
 static unsigned
-interpolate_alpha(long long now,
-                  long long t1, long long t2, long long t3, long long t4,
-                  unsigned a1, unsigned a2, unsigned a3)
+interpolate_alpha(long long now, long long t1, long long t2, long long t3,
+                  long long t4, unsigned a1, unsigned a2, unsigned a3)
 {
     unsigned a;
     double cf;
@@ -1001,6 +999,7 @@ static char *parse_vector_clip(ASS_Renderer *render_priv, char *p)
     int scale = 1;
     int res = 0;
     ASS_Drawing *drawing;
+
     render_priv->state.clip_drawing = ass_drawing_new(
         render_priv->fontconfig_priv,
         render_priv->state.font,
@@ -1019,6 +1018,7 @@ static char *parse_vector_clip(ASS_Renderer *render_priv, char *p)
         ass_drawing_add_char(drawing, *p++);
     skipopt(')');
     ass_drawing_parse(drawing, 1);
+
     // We need to translate the clip according to screen borders
     if (render_priv->settings.left_margin != 0 ||
         render_priv->settings.top_margin != 0) {
@@ -1980,8 +1980,8 @@ static void stroke_outline_glyph(ASS_Renderer *render_priv,
  * The glyphs are returned in info->glyph and info->outline_glyph
  */
 static void
-get_outline_glyph(ASS_Renderer *render_priv, int symbol,
-                  GlyphInfo *info, ASS_Drawing *drawing)
+get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
+                  ASS_Drawing *drawing)
 {
     GlyphHashValue *val;
     GlyphHashKey key;
@@ -2469,9 +2469,8 @@ static void get_base_point(DBBox *bbox, int alignment, double *bx, double *by)
  * onto the screen plane.
  */
 static void
-transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx,
-                    double fry, double frz, double fax, double fay,
-                    double scale)
+transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx, double fry,
+                    double frz, double fax, double fay, double scale)
 {
     double sx = sin(frx);
     double sy = sin(fry);
@@ -3210,11 +3209,11 @@ static ASS_RenderPriv *get_render_priv(ASS_Renderer *render_priv,
 {
     if (!event->render_priv)
         event->render_priv = calloc(1, sizeof(ASS_RenderPriv));
-    // FIXME: check render_id
     if (render_priv->render_id != event->render_priv->render_id) {
         memset(event->render_priv, 0, sizeof(ASS_RenderPriv));
         event->render_priv->render_id = render_priv->render_id;
     }
+
     return event->render_priv;
 }
 
@@ -3434,7 +3433,7 @@ static int ass_detect_change(ASS_Renderer *priv)
  *        Can be NULL, in that case no detection is performed.
  */
 ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
-                              long long now, int *detect_change)
+                            long long now, int *detect_change)
 {
     int i, cnt, rc;
     EventImages *last;
