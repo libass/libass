@@ -1896,6 +1896,7 @@ static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
     int asc = 0, desc = 0;
     int i;
     int adv = d16_to_d6(glyph->advance.x);
+    double scale_y = render_priv->state.scale_y;
     FT_OutlineGlyph og = (FT_OutlineGlyph) glyph;
     FT_Outline *ol;
 
@@ -1904,6 +1905,9 @@ static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
     sy = FFMAX(64, sy);
 
     ass_font_get_asc_desc(render_priv->state.font, ch, &asc, &desc);
+    asc  *= scale_y;
+    desc *= scale_y;
+
     FT_Vector points[4] = {
         { .x = -sx,         .y = asc + sy },
         { .x = adv + sx,    .y = asc + sy },
