@@ -226,7 +226,7 @@ void *cache_add_bitmap(Hashmap *bitmap_cache, BitmapHashKey *key,
     // Note: this is only an approximation
     if (val->bm_o)
         bitmap_cache->cache_size += val->bm_o->w * val->bm_o->h * 3;
-    else
+    else if (val->bm)
         bitmap_cache->cache_size += val->bm->w * val->bm->h * 3;
 
     return hashmap_insert(bitmap_cache, key, val);
