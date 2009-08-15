@@ -54,7 +54,7 @@
 
 
 // describes a bitmap; bitmaps with equivalents structs are considered identical
-START(bitmap, bipmap_hash_key)
+START(bitmap, bitmap_hash_key)
     GENERIC(char, bitmap) // bool : true = bitmap, false = outline
     GENERIC(ASS_Font *, font)
     GENERIC(double, size) // font size
@@ -79,6 +79,7 @@ START(bitmap, bipmap_hash_key)
     FTVECTOR(advance) // subpixel shift vector
     FTVECTOR(shadow_offset) // shadow subpixel shift
     GENERIC(unsigned, drawing_hash) // hashcode of a drawing
+    GENERIC(unsigned, flags)    // glyph decoration
     GENERIC(unsigned, border_style)
 END(BitmapHashKey)
 

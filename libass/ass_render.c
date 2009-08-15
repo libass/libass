@@ -2750,6 +2750,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 render_priv->state.shadow_y * render_priv->border_scale -
                 (int) (render_priv->state.shadow_y *
                 render_priv->border_scale));
+        text_info->glyphs[text_info->length].hash_key.flags =
+            render_priv->state.flags;
 
         text_info->length++;
 
