@@ -300,7 +300,10 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
     TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
     TT_Postscript *ps = FT_Get_Sfnt_Table(face, ft_sfnt_post);
     FT_Outline *ol = &((FT_OutlineGlyph) glyph)->outline;
-    int bear, advance, y_scale, i;
+    int bear, advance, y_scale, i, dir;
+
+    if (!under && !through)
+        return 0;
 
     // Grow outline
     i = (under ? 4 : 0) + (through ? 4 : 0);
@@ -318,6 +321,9 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
     advance = d16_to_d6(glyph->advance.x) + 32;
     y_scale = face->size->metrics.y_scale;
 
+    // Reverse drawing direction for non-truetype fonts
+    dir = FT_Outline_Get_Orientation(ol);
+
     // Add points to the outline
     if (under && ps) {
         int pos, size;
@@ -326,7 +332,7 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
                          y_scale * font->scale_y / 2);
 
         if (pos > 0 || size <= 0)
-            return 0;
+            return 1;
 
         FT_Vector points[4] = {
             {.x = bear,      .y = pos + size},
@@ -335,10 +341,18 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
             {.x = bear,      .y = pos - size},
         };
 
-        for (i = 0; i < 4; i++) {
-            ol->points[ol->n_points] = points[i];
-            ol->tags[ol->n_points++] = 1;
+        if (dir == FT_ORIENTATION_TRUETYPE) {
+            for (i = 0; i < 4; i++) {
+                ol->points[ol->n_points] = points[i];
+                ol->tags[ol->n_points++] = 1;
+            }
+        } else {
+            for (i = 3; i >= 0; i--) {
+                ol->points[ol->n_points] = points[i];
+                ol->tags[ol->n_points++] = 1;
+            }
         }
+
         ol->contours[ol->n_contours++] = ol->n_points - 1;
     }
 
@@ -348,7 +362,7 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
         size = FT_MulFix(os2->yStrikeoutSize, y_scale * font->scale_y / 2);
 
         if (pos < 0 || size <= 0)
-            return 0;
+            return 1;
 
         FT_Vector points[4] = {
             {.x = bear,      .y = pos + size},
@@ -357,15 +371,22 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
             {.x = bear,      .y = pos - size},
         };
 
-        for (i = 0; i < 4; i++) {
-            ol->points[ol->n_points] = points[i];
-            ol->tags[ol->n_points++] = 1;
+        if (dir == FT_ORIENTATION_TRUETYPE) {
+            for (i = 0; i < 4; i++) {
+                ol->points[ol->n_points] = points[i];
+                ol->tags[ol->n_points++] = 1;
+            }
+        } else {
+            for (i = 3; i >= 0; i--) {
+                ol->points[ol->n_points] = points[i];
+                ol->tags[ol->n_points++] = 1;
+            }
         }
 
         ol->contours[ol->n_contours++] = ol->n_points - 1;
     }
 
-    return 1;
+    return 0;
 }
 
 /**
