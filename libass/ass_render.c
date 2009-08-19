@@ -1907,6 +1907,11 @@ static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
     asc  *= scale_y;
     desc *= scale_y;
 
+    // Emulate the WTFish behavior of VSFilter, i.e. double-scale
+    // the widths of the opaque box.
+    adv *= render_priv->state.scale_x * render_priv->font_scale_x;
+    sx *= render_priv->state.scale_x * render_priv->font_scale_x;
+
     FT_Vector points[4] = {
         { .x = -sx,         .y = asc + sy },
         { .x = adv + sx,    .y = asc + sy },
