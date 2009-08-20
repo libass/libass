@@ -592,7 +592,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             free_list_add(render_priv, nbuffer);
 
             // Blend together
-            memcpy(nbuffer, abuffer, as * ah);
+            memcpy(nbuffer, abuffer, as * (ah - 1) + aw);
             for (y = 0; y < h; y++)
                 for (x = 0; x < w; x++) {
                     apos = (atop + y) * as + aleft + x;
