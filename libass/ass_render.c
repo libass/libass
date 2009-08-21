@@ -2712,8 +2712,10 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             delta =
                 ass_font_get_kerning(render_priv->state.font, previous,
                                      code);
-            pen.x += delta.x * render_priv->state.scale_x;
-            pen.y += delta.y * render_priv->state.scale_y;
+            pen.x += delta.x * render_priv->state.scale_x
+                     * render_priv->font_scale_x;
+            pen.y += delta.y * render_priv->state.scale_y
+                     * render_priv->font_scale_x;
         }
 
         ass_font_set_transform(render_priv->state.font,
