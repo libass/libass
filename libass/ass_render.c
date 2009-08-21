@@ -649,7 +649,7 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x,
     for (i = 0; i < text_info->length; ++i) {
         GlyphInfo *info = text_info->glyphs + i;
         if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm_s
-            || (info->shadow_x == 0 && info->shadow_y == 0))
+            || (info->shadow_x == 0 && info->shadow_y == 0) || info->skip)
             continue;
 
         pen_x =
@@ -674,7 +674,8 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x,
     last_tail = 0;
     for (i = 0; i < text_info->length; ++i) {
         GlyphInfo *info = text_info->glyphs + i;
-        if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm_o)
+        if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm_o
+            || info->skip)
             continue;
 
         pen_x = dst_x + (info->pos.x >> 6);
@@ -698,7 +699,8 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x,
     }
     for (i = 0; i < text_info->length; ++i) {
         GlyphInfo *info = text_info->glyphs + i;
-        if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm)
+        if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm
+            || info->skip)
             continue;
 
         pen_x = dst_x + (info->pos.x >> 6);
@@ -799,6 +801,7 @@ static void compute_string_bbox(TextInfo *info, DBBox *bbox)
                      d6_to_double(info->glyphs[0].pos.y);
 
         for (i = 0; i < info->length; ++i) {
+            if (info->glyphs[i].skip) continue;
             double s = d6_to_double(info->glyphs[i].pos.x);
             double e = s + d6_to_double(info->glyphs[i].advance.x);
             bbox->xMin = FFMIN(bbox->xMin, s);
@@ -1597,6 +1600,7 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
  * \return ucs4 code of the next char
  * On return str points to the unparsed part of the string
  */
+#define NBSP 0xa0   // unicode non-breaking space character
 static unsigned get_next_char(ASS_Renderer *render_priv, char **str)
 {
     char *p = *str;
@@ -1630,16 +1634,21 @@ static unsigned get_next_char(ASS_Renderer *render_priv, char **str)
             p += 2;
             *str = p;
             return '\n';
-        } else if ((p[1] == 'n') || (p[1] == 'h')) {
+        } else if (p[1] == 'n') {
             p += 2;
             *str = p;
             return ' ';
+        } else if (p[1] == 'h') {
+            p += 2;
+            *str = p;
+            return NBSP;
         }
     }
     chr = ass_utf8_get_char((char **) &p);
     *str = p;
     return chr;
 }
+#undef NBSP
 
 static void
 apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
@@ -2109,7 +2118,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         int error;
         double fax_scaled, fay_scaled;
         info->bm = info->bm_o = info->bm_s = 0;
-        if (info->glyph && info->symbol != '\n' && info->symbol != 0) {
+        if (info->glyph && info->symbol != '\n' && info->symbol != 0
+            && !info->skip) {
             // calculating rotation shift vector (from rotation origin to the glyph basepoint)
             shift.x = info->hash_key.shift_x;
             shift.y = info->hash_key.shift_y;
@@ -2204,6 +2214,61 @@ static void measure_text(ASS_Renderer *render_priv)
         (text_info->n_lines -
          1) * render_priv->settings.line_spacing;
 }
+
+/**
+ * Mark extra whitespace for later removal.
+ */
+#define IS_WHITESPACE(x) ((x->symbol == ' ' || x->symbol == '\n') \
+                          && !x->linebreak)
+static void trim_whitespace(ASS_Renderer *render_priv)
+{
+    int i, j;
+    GlyphInfo *cur;
+    TextInfo *ti = &render_priv->text_info;
+
+    // Mark trailing spaces
+    i = ti->length - 1;
+    cur = ti->glyphs + i;
+    while (i && IS_WHITESPACE(cur)) {
+        cur->skip++;
+        cur = ti->glyphs + --i;
+    }
+
+    // Mark leading whitespace
+    i = 0;
+    cur = ti->glyphs;
+    while (i < ti->length && IS_WHITESPACE(cur)) {
+        cur->skip++;
+        cur = ti->glyphs + ++i;
+    }
+
+    // Mark all extraneous whitespace inbetween
+    for (i = 0; i < ti->length; ++i) {
+        cur = ti->glyphs + i;
+        if (cur->linebreak) {
+            // Mark whitespace before
+            j = i - 1;
+            cur = ti->glyphs + j;
+            while (j && IS_WHITESPACE(cur)) {
+                cur->skip++;
+                cur = ti->glyphs + --j;
+            }
+            // A break itself can contain a whitespace, too
+            cur = ti->glyphs + i;
+            if (cur->symbol == ' ')
+                cur->skip++;
+            // Mark whitespace after
+            j = i + 1;
+            cur = ti->glyphs + j;
+            while (j < ti->length && IS_WHITESPACE(cur)) {
+                cur->skip++;
+                cur = ti->glyphs + ++j;
+            }
+            i = j - 1;
+        }
+    }
+}
+#undef IS_WHITESPACE
 
 /**
  * \brief rearrange text between lines
@@ -2344,13 +2409,23 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
 #undef DIFF
 
     measure_text(render_priv);
+    trim_whitespace(render_priv);
 
     pen_shift_x = 0.;
     pen_shift_y = 0.;
     cur_line = 1;
+
+    i = 0;
+    cur = text_info->glyphs + i;
+    while (i < text_info->length && cur->skip)
+        cur = text_info->glyphs + ++i;
+    pen_shift_x = d6_to_double(-cur->pos.x);
+
     for (i = 0; i < text_info->length; ++i) {
         cur = text_info->glyphs + i;
         if (cur->linebreak) {
+            while (i < text_info->length && cur->skip && cur->symbol != '\n')
+                cur = text_info->glyphs + ++i;
             double height =
                 text_info->lines[cur_line - 1].desc +
                 text_info->lines[cur_line].asc;
@@ -2826,9 +2901,13 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                     text_info->glyphs + last_break + 1;
                 GlyphInfo *last_glyph = text_info->glyphs + i - 1;
 
+                while (first_glyph < last_glyph && first_glyph->skip)
+                    first_glyph++;
+
                 while ((last_glyph > first_glyph)
                        && ((last_glyph->symbol == '\n')
-                           || (last_glyph->symbol == 0)))
+                           || (last_glyph->symbol == 0)
+                           || (last_glyph->skip)))
                     last_glyph--;
 
                 width = d6_to_double(

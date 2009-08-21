@@ -94,6 +94,7 @@ typedef enum {
 // GlyphInfo and TextInfo are used for text centering and word-wrapping operations
 typedef struct {
     unsigned symbol;
+    unsigned skip;              // skip glyph when layouting text
     FT_Glyph glyph;
     FT_Glyph outline_glyph;
     Bitmap *bm;                 // glyph bitmap
