@@ -3,6 +3,9 @@ libass (0.9.8)
  * Support wrap style 1 (i.e. wrap, but do not equalize line lengths)
  * Support border style 3 (opaque box)
  * Embold glyphs if no bold variant is available, but was requested
+ * Modify \fax to be similar to VSFilter
+ * Trim spaces after line wrapping
+ * Various bugfixes
 
 libass (0.9.7)
  * Build system fixes
