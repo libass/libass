@@ -1904,6 +1904,8 @@ static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
     int i;
     int adv = d16_to_d6(glyph->advance.x);
     double scale_y = render_priv->state.scale_y;
+    double scale_x = render_priv->state.scale_x
+                     * render_priv->font_scale_x;
     FT_OutlineGlyph og = (FT_OutlineGlyph) glyph;
     FT_Outline *ol;
 
@@ -1911,14 +1913,24 @@ static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
     sx = FFMAX(64, sx);
     sy = FFMAX(64, sy);
 
-    ass_font_get_asc_desc(render_priv->state.font, ch, &asc, &desc);
-    asc  *= scale_y;
-    desc *= scale_y;
+    if (ch == -1) {
+        asc = render_priv->state.drawing->asc;
+        desc = render_priv->state.drawing->desc;
+    } else {
+        ass_font_get_asc_desc(render_priv->state.font, ch, &asc, &desc);
+        asc  *= scale_y;
+        desc *= scale_y;
+    }
 
     // Emulate the WTFish behavior of VSFilter, i.e. double-scale
-    // the widths of the opaque box.
-    adv *= render_priv->state.scale_x * render_priv->font_scale_x;
-    sx *= render_priv->state.scale_x * render_priv->font_scale_x;
+    // the sizes of the opaque box.
+    adv += double_to_d6(render_priv->state.hspacing * render_priv->font_scale
+                        * scale_x);
+    adv *= scale_x;
+    sx *= scale_x;
+    sy *= scale_y;
+    desc *= scale_y;
+    desc += asc * (scale_y - 1.0);
 
     FT_Vector points[4] = {
         { .x = -sx,         .y = asc + sy },
@@ -2741,7 +2753,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
         pen.x += text_info->glyphs[text_info->length].advance.x;
         pen.x += double_to_d6(render_priv->state.hspacing *
-                              render_priv->font_scale);
+                              render_priv->font_scale
+                              * render_priv->state.scale_x);
         pen.y += text_info->glyphs[text_info->length].advance.y;
         pen.y += (render_priv->state.fay * render_priv->state.scale_y) *
                  text_info->glyphs[text_info->length].advance.x;
