@@ -416,14 +416,13 @@ static unsigned char *clone_bitmap_buffer(ASS_Image *img)
 
 /**
  * \brief Calculate overlapping area of two consecutive bitmaps and in case they
- * overlap, composite them together
+ * overlap, blend them together
  * Mainly useful for translucent glyphs and especially borders, to avoid the
  * luminance adding up where they overlap (which looks ugly)
  */
 static void
 render_overlap(ASS_Renderer *render_priv, ASS_Image **last_tail,
-               ASS_Image **tail, BitmapHashKey *last_hash,
-               BitmapHashKey *hash)
+               ASS_Image **tail)
 {
     int left, top, bottom, right;
     int old_left, old_top, w, h, cur_left, cur_top;
@@ -467,8 +466,8 @@ render_overlap(ASS_Renderer *render_priv, ASS_Image **last_tail,
 
     // Query cache
     memset(&hk, 0, sizeof(hk));
-    memcpy(&hk.a, last_hash, sizeof(*last_hash));
-    memcpy(&hk.b, hash, sizeof(*hash));
+    hk.a = (*last_tail)->bitmap;
+    hk.b = (*tail)->bitmap;
     hk.aw = aw;
     hk.ah = ah;
     hk.bw = bw;
@@ -477,6 +476,8 @@ render_overlap(ASS_Renderer *render_priv, ASS_Image **last_tail,
     hk.ay = ay;
     hk.bx = bx;
     hk.by = by;
+    hk.as = as;
+    hk.bs = bs;
     hv = cache_find_composite(render_priv->cache.composite_cache, &hk);
     if (hv) {
         (*last_tail)->bitmap = hv->a;
@@ -487,12 +488,12 @@ render_overlap(ASS_Renderer *render_priv, ASS_Image **last_tail,
     a = clone_bitmap_buffer(*last_tail);
     b = clone_bitmap_buffer(*tail);
 
-    // Composite overlapping area
+    // Blend overlapping area
     for (y = 0; y < h; y++)
         for (x = 0; x < w; x++) {
             opos = (old_top + y) * (as) + (old_left + x);
             cpos = (cur_top + y) * (bs) + (cur_left + x);
-            m = (a[opos] > b[cpos]) ? a[opos] : b[cpos];
+            m = FFMIN(a[opos] + b[cpos], 0xff);
             (*last_tail)->bitmap[opos] = 0;
             (*tail)->bitmap[cpos] = m;
         }
@@ -643,7 +644,6 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x,
     ASS_Image **tail = &head;
     ASS_Image **last_tail = 0;
     ASS_Image **here_tail = 0;
-    BitmapHashKey *last_hash = 0;
     TextInfo *text_info = &render_priv->text_info;
 
     for (i = 0; i < text_info->length; ++i) {
@@ -665,10 +665,9 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x,
             render_glyph(render_priv, bm, pen_x, pen_y, info->c[3], 0,
                          1000000, tail);
         if (last_tail && tail != here_tail && ((info->c[3] & 0xff) > 0))
-            render_overlap(render_priv, last_tail, here_tail, last_hash,
-                           &info->hash_key);
+            render_overlap(render_priv, last_tail, here_tail);
+
         last_tail = here_tail;
-        last_hash = &info->hash_key;
     }
 
     last_tail = 0;
@@ -691,12 +690,12 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x,
                 render_glyph(render_priv, bm, pen_x, pen_y, info->c[2],
                              0, 1000000, tail);
             if (last_tail && tail != here_tail && ((info->c[2] & 0xff) > 0))
-                render_overlap(render_priv, last_tail, here_tail,
-                               last_hash, &info->hash_key);
+                render_overlap(render_priv, last_tail, here_tail);
+
             last_tail = here_tail;
-            last_hash = &info->hash_key;
         }
     }
+
     for (i = 0; i < text_info->length; ++i) {
         GlyphInfo *info = text_info->glyphs + i;
         if ((info->symbol == 0) || (info->symbol == '\n') || !info->bm

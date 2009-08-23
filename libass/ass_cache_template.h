@@ -108,8 +108,10 @@ START(composite, composite_hash_key)
     GENERIC(int, ay)
     GENERIC(int, bx)
     GENERIC(int, by)
-    BITMAPHASHKEY(a)
-    BITMAPHASHKEY(b)
+    GENERIC(int, as)
+    GENERIC(int, bs)
+    GENERIC(unsigned char *, a)
+    GENERIC(unsigned char *, b)
 END(CompositeHashKey)
 
 
