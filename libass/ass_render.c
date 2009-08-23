@@ -2737,6 +2737,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         get_outline_glyph(render_priv, code,
                           text_info->glyphs + text_info->length, drawing);
 
+        text_info->glyphs[text_info->length].pos.x = pen.x;
+        text_info->glyphs[text_info->length].pos.y = pen.y;
+
         // Add additional space after italic to non-italic style changes
         if (text_info->length &&
             text_info->glyphs[text_info->length - 1].hash_key.italic &&
@@ -2747,9 +2750,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 og = &text_info->glyphs[--back];
             pen.x += FFMAX(0, og->bbox.xMax - og->advance.x);
         }
-
-        text_info->glyphs[text_info->length].pos.x = pen.x;
-        text_info->glyphs[text_info->length].pos.y = pen.y;
 
         pen.x += text_info->glyphs[text_info->length].advance.x;
         pen.x += double_to_d6(render_priv->state.hspacing *
