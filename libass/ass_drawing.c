@@ -86,8 +86,10 @@ static inline void drawing_close_shape(ASS_Drawing *drawing)
                                drawing->max_contours);
     }
 
-    ol->contours[ol->n_contours] = ol->n_points - 1;
-    ol->n_contours++;
+    if (ol->n_points) {
+        ol->contours[ol->n_contours] = ol->n_points - 1;
+        ol->n_contours++;
+    }
 }
 
 /*
