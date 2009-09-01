@@ -2745,7 +2745,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             !render_priv->state.italic) {
             int back = text_info->length - 1;
             GlyphInfo *og = &text_info->glyphs[back];
-            while (og->bbox.xMax - og->bbox.xMin == 0 && og->hash_key.italic)
+            while (back && og->bbox.xMax - og->bbox.xMin == 0
+                   && og->hash_key.italic)
                 og = &text_info->glyphs[--back];
             if (og->bbox.xMax > og->advance.x) {
                 // The FreeType oblique slants by 6/16
