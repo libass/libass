@@ -1295,7 +1295,8 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
     } else if (mystrcmp(&p, "a")) {
         int val;
         if (mystrtoi(&p, &val) && val)
-            render_priv->state.alignment = val;
+            // take care of a vsfilter quirk: handle illegal \a8 like \a5
+            render_priv->state.alignment = (val == 8) ? 5 : val;
         else
             render_priv->state.alignment =
                 render_priv->state.style->Alignment;
