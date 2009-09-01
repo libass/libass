@@ -2161,7 +2161,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                                     &info->bm, &info->bm_o,
                                     &info->bm_s, info->be,
                                     info->blur * render_priv->border_scale,
-                                    info->hash_key.shadow_offset);
+                                    info->hash_key.shadow_offset,
+                                    info->hash_key.border_style);
             if (error)
                 info->symbol = 0;
 

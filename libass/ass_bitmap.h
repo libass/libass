@@ -49,7 +49,8 @@ typedef struct {
 int glyph_to_bitmap(ASS_Library *library, ASS_SynthPriv *priv_blur,
                     FT_Glyph glyph, FT_Glyph outline_glyph,
                     Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
-                    int be, double blur_radius, FT_Vector shadow_offset);
+                    int be, double blur_radius, FT_Vector shadow_offset,
+                    int border_style);
 
 void ass_free_bitmap(Bitmap *bm);
 

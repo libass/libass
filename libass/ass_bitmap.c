@@ -475,7 +475,8 @@ static void be_blur(unsigned char *buf, int w, int h)
 int glyph_to_bitmap(ASS_Library *library, ASS_SynthPriv *priv_blur,
                     FT_Glyph glyph, FT_Glyph outline_glyph,
                     Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
-                    int be, double blur_radius, FT_Vector shadow_offset)
+                    int be, double blur_radius, FT_Vector shadow_offset,
+                    int border_style)
 {
     blur_radius *= 2;
     int bbord = be > 0 ? sqrt(2 * be) : 0;
@@ -527,7 +528,9 @@ int glyph_to_bitmap(ASS_Library *library, ASS_SynthPriv *priv_blur,
                            priv_blur->g_w);
     }
 
-    if (*bm_o)
+    if (*bm_o && border_style == 3)
+        *bm_s = copy_bitmap(*bm_o);
+    else if (*bm_o)
         *bm_s = fix_outline_and_shadow(*bm_g, *bm_o);
     else
         *bm_s = copy_bitmap(*bm_g);
