@@ -257,4 +257,6 @@ typedef struct {
     int ha, hb;                 // left and width
 } Segment;
 
+void reset_render_context(ASS_Renderer *render_priv);
+
 #endif /* LIBASS_RENDER_H */
