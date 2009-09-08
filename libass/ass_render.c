@@ -1816,6 +1816,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     int MarginL, MarginR, MarginV;
     int last_break;
     int alignment, halign, valign;
+    int kern = render_priv->track->Kerning;
     double device_x = 0;
     double device_y = 0;
     TextInfo *text_info = &render_priv->text_info;
@@ -1879,7 +1880,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         }
 
         // Add kerning to pen
-        if (previous && code && !drawing->hash) {
+        if (kern && previous && code && !drawing->hash) {
             FT_Vector delta;
             delta =
                 ass_font_get_kerning(render_priv->state.font, previous,

@@ -389,6 +389,8 @@ void ass_process_force_style(ASS_Track *track)
             track->WrapStyle = atoi(token);
         else if (!strcasecmp(*fs, "ScaledBorderAndShadow"))
             track->ScaledBorderAndShadow = parse_bool(token);
+        else if (!strcasecmp(*fs, "Kerning"))
+            track->Kerning = parse_bool(token);
 
         dt = strrchr(*fs, '.');
         if (dt) {
@@ -571,6 +573,8 @@ static int process_info_line(ASS_Track *track, char *str)
         track->WrapStyle = atoi(str + 10);
     } else if (!strncmp(str, "ScaledBorderAndShadow:", 22)) {
         track->ScaledBorderAndShadow = parse_bool(str + 22);
+    } else if (!strncmp(str, "Kerning:", 8)) {
+        track->Kerning = parse_bool(str + 8);
     }
     return 0;
 }
