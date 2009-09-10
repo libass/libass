@@ -421,6 +421,9 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
 
     if (ch < 0x20)
         return 0;
+    // Handle NBSP like a regular space when rendering the glyph
+    if (ch == 0xa0)
+        ch = ' ';
     if (font->n_faces == 0)
         return 0;
 
