@@ -2,9 +2,15 @@ libass (0.9.8)
  * Support \q override tag
  * Support wrap style 1 (i.e. wrap, but do not equalize line lengths)
  * Support border style 3 (opaque box)
+ * Use the event bounding box (instead of vertical position and height) for
+   collision detection
  * Embold glyphs if no bold variant is available, but was requested
  * Modify \fax to be similar to VSFilter
  * Trim spaces after line wrapping
+ * Fix border/shadow overlap combining in some cases
+ * Disable kerning by default.  Use "Kerning=yes" style override or
+   "Kerning: yes" in [Script Info] to enable it
+ * Slight bitmap handling optimizations
  * Various bugfixes
 
 libass (0.9.7)
