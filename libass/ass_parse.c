@@ -163,7 +163,7 @@ static void change_color(uint32_t *var, uint32_t new, double pwr)
 inline void change_alpha(uint32_t *var, uint32_t new, double pwr)
 {
     *var =
-        (uint32_t) (_r(*var) << 24) + (_g(*var) << 16) + (_b(*var) << 8) +
+        (_r(*var) << 24) + (_g(*var) << 16) + (_b(*var) << 8) +
         (uint32_t) (_a(*var) * (1 - pwr) + _a(new) * pwr);
 }
 
