@@ -250,7 +250,8 @@ char *fontconfig_select(ASS_Library *library, FCInstance *priv,
     char *res = 0;
     if (!priv->config) {
         *index = priv->index_default;
-        return priv->path_default;
+        res = priv->path_default ? strdup(priv->path_default) : 0;
+        return res;
     }
     if (family && *family)
         res =
@@ -266,7 +267,7 @@ char *fontconfig_select(ASS_Library *library, FCInstance *priv,
                     family, bold, italic, res, *index);
     }
     if (!res && priv->path_default) {
-        res = priv->path_default;
+        res = strdup(priv->path_default);
         *index = priv->index_default;
         ass_msg(library, MSGL_WARN, "fontconfig_select: Using default font: "
                 "(%s, %d, %d) -> %s, %d", family, bold, italic,
@@ -534,7 +535,8 @@ char *fontconfig_select(ASS_Library *library, FCInstance *priv,
                         uint32_t code)
 {
     *index = priv->index_default;
-    return priv->path_default;
+    char* res = priv->path_default ? strdup(priv->path_default) : 0;
+    return res;
 }
 
 FCInstance *fontconfig_init(ASS_Library *library,
