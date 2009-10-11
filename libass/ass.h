@@ -195,6 +195,9 @@ void ass_set_line_spacing(ASS_Renderer *priv, double line_spacing);
 
 /**
  * \brief Set font lookup defaults.
+ * \param default_font path to default font to use. Must be supplied if
+ * fontconfig is disabled or unavailable.
+ * \param default_family fallback font family for fontconfig, or NULL
  * \param fc whether to use fontconfig
  * \param config path to fontconfig configuration file, or NULL.  Only relevant
  * if fontconfig is used.

@@ -1132,7 +1132,8 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
     } else {
         GlyphHashValue v;
         if (drawing->hash) {
-            ass_drawing_parse(drawing, 0);
+            if(!ass_drawing_parse(drawing, 0))
+                return;
             FT_Glyph_Copy((FT_Glyph) drawing->glyph, &info->glyph);
         } else {
             info->glyph =

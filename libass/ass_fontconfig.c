@@ -551,7 +551,7 @@ FCInstance *fontconfig_init(ASS_Library *library,
 
     priv = calloc(1, sizeof(FCInstance));
 
-    priv->path_default = strdup(path);
+    priv->path_default = path ? strdup(path) : 0;
     priv->index_default = 0;
     return priv;
 }
