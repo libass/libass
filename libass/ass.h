@@ -49,7 +49,7 @@ typedef struct ass_image {
 } ASS_Image;
 
 /*
- * Hintint type. (see ass_set_hinting below)
+ * Hinting type. (see ass_set_hinting below)
  *
  * FreeType's native hinter is still buggy sometimes and it is recommended
  * to use the light autohinter, ASS_HINTING_LIGHT, instead.  For best
