@@ -59,6 +59,9 @@ void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
                           char *fallback);
 #endif
 
+/* defined in ass_strtod.c */
+double ass_strtod(const char *string, char **endPtr);
+
 static inline int d6_to_int(int x)
 {
     return (x + 32) >> 6;
