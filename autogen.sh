@@ -1,5 +1,5 @@
 #!/bin/sh
-echo Running autoreconf
-autoreconf --install
+echo Running autoreconf...
+autoreconf -ivf
 echo Running configure...
 ./configure $@
