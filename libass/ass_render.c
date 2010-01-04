@@ -871,6 +871,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.clip_y0 = 0;
     render_priv->state.clip_x1 = render_priv->track->PlayResX;
     render_priv->state.clip_y1 = render_priv->track->PlayResY;
+    render_priv->state.clip_mode = 0;
     render_priv->state.detect_collisions = 1;
     render_priv->state.fade = 0;
     render_priv->state.drawing_mode = 0;
