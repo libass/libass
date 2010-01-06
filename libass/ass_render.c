@@ -1907,13 +1907,13 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 drawing->hash;
         text_info->glyphs[text_info->length].hash_key.ch = code;
         text_info->glyphs[text_info->length].hash_key.outline.x =
-            render_priv->state.border_x * 0xFFFF;
+            double_to_d16(render_priv->state.border_x);
         text_info->glyphs[text_info->length].hash_key.outline.y =
-            render_priv->state.border_y * 0xFFFF;
+            double_to_d16(render_priv->state.border_y);
         text_info->glyphs[text_info->length].hash_key.scale_x =
-            render_priv->state.scale_x * 0xFFFF;
+            double_to_d16(render_priv->state.scale_x);
         text_info->glyphs[text_info->length].hash_key.scale_y =
-            render_priv->state.scale_y * 0xFFFF;
+            double_to_d16(render_priv->state.scale_y);
         text_info->glyphs[text_info->length].hash_key.frx =
             rot_key(render_priv->state.frx);
         text_info->glyphs[text_info->length].hash_key.fry =
@@ -1921,9 +1921,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         text_info->glyphs[text_info->length].hash_key.frz =
             rot_key(render_priv->state.frz);
         text_info->glyphs[text_info->length].hash_key.fax =
-            render_priv->state.fax * 0xFFFF;
+            double_to_d16(render_priv->state.fax);
         text_info->glyphs[text_info->length].hash_key.fay =
-            render_priv->state.fay * 0xFFFF;
+            double_to_d16(render_priv->state.fay);
         text_info->glyphs[text_info->length].hash_key.advance.x = pen.x;
         text_info->glyphs[text_info->length].hash_key.advance.y = pen.y;
         text_info->glyphs[text_info->length].hash_key.be =
