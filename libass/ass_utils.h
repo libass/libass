@@ -102,6 +102,21 @@ static inline int double_to_d16(double x)
 {
     return (int) (x * 0x10000);
 }
+static inline double d22_to_double(int x)
+{
+    return ((double) x) / 0x400000;
+}
+static inline int double_to_d22(double x)
+{
+    return (int) (x * 0x400000);
+}
+
+// Calculate cache key for a rotational angle in degrees
+static inline int rot_key(double a)
+{
+    const int m = double_to_d22(360.0);
+    return double_to_d22(a) % m;
+}
 
 #define FNV1_32A_INIT (unsigned)0x811c9dc5
 

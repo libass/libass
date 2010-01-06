@@ -1915,11 +1915,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         text_info->glyphs[text_info->length].hash_key.scale_y =
             render_priv->state.scale_y * 0xFFFF;
         text_info->glyphs[text_info->length].hash_key.frx =
-            render_priv->state.frx * 0xFFFF;
+            rot_key(render_priv->state.frx);
         text_info->glyphs[text_info->length].hash_key.fry =
-            render_priv->state.fry * 0xFFFF;
+            rot_key(render_priv->state.fry);
         text_info->glyphs[text_info->length].hash_key.frz =
-            render_priv->state.frz * 0xFFFF;
+            rot_key(render_priv->state.frz);
         text_info->glyphs[text_info->length].hash_key.fax =
             render_priv->state.fax * 0xFFFF;
         text_info->glyphs[text_info->length].hash_key.fay =
