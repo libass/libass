@@ -123,15 +123,9 @@ void change_border(ASS_Renderer *render_priv, double border_x,
     if (bord > 0 && border_x == border_y) {
         if (!render_priv->state.stroker) {
             int error;
-#if (FREETYPE_MAJOR > 2) || ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR > 1))
             error =
                 FT_Stroker_New(render_priv->ftlibrary,
                                &render_priv->state.stroker);
-#else                           // < 2.2
-            error =
-                FT_Stroker_New(render_priv->state.font->faces[0]->
-                               memory, &render_priv->state.stroker);
-#endif
             if (error) {
                 ass_msg(render_priv->library, MSGL_V,
                         "failed to get stroker");

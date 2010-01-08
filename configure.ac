@@ -41,7 +41,7 @@ AC_ARG_ENABLE([enca], AS_HELP_STRING([--disable-enca],
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
     [disable fontconfig support @<:@default=check@:>@]))
 
-PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.6.3, [
+PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.10.3, [
     CFLAGS="$CFLAGS $FREETYPE_CFLAGS"
     LIBS="$LIBS $FREETYPE_LIBS"
     AC_DEFINE(CONFIG_FREETYPE, 1, [found freetype2 via pkg-config])
