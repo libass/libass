@@ -48,7 +48,7 @@ PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.6.3, [
     ])
 
 if test x$enable_fontconfig != xno; then
-PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.2.0, [
+PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.4.2, [
     CFLAGS="$CFLAGS $FONTCONFIG_CFLAGS"
     LIBS="$LIBS $FONTCONFIG_LIBS"
     AC_DEFINE(CONFIG_FONTCONFIG, 1, [found fontconfig via pkg-config])
