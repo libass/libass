@@ -226,7 +226,7 @@ ass_strtod(string, endPtr)
         errno = ERANGE;
     }
     dblExp = 1.0;
-    for (d = powersOf10; exp != 0; exp >>= 1, d += 1) {
+    for (d = (double *) powersOf10; exp != 0; exp >>= 1, d += 1) {
         if (exp & 01) {
             dblExp *= *d;
         }
