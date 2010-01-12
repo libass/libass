@@ -38,6 +38,8 @@
 #include "ass_utils.h"
 #include "ass_library.h"
 
+#define ass_atof(STR) (ass_strtod((STR),NULL))
+
 typedef enum {
     PST_UNKNOWN = 0,
     PST_INFO,
@@ -250,7 +252,7 @@ static int numpad2align(int val)
 		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
 
 #define INTVAL(name) ANYVAL(name,atoi)
-#define FPVAL(name) ANYVAL(name,atof)
+#define FPVAL(name) ANYVAL(name,ass_atof)
 #define TIMEVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
 		target->name = string2timecode(track->library, token); \
@@ -384,7 +386,7 @@ void ass_process_force_style(ASS_Track *track)
         else if (!strcasecmp(*fs, "PlayResY"))
             track->PlayResY = atoi(token);
         else if (!strcasecmp(*fs, "Timer"))
-            track->Timer = atof(token);
+            track->Timer = ass_atof(token);
         else if (!strcasecmp(*fs, "WrapStyle"))
             track->WrapStyle = atoi(token);
         else if (!strcasecmp(*fs, "ScaledBorderAndShadow"))
@@ -568,7 +570,7 @@ static int process_info_line(ASS_Track *track, char *str)
     } else if (!strncmp(str, "PlayResY:", 9)) {
         track->PlayResY = atoi(str + 9);
     } else if (!strncmp(str, "Timer:", 6)) {
-        track->Timer = atof(str + 6);
+        track->Timer = ass_atof(str + 6);
     } else if (!strncmp(str, "WrapStyle:", 10)) {
         track->WrapStyle = atoi(str + 10);
     } else if (!strncmp(str, "ScaledBorderAndShadow:", 22)) {

@@ -586,7 +586,7 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         for (cnt = 0; cnt < 3; ++cnt) {
             if (*p == '\\')
                 break;
-            v[cnt] = strtod(p, &p);
+            mystrtod(&p, &v[cnt]);
             skip(',');
         }
         if (cnt == 3) {
