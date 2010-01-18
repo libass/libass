@@ -125,7 +125,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
   ass_init_exit:
     if (priv)
-        ass_msg(library, MSGL_INFO, "Init");
+        ass_msg(library, MSGL_V, "Init");
     else
         ass_msg(library, MSGL_ERR, "Init failed");
 
@@ -538,7 +538,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     FT_Glyph_Copy((FT_Glyph) drawing->glyph, &glyph);
     error = FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
     if (error) {
-        ass_msg(render_priv->library, MSGL_V,
+        ass_msg(render_priv->library, MSGL_WARN,
             "Clip vector rasterization failed: %d. Skipping.", error);
         goto blend_vector_exit;
     }
@@ -2072,7 +2072,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             double scr_y;
             if (valign != VALIGN_SUB)
                 ass_msg(render_priv->library, MSGL_V,
-                       "Invalid valign, supposing 0 (subtitle)");
+                       "Invalid valign, assuming 0 (subtitle)");
             scr_y =
                 y2scr_sub(render_priv,
                           render_priv->track->PlayResY - MarginV);
@@ -2505,7 +2505,7 @@ fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
             s.hb = priv->left + priv->width;
             if (priv->height != imgs[i].height) {       // no, it's not
                 ass_msg(render_priv->library, MSGL_WARN,
-                        "Warning! Event height has changed");
+                        "Event height has changed");
                 priv->top = 0;
                 priv->height = 0;
                 priv->left = 0;

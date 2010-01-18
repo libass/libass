@@ -388,7 +388,7 @@ FCInstance *fontconfig_init(ASS_Library *library,
         process_fontdata(priv, library, ftlibrary, i);
 
     if (dir) {
-        ass_msg(library, MSGL_INFO, "Updating font cache");
+        ass_msg(library, MSGL_V, "Updating font cache");
 
         rc = FcConfigAppFontAddDir(priv->config, (const FcChar8 *) dir);
         if (!rc) {
