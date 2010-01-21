@@ -1158,8 +1158,9 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
                                          render_priv->border_scale),
                             double_to_d6(render_priv->state.border_y *
                                          render_priv->border_scale));
-        } else if (render_priv->state.border_x > 0 ||
-                   render_priv->state.border_y > 0) {
+        } else if ((render_priv->state.border_x > 0
+                    || render_priv->state.border_y > 0)
+                   && key.scale_x && key.scale_y) {
 
             FT_Glyph_Copy(info->glyph, &info->outline_glyph);
             stroke_outline_glyph(render_priv,
