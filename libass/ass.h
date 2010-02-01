@@ -75,11 +75,13 @@ ASS_Library *ass_library_init(void);
 void ass_library_done(ASS_Library *priv);
 
 /**
- * \brief Set private font directory.
- * It is used for saving embedded fonts and also in font lookup.
+ * \brief Set additional fonts directory.
+ * Optional directory that will be scanned for fonts recursively.  The fonts
+ * found are used for font lookup.
+ * NOTE: A valid font directory is not needed to support embedded fonts.
  *
  * \param priv library handle
- * \param fonts_dir private directory for font extraction
+ * \param fonts_dir directory with additional fonts
  */
 void ass_set_fonts_dir(ASS_Library *priv, const char *fonts_dir);
 
