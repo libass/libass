@@ -123,6 +123,8 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         calloc(MAX_GLYPHS_INITIAL, sizeof(GlyphInfo));
     priv->text_info.lines = calloc(MAX_LINES_INITIAL, sizeof(LineInfo));
 
+    priv->settings.font_size_coeff = 1.;
+
   ass_init_exit:
     if (priv)
         ass_msg(library, MSGL_V, "Init");
