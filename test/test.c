@@ -78,9 +78,6 @@ static void init(int frame_w, int frame_h)
         exit(1);
     }
 
-    ass_set_fonts_dir(ass_library, "");
-    ass_set_extract_fonts(ass_library, 0);
-    ass_set_style_overrides(ass_library, NULL);
     ass_set_message_cb(ass_library, msg_callback, NULL);
 
     ass_renderer = ass_renderer_init(ass_library);
@@ -90,9 +87,6 @@ static void init(int frame_w, int frame_h)
     }
 
     ass_set_frame_size(ass_renderer, frame_w, frame_h);
-    ass_set_margins(ass_renderer, 0, 0, 0, 0);
-    ass_set_use_margins(ass_renderer, 0);
-    ass_set_font_scale(ass_renderer, 1.);
     ass_set_fonts(ass_renderer, NULL, "Sans", 1, NULL, 1);
 }
 
