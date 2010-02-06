@@ -58,7 +58,6 @@ struct parser_priv {
 
 #define ASS_STYLES_ALLOC 20
 #define ASS_EVENTS_ALLOC 200
-#define ASS_MAX_FILESIZE 50 * 1048576
 
 void ass_free_track(ASS_Track *track)
 {
@@ -1021,14 +1020,6 @@ static char *read_file(ASS_Library *library, char *fname, size_t *bufsize)
 
     sz = ftell(fp);
     rewind(fp);
-
-    if (sz > ASS_MAX_FILESIZE) {
-        ass_msg(library, MSGL_INFO,
-               "ass_read_file(%s): Refusing to load subtitles "
-               "larger than %d bytes", fname, ASS_MAX_FILESIZE);
-        fclose(fp);
-        return 0;
-    }
 
     ass_msg(library, MSGL_V, "File size: %ld", sz);
 
