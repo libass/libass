@@ -2324,6 +2324,9 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     if (render_priv->library != track->library)
         return 1;
 
+    if (!render_priv->fontconfig_priv)
+        return 1;
+
     free_list_clear(render_priv);
 
     if (track->n_events == 0)

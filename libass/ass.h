@@ -205,6 +205,8 @@ void ass_set_line_spacing(ASS_Renderer *priv, double line_spacing);
  * if fontconfig is used.
  * \param update whether fontconfig cache should be built/updated now.  Only
  * relevant if fontconfig is used.
+ *
+ * NOTE: font lookup must be configured before an ASS_Renderer can be used.
  */
 void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
                    const char *default_family, int fc, const char *config,
