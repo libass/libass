@@ -2214,6 +2214,8 @@ static void ass_free_images(ASS_Image *img)
 
 static void ass_reconfigure(ASS_Renderer *priv)
 {
+    ASS_Settings *settings = &priv->settings;
+
     priv->render_id++;
     priv->cache.glyph_cache =
         ass_glyph_cache_reset(priv->cache.glyph_cache);
@@ -2223,6 +2225,19 @@ static void ass_reconfigure(ASS_Renderer *priv)
         ass_composite_cache_reset(priv->cache.composite_cache);
     ass_free_images(priv->prev_images_root);
     priv->prev_images_root = 0;
+
+    priv->width = settings->frame_width;
+    priv->height = settings->frame_height;
+    priv->orig_width = settings->frame_width - settings->left_margin -
+        settings->right_margin;
+    priv->orig_height = settings->frame_height - settings->top_margin -
+        settings->bottom_margin;
+    priv->orig_width_nocrop =
+        settings->frame_width - FFMAX(settings->left_margin, 0) -
+        FFMAX(settings->right_margin, 0);
+    priv->orig_height_nocrop =
+        settings->frame_height - FFMAX(settings->top_margin, 0) -
+        FFMAX(settings->bottom_margin, 0);
 }
 
 void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
@@ -2334,22 +2349,6 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     if (track->n_events == 0)
         return 1;               // nothing to do
 
-    render_priv->width = settings_priv->frame_width;
-    render_priv->height = settings_priv->frame_height;
-    render_priv->orig_width =
-        settings_priv->frame_width - settings_priv->left_margin -
-        settings_priv->right_margin;
-    render_priv->orig_height =
-        settings_priv->frame_height - settings_priv->top_margin -
-        settings_priv->bottom_margin;
-    render_priv->orig_width_nocrop =
-        settings_priv->frame_width - FFMAX(settings_priv->left_margin,
-                                           0) -
-        FFMAX(settings_priv->right_margin, 0);
-    render_priv->orig_height_nocrop =
-        settings_priv->frame_height - FFMAX(settings_priv->top_margin,
-                                            0) -
-        FFMAX(settings_priv->bottom_margin, 0);
     render_priv->track = track;
     render_priv->time = now;
 
