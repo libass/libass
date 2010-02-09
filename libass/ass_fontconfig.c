@@ -283,8 +283,8 @@ char *fontconfig_select(ASS_Library *library, FCInstance *priv,
  * \param library library object
  * \param ftlibrary freetype library object
  * \param idx index of the processed font in library->fontdata
- * With FontConfig >= 2.4.2, builds a font pattern in memory via FT_New_Memory_Face/FcFreeTypeQueryFace.
- * With older FontConfig versions, save the font to ~/.mplayer/fonts.
+ *
+ * Builds a font pattern in memory via FT_New_Memory_Face/FcFreeTypeQueryFace.
 */
 static void process_fontdata(FCInstance *priv, ASS_Library *library,
                              FT_Library ftlibrary, int idx)
