@@ -52,6 +52,47 @@ struct fc_instance {
 #ifdef CONFIG_FONTCONFIG
 
 /**
+ * \brief Case-insensitive match ASS/SSA font family against full name. (also
+ * known as "name for humans")
+ *
+ * \param lib library instance
+ * \param priv fontconfig instance
+ * \param family font family
+ * \return font set
+ */
+static FcFontSet *match_fullname(ASS_Library *lib, FCInstance *priv,
+                                 const char *family)
+{
+    FcFontSet *sets[2];
+    FcFontSet *result = FcFontSetCreate();
+    int nsets = 0;
+    int i, fi;
+
+    if ((sets[nsets] = FcConfigGetFonts(priv->config, FcSetSystem)))
+        nsets++;
+    if ((sets[nsets] = FcConfigGetFonts(priv->config, FcSetApplication)))
+        nsets++;
+
+    // Run over font sets and patterns and try to match against full name
+    for (i = 0; i < nsets; i++) {
+        FcFontSet *set = sets[i];
+        for (fi = 0; fi < set->nfont; fi++) {
+            FcPattern *pat = set->fonts[fi];
+            char *fullname;
+            int pi = 0;
+            while (FcPatternGetString(pat, FC_FULLNAME, pi++,
+                   (FcChar8 **) &fullname) == FcResultMatch)
+                if (strcasecmp(fullname, family) == 0) {
+                    FcFontSetAdd(result, FcPatternDuplicate(pat));
+                    break;
+                }
+        }
+    }
+
+    return result;
+}
+
+/**
  * \brief Low-level font selection.
  * \param priv private data
  * \param family font family
@@ -74,7 +115,7 @@ static char *_select_font(ASS_Library *library, FCInstance *priv,
     FcChar8 *r_family, *r_style, *r_file, *r_fullname;
     FcBool r_outline, r_embolden;
     FcCharSet *r_charset;
-    FcFontSet *fset = NULL;
+    FcFontSet *ffullname = NULL, *fsorted = NULL, *fset = NULL;
     int curf;
     char *retval = NULL;
     int family_cnt = 0;
@@ -126,9 +167,22 @@ static char *_select_font(ASS_Library *library, FCInstance *priv,
     if (!rc)
         goto error;
 
-    fset = FcFontSort(priv->config, pat, FcTrue, NULL, &result);
-    if (!fset)
+    fsorted = FcFontSort(priv->config, pat, FcTrue, NULL, &result);
+    ffullname = match_fullname(library, priv, family);
+    if (!fsorted || !ffullname)
         goto error;
+
+    fset = FcFontSetCreate();
+    for (curf = 0; curf < ffullname->nfont; ++curf) {
+        FcPattern *curp = ffullname->fonts[curf];
+        FcPatternReference(curp);
+        FcFontSetAdd(fset, curp);
+    }
+    for (curf = 0; curf < fsorted->nfont; ++curf) {
+        FcPattern *curp = fsorted->fonts[curf];
+        FcPatternReference(curp);
+        FcFontSetAdd(fset, curp);
+    }
 
     for (curf = 0; curf < fset->nfont; ++curf) {
         FcPattern *curp = fset->fonts[curf];
@@ -215,6 +269,10 @@ static char *_select_font(ASS_Library *library, FCInstance *priv,
         FcPatternDestroy(pat);
     if (rpat)
         FcPatternDestroy(rpat);
+    if (fsorted)
+        FcFontSetDestroy(fsorted);
+    if (ffullname)
+        FcFontSetDestroy(ffullname);
     if (fset)
         FcFontSetDestroy(fset);
     return retval;
