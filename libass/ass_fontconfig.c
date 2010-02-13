@@ -103,7 +103,7 @@ static FcFontSet *match_fullname(ASS_Library *lib, FCInstance *priv,
  * \param code: the character that should be present in the font, can be 0
  * \return font file path
 */
-static char *_select_font(ASS_Library *library, FCInstance *priv,
+static char *select_font(ASS_Library *library, FCInstance *priv,
                           const char *family, int treat_family_as_pattern,
                           unsigned bold, unsigned italic, int *index,
                           uint32_t code)
@@ -302,11 +302,11 @@ char *fontconfig_select(ASS_Library *library, FCInstance *priv,
     }
     if (family && *family)
         res =
-            _select_font(library, priv, family, treat_family_as_pattern,
+            select_font(library, priv, family, treat_family_as_pattern,
                          bold, italic, index, code);
     if (!res && priv->family_default) {
         res =
-            _select_font(library, priv, priv->family_default, 0, bold,
+            select_font(library, priv, priv->family_default, 0, bold,
                          italic, index, code);
         if (res)
             ass_msg(library, MSGL_WARN, "fontconfig_select: Using default "
@@ -321,7 +321,7 @@ char *fontconfig_select(ASS_Library *library, FCInstance *priv,
                 res, *index);
     }
     if (!res) {
-        res = _select_font(library, priv, "Arial", 0, bold, italic,
+        res = select_font(library, priv, "Arial", 0, bold, italic,
                            index, code);
         if (res)
             ass_msg(library, MSGL_WARN, "fontconfig_select: Using 'Arial' "
