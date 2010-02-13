@@ -1,3 +1,14 @@
+libass (0.9.9)
+ * Parse numbers in a locale-independent way
+ * Remove support for freetype < 2.2.1, fontconfig < 2.4.1; this especially
+   means libass will not extract fonts into the file system anymore
+ * Disable script file size limit
+ * Match fonts against the full name ("name for humans")
+ * Reset clip mode after \iclip
+ * Improve VSFilter compatibility
+ * Update API documentation
+ * A couple of smaller fixes and cleanups
+
 libass (0.9.8)
  * Support \q override tag
  * Support wrap style 1 (i.e. wrap, but do not equalize line lengths)
