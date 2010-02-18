@@ -286,6 +286,9 @@ void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
                 *asc = FT_MulFix(face->ascender, y_scale);
                 *desc = FT_MulFix(-face->descender, y_scale);
             }
+            if (font->desc.vertical) {
+                *asc = FT_MulFix(face->max_advance_width, y_scale);
+            }
             return;
         }
     }
