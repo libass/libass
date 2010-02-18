@@ -36,6 +36,7 @@ typedef struct {
     unsigned bold;
     unsigned italic;
     int treat_family_as_pattern;
+    int vertical;               // @font vertical layout
 } ASS_FontDesc;
 
 typedef struct {

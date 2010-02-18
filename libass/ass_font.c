@@ -188,6 +188,7 @@ ASS_Font *ass_font_new(void *font_cache, ASS_Library *library,
     font.desc.treat_family_as_pattern = desc->treat_family_as_pattern;
     font.desc.bold = desc->bold;
     font.desc.italic = desc->italic;
+    font.desc.vertical = desc->vertical;
 
     font.scale_x = font.scale_y = 1.;
     font.v.x = font.v.y = 0;
@@ -207,11 +208,20 @@ ASS_Font *ass_font_new(void *font_cache, ASS_Library *library,
 void ass_font_set_transform(ASS_Font *font, double scale_x,
                             double scale_y, FT_Vector *v)
 {
-    font->scale_x = scale_x;
-    font->scale_y = scale_y;
-    if (v) {
-        font->v.x = v->x;
-        font->v.y = v->y;
+    if (font->desc.vertical) {
+        font->scale_x = scale_y;
+        font->scale_y = scale_x;
+        if (v) {
+            font->v.x = v->y;
+            font->v.y = v->x;
+        }
+    } else {
+        font->scale_x = scale_x;
+        font->scale_y = scale_y;
+        if (v) {
+            font->v.x = v->x;
+            font->v.y = v->y;
+        }
     }
     update_transform(font);
 }
@@ -414,6 +424,7 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
     FT_Glyph glyph;
     FT_Face face = 0;
     int flags = 0;
+    int vertical = font->desc.vertical;
 
     if (ch < 0x20)
         return 0;
@@ -488,6 +499,15 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
         return 0;
     }
 
+    if (vertical) {
+        FT_Matrix m = { 0, double_to_d16(-1.0), double_to_d16(1.0), 0 };
+        FT_Outline_Transform(&((FT_OutlineGlyph) glyph)->outline, &m);
+        FT_Outline_Translate(&((FT_OutlineGlyph) glyph)->outline,
+                             face->glyph->metrics.vertAdvance * font->scale_y,
+                             0);
+        glyph->advance.x = face->glyph->linearVertAdvance * font->scale_y;
+    }
+
     ass_strike_outline_glyph(face, font, glyph, deco & DECO_UNDERLINE,
                              deco & DECO_STRIKETHROUGH);
 
@@ -501,6 +521,9 @@ FT_Vector ass_font_get_kerning(ASS_Font *font, uint32_t c1, uint32_t c2)
 {
     FT_Vector v = { 0, 0 };
     int i;
+
+    if (font->desc.vertical)
+        return v;
 
     for (i = 0; i < font->n_faces; ++i) {
         FT_Face face = font->faces[i];

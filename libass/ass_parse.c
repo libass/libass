@@ -68,9 +68,15 @@ void update_font(ASS_Renderer *render_priv)
 {
     unsigned val;
     ASS_FontDesc desc;
-    desc.family = strdup(render_priv->state.family);
-    desc.treat_family_as_pattern =
-        render_priv->state.treat_family_as_pattern;
+    desc.treat_family_as_pattern = render_priv->state.treat_family_as_pattern;
+
+    if (render_priv->state.family[0] == '@') {
+        desc.vertical = 1;
+        desc.family = strdup(render_priv->state.family + 1);
+    } else {
+        desc.vertical = 0;
+        desc.family = strdup(render_priv->state.family);
+    }
 
     val = render_priv->state.bold;
     // 0 = normal, 1 = bold, >1 = exact weight
