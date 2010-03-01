@@ -36,6 +36,8 @@
 #include "ass_fontconfig.h"
 #include "ass_utils.h"
 
+#define VERTICAL_LOWER_BOUND 0x02f1
+
 /**
  * Select Microfost Unicode CharMap, if the font has one.
  * Otherwise, let FreeType decide.
@@ -65,17 +67,6 @@ static void charmap_magic(ASS_Library *library, FT_Face face)
         FT_Set_Charmap(face, face->charmaps[0]);
         return;
     }
-}
-
-static void update_transform(ASS_Font *font)
-{
-    int i;
-    FT_Matrix m;
-    m.xx = double_to_d16(font->scale_x);
-    m.yy = double_to_d16(font->scale_y);
-    m.xy = m.yx = 0;
-    for (i = 0; i < font->n_faces; ++i)
-        FT_Set_Transform(font->faces[i], &m, &font->v);
 }
 
 /**
@@ -160,7 +151,6 @@ static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
     buggy_font_workaround(face);
 
     font->faces[font->n_faces++] = face;
-    update_transform(font);
     face_set_size(face, font->size);
     free(path);
     return font->n_faces - 1;
@@ -208,22 +198,12 @@ ASS_Font *ass_font_new(void *font_cache, ASS_Library *library,
 void ass_font_set_transform(ASS_Font *font, double scale_x,
                             double scale_y, FT_Vector *v)
 {
-    if (font->desc.vertical) {
-        font->scale_x = scale_y;
-        font->scale_y = scale_x;
-        if (v) {
-            font->v.x = v->y;
-            font->v.y = v->x;
-        }
-    } else {
-        font->scale_x = scale_x;
-        font->scale_y = scale_y;
-        if (v) {
-            font->v.x = v->x;
-            font->v.y = v->y;
-        }
+    font->scale_x = scale_x;
+    font->scale_y = scale_y;
+    if (v) {
+        font->v.x = v->x;
+        font->v.y = v->y;
     }
-    update_transform(font);
 }
 
 static void face_set_size(FT_Face face, double size)
@@ -278,7 +258,7 @@ void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
         FT_Face face = font->faces[i];
         TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
         if (FT_Get_Char_Index(face, ch)) {
-            int y_scale = face->size->metrics.y_scale;
+            int y_scale = face->size->metrics.y_scale * font->scale_y;
             if (os2) {
                 *asc = FT_MulFix(os2->usWinAscent, y_scale);
                 *desc = FT_MulFix(os2->usWinDescent, y_scale);
@@ -502,14 +482,23 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
         return 0;
     }
 
-    if (vertical) {
+    // Rotate glyph, if needed
+    if (vertical && ch >= VERTICAL_LOWER_BOUND) {
         FT_Matrix m = { 0, double_to_d16(-1.0), double_to_d16(1.0), 0 };
         FT_Outline_Transform(&((FT_OutlineGlyph) glyph)->outline, &m);
         FT_Outline_Translate(&((FT_OutlineGlyph) glyph)->outline,
-                             face->glyph->metrics.vertAdvance * font->scale_y,
+                             face->glyph->metrics.vertAdvance,
                              0);
-        glyph->advance.x = face->glyph->linearVertAdvance * font->scale_y;
+        glyph->advance.x = face->glyph->linearVertAdvance;
     }
+
+    // Apply scaling and shift
+    FT_Matrix scale = { double_to_d16(font->scale_x), 0, 0,
+                        double_to_d16(font->scale_y) };
+    FT_Outline *outl = &((FT_OutlineGlyph) glyph)->outline;
+    FT_Outline_Transform(outl, &scale);
+    FT_Outline_Translate(outl, font->v.x, font->v.y);
+    glyph->advance.x *= font->scale_x;
 
     ass_strike_outline_glyph(face, font, glyph, deco & DECO_UNDERLINE,
                              deco & DECO_STRIKETHROUGH);
