@@ -459,6 +459,7 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
     case ASS_HINTING_NATIVE:
         break;
     }
+    flags |= FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_TRANSFORM;
 
     error = FT_Load_Glyph(face, index, flags);
     if (error) {
