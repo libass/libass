@@ -451,22 +451,22 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
     }
 #endif
 
+    flags = FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH;
     switch (hinting) {
     case ASS_HINTING_NONE:
-        flags = FT_LOAD_NO_HINTING;
+        flags |= FT_LOAD_NO_HINTING;
         break;
     case ASS_HINTING_LIGHT:
-        flags = FT_LOAD_FORCE_AUTOHINT | FT_LOAD_TARGET_LIGHT;
+        flags |= FT_LOAD_FORCE_AUTOHINT | FT_LOAD_TARGET_LIGHT;
         break;
     case ASS_HINTING_NORMAL:
-        flags = FT_LOAD_FORCE_AUTOHINT;
+        flags |= FT_LOAD_FORCE_AUTOHINT;
         break;
     case ASS_HINTING_NATIVE:
-        flags = 0;
         break;
     }
 
-    error = FT_Load_Glyph(face, index, FT_LOAD_NO_BITMAP | flags);
+    error = FT_Load_Glyph(face, index, flags);
     if (error) {
         ass_msg(font->library, MSGL_WARN, "Error loading glyph, index %d",
                 index);
