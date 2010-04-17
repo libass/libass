@@ -130,7 +130,7 @@ static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
             FT_New_Memory_Face(font->ftlibrary,
                                (unsigned char *) font->library->
                                fontdata[mem_idx].data,
-                               font->library->fontdata[mem_idx].size, 0,
+                               font->library->fontdata[mem_idx].size, index,
                                &face);
         if (error) {
             ass_msg(font->library, MSGL_WARN,

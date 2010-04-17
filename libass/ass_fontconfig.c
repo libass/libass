@@ -369,7 +369,7 @@ static void process_fontdata(FCInstance *priv, ASS_Library *library,
         num_faces = face->num_faces;
 
         pattern =
-            FcFreeTypeQueryFace(face, (unsigned char *) name, 0,
+            FcFreeTypeQueryFace(face, (unsigned char *) name, face_index,
                                 FcConfigGetBlanks(priv->config));
         if (!pattern) {
             ass_msg(library, MSGL_WARN, "%s failed", "FcFreeTypeQueryFace");
