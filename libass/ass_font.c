@@ -39,12 +39,15 @@
 #define VERTICAL_LOWER_BOUND 0x02f1
 
 /**
- * Select Microfost Unicode CharMap, if the font has one.
+ * Select a good charmap, prefer Microsoft Unicode charmaps.
  * Otherwise, let FreeType decide.
  */
 static void charmap_magic(ASS_Library *library, FT_Face face)
 {
     int i;
+    int ms_cmap = -1;
+
+    // Search for a Microsoft Unicode cmap
     for (i = 0; i < face->num_charmaps; ++i) {
         FT_CharMap cmap = face->charmaps[i];
         unsigned pid = cmap->platform_id;
@@ -54,7 +57,15 @@ static void charmap_magic(ASS_Library *library, FT_Face face)
                 || eid == 10 /*full unicode */ )) {
             FT_Set_Charmap(face, cmap);
             return;
-        }
+        } else if (pid == 3 && ms_cmap < 0)
+            ms_cmap = i;
+    }
+
+    // Try the first Microsoft cmap if no Microsoft Unicode cmap was found
+    if (ms_cmap >= 0) {
+        FT_CharMap cmap = face->charmaps[ms_cmap];
+        FT_Set_Charmap(face, cmap);
+        return;
     }
 
     if (!face->charmap) {
