@@ -269,7 +269,7 @@ void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
         FT_Face face = font->faces[i];
         TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
         if (FT_Get_Char_Index(face, ch)) {
-            int y_scale = face->size->metrics.y_scale * font->scale_y;
+            int y_scale = face->size->metrics.y_scale;
             if (os2) {
                 *asc = FT_MulFix(os2->usWinAscent, y_scale);
                 *desc = FT_MulFix(os2->usWinDescent, y_scale);
