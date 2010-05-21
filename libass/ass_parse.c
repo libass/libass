@@ -924,6 +924,14 @@ unsigned get_next_char(ASS_Renderer *render_priv, char **str)
             p += 2;
             *str = p;
             return NBSP;
+        } else if (p[1] == '{') {
+            p += 2;
+            *str = p;
+            return '{';
+        } else if (p[1] == '}') {
+            p += 2;
+            *str = p;
+            return '}';
         }
     }
     chr = ass_utf8_get_char((char **) &p);
