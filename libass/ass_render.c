@@ -906,7 +906,7 @@ get_contour_cbox(FT_BBox *box, FT_Vector *points, int start, int end)
     box->xMax = box->yMax = INT_MIN;
     int i;
 
-    for (i = start; i < end; i++) {
+    for (i = start; i <= end; i++) {
         box->xMin = (points[i].x < box->xMin) ? points[i].x : box->xMin;
         box->xMax = (points[i].x > box->xMax) ? points[i].x : box->xMax;
         box->yMin = (points[i].y < box->yMin) ? points[i].y : box->yMin;
