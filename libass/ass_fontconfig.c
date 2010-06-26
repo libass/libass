@@ -57,11 +57,14 @@ struct fc_instance {
  *
  * \param lib library instance
  * \param priv fontconfig instance
- * \param family font family
+ * \param family font fullname
+ * \param bold weight attribute
+ * \param italic italic attribute
  * \return font set
  */
-static FcFontSet *match_fullname(ASS_Library *lib, FCInstance *priv,
-                                 const char *family)
+static FcFontSet *
+match_fullname(ASS_Library *lib, FCInstance *priv, const char *family,
+               unsigned bold, unsigned italic)
 {
     FcFontSet *sets[2];
     FcFontSet *result = FcFontSetCreate();
@@ -79,9 +82,19 @@ static FcFontSet *match_fullname(ASS_Library *lib, FCInstance *priv,
         for (fi = 0; fi < set->nfont; fi++) {
             FcPattern *pat = set->fonts[fi];
             char *fullname;
-            int pi = 0;
+            int pi = 0, at;
+            FcBool ol;
             while (FcPatternGetString(pat, FC_FULLNAME, pi++,
                    (FcChar8 **) &fullname) == FcResultMatch)
+                if (FcPatternGetBool(pat, FC_OUTLINE, 0, &ol) != FcResultMatch
+                    || ol != FcTrue)
+                    continue;
+                if (FcPatternGetInteger(pat, FC_SLANT, 0, &at) != FcResultMatch
+                    || at < italic)
+                    continue;
+                if (FcPatternGetInteger(pat, FC_WEIGHT, 0, &at) != FcResultMatch
+                    || at < bold)
+                    continue;
                 if (strcasecmp(fullname, family) == 0) {
                     FcFontSetAdd(result, FcPatternDuplicate(pat));
                     break;
@@ -168,7 +181,7 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
         goto error;
 
     fsorted = FcFontSort(priv->config, pat, FcTrue, NULL, &result);
-    ffullname = match_fullname(library, priv, family);
+    ffullname = match_fullname(library, priv, family, bold, italic);
     if (!fsorted || !ffullname)
         goto error;
 
