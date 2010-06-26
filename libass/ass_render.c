@@ -1040,9 +1040,9 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
 
     val = cache_find_glyph(render_priv->cache.glyph_cache, &key);
     if (val) {
-        FT_Glyph_Copy(val->glyph, &info->glyph);
+        info->glyph = val->glyph;
         if (val->outline_glyph)
-            FT_Glyph_Copy(val->outline_glyph, &info->outline_glyph);
+            info->outline_glyph = val->outline_glyph;
         info->bbox = val->bbox_scaled;
         info->advance.x = val->advance.x;
         info->advance.y = val->advance.y;
@@ -1055,7 +1055,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
         if (drawing->hash) {
             if(!ass_drawing_parse(drawing, 0))
                 return;
-            FT_Glyph_Copy((FT_Glyph) drawing->glyph, &info->glyph);
+            info->glyph = (FT_Glyph) drawing->glyph;
         } else {
             info->glyph =
                 ass_font_get_glyph(render_priv->fontconfig_priv,
@@ -1092,9 +1092,9 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
         }
 
         memset(&v, 0, sizeof(v));
-        FT_Glyph_Copy(info->glyph, &v.glyph);
+        v.glyph = info->glyph;
         if (info->outline_glyph)
-            FT_Glyph_Copy(info->outline_glyph, &v.outline_glyph);
+            v.outline_glyph = info->outline_glyph;
         v.advance = info->advance;
         v.bbox_scaled = info->bbox;
         if (drawing->hash) {
@@ -1138,6 +1138,10 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         info->bm = info->bm_o = info->bm_s = 0;
         if (info->glyph && info->symbol != '\n' && info->symbol != 0
             && !info->skip) {
+            FT_Glyph glyph = info->glyph;
+            FT_Glyph outline = info->outline_glyph;
+            FT_Glyph_Copy(info->glyph, &glyph);
+            FT_Glyph_Copy(info->outline_glyph, &outline);
             // calculating rotation shift vector (from rotation origin to the glyph basepoint)
             shift.x = info->hash_key.shift_x;
             shift.y = info->hash_key.shift_y;
@@ -1145,26 +1149,26 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                          render_priv->state.scale_x;
             fay_scaled = info->fay * render_priv->state.scale_y;
             // apply rotation
-            transform_3d(shift, &info->glyph, &info->outline_glyph,
+            transform_3d(shift, &glyph, &outline,
                          info->frx, info->fry, info->frz, fax_scaled,
                          fay_scaled, render_priv->font_scale, info->asc);
 
             // subpixel shift
-            if (info->glyph)
+            if (glyph)
                 FT_Outline_Translate(
-                    &((FT_OutlineGlyph) info->glyph)->outline,
+                    &((FT_OutlineGlyph) glyph)->outline,
                     info->hash_key.advance.x,
                     -info->hash_key.advance.y);
-            if (info->outline_glyph)
+            if (outline)
                 FT_Outline_Translate(
-                    &((FT_OutlineGlyph) info->outline_glyph)->outline,
+                    &((FT_OutlineGlyph) outline)->outline,
                     info->hash_key.advance.x,
                     -info->hash_key.advance.y);
 
             // render glyph
             error = glyph_to_bitmap(render_priv->library,
                                     render_priv->synth_priv,
-                                    info->glyph, info->outline_glyph,
+                                    glyph, outline,
                                     &info->bm, &info->bm_o,
                                     &info->bm_s, info->be,
                                     info->blur * render_priv->border_scale,
@@ -1179,13 +1183,11 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
             hash_val.bm_s = info->bm_s;
             cache_add_bitmap(render_priv->cache.bitmap_cache,
                              &(info->hash_key), &hash_val);
+
+            FT_Done_Glyph(glyph);
+            FT_Done_Glyph(outline);
         }
     }
-    // deallocate glyphs
-    if (info->glyph)
-        FT_Done_Glyph(info->glyph);
-    if (info->outline_glyph)
-        FT_Done_Glyph(info->outline_glyph);
 }
 
 /**
