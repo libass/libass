@@ -557,3 +557,130 @@ void ass_font_free(ASS_Font *font)
         free(font->desc.family);
     free(font);
 }
+
+/**
+ * \brief Calculate the cbox of a series of points
+ */
+static void
+get_contour_cbox(FT_BBox *box, FT_Vector *points, int start, int end)
+{
+    box->xMin = box->yMin = INT_MAX;
+    box->xMax = box->yMax = INT_MIN;
+    int i;
+
+    for (i = start; i <= end; i++) {
+        box->xMin = (points[i].x < box->xMin) ? points[i].x : box->xMin;
+        box->xMax = (points[i].x > box->xMax) ? points[i].x : box->xMax;
+        box->yMin = (points[i].y < box->yMin) ? points[i].y : box->yMin;
+        box->yMax = (points[i].y > box->yMax) ? points[i].y : box->yMax;
+    }
+}
+
+/**
+ * \brief Determine winding direction of a contour
+ * \return direction; 0 = clockwise
+ */
+static int get_contour_direction(FT_Vector *points, int start, int end)
+{
+    int i;
+    long long sum = 0;
+    int x = points[start].x;
+    int y = points[start].y;
+    for (i = start + 1; i <= end; i++) {
+        sum += x * (points[i].y - y) - y * (points[i].x - x);
+        x = points[i].x;
+        y = points[i].y;
+    }
+    sum += x * (points[start].y - y) - y * (points[start].x - x);
+    return sum > 0;
+}
+
+/**
+ * \brief Fix-up stroker result for huge borders by removing inside contours
+ * that would reverse in size
+ */
+void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x, int border_y)
+{
+    int nc = glyph->outline.n_contours;
+    int begin, stop;
+    char modified = 0;
+    char *valid_cont = malloc(nc);
+    int start = 0;
+    int end = -1;
+    FT_BBox *boxes = malloc(nc * sizeof(FT_BBox));
+    int i, j;
+    int inside_direction;
+
+    inside_direction = FT_Outline_Get_Orientation(&glyph->outline) ==
+        FT_ORIENTATION_TRUETYPE;
+
+    // create a list of cboxes of the contours
+    for (i = 0; i < nc; i++) {
+        start = end + 1;
+        end = glyph->outline.contours[i];
+        get_contour_cbox(&boxes[i], glyph->outline.points, start, end);
+    }
+
+    // for each contour, check direction and whether it's "outside"
+    // or contained in another contour
+    end = -1;
+    for (i = 0; i < nc; i++) {
+        start = end + 1;
+        end = glyph->outline.contours[i];
+        int dir = get_contour_direction(glyph->outline.points, start, end);
+        valid_cont[i] = 1;
+        if (dir == inside_direction) {
+            for (j = 0; j < nc; j++) {
+                if (i == j)
+                    continue;
+                if (boxes[i].xMin >= boxes[j].xMin &&
+                    boxes[i].xMax <= boxes[j].xMax &&
+                    boxes[i].yMin >= boxes[j].yMin &&
+                    boxes[i].yMax <= boxes[j].yMax)
+                    goto check_inside;
+            }
+            /* "inside" contour but we can't find anything it could be
+             * inside of - assume the font is buggy and it should be
+             * an "outside" contour, and reverse it */
+            for (j = 0; j < (end + 1 - start) / 2; j++) {
+                FT_Vector temp = glyph->outline.points[start + j];
+                char temp2 = glyph->outline.tags[start + j];
+                glyph->outline.points[start + j] = glyph->outline.points[end - j];
+                glyph->outline.points[end - j] = temp;
+                glyph->outline.tags[start + j] = glyph->outline.tags[end - j];
+                glyph->outline.tags[end - j] = temp2;
+            }
+            dir ^= 1;
+        }
+        check_inside:
+        if (dir == inside_direction) {
+            FT_BBox box;
+            get_contour_cbox(&box, glyph->outline.points, start, end);
+            int width = box.xMax - box.xMin;
+            int height = box.yMax - box.yMin;
+            if (width < border_x * 2 || height < border_y * 2) {
+                valid_cont[i] = 0;
+                modified = 1;
+            }
+        }
+    }
+
+    // zero-out contours that can be removed; much simpler than copying
+    if (modified) {
+        for (i = 0; i < nc; i++) {
+            if (valid_cont[i])
+                continue;
+            begin = (i == 0) ? 0 : glyph->outline.contours[i - 1] + 1;
+            stop = glyph->outline.contours[i];
+            for (j = begin; j <= stop; j++) {
+                glyph->outline.points[j].x = 0;
+                glyph->outline.points[j].y = 0;
+                glyph->outline.tags[j] = 0;
+            }
+        }
+    }
+
+    free(boxes);
+    free(valid_cont);
+}
+
