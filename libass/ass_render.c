@@ -198,7 +198,7 @@ static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
                                  int bitmap_h, int stride, int dst_x,
                                  int dst_y, uint32_t color)
 {
-    ASS_Image *img = calloc(1, sizeof(ASS_Image));
+    ASS_Image *img = malloc(sizeof(ASS_Image));
 
     img->w = bitmap_w;
     img->h = bitmap_h;
@@ -466,7 +466,6 @@ render_overlap(ASS_Renderer *render_priv, ASS_Image **last_tail,
     cur_top = top - by;
 
     // Query cache
-    memset(&hk, 0, sizeof(hk));
     hk.a = (*last_tail)->bitmap;
     hk.b = (*tail)->bitmap;
     hk.aw = aw;
@@ -1093,8 +1092,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
 
         memset(&v, 0, sizeof(v));
         v.glyph = info->glyph;
-        if (info->outline_glyph)
-            v.outline_glyph = info->outline_glyph;
+        v.outline_glyph = info->outline_glyph;
         v.advance = info->advance;
         v.bbox_scaled = info->bbox;
         if (drawing->hash) {

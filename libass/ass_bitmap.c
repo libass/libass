@@ -139,8 +139,8 @@ void ass_synth_done(ASS_SynthPriv *priv)
 static Bitmap *alloc_bitmap(int w, int h)
 {
     Bitmap *bm;
-    bm = calloc(1, sizeof(Bitmap));
-    bm->buffer = malloc(w * h);
+    bm = malloc(sizeof(Bitmap));
+    bm->buffer = calloc(w, h);
     bm->w = w;
     bm->h = h;
     bm->left = bm->top = 0;
@@ -213,7 +213,6 @@ static Bitmap *glyph_to_bitmap_internal(ASS_Library *library,
     w = bit->width;
     h = bit->rows;
     bm = alloc_bitmap(w + 2 * bord, h + 2 * bord);
-    memset(bm->buffer, 0, bm->w * bm->h);
     bm->left = bg->left - bord;
     bm->top = -bg->top - bord;
 
