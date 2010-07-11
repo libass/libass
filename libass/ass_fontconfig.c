@@ -85,7 +85,7 @@ match_fullname(ASS_Library *lib, FCInstance *priv, const char *family,
             int pi = 0, at;
             FcBool ol;
             while (FcPatternGetString(pat, FC_FULLNAME, pi++,
-                   (FcChar8 **) &fullname) == FcResultMatch)
+                   (FcChar8 **) &fullname) == FcResultMatch) {
                 if (FcPatternGetBool(pat, FC_OUTLINE, 0, &ol) != FcResultMatch
                     || ol != FcTrue)
                     continue;
@@ -99,6 +99,7 @@ match_fullname(ASS_Library *lib, FCInstance *priv, const char *family,
                     FcFontSetAdd(result, FcPatternDuplicate(pat));
                     break;
                 }
+            }
         }
     }
 
