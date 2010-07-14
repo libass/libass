@@ -1022,6 +1022,8 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
         key.outline.y = render_priv->state.border_y * 0xFFFF;
         key.border_style = render_priv->state.style->BorderStyle;
         key.drawing_hash = drawing->hash;
+        // not very clean, but works
+        key.size = drawing->scale;
     } else {
         key.font = render_priv->state.font;
         key.size = render_priv->state.font_size;
@@ -1822,9 +1824,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 render_priv->state.bold;
             text_info->glyphs[text_info->length].hash_key.italic =
                 render_priv->state.italic;
-        } else
+        } else {
             text_info->glyphs[text_info->length].hash_key.drawing_hash =
                 drawing->hash;
+            text_info->glyphs[text_info->length].hash_key.size = drawing->scale;
+        }
         text_info->glyphs[text_info->length].hash_key.ch = code;
         text_info->glyphs[text_info->length].hash_key.outline.x =
             double_to_d16(render_priv->state.border_x);
