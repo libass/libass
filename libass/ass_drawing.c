@@ -390,8 +390,6 @@ ASS_Drawing *ass_drawing_new(void *fontconfig_priv, ASS_Font *font,
 void ass_drawing_free(ASS_Drawing* drawing)
 {
     if (drawing) {
-        if (drawing->glyph)
-            FT_Done_Glyph((FT_Glyph) drawing->glyph);
         free(drawing->text);
     }
     free(drawing);
