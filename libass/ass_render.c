@@ -1040,8 +1040,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
     val = cache_find_glyph(render_priv->cache.glyph_cache, &key);
     if (val) {
         info->glyph = val->glyph;
-        if (val->outline_glyph)
-            info->outline_glyph = val->outline_glyph;
+        info->outline_glyph = val->outline_glyph;
         info->bbox = val->bbox_scaled;
         info->advance.x = val->advance.x;
         info->advance.y = val->advance.y;
@@ -1136,8 +1135,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         info->bm = info->bm_o = info->bm_s = 0;
         if (info->glyph && info->symbol != '\n' && info->symbol != 0
             && !info->skip) {
-            FT_Glyph glyph = info->glyph;
-            FT_Glyph outline = info->outline_glyph;
+            FT_Glyph glyph;
+            FT_Glyph outline;
             FT_Glyph_Copy(info->glyph, &glyph);
             FT_Glyph_Copy(info->outline_glyph, &outline);
             // calculating rotation shift vector (from rotation origin to the glyph basepoint)
