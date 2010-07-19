@@ -614,7 +614,7 @@ static int process_events_line(ASS_Track *track, char *str)
 
         process_event_tail(track, event, str, 0);
     } else {
-        ass_msg(track->library, MSGL_V, "Not understood: '%s'", str);
+        ass_msg(track->library, MSGL_V, "Not understood: '%.30s'", str);
     }
     return 0;
 }

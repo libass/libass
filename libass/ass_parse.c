@@ -900,7 +900,7 @@ unsigned get_next_char(ASS_Renderer *render_priv, char **str)
                     break;
             } else if (*p != '\\')
                 ass_msg(render_priv->library, MSGL_V,
-                        "Unable to parse: '%s'", p);
+                        "Unable to parse: '%.30s'", p);
             if (*p == 0)
                 break;
         }
