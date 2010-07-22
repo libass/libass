@@ -579,21 +579,42 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     FT_BitmapGlyph clip_bm;
     ASS_Image *cur;
     ASS_Drawing *drawing = render_priv->state.clip_drawing;
+    GlyphHashKey key;
+    GlyphHashValue *val;
     int error;
 
     if (!drawing)
         return;
 
-    // Rasterize it
-    FT_Glyph_Copy((FT_Glyph) drawing->glyph, &glyph);
-    error = FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
-    if (error) {
-        ass_msg(render_priv->library, MSGL_WARN,
-            "Clip vector rasterization failed: %d. Skipping.", error);
-        goto blend_vector_exit;
+    // Try to get mask from cache
+    ass_drawing_hash(drawing);
+    memset(&key, 0, sizeof(key));
+    key.ch = -2;
+    key.drawing_hash = drawing->hash;
+    val = cache_find_glyph(render_priv->cache.glyph_cache, &key);
+
+    if (val) {
+        clip_bm = (FT_BitmapGlyph) val->glyph;
+    } else {
+        GlyphHashValue v;
+
+        // Not found in cache, rasterize it
+        glyph = (FT_Glyph) drawing->glyph;
+        error = FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
+        if (error) {
+            ass_msg(render_priv->library, MSGL_WARN,
+                "Clip vector rasterization failed: %d. Skipping.", error);
+            FT_Done_Glyph(glyph);
+            goto blend_vector_exit;
+        }
+        clip_bm = (FT_BitmapGlyph) glyph;
+        clip_bm->top = -clip_bm->top;
+
+        // Add to cache
+        memset(&v, 0, sizeof(v));
+        v.glyph = glyph;
+        cache_add_glyph(render_priv->cache.glyph_cache, &key, &v);
     }
-    clip_bm = (FT_BitmapGlyph) glyph;
-    clip_bm->top = -clip_bm->top;
 
     assert(clip_bm->bitmap.pitch >= 0);
 
@@ -672,8 +693,6 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         cur->bitmap = nbuffer;
     }
 
-    // Free clip vector and its bitmap, we don't need it anymore
-    FT_Done_Glyph(glyph);
 blend_vector_exit:
     ass_drawing_free(render_priv->state.clip_drawing);
     render_priv->state.clip_drawing = 0;
@@ -1030,6 +1049,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
         key.drawing_hash = drawing->hash;
         // not very clean, but works
         key.size = drawing->scale;
+        key.ch = -1;
     } else {
         key.font = render_priv->state.font;
         key.size = render_priv->state.font_size;
