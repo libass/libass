@@ -211,9 +211,57 @@ static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
     return img;
 }
 
-static double x2scr_pos(ASS_Renderer *render_priv, double x);
-static double x2scr_pos_scaled(ASS_Renderer *render_priv, double x);
-static double y2scr_pos(ASS_Renderer *render_priv, double y);
+/**
+ * \brief Mapping between script and screen coordinates
+ */
+static double x2scr(ASS_Renderer *render_priv, double x)
+{
+    return x * render_priv->orig_width_nocrop / render_priv->font_scale_x /
+        render_priv->track->PlayResX +
+        FFMAX(render_priv->settings.left_margin, 0);
+}
+static double x2scr_pos(ASS_Renderer *render_priv, double x)
+{
+    return x * render_priv->orig_width / render_priv->font_scale_x / render_priv->track->PlayResX +
+        render_priv->settings.left_margin;
+}
+static double x2scr_scaled(ASS_Renderer *render_priv, double x)
+{
+    return x * render_priv->orig_width_nocrop /
+        render_priv->track->PlayResX +
+        FFMAX(render_priv->settings.left_margin, 0);
+}
+static double x2scr_pos_scaled(ASS_Renderer *render_priv, double x)
+{
+    return x * render_priv->orig_width / render_priv->track->PlayResX +
+        render_priv->settings.left_margin;
+}
+/**
+ * \brief Mapping between script and screen coordinates
+ */
+static double y2scr(ASS_Renderer *render_priv, double y)
+{
+    return y * render_priv->orig_height_nocrop /
+        render_priv->track->PlayResY +
+        FFMAX(render_priv->settings.top_margin, 0);
+}
+static double y2scr_pos(ASS_Renderer *render_priv, double y)
+{
+    return y * render_priv->orig_height / render_priv->track->PlayResY +
+        render_priv->settings.top_margin;
+}
+
+// the same for toptitles
+static double y2scr_top(ASS_Renderer *render_priv, double y)
+{
+    if (render_priv->settings.use_margins)
+        return y * render_priv->orig_height_nocrop /
+            render_priv->track->PlayResY;
+    else
+        return y * render_priv->orig_height_nocrop /
+            render_priv->track->PlayResY +
+            FFMAX(render_priv->settings.top_margin, 0);
+}
 
 /*
  * \brief Convert bitmap glyphs into ASS_Image list with inverse clipping
@@ -731,58 +779,6 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x,
     blend_vector_clip(render_priv, head);
 
     return head;
-}
-
-/**
- * \brief Mapping between script and screen coordinates
- */
-static double x2scr(ASS_Renderer *render_priv, double x)
-{
-    return x * render_priv->orig_width_nocrop / render_priv->font_scale_x /
-        render_priv->track->PlayResX +
-        FFMAX(render_priv->settings.left_margin, 0);
-}
-static double x2scr_pos(ASS_Renderer *render_priv, double x)
-{
-    return x * render_priv->orig_width / render_priv->font_scale_x / render_priv->track->PlayResX +
-        render_priv->settings.left_margin;
-}
-static double x2scr_scaled(ASS_Renderer *render_priv, double x)
-{
-    return x * render_priv->orig_width_nocrop /
-        render_priv->track->PlayResX +
-        FFMAX(render_priv->settings.left_margin, 0);
-}
-static double x2scr_pos_scaled(ASS_Renderer *render_priv, double x)
-{
-    return x * render_priv->orig_width / render_priv->track->PlayResX +
-        render_priv->settings.left_margin;
-}
-/**
- * \brief Mapping between script and screen coordinates
- */
-static double y2scr(ASS_Renderer *render_priv, double y)
-{
-    return y * render_priv->orig_height_nocrop /
-        render_priv->track->PlayResY +
-        FFMAX(render_priv->settings.top_margin, 0);
-}
-static double y2scr_pos(ASS_Renderer *render_priv, double y)
-{
-    return y * render_priv->orig_height / render_priv->track->PlayResY +
-        render_priv->settings.top_margin;
-}
-
-// the same for toptitles
-static double y2scr_top(ASS_Renderer *render_priv, double y)
-{
-    if (render_priv->settings.use_margins)
-        return y * render_priv->orig_height_nocrop /
-            render_priv->track->PlayResY;
-    else
-        return y * render_priv->orig_height_nocrop /
-            render_priv->track->PlayResY +
-            FFMAX(render_priv->settings.top_margin, 0);
 }
 
 // the same for subtitles
