@@ -4,6 +4,7 @@ libass (0.9.10)
  * charmap selection fixes
  * Add ass_flush_events API function
  * Improve fullname font matching
+ * Better PAR correction if text transforms are used
 
 libass (0.9.9)
  * Parse numbers in a locale-independent way

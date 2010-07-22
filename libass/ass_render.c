@@ -212,6 +212,7 @@ static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
 }
 
 static double x2scr_pos(ASS_Renderer *render_priv, double x);
+static double x2scr_pos_scaled(ASS_Renderer *render_priv, double x);
 static double y2scr_pos(ASS_Renderer *render_priv, double y);
 
 /*
@@ -240,9 +241,9 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
     dst_y += bm->top;
 
     // we still need to clip against screen boundaries
-    zx = x2scr_pos(render_priv, 0);
+    zx = x2scr_pos_scaled(render_priv, 0);
     zy = y2scr_pos(render_priv, 0);
-    sx = x2scr_pos(render_priv, render_priv->track->PlayResX);
+    sx = x2scr_pos_scaled(render_priv, render_priv->track->PlayResX);
     sy = y2scr_pos(render_priv, render_priv->track->PlayResY);
 
     x0 = 0;
@@ -737,16 +738,26 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x,
  */
 static double x2scr(ASS_Renderer *render_priv, double x)
 {
-    return x * render_priv->orig_width_nocrop /
+    return x * render_priv->orig_width_nocrop / render_priv->font_scale_x /
         render_priv->track->PlayResX +
         FFMAX(render_priv->settings.left_margin, 0);
 }
 static double x2scr_pos(ASS_Renderer *render_priv, double x)
 {
+    return x * render_priv->orig_width / render_priv->font_scale_x / render_priv->track->PlayResX +
+        render_priv->settings.left_margin;
+}
+static double x2scr_scaled(ASS_Renderer *render_priv, double x)
+{
+    return x * render_priv->orig_width_nocrop /
+        render_priv->track->PlayResX +
+        FFMAX(render_priv->settings.left_margin, 0);
+}
+static double x2scr_pos_scaled(ASS_Renderer *render_priv, double x)
+{
     return x * render_priv->orig_width / render_priv->track->PlayResX +
         render_priv->settings.left_margin;
 }
-
 /**
  * \brief Mapping between script and screen coordinates
  */
@@ -908,8 +919,7 @@ static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
     int i;
     int adv = d16_to_d6(glyph->advance.x);
     double scale_y = render_priv->state.scale_y;
-    double scale_x = render_priv->state.scale_x
-                     * render_priv->font_scale_x;
+    double scale_x = render_priv->state.scale_x;
     FT_OutlineGlyph og = (FT_OutlineGlyph) glyph;
     FT_Outline *ol;
 
@@ -1139,12 +1149,14 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
             && !info->skip) {
             FT_Glyph glyph;
             FT_Glyph outline;
+            double scale_x = render_priv->font_scale_x;
+
             FT_Glyph_Copy(info->glyph, &glyph);
             FT_Glyph_Copy(info->outline_glyph, &outline);
             // calculating rotation shift vector (from rotation origin to the glyph basepoint)
             shift.x = info->hash_key.shift_x;
             shift.y = info->hash_key.shift_y;
-            fax_scaled = info->fax * render_priv->font_scale_x *
+            fax_scaled = info->fax *
                          render_priv->state.scale_x;
             fay_scaled = info->fay * render_priv->state.scale_y;
             // apply rotation
@@ -1152,18 +1164,25 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                          info->frx, info->fry, info->frz, fax_scaled,
                          fay_scaled, render_priv->font_scale, info->asc);
 
-            // subpixel shift
-            if (glyph)
-                FT_Outline_Translate(
-                    &((FT_OutlineGlyph) glyph)->outline,
-                    info->hash_key.advance.x,
-                    -info->hash_key.advance.y);
-            if (outline)
-                FT_Outline_Translate(
-                    &((FT_OutlineGlyph) outline)->outline,
-                    info->hash_key.advance.x,
-                    -info->hash_key.advance.y);
+            // PAR correction scaling
+            FT_Matrix m = { double_to_d16(scale_x), 0,
+                            0, double_to_d16(1.0) };
 
+            // subpixel shift
+            if (glyph) {
+                FT_Outline *outl = &((FT_OutlineGlyph) glyph)->outline;
+                if (scale_x != 1.0)
+                    FT_Outline_Transform(outl, &m);
+                FT_Outline_Translate(outl, info->hash_key.advance.x,
+                    -info->hash_key.advance.y);
+            }
+            if (outline) {
+                FT_Outline *outl = &((FT_OutlineGlyph) outline)->outline;
+                if (scale_x != 1.0)
+                    FT_Outline_Transform(outl, &m);
+                FT_Outline_Translate(outl, info->hash_key.advance.x,
+                    -info->hash_key.advance.y);
+            }
             // render glyph
             error = glyph_to_bitmap(render_priv->library,
                                     render_priv->synth_priv,
@@ -1701,7 +1720,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         // Parse drawing
         if (drawing->i) {
             drawing->scale_x = render_priv->state.scale_x *
-                                     render_priv->font_scale_x *
                                      render_priv->font_scale;
             drawing->scale_y = render_priv->state.scale_y *
                                      render_priv->font_scale;
@@ -1733,15 +1751,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             delta =
                 ass_font_get_kerning(render_priv->state.font, previous,
                                      code);
-            pen.x += delta.x * render_priv->state.scale_x
-                     * render_priv->font_scale_x;
-            pen.y += delta.y * render_priv->state.scale_y
-                     * render_priv->font_scale_x;
+            pen.x += delta.x * render_priv->state.scale_x;
+            pen.y += delta.y * render_priv->state.scale_y;
         }
 
         ass_font_set_transform(render_priv->state.font,
-                               render_priv->state.scale_x *
-                               render_priv->font_scale_x,
+                               render_priv->state.scale_x,
                                render_priv->state.scale_y, NULL);
 
         get_outline_glyph(render_priv, code,
@@ -2034,9 +2049,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         render_priv->state.evt_type == EVENT_HSCROLL ||
         render_priv->state.evt_type == EVENT_VSCROLL) {
         render_priv->state.clip_x0 =
-            x2scr(render_priv, render_priv->state.clip_x0);
+            x2scr_scaled(render_priv, render_priv->state.clip_x0);
         render_priv->state.clip_x1 =
-            x2scr(render_priv, render_priv->state.clip_x1);
+            x2scr_scaled(render_priv, render_priv->state.clip_x1);
         if (valign == VALIGN_TOP) {
             render_priv->state.clip_y0 =
                 y2scr_top(render_priv, render_priv->state.clip_y0);
@@ -2055,9 +2070,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         }
     } else if (render_priv->state.evt_type == EVENT_POSITIONED) {
         render_priv->state.clip_x0 =
-            x2scr_pos(render_priv, render_priv->state.clip_x0);
+            x2scr_pos_scaled(render_priv, render_priv->state.clip_x0);
         render_priv->state.clip_x1 =
-            x2scr_pos(render_priv, render_priv->state.clip_x1);
+            x2scr_pos_scaled(render_priv, render_priv->state.clip_x1);
         render_priv->state.clip_y0 =
             y2scr_pos(render_priv, render_priv->state.clip_y0);
         render_priv->state.clip_y1 =
@@ -2094,8 +2109,10 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     }
 
     // convert glyphs to bitmaps
+    device_x *= render_priv->font_scale_x;
     for (i = 0; i < text_info->length; ++i) {
         GlyphInfo *g = text_info->glyphs + i;
+        g->pos.x *= render_priv->font_scale_x;
         g->hash_key.advance.x =
             double_to_d6(device_x - (int) device_x +
             d6_to_double(g->pos.x & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
@@ -2108,8 +2125,10 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     memset(event_images, 0, sizeof(*event_images));
     event_images->top = device_y - text_info->lines[0].asc;
     event_images->height = text_info->height;
-    event_images->left = device_x + bbox.xMin + 0.5;
-    event_images->width = bbox.xMax - bbox.xMin + 0.5;
+    event_images->left =
+        (device_x + bbox.xMin * render_priv->font_scale_x) + 0.5;
+    event_images->width =
+        (bbox.xMax - bbox.xMin) * render_priv->font_scale_x + 0.5;
     event_images->detect_collisions = render_priv->state.detect_collisions;
     event_images->shift_direction = (valign == VALIGN_TOP) ? 1 : -1;
     event_images->event = event;
