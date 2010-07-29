@@ -216,6 +216,7 @@ static char *parse_vector_clip(ASS_Renderer *render_priv, char *p)
     int res = 0;
     ASS_Drawing *drawing;
 
+    ass_drawing_free(render_priv->state.clip_drawing);
     render_priv->state.clip_drawing = ass_drawing_new(
         render_priv->fontconfig_priv,
         render_priv->state.font,
