@@ -598,8 +598,29 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     } else {
         GlyphHashValue v;
 
-        // Not found in cache, rasterize it
-        glyph = (FT_Glyph) drawing->glyph;
+        // Not found in cache, parse and rasterize it
+        glyph = (FT_Glyph) *ass_drawing_parse(drawing, 1);
+        if (!glyph) {
+            ass_msg(render_priv->library, MSGL_WARN,
+                    "Clip vector parsing failed. Skipping.");
+            goto blend_vector_exit;
+        }
+
+        // We need to translate the clip according to screen borders
+        if (render_priv->settings.left_margin != 0 ||
+            render_priv->settings.top_margin != 0) {
+            FT_Vector trans = {
+                .x = int_to_d6(render_priv->settings.left_margin),
+                .y = -int_to_d6(render_priv->settings.top_margin),
+            };
+            FT_Outline_Translate(&drawing->glyph->outline,
+                                 trans.x, trans.y);
+        }
+
+        ass_msg(render_priv->library, MSGL_DBG2,
+                "Parsed vector clip: scales (%f, %f) string [%s]\n",
+                drawing->scale_x, drawing->scale_y, drawing->text);
+
         error = FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
         if (error) {
             ass_msg(render_priv->library, MSGL_WARN,

@@ -233,20 +233,6 @@ static char *parse_vector_clip(ASS_Renderer *render_priv, char *p)
     while (*p != ')' && *p != '}' && p != 0)
         ass_drawing_add_char(drawing, *p++);
     skipopt(')');
-    if (ass_drawing_parse(drawing, 1)) {
-        // We need to translate the clip according to screen borders
-        if (render_priv->settings.left_margin != 0 ||
-            render_priv->settings.top_margin != 0) {
-            FT_Vector trans = {
-                .x = int_to_d6(render_priv->settings.left_margin),
-                .y = -int_to_d6(render_priv->settings.top_margin),
-            };
-            FT_Outline_Translate(&drawing->glyph->outline, trans.x, trans.y);
-        }
-        ass_msg(render_priv->library, MSGL_DBG2,
-                "Parsed vector clip: scale %d, scales (%f, %f) string [%s]\n",
-                scale, drawing->scale_x, drawing->scale_y, drawing->text);
-    }
 
     return p;
 }
