@@ -118,18 +118,6 @@ static void drawing_finish(ASS_Drawing *drawing, int raw_mode)
     // Close the last contour
     drawing_close_shape(drawing);
 
-#if 0
-    // Dump points
-    for (i = 0; i < ol->n_points; i++) {
-        printf("point (%d, %d)\n", (int) ol->points[i].x,
-               (int) ol->points[i].y);
-    }
-
-    // Dump contours
-    for (i = 0; i < ol->n_contours; i++)
-        printf("contour %d\n", ol->contours[i]);
-#endif
-
     ass_msg(drawing->library, MSGL_V,
             "Parsed drawing with %d points and %d contours", ol->n_points,
             ol->n_contours);
@@ -229,15 +217,6 @@ static ASS_DrawingToken *drawing_tokenize(char *str)
         }
         p++;
     }
-
-#if 0
-    // Check tokens
-    ASS_DrawingToken *t = root;
-    while(t) {
-        printf("token %d point (%d, %d)\n", t->type, t->point.x, t->point.y);
-        t = t->next;
-    }
-#endif
 
     return root;
 }
