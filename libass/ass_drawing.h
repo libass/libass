@@ -65,6 +65,7 @@ typedef struct {
     int max_contours;
     double point_scale_x;
     double point_scale_y;
+    FT_BBox cbox;   // bounding box, or let's say... VSFilter's idea of it
 } ASS_Drawing;
 
 ASS_Drawing *ass_drawing_new(void *fontconfig_priv, ASS_Font *font,

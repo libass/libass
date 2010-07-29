@@ -112,7 +112,7 @@ static void drawing_prepare(ASS_Drawing *drawing)
 static void drawing_finish(ASS_Drawing *drawing, int raw_mode)
 {
     int i, offset;
-    FT_BBox bbox;
+    FT_BBox bbox = drawing->cbox;
     FT_Outline *ol = &drawing->glyph->outline;
 
     // Close the last contour
@@ -137,7 +137,6 @@ static void drawing_finish(ASS_Drawing *drawing, int raw_mode)
     if (raw_mode)
         return;
 
-    FT_Outline_Get_CBox(&drawing->glyph->outline, &bbox);
     drawing->glyph->root.advance.x = d6_to_d16(bbox.xMax - bbox.xMin);
 
     drawing->desc = double_to_d6(-drawing->pbo * drawing->scale_y);
@@ -256,6 +255,19 @@ static void drawing_free_tokens(ASS_DrawingToken *token)
 }
 
 /*
+ * \brief Update drawing cbox
+ */
+static inline void update_cbox(ASS_Drawing *drawing, FT_Vector *point)
+{
+    FT_BBox *box = &drawing->cbox;
+
+    box->xMin = FFMIN(box->xMin, point->x);
+    box->xMax = FFMAX(box->xMax, point->x);
+    box->yMin = FFMIN(box->yMin, point->y);
+    box->yMax = FFMAX(box->yMax, point->y);
+}
+
+/*
  * \brief Translate and scale a point coordinate according to baseline
  * offset and scale.
  */
@@ -263,6 +275,8 @@ static inline void translate_point(ASS_Drawing *drawing, FT_Vector *point)
 {
     point->x = drawing->point_scale_x * point->x;
     point->y = drawing->point_scale_y * -point->y;
+
+    update_cbox(drawing, point);
 }
 
 /*
@@ -369,6 +383,8 @@ ASS_Drawing *ass_drawing_new(void *fontconfig_priv, ASS_Font *font,
     drawing = calloc(1, sizeof(*drawing));
     drawing->text = calloc(1, DRAWING_INITIAL_SIZE);
     drawing->size = DRAWING_INITIAL_SIZE;
+    drawing->cbox.xMin = drawing->cbox.yMin = INT_MAX;
+    drawing->cbox.xMax = drawing->cbox.yMax = INT_MIN;
 
     drawing->ftlibrary = lib;
     if (font) {
