@@ -29,7 +29,7 @@
 #define MAX_GLYPHS_INITIAL 1024
 #define MAX_LINES_INITIAL 64
 #define SUBPIXEL_MASK 63
-#define SUBPIXEL_ACCURACY 7    // d6 mask for subpixel accuracy adjustment
+#define SUBPIXEL_ACCURACY 7
 
 static void ass_lazy_track_init(ASS_Renderer *render_priv)
 {
@@ -103,8 +103,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
     priv->text_info.max_glyphs = MAX_GLYPHS_INITIAL;
     priv->text_info.max_lines = MAX_LINES_INITIAL;
-    priv->text_info.glyphs =
-        calloc(MAX_GLYPHS_INITIAL, sizeof(GlyphInfo));
+    priv->text_info.glyphs = calloc(MAX_GLYPHS_INITIAL, sizeof(GlyphInfo));
     priv->text_info.lines = calloc(MAX_LINES_INITIAL, sizeof(LineInfo));
 
     priv->settings.font_size_coeff = 1.;
@@ -233,6 +232,19 @@ static double y2scr_top(ASS_Renderer *render_priv, double y)
     if (render_priv->settings.use_margins)
         return y * render_priv->orig_height_nocrop /
             render_priv->track->PlayResY;
+    else
+        return y * render_priv->orig_height_nocrop /
+            render_priv->track->PlayResY +
+            FFMAX(render_priv->settings.top_margin, 0);
+}
+// the same for subtitles
+static double y2scr_sub(ASS_Renderer *render_priv, double y)
+{
+    if (render_priv->settings.use_margins)
+        return y * render_priv->orig_height_nocrop /
+            render_priv->track->PlayResY +
+            FFMAX(render_priv->settings.top_margin, 0)
+            + FFMAX(render_priv->settings.bottom_margin, 0);
     else
         return y * render_priv->orig_height_nocrop /
             render_priv->track->PlayResY +
@@ -705,8 +717,7 @@ blend_vector_exit:
  * \brief Convert TextInfo struct to ASS_Image list
  * Splits glyphs in halves when needed (for \kf karaoke).
  */
-static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x,
-                                int dst_y)
+static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
 {
     int pen_x, pen_y;
     int i;
@@ -803,20 +814,6 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x,
     return head;
 }
 
-// the same for subtitles
-static double y2scr_sub(ASS_Renderer *render_priv, double y)
-{
-    if (render_priv->settings.use_margins)
-        return y * render_priv->orig_height_nocrop /
-            render_priv->track->PlayResY +
-            FFMAX(render_priv->settings.top_margin,
-                  0) + FFMAX(render_priv->settings.bottom_margin, 0);
-    else
-        return y * render_priv->orig_height_nocrop /
-            render_priv->track->PlayResY +
-            FFMAX(render_priv->settings.top_margin, 0);
-}
-
 static void compute_string_bbox(TextInfo *info, DBBox *bbox)
 {
     int i;
@@ -875,8 +872,6 @@ void reset_render_context(ASS_Renderer *render_priv)
     render_priv->state.frz = M_PI * render_priv->state.style->Angle / 180.;
     render_priv->state.fax = render_priv->state.fay = 0.;
     render_priv->state.wrap_style = render_priv->track->WrapStyle;
-
-    // FIXME: does not reset unsupported attributes.
 }
 
 /**
@@ -908,11 +903,10 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.effect_type = EF_NONE;
     render_priv->state.effect_timing = 0;
     render_priv->state.effect_skip_timing = 0;
-    render_priv->state.drawing =
-        ass_drawing_new(render_priv->fontconfig_priv,
-                        render_priv->state.font,
-                        render_priv->settings.hinting,
-                        render_priv->ftlibrary);
+    render_priv->state.drawing = ass_drawing_new(render_priv->fontconfig_priv,
+                                                 render_priv->state.font,
+                                                 render_priv->settings.hinting,
+                                                 render_priv->ftlibrary);
 
     apply_transition_effects(render_priv, event);
 }
@@ -1094,6 +1088,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
         }
         if (!info->glyph)
             return;
+
         info->advance.x = d16_to_d6(info->glyph->advance.x);
         info->advance.y = d16_to_d6(info->glyph->advance.y);
         FT_Glyph_Get_CBox(info->glyph, FT_GLYPH_BBOX_SUBPIXELS, &info->bbox);
@@ -1173,8 +1168,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
             FT_Glyph_Copy(info->glyph, &glyph);
             FT_Glyph_Copy(info->outline_glyph, &outline);
             // calculating rotation shift vector (from rotation origin to the glyph basepoint)
-            shift.x = info->hash_key.shift_x;
-            shift.y = info->hash_key.shift_y;
+            shift.x = key->shift_x;
+            shift.y = key->shift_y;
             fax_scaled = info->fax *
                          render_priv->state.scale_x;
             fay_scaled = info->fay * render_priv->state.scale_y;
@@ -1192,15 +1187,13 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                 FT_Outline *outl = &((FT_OutlineGlyph) glyph)->outline;
                 if (scale_x != 1.0)
                     FT_Outline_Transform(outl, &m);
-                FT_Outline_Translate(outl, info->hash_key.advance.x,
-                    -info->hash_key.advance.y);
+                FT_Outline_Translate(outl, key->advance.x, -key->advance.y);
             }
             if (outline) {
                 FT_Outline *outl = &((FT_OutlineGlyph) outline)->outline;
                 if (scale_x != 1.0)
                     FT_Outline_Transform(outl, &m);
-                FT_Outline_Translate(outl, info->hash_key.advance.x,
-                    -info->hash_key.advance.y);
+                FT_Outline_Translate(outl, key->advance.x, -key->advance.y);
             }
             // render glyph
             error = glyph_to_bitmap(render_priv->library,
@@ -1209,8 +1202,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                                     &info->bm, &info->bm_o,
                                     &info->bm_s, info->be,
                                     info->blur * render_priv->border_scale,
-                                    info->hash_key.shadow_offset,
-                                    info->hash_key.border_style);
+                                    key->shadow_offset, key->border_style);
             if (error)
                 info->symbol = 0;
 
@@ -1218,8 +1210,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
             hash_val.bm_o = info->bm_o;
             hash_val.bm = info->bm;
             hash_val.bm_s = info->bm_s;
-            cache_add_bitmap(render_priv->cache.bitmap_cache,
-                             &(info->hash_key), &hash_val);
+            cache_add_bitmap(render_priv->cache.bitmap_cache, key, &hash_val);
 
             FT_Done_Glyph(glyph);
             FT_Done_Glyph(outline);
@@ -1337,7 +1328,7 @@ static void trim_whitespace(ASS_Renderer *render_priv)
  * the difference in lengths between this two lines.
  * The result may not be optimal, but usually is good enough.
  *
- * FIXME: implement style 0 and 3 correctly, add support for style 1
+ * FIXME: implement style 0 and 3 correctly
  */
 static void
 wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
@@ -1909,6 +1900,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         free_render_context(render_priv);
         return 1;
     }
+
     // depends on glyph x coordinates being monotonous, so it should be done before line wrap
     process_karaoke_effects(render_priv);
 
@@ -1918,14 +1910,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     valign = alignment & 12;
 
     MarginL =
-        (event->MarginL) ? event->MarginL : render_priv->state.style->
-        MarginL;
+        (event->MarginL) ? event->MarginL : render_priv->state.style->MarginL;
     MarginR =
-        (event->MarginR) ? event->MarginR : render_priv->state.style->
-        MarginR;
+        (event->MarginR) ? event->MarginR : render_priv->state.style->MarginR;
     MarginV =
-        (event->MarginV) ? event->MarginV : render_priv->state.style->
-        MarginV;
+        (event->MarginV) ? event->MarginV : render_priv->state.style->MarginV;
 
     if (render_priv->state.evt_type != EVENT_HSCROLL) {
         double max_text_width;
@@ -1999,6 +1988,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                       render_priv->state.scroll_shift) - (bbox.xMax -
                                                           bbox.xMin);
     }
+
     // y coordinate for everything except positioned events
     if (render_priv->state.evt_type == EVENT_NORMAL ||
         render_priv->state.evt_type == EVENT_HSCROLL) {
@@ -2035,6 +2025,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                       render_priv->state.clip_y1 -
                       render_priv->state.scroll_shift);
     }
+
     // positioned events are totally different
     if (render_priv->state.evt_type == EVENT_POSITIONED) {
         double base_x = 0;
@@ -2047,6 +2038,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         device_y =
             y2scr_pos(render_priv, render_priv->state.pos_y) - base_y;
     }
+
     // fix clip coordinates (they depend on alignment)
     if (render_priv->state.evt_type == EVENT_NORMAL ||
         render_priv->state.evt_type == EVENT_HSCROLL ||
@@ -2081,6 +2073,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         render_priv->state.clip_y1 =
             y2scr_pos(render_priv, render_priv->state.clip_y1);
     }
+
     // calculate rotation parameters
     {
         DVector center;
