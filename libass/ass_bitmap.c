@@ -165,7 +165,7 @@ static Bitmap *copy_bitmap(const Bitmap *src)
     return dst;
 }
 
-static int check_glyph_area(ASS_Library *library, FT_Glyph glyph)
+int check_glyph_area(ASS_Library *library, FT_Glyph glyph)
 {
     FT_BBox bbox;
     long long dx, dy;

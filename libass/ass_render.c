@@ -595,7 +595,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         if (!glyph) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
-            goto blend_vector_exit;
+            goto blend_vector_error;
         }
 
         // We need to translate the clip according to screen borders
@@ -609,6 +609,13 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
                                  trans.x, trans.y);
         }
 
+        // Check glyph bounding box size
+        if (check_glyph_area(render_priv->library, glyph)) {
+            FT_Done_Glyph(glyph);
+            glyph = 0;
+            goto blend_vector_error;
+        }
+
         ass_msg(render_priv->library, MSGL_DBG2,
                 "Parsed vector clip: scales (%f, %f) string [%s]\n",
                 drawing->scale_x, drawing->scale_y, drawing->text);
@@ -618,10 +625,11 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             ass_msg(render_priv->library, MSGL_WARN,
                 "Clip vector rasterization failed: %d. Skipping.", error);
             FT_Done_Glyph(glyph);
-            goto blend_vector_exit;
+            glyph = 0;
         }
+
+blend_vector_error:
         clip_bm = (FT_BitmapGlyph) glyph;
-        clip_bm->top = -clip_bm->top;
 
         // Add to cache
         memset(&v, 0, sizeof(v));
@@ -629,7 +637,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         cache_add_glyph(render_priv->cache.glyph_cache, &key, &v);
     }
 
-    assert(clip_bm->bitmap.pitch >= 0);
+    if (!clip_bm) goto blend_vector_exit;
 
     // Iterate through bitmaps and blend/clip them
     for (cur = head; cur; cur = cur->next) {
@@ -647,7 +655,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         ah = cur->h;
         as = cur->stride;
         bx = clip_bm->left;
-        by = clip_bm->top;
+        by = -clip_bm->top;
         bw = clip_bm->bitmap.width;
         bh = clip_bm->bitmap.rows;
         bs = clip_bm->bitmap.pitch;
