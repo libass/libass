@@ -2302,6 +2302,32 @@ int ass_fonts_update(ASS_Renderer *render_priv)
 }
 
 /**
+ * \brief Check cache limits and reset cache if they are exceeded
+ */
+static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
+{
+    if (cache->bitmap_cache->cache_size > cache->bitmap_max_size) {
+        ass_msg(priv->library, MSGL_V,
+                "Hitting hard bitmap cache limit (was: %ld bytes), "
+                "resetting.", (long) cache->bitmap_cache->cache_size);
+        cache->bitmap_cache = ass_bitmap_cache_reset(cache->bitmap_cache);
+        cache->composite_cache = ass_composite_cache_reset(
+            cache->composite_cache);
+        ass_free_images(priv->prev_images_root);
+        priv->prev_images_root = 0;
+    }
+
+    if (cache->glyph_cache->count > cache->glyph_max
+        || cache->glyph_cache->cache_size > cache->bitmap_max_size) {
+        ass_msg(priv->library, MSGL_V,
+            "Hitting hard glyph cache limit (was: %d glyphs, %ld bytes), "
+            "resetting.",
+            cache->glyph_cache->count, (long) cache->glyph_cache->cache_size);
+        cache->glyph_cache = ass_glyph_cache_reset(cache->glyph_cache);
+    }
+}
+
+/**
  * \brief Start a new frame
  */
 static int
@@ -2309,7 +2335,6 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
                 long long now)
 {
     ASS_Settings *settings_priv = &render_priv->settings;
-    CacheStore *cache = &render_priv->cache;
 
     if (!render_priv->settings.frame_width
         && !render_priv->settings.frame_height)
@@ -2347,25 +2372,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     render_priv->prev_images_root = render_priv->images_root;
     render_priv->images_root = 0;
 
-    if (cache->bitmap_cache->cache_size > cache->bitmap_max_size) {
-        ass_msg(render_priv->library, MSGL_V,
-                "Hitting hard bitmap cache limit (was: %ld bytes), "
-                "resetting.", (long) cache->bitmap_cache->cache_size);
-        cache->bitmap_cache = ass_bitmap_cache_reset(cache->bitmap_cache);
-        cache->composite_cache = ass_composite_cache_reset(
-            cache->composite_cache);
-        ass_free_images(render_priv->prev_images_root);
-        render_priv->prev_images_root = 0;
-    }
-
-    if (cache->glyph_cache->count > cache->glyph_max
-        || cache->glyph_cache->cache_size > cache->bitmap_max_size) {
-        ass_msg(render_priv->library, MSGL_V,
-            "Hitting hard glyph cache limit (was: %d glyphs, %ld bytes), "
-            "resetting.",
-            cache->glyph_cache->count, (long) cache->glyph_cache->cache_size);
-        cache->glyph_cache = ass_glyph_cache_reset(cache->glyph_cache);
-    }
+    check_cache_limits(render_priv, &render_priv->cache);
 
     return 0;
 }
