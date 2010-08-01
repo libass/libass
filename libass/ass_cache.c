@@ -288,6 +288,11 @@ static void glyph_hash_dtor(void *key, size_t key_size, void *value,
 void *cache_add_glyph(Hashmap *glyph_cache, GlyphHashKey *key,
                       GlyphHashValue *val)
 {
+	if (val->glyph && val->glyph->format == FT_GLYPH_FORMAT_BITMAP) {
+		FT_Bitmap *bitmap = &((FT_BitmapGlyph) val->glyph)->bitmap;
+		glyph_cache->cache_size += bitmap->rows * bitmap->pitch;
+	}
+
     return hashmap_insert(glyph_cache, key, val);
 }
 

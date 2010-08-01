@@ -45,7 +45,7 @@
 #define SUBPIXEL_MASK 63
 #define SUBPIXEL_ACCURACY 7    // d6 mask for subpixel accuracy adjustment
 #define GLYPH_CACHE_MAX 1000
-#define BITMAP_CACHE_MAX_SIZE 50 * 1048576
+#define BITMAP_CACHE_MAX_SIZE 30 * 1048576
 
 static void ass_lazy_track_init(ASS_Renderer *render_priv)
 {
@@ -2358,10 +2358,12 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
         render_priv->prev_images_root = 0;
     }
 
-    if (cache->glyph_cache->count > cache->glyph_max) {
+    if (cache->glyph_cache->count > cache->glyph_max
+        || cache->glyph_cache->cache_size > cache->bitmap_max_size) {
         ass_msg(render_priv->library, MSGL_V,
-            "Hitting hard glyph cache limit (was: %ld glyphs), resetting.",
-            (long) cache->glyph_cache->count);
+            "Hitting hard glyph cache limit (was: %d glyphs, %ld bytes), "
+            "resetting.",
+            cache->glyph_cache->count, (long) cache->glyph_cache->cache_size);
         cache->glyph_cache = ass_glyph_cache_reset(cache->glyph_cache);
     }
 
