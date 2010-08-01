@@ -1128,10 +1128,81 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
     }
 }
 
-static void transform_3d(FT_Vector shift, FT_Glyph *glyph,
-                         FT_Glyph *glyph2, double frx, double fry,
-                         double frz, double fax, double fay, double scale,
-                         int yshift);
+/**
+ * \brief Apply transformation to outline points of a glyph
+ * Applies rotations given by frx, fry and frz and projects the points back
+ * onto the screen plane.
+ */
+static void
+transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx, double fry,
+                    double frz, double fax, double fay, double scale,
+                    int yshift)
+{
+    double sx = sin(frx);
+    double sy = sin(fry);
+    double sz = sin(frz);
+    double cx = cos(frx);
+    double cy = cos(fry);
+    double cz = cos(frz);
+    FT_Outline *outline = &((FT_OutlineGlyph) glyph)->outline;
+    FT_Vector *p = outline->points;
+    double x, y, z, xx, yy, zz;
+    int i, dist;
+
+    dist = 20000 * scale;
+    for (i = 0; i < outline->n_points; i++) {
+        x = (double) p[i].x + shift.x + (fax * (yshift - p[i].y));
+        y = (double) p[i].y + shift.y + (-fay * p[i].x);
+        z = 0.;
+
+        xx = x * cz + y * sz;
+        yy = -(x * sz - y * cz);
+        zz = z;
+
+        x = xx;
+        y = yy * cx + zz * sx;
+        z = yy * sx - zz * cx;
+
+        xx = x * cy + z * sy;
+        yy = y;
+        zz = x * sy - z * cy;
+
+        zz = FFMAX(zz, 1000 - dist);
+
+        x = (xx * dist) / (zz + dist);
+        y = (yy * dist) / (zz + dist);
+        p[i].x = x - shift.x + 0.5;
+        p[i].y = y - shift.y + 0.5;
+    }
+}
+
+/**
+ * \brief Apply 3d transformation to several objects
+ * \param shift FreeType vector
+ * \param glyph FreeType glyph
+ * \param glyph2 FreeType glyph
+ * \param frx x-axis rotation angle
+ * \param fry y-axis rotation angle
+ * \param frz z-axis rotation angle
+ * Rotates both glyphs by frx, fry and frz. Shift vector is added before rotation and subtracted after it.
+ */
+static void
+transform_3d(FT_Vector shift, FT_Glyph *glyph, FT_Glyph *glyph2,
+             double frx, double fry, double frz, double fax, double fay,
+             double scale, int yshift)
+{
+    frx = -frx;
+    frz = -frz;
+    if (frx != 0. || fry != 0. || frz != 0. || fax != 0. || fay != 0.) {
+        if (glyph && *glyph)
+            transform_3d_points(shift, *glyph, frx, fry, frz,
+                                fax, fay, scale, yshift);
+
+        if (glyph2 && *glyph2)
+            transform_3d_points(shift, *glyph2, frx, fry, frz,
+                                fax, fay, scale, yshift);
+    }
+}
 
 /**
  * \brief Get bitmaps for a glyph
@@ -1594,82 +1665,6 @@ static void get_base_point(DBBox *bbox, int alignment, double *bx, double *by)
             *by = bbox->yMax;
             break;
         }
-}
-
-/**
- * \brief Apply transformation to outline points of a glyph
- * Applies rotations given by frx, fry and frz and projects the points back
- * onto the screen plane.
- */
-static void
-transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx, double fry,
-                    double frz, double fax, double fay, double scale,
-                    int yshift)
-{
-    double sx = sin(frx);
-    double sy = sin(fry);
-    double sz = sin(frz);
-    double cx = cos(frx);
-    double cy = cos(fry);
-    double cz = cos(frz);
-    FT_Outline *outline = &((FT_OutlineGlyph) glyph)->outline;
-    FT_Vector *p = outline->points;
-    double x, y, z, xx, yy, zz;
-    int i, dist;
-
-    dist = 20000 * scale;
-    for (i = 0; i < outline->n_points; i++) {
-        x = (double) p[i].x + shift.x + (fax * (yshift - p[i].y));
-        y = (double) p[i].y + shift.y + (-fay * p[i].x);
-        z = 0.;
-
-        xx = x * cz + y * sz;
-        yy = -(x * sz - y * cz);
-        zz = z;
-
-        x = xx;
-        y = yy * cx + zz * sx;
-        z = yy * sx - zz * cx;
-
-        xx = x * cy + z * sy;
-        yy = y;
-        zz = x * sy - z * cy;
-
-        zz = FFMAX(zz, 1000 - dist);
-
-        x = (xx * dist) / (zz + dist);
-        y = (yy * dist) / (zz + dist);
-        p[i].x = x - shift.x + 0.5;
-        p[i].y = y - shift.y + 0.5;
-    }
-}
-
-/**
- * \brief Apply 3d transformation to several objects
- * \param shift FreeType vector
- * \param glyph FreeType glyph
- * \param glyph2 FreeType glyph
- * \param frx x-axis rotation angle
- * \param fry y-axis rotation angle
- * \param frz z-axis rotation angle
- * Rotates both glyphs by frx, fry and frz. Shift vector is added before rotation and subtracted after it.
- */
-static void
-transform_3d(FT_Vector shift, FT_Glyph *glyph, FT_Glyph *glyph2,
-             double frx, double fry, double frz, double fax, double fay,
-             double scale, int yshift)
-{
-    frx = -frx;
-    frz = -frz;
-    if (frx != 0. || fry != 0. || frz != 0. || fax != 0. || fay != 0.) {
-        if (glyph && *glyph)
-            transform_3d_points(shift, *glyph, frx, fry, frz,
-                                fax, fay, scale, yshift);
-
-        if (glyph2 && *glyph2)
-            transform_3d_points(shift, *glyph2, frx, fry, frz,
-                                fax, fay, scale, yshift);
-    }
 }
 
 /**
