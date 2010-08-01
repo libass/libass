@@ -829,7 +829,7 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
     } else if (strncmp(event->Effect, "Scroll down;", 12) == 0) {
         render_priv->state.scroll_direction = SCROLL_TB;
     } else {
-        ass_msg(render_priv->library, MSGL_V,
+        ass_msg(render_priv->library, MSGL_DBG2,
                 "Unknown transition effect: '%s'", event->Effect);
         return;
     }
