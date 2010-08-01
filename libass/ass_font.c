@@ -446,6 +446,14 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
         if (face_idx >= 0) {
             face = font->faces[face_idx];
             index = FT_Get_Char_Index(face, ch);
+            if (index == 0 && face->num_charmaps > 0) {
+                ass_msg(font->library, MSGL_WARN,
+                    "Glyph 0x%X not found, falling back to first charmap", ch);
+                FT_CharMap cur = face->charmap;
+                FT_Set_Charmap(face, face->charmaps[0]);
+                index = FT_Get_Char_Index(face, ch);
+                FT_Set_Charmap(face, cur);
+            }
             if (index == 0) {
                 ass_msg(font->library, MSGL_ERR,
                         "Glyph 0x%X not found in font for (%s, %d, %d)",
