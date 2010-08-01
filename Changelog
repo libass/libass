@@ -5,9 +5,11 @@ libass (0.9.10)
  * Add ass_flush_events API function
  * Improve fullname font matching
  * Better PAR correction if text transforms are used
+ * Calculate drawing bounding box like VSFilter
  * Performance improvements
    * Cache vector clip masks
    * Avoid unnecessary glyph copies
+ * Various rendering fixes
 
 libass (0.9.9)
  * Parse numbers in a locale-independent way
