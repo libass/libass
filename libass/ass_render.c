@@ -1703,8 +1703,6 @@ fill_bitmap_hash(ASS_Renderer *priv, BitmapHashKey *hash_key,
     hash_key->frz = rot_key(priv->state.frz);
     hash_key->fax = double_to_d16(priv->state.fax);
     hash_key->fay = double_to_d16(priv->state.fay);
-    hash_key->advance.x = pen.x;
-    hash_key->advance.y = pen.y;
     hash_key->be = priv->state.be;
     hash_key->blur = priv->state.blur;
     hash_key->border_style = priv->state.style->BorderStyle;
