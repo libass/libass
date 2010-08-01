@@ -22,21 +22,7 @@
 
 #include <assert.h>
 #include <math.h>
-#include <inttypes.h>
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_STROKER_H
-#include FT_GLYPH_H
-#include FT_SYNTHESIS_H
 
-#include "ass.h"
-#include "ass_font.h"
-#include "ass_bitmap.h"
-#include "ass_cache.h"
-#include "ass_utils.h"
-#include "ass_fontconfig.h"
-#include "ass_library.h"
-#include "ass_drawing.h"
 #include "ass_render.h"
 #include "ass_parse.h"
 
