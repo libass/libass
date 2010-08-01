@@ -174,13 +174,15 @@ static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
 {
     ASS_Image *img = malloc(sizeof(ASS_Image));
 
-    img->w = bitmap_w;
-    img->h = bitmap_h;
-    img->stride = stride;
-    img->bitmap = bitmap;
-    img->color = color;
-    img->dst_x = dst_x;
-    img->dst_y = dst_y;
+    if (img) {
+        img->w = bitmap_w;
+        img->h = bitmap_h;
+        img->stride = stride;
+        img->bitmap = bitmap;
+        img->color = color;
+        img->dst_x = dst_x;
+        img->dst_y = dst_y;
+    }
 
     return img;
 }
@@ -320,6 +322,7 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
             img = my_draw_bitmap(bm->buffer + r[j].y0 * bm->w + r[j].x0,
                 lbrk - r[j].x0, r[j].y1 - r[j].y0,
                 bm->w, dst_x + r[j].x0, dst_y + r[j].y0, color);
+            if (!img) break;
             *tail = img;
             tail = &img->next;
         }
@@ -328,6 +331,7 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
             img = my_draw_bitmap(bm->buffer + r[j].y0 * bm->w + lbrk,
                 r[j].x1 - lbrk, r[j].y1 - r[j].y0,
                 bm->w, dst_x + lbrk, dst_y + r[j].y0, color2);
+            if (!img) break;
             *tail = img;
             tail = &img->next;
         }
@@ -409,6 +413,7 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
         img = my_draw_bitmap(bm->buffer + bm->w * b_y0 + b_x0,
                              brk - b_x0, b_y1 - b_y0, bm->w,
                              dst_x + b_x0, dst_y + b_y0, color);
+        if (!img) return tail;
         *tail = img;
         tail = &img->next;
     }
@@ -418,6 +423,7 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
         img = my_draw_bitmap(bm->buffer + bm->w * b_y0 + brk,
                              b_x1 - brk, b_y1 - b_y0, bm->w,
                              dst_x + brk, dst_y + b_y0, color2);
+        if (!img) return tail;
         *tail = img;
         tail = &img->next;
     }
