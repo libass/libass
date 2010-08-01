@@ -1793,7 +1793,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         if (text_info->length >= text_info->max_glyphs) {
             // Raise maximum number of glyphs
             text_info->max_glyphs *= 2;
-            text_info->glyphs =
+            text_info->glyphs = glyphs =
                 realloc(text_info->glyphs,
                         sizeof(GlyphInfo) * text_info->max_glyphs);
         }
