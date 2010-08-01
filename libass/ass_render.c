@@ -661,6 +661,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
 
             // Allocate new buffer and add to free list
             nbuffer = malloc(as * ah);
+            if (!nbuffer) goto blend_vector_exit;
             free_list_add(render_priv, nbuffer);
 
             // Blend together
@@ -681,6 +682,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
 
             // Allocate new buffer and add to free list
             nbuffer = calloc(as, ah);
+            if (!nbuffer) goto blend_vector_exit;
             free_list_add(render_priv, nbuffer);
 
             // Blend together
