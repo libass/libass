@@ -1021,6 +1021,38 @@ static void stroke_outline_glyph(ASS_Renderer *render_priv,
 }
 
 /**
+ * \brief Prepare glyph hash
+ */
+static void
+fill_glyph_hash(ASS_Renderer *priv, GlyphHashKey *key,
+                ASS_Drawing *drawing, uint32_t ch)
+{
+    if (drawing->hash) {
+        key->scale_x = double_to_d16(priv->state.scale_x);
+        key->scale_y = double_to_d16(priv->state.scale_y);
+        key->outline.x = priv->state.border_x * 0xFFFF;
+        key->outline.y = priv->state.border_y * 0xFFFF;
+        key->border_style = priv->state.style->BorderStyle;
+        key->drawing_hash = drawing->hash;
+        // not very clean, but works
+        key->size = drawing->scale;
+        key->ch = -1;
+    } else {
+        key->font = priv->state.font;
+        key->size = priv->state.font_size;
+        key->ch = ch;
+        key->bold = priv->state.bold;
+        key->italic = priv->state.italic;
+        key->scale_x = double_to_d16(priv->state.scale_x);
+        key->scale_y = double_to_d16(priv->state.scale_y);
+        key->outline.x = priv->state.border_x * 0xFFFF;
+        key->outline.y = priv->state.border_y * 0xFFFF;
+        key->flags = priv->state.flags;
+        key->border_style = priv->state.style->BorderStyle;
+    }
+}
+
+/**
  * \brief Get normal and outline (border) glyphs
  * \param symbol ucs4 char
  * \param info out: struct filled with extracted data
@@ -1035,33 +1067,11 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
 {
     GlyphHashValue *val;
     GlyphHashKey key;
-    memset(&key, 0, sizeof(key));
 
-    if (drawing->hash) {
-        key.scale_x = double_to_d16(render_priv->state.scale_x);
-        key.scale_y = double_to_d16(render_priv->state.scale_y);
-        key.outline.x = render_priv->state.border_x * 0xFFFF;
-        key.outline.y = render_priv->state.border_y * 0xFFFF;
-        key.border_style = render_priv->state.style->BorderStyle;
-        key.drawing_hash = drawing->hash;
-        // not very clean, but works
-        key.size = drawing->scale;
-        key.ch = -1;
-    } else {
-        key.font = render_priv->state.font;
-        key.size = render_priv->state.font_size;
-        key.ch = symbol;
-        key.bold = render_priv->state.bold;
-        key.italic = render_priv->state.italic;
-        key.scale_x = double_to_d16(render_priv->state.scale_x);
-        key.scale_y = double_to_d16(render_priv->state.scale_y);
-        key.outline.x = render_priv->state.border_x * 0xFFFF;
-        key.outline.y = render_priv->state.border_y * 0xFFFF;
-        key.flags = render_priv->state.flags;
-        key.border_style = render_priv->state.style->BorderStyle;
-    }
+    memset(&key, 0, sizeof(key));
     memset(info, 0, sizeof(GlyphInfo));
 
+    fill_glyph_hash(render_priv, &key, drawing, symbol);
     val = cache_find_glyph(render_priv->cache.glyph_cache, &key);
     if (val) {
         info->glyph = val->glyph;
