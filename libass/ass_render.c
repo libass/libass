@@ -1699,6 +1699,45 @@ transform_3d(FT_Vector shift, FT_Glyph *glyph, FT_Glyph *glyph2,
     }
 }
 
+/**
+ * Prepare bitmap hash key of a glyph
+ */
+static void
+fill_bitmap_hash(ASS_Renderer *priv, BitmapHashKey *hash_key,
+                 ASS_Drawing *drawing, FT_Vector pen, uint32_t code)
+{
+    if (!drawing->hash) {
+        hash_key->font = priv->state.font;
+        hash_key->size = priv->state.font_size;
+        hash_key->bold = priv->state.bold;
+        hash_key->italic = priv->state.italic;
+    } else {
+        hash_key->drawing_hash = drawing->hash;
+        hash_key->size = drawing->scale;
+    }
+    hash_key->ch = code;
+    hash_key->outline.x = double_to_d16(priv->state.border_x);
+    hash_key->outline.y = double_to_d16(priv->state.border_y);
+    hash_key->scale_x = double_to_d16(priv->state.scale_x);
+    hash_key->scale_y = double_to_d16(priv->state.scale_y);
+    hash_key->frx = rot_key(priv->state.frx);
+    hash_key->fry = rot_key(priv->state.fry);
+    hash_key->frz = rot_key(priv->state.frz);
+    hash_key->fax = double_to_d16(priv->state.fax);
+    hash_key->fay = double_to_d16(priv->state.fay);
+    hash_key->advance.x = pen.x;
+    hash_key->advance.y = pen.y;
+    hash_key->be = priv->state.be;
+    hash_key->blur = priv->state.blur;
+    hash_key->border_style = priv->state.style->BorderStyle;
+    hash_key->shadow_offset.x = double_to_d6(
+            priv->state.shadow_x * priv->border_scale -
+            (int) (priv->state.shadow_x * priv->border_scale));
+    hash_key->shadow_offset.y = double_to_d6(
+            priv->state.shadow_y * priv->border_scale -
+            (int) (priv->state.shadow_y * priv->border_scale));
+    hash_key->flags = priv->state.flags;
+}
 
 /**
  * \brief Main ass rendering function, glues everything together
@@ -1724,6 +1763,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     double device_x = 0;
     double device_y = 0;
     TextInfo *text_info = &render_priv->text_info;
+    GlyphInfo *glyphs = render_priv->text_info.glyphs;
     ASS_Drawing *drawing;
 
     if (event->Style >= render_priv->track->n_styles) {
@@ -1797,129 +1837,73 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                                render_priv->state.scale_y, NULL);
 
         get_outline_glyph(render_priv, code,
-                          text_info->glyphs + text_info->length, drawing);
+                          glyphs + text_info->length, drawing);
 
         // Add additional space after italic to non-italic style changes
         if (text_info->length &&
-            text_info->glyphs[text_info->length - 1].hash_key.italic &&
+            glyphs[text_info->length - 1].hash_key.italic &&
             !render_priv->state.italic) {
             int back = text_info->length - 1;
-            GlyphInfo *og = &text_info->glyphs[back];
+            GlyphInfo *og = &glyphs[back];
             while (back && og->bbox.xMax - og->bbox.xMin == 0
                    && og->hash_key.italic)
-                og = &text_info->glyphs[--back];
+                og = &glyphs[--back];
             if (og->bbox.xMax > og->advance.x) {
                 // The FreeType oblique slants by 6/16
                 pen.x += og->bbox.yMax * 0.375;
             }
         }
 
-        text_info->glyphs[text_info->length].pos.x = pen.x;
-        text_info->glyphs[text_info->length].pos.y = pen.y;
+        glyphs[text_info->length].pos.x = pen.x;
+        glyphs[text_info->length].pos.y = pen.y;
 
-        pen.x += text_info->glyphs[text_info->length].advance.x;
+        pen.x += glyphs[text_info->length].advance.x;
         pen.x += double_to_d6(render_priv->state.hspacing *
                               render_priv->font_scale
                               * render_priv->state.scale_x);
-        pen.y += text_info->glyphs[text_info->length].advance.y;
+        pen.y += glyphs[text_info->length].advance.y;
         pen.y += (render_priv->state.fay * render_priv->state.scale_y) *
-                 text_info->glyphs[text_info->length].advance.x;
+                 glyphs[text_info->length].advance.x;
 
         previous = code;
 
-        text_info->glyphs[text_info->length].symbol = code;
-        text_info->glyphs[text_info->length].linebreak = 0;
+        glyphs[text_info->length].symbol = code;
+        glyphs[text_info->length].linebreak = 0;
         for (i = 0; i < 4; ++i) {
             uint32_t clr = render_priv->state.c[i];
             change_alpha(&clr,
                          mult_alpha(_a(clr), render_priv->state.fade), 1.);
-            text_info->glyphs[text_info->length].c[i] = clr;
+            glyphs[text_info->length].c[i] = clr;
         }
-        text_info->glyphs[text_info->length].effect_type =
-            render_priv->state.effect_type;
-        text_info->glyphs[text_info->length].effect_timing =
+        glyphs[text_info->length].effect_type = render_priv->state.effect_type;
+        glyphs[text_info->length].effect_timing =
             render_priv->state.effect_timing;
-        text_info->glyphs[text_info->length].effect_skip_timing =
+        glyphs[text_info->length].effect_skip_timing =
             render_priv->state.effect_skip_timing;
-        text_info->glyphs[text_info->length].be = render_priv->state.be;
-        text_info->glyphs[text_info->length].blur = render_priv->state.blur;
-        text_info->glyphs[text_info->length].shadow_x =
-            render_priv->state.shadow_x;
-        text_info->glyphs[text_info->length].shadow_y =
-            render_priv->state.shadow_y;
-        text_info->glyphs[text_info->length].frx = render_priv->state.frx;
-        text_info->glyphs[text_info->length].fry = render_priv->state.fry;
-        text_info->glyphs[text_info->length].frz = render_priv->state.frz;
-        text_info->glyphs[text_info->length].fax = render_priv->state.fax;
-        text_info->glyphs[text_info->length].fay = render_priv->state.fay;
+        glyphs[text_info->length].be = render_priv->state.be;
+        glyphs[text_info->length].blur = render_priv->state.blur;
+        glyphs[text_info->length].shadow_x = render_priv->state.shadow_x;
+        glyphs[text_info->length].shadow_y = render_priv->state.shadow_y;
+        glyphs[text_info->length].frx = render_priv->state.frx;
+        glyphs[text_info->length].fry = render_priv->state.fry;
+        glyphs[text_info->length].frz = render_priv->state.frz;
+        glyphs[text_info->length].fax = render_priv->state.fax;
+        glyphs[text_info->length].fay = render_priv->state.fay;
         if (drawing->hash) {
-            text_info->glyphs[text_info->length].asc = drawing->asc;
-            text_info->glyphs[text_info->length].desc = drawing->desc;
+            glyphs[text_info->length].asc = drawing->asc;
+            glyphs[text_info->length].desc = drawing->desc;
         } else {
             ass_font_get_asc_desc(render_priv->state.font, code,
-                                  &text_info->glyphs[text_info->length].asc,
-                                  &text_info->glyphs[text_info->length].desc);
+                                  &glyphs[text_info->length].asc,
+                                  &glyphs[text_info->length].desc);
 
-            text_info->glyphs[text_info->length].asc *=
-                render_priv->state.scale_y;
-            text_info->glyphs[text_info->length].desc *=
-                render_priv->state.scale_y;
+            glyphs[text_info->length].asc *= render_priv->state.scale_y;
+            glyphs[text_info->length].desc *= render_priv->state.scale_y;
         }
 
-        // fill bitmap_hash_key
-        if (!drawing->hash) {
-            text_info->glyphs[text_info->length].hash_key.font =
-                render_priv->state.font;
-            text_info->glyphs[text_info->length].hash_key.size =
-                render_priv->state.font_size;
-            text_info->glyphs[text_info->length].hash_key.bold =
-                render_priv->state.bold;
-            text_info->glyphs[text_info->length].hash_key.italic =
-                render_priv->state.italic;
-        } else {
-            text_info->glyphs[text_info->length].hash_key.drawing_hash =
-                drawing->hash;
-            text_info->glyphs[text_info->length].hash_key.size = drawing->scale;
-        }
-        text_info->glyphs[text_info->length].hash_key.ch = code;
-        text_info->glyphs[text_info->length].hash_key.outline.x =
-            double_to_d16(render_priv->state.border_x);
-        text_info->glyphs[text_info->length].hash_key.outline.y =
-            double_to_d16(render_priv->state.border_y);
-        text_info->glyphs[text_info->length].hash_key.scale_x =
-            double_to_d16(render_priv->state.scale_x);
-        text_info->glyphs[text_info->length].hash_key.scale_y =
-            double_to_d16(render_priv->state.scale_y);
-        text_info->glyphs[text_info->length].hash_key.frx =
-            rot_key(render_priv->state.frx);
-        text_info->glyphs[text_info->length].hash_key.fry =
-            rot_key(render_priv->state.fry);
-        text_info->glyphs[text_info->length].hash_key.frz =
-            rot_key(render_priv->state.frz);
-        text_info->glyphs[text_info->length].hash_key.fax =
-            double_to_d16(render_priv->state.fax);
-        text_info->glyphs[text_info->length].hash_key.fay =
-            double_to_d16(render_priv->state.fay);
-        text_info->glyphs[text_info->length].hash_key.advance.x = pen.x;
-        text_info->glyphs[text_info->length].hash_key.advance.y = pen.y;
-        text_info->glyphs[text_info->length].hash_key.be =
-            render_priv->state.be;
-        text_info->glyphs[text_info->length].hash_key.blur =
-            render_priv->state.blur;
-        text_info->glyphs[text_info->length].hash_key.border_style =
-            render_priv->state.style->BorderStyle;
-        text_info->glyphs[text_info->length].hash_key.shadow_offset.x =
-            double_to_d6(
-                render_priv->state.shadow_x * render_priv->border_scale -
-                (int) (render_priv->state.shadow_x *
-                render_priv->border_scale));
-        text_info->glyphs[text_info->length].hash_key.shadow_offset.y =
-            double_to_d6(
-                render_priv->state.shadow_y * render_priv->border_scale -
-                (int) (render_priv->state.shadow_y *
-                render_priv->border_scale));
-        text_info->glyphs[text_info->length].hash_key.flags =
-            render_priv->state.flags;
+        // fill bitmap hash
+        fill_bitmap_hash(render_priv, &glyphs[text_info->length].hash_key,
+                         drawing, pen, code);
 
         text_info->length++;
 
@@ -1977,11 +1961,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         last_break = -1;
         for (i = 1; i < text_info->length + 1; ++i) {   // (text_info->length + 1) is the end of the last line
             if ((i == text_info->length)
-                || text_info->glyphs[i].linebreak) {
+                || glyphs[i].linebreak) {
                 double width, shift = 0;
                 GlyphInfo *first_glyph =
-                    text_info->glyphs + last_break + 1;
-                GlyphInfo *last_glyph = text_info->glyphs + i - 1;
+                    glyphs + last_break + 1;
+                GlyphInfo *last_glyph = glyphs + i - 1;
 
                 while (first_glyph < last_glyph && first_glyph->skip)
                     first_glyph++;
@@ -2003,7 +1987,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                     shift = (max_text_width - width) / 2.0;
                 }
                 for (j = last_break + 1; j < i; ++j) {
-                    text_info->glyphs[j].pos.x += double_to_d6(shift);
+                    glyphs[j].pos.x += double_to_d6(shift);
                 }
                 last_break = i - 1;
             }
@@ -2130,7 +2114,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         }
 
         for (i = 0; i < text_info->length; ++i) {
-            GlyphInfo *info = text_info->glyphs + i;
+            GlyphInfo *info = glyphs + i;
 
             if (info->hash_key.frx || info->hash_key.fry
                 || info->hash_key.frz || info->hash_key.fax
@@ -2148,7 +2132,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     // convert glyphs to bitmaps
     device_x *= render_priv->font_scale_x;
     for (i = 0; i < text_info->length; ++i) {
-        GlyphInfo *g = text_info->glyphs + i;
+        GlyphInfo *g = glyphs + i;
         g->pos.x *= render_priv->font_scale_x;
         g->hash_key.advance.x =
             double_to_d6(device_x - (int) device_x +
@@ -2156,7 +2140,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         g->hash_key.advance.y =
             double_to_d6(device_y - (int) device_y +
             d6_to_double(g->pos.y & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
-        get_bitmap_glyph(render_priv, text_info->glyphs + i);
+        get_bitmap_glyph(render_priv, glyphs + i);
     }
 
     memset(event_images, 0, sizeof(*event_images));
