@@ -44,8 +44,6 @@
 #define MAX_LINES_INITIAL 64
 #define SUBPIXEL_MASK 63
 #define SUBPIXEL_ACCURACY 7    // d6 mask for subpixel accuracy adjustment
-#define GLYPH_CACHE_MAX 1000
-#define BITMAP_CACHE_MAX_SIZE 30 * 1048576
 
 static void ass_lazy_track_init(ASS_Renderer *render_priv)
 {
@@ -134,14 +132,6 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     return priv;
 }
 
-void ass_set_cache_limits(ASS_Renderer *render_priv, int glyph_max,
-                          int bitmap_max)
-{
-    render_priv->cache.glyph_max = glyph_max ? glyph_max : GLYPH_CACHE_MAX;
-    render_priv->cache.bitmap_max_size = bitmap_max ? 1048576 * bitmap_max :
-                                         BITMAP_CACHE_MAX_SIZE;
-}
-
 static void free_list_clear(ASS_Renderer *render_priv)
 {
     if (render_priv->free_head) {
@@ -155,8 +145,6 @@ static void free_list_clear(ASS_Renderer *render_priv)
         render_priv->free_head = NULL;
     }
 }
-
-static void ass_free_images(ASS_Image *img);
 
 void ass_renderer_done(ASS_Renderer *render_priv)
 {
@@ -2164,125 +2152,13 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
  * \brief deallocate image list
  * \param img list pointer
  */
-static void ass_free_images(ASS_Image *img)
+void ass_free_images(ASS_Image *img)
 {
     while (img) {
         ASS_Image *next = img->next;
         free(img);
         img = next;
     }
-}
-
-static void ass_reconfigure(ASS_Renderer *priv)
-{
-    ASS_Settings *settings = &priv->settings;
-
-    priv->render_id++;
-    priv->cache.glyph_cache =
-        ass_glyph_cache_reset(priv->cache.glyph_cache);
-    priv->cache.bitmap_cache =
-        ass_bitmap_cache_reset(priv->cache.bitmap_cache);
-    priv->cache.composite_cache =
-        ass_composite_cache_reset(priv->cache.composite_cache);
-    ass_free_images(priv->prev_images_root);
-    priv->prev_images_root = 0;
-
-    priv->width = settings->frame_width;
-    priv->height = settings->frame_height;
-    priv->orig_width = settings->frame_width - settings->left_margin -
-        settings->right_margin;
-    priv->orig_height = settings->frame_height - settings->top_margin -
-        settings->bottom_margin;
-    priv->orig_width_nocrop =
-        settings->frame_width - FFMAX(settings->left_margin, 0) -
-        FFMAX(settings->right_margin, 0);
-    priv->orig_height_nocrop =
-        settings->frame_height - FFMAX(settings->top_margin, 0) -
-        FFMAX(settings->bottom_margin, 0);
-}
-
-void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
-{
-    if (priv->settings.frame_width != w || priv->settings.frame_height != h) {
-        priv->settings.frame_width = w;
-        priv->settings.frame_height = h;
-        if (priv->settings.aspect == 0.) {
-            priv->settings.aspect = ((double) w) / h;
-            priv->settings.storage_aspect = ((double) w) / h;
-        }
-        ass_reconfigure(priv);
-    }
-}
-
-void ass_set_margins(ASS_Renderer *priv, int t, int b, int l, int r)
-{
-    if (priv->settings.left_margin != l ||
-        priv->settings.right_margin != r ||
-        priv->settings.top_margin != t
-        || priv->settings.bottom_margin != b) {
-        priv->settings.left_margin = l;
-        priv->settings.right_margin = r;
-        priv->settings.top_margin = t;
-        priv->settings.bottom_margin = b;
-        ass_reconfigure(priv);
-    }
-}
-
-void ass_set_use_margins(ASS_Renderer *priv, int use)
-{
-    priv->settings.use_margins = use;
-}
-
-void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar)
-{
-    if (priv->settings.aspect != dar || priv->settings.storage_aspect != sar) {
-        priv->settings.aspect = dar;
-        priv->settings.storage_aspect = sar;
-        ass_reconfigure(priv);
-    }
-}
-
-void ass_set_font_scale(ASS_Renderer *priv, double font_scale)
-{
-    if (priv->settings.font_size_coeff != font_scale) {
-        priv->settings.font_size_coeff = font_scale;
-        ass_reconfigure(priv);
-    }
-}
-
-void ass_set_hinting(ASS_Renderer *priv, ASS_Hinting ht)
-{
-    if (priv->settings.hinting != ht) {
-        priv->settings.hinting = ht;
-        ass_reconfigure(priv);
-    }
-}
-
-void ass_set_line_spacing(ASS_Renderer *priv, double line_spacing)
-{
-    priv->settings.line_spacing = line_spacing;
-}
-
-void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
-                   const char *default_family, int fc, const char *config,
-                   int update)
-{
-    free(priv->settings.default_font);
-    free(priv->settings.default_family);
-    priv->settings.default_font = default_font ? strdup(default_font) : 0;
-    priv->settings.default_family =
-        default_family ? strdup(default_family) : 0;
-
-    if (priv->fontconfig_priv)
-        fontconfig_done(priv->fontconfig_priv);
-    priv->fontconfig_priv =
-        fontconfig_init(priv->library, priv->ftlibrary, default_family,
-                        default_font, fc, config, update);
-}
-
-int ass_fonts_update(ASS_Renderer *render_priv)
-{
-    return fontconfig_update(render_priv->fontconfig_priv);
 }
 
 /**
