@@ -90,8 +90,5 @@ AC_SUBST([PKG_REQUIRES])
 # Setup output beautifier.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-# More sensible compile flags
-CFLAGS="$CFLAGS -Wall"
-
 AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile libass.pc])
 AC_OUTPUT
