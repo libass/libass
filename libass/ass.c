@@ -594,6 +594,7 @@ static int process_events_line(ASS_Track *track, char *str)
     if (!strncmp(str, "Format:", 7)) {
         char *p = str + 7;
         skip_spaces(&p);
+        free(track->event_format);
         track->event_format = strdup(p);
         ass_msg(track->library, MSGL_DBG2, "Event format: %s", track->event_format);
     } else if (!strncmp(str, "Dialogue:", 9)) {
