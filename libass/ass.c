@@ -674,12 +674,10 @@ static int decode_font(ASS_Track *track)
     if (track->library->extract_fonts) {
         ass_add_font(track->library, track->parser_priv->fontname,
                      (char *) buf, dsize);
-        buf = 0;
     }
 
-  error_decode_font:
-    if (buf)
-        free(buf);
+error_decode_font:
+    free(buf);
     free(track->parser_priv->fontname);
     free(track->parser_priv->fontdata);
     track->parser_priv->fontname = 0;
