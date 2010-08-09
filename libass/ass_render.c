@@ -145,14 +145,13 @@ void ass_renderer_done(ASS_Renderer *render_priv)
         FT_Stroker_Done(render_priv->state.stroker);
         render_priv->state.stroker = 0;
     }
-    if (render_priv && render_priv->ftlibrary)
+    if (render_priv->ftlibrary)
         FT_Done_FreeType(render_priv->ftlibrary);
-    if (render_priv && render_priv->fontconfig_priv)
+    if (render_priv->fontconfig_priv)
         fontconfig_done(render_priv->fontconfig_priv);
-    if (render_priv && render_priv->synth_priv)
+    if (render_priv->synth_priv)
         ass_synth_done(render_priv->synth_priv);
-    if (render_priv && render_priv->eimg)
-        free(render_priv->eimg);
+    free(render_priv->eimg);
     free(render_priv->text_info.glyphs);
     free(render_priv->text_info.lines);
 

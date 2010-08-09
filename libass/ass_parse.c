@@ -455,8 +455,7 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             family[p - start] = '\0';
         } else
             family = strdup(render_priv->state.style->FontName);
-        if (render_priv->state.family)
-            free(render_priv->state.family);
+        free(render_priv->state.family);
         render_priv->state.family = family;
         update_font(render_priv);
     } else if (mystrcmp(&p, "alpha")) {
