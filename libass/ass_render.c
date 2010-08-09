@@ -911,9 +911,9 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.effect_type = EF_NONE;
     render_priv->state.effect_timing = 0;
     render_priv->state.effect_skip_timing = 0;
+    ass_drawing_free(render_priv->state.drawing);
     render_priv->state.drawing = ass_drawing_new(render_priv->fontconfig_priv,
                                                  render_priv->state.font,
-                                                 render_priv->settings.hinting,
                                                  render_priv->ftlibrary);
 
     apply_transition_effects(render_priv, event);
@@ -1900,7 +1900,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             drawing = render_priv->state.drawing =
                 ass_drawing_new(render_priv->fontconfig_priv,
                     render_priv->state.font,
-                    render_priv->settings.hinting,
                     render_priv->ftlibrary);
         }
     }
