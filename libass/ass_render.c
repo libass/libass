@@ -1454,13 +1454,9 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
             && (render_priv->state.wrap_style != 2)) {
             break_type = 1;
             break_at = last_space;
-            if (break_at == -1)
-                break_at = i - 1;
-            if (break_at == -1)
-                break_at = 0;
-            ass_msg(render_priv->library, MSGL_DBG2, "overfill at %d", i);
-            ass_msg(render_priv->library, MSGL_DBG2, "line break at %d",
-                    break_at);
+            if (break_at >= 0)
+                ass_msg(render_priv->library, MSGL_DBG2, "line break at %d",
+                        break_at);
         }
 
         if (break_at != -1) {
