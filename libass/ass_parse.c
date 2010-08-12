@@ -359,6 +359,22 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
                 render_priv->state.hspacing * (1 - pwr) + val * pwr;
         else
             render_priv->state.hspacing = render_priv->state.style->Spacing;
+    } else if (mystrcmp(&p, "fs+")) {
+        double val;
+        if (mystrtod(&p, &val)) {
+            val = render_priv->state.font_size + pwr * val;
+        } else
+            val = render_priv->state.style->FontSize;
+        if (render_priv->state.font)
+            change_font_size(render_priv, val);
+    } else if (mystrcmp(&p, "fs-")) {
+        double val;
+        if (mystrtod(&p, &val))
+            val = render_priv->state.font_size - pwr * val;
+        else
+            val = render_priv->state.style->FontSize;
+        if (render_priv->state.font)
+            change_font_size(render_priv, val);
     } else if (mystrcmp(&p, "fs")) {
         double val;
         if (mystrtod(&p, &val))
