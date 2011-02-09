@@ -1,3 +1,8 @@
+libass (0.9.12)
+ * Switch to permissive (ISC) license
+ * Support \fs+ and \fs- syntax for modifying font size
+ * Fix word-wrapping
+
 libass (0.9.11)
  * Fix serious memory leaks
  * Reduce frame/drawing initialization overhead
