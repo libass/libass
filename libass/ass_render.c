@@ -1434,10 +1434,9 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     break_type = 0;
     s1 = text_info->glyphs;     // current line start
     for (i = 0; i < text_info->length; ++i) {
-        int break_at;
+        int break_at = -1;
         double s_offset, len;
         cur = text_info->glyphs + i;
-        break_at = -1;
         s_offset = d6_to_double(s1->bbox.xMin + s1->pos.x);
         len = d6_to_double(cur->bbox.xMax + cur->pos.x) - s_offset;
 
@@ -1446,10 +1445,10 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
             break_at = i;
             ass_msg(render_priv->library, MSGL_DBG2,
                     "forced line break at %d", break_at);
-        }
-
-        if ((len >= max_text_width)
-            && (render_priv->state.wrap_style != 2)) {
+        } else if (cur->symbol == ' ') {
+            last_space = i;
+        } else if (len >= max_text_width
+                   && (render_priv->state.wrap_style != 2)) {
             break_type = 1;
             break_at = last_space;
             if (break_at >= 0)
@@ -1475,14 +1474,6 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
             s_offset = d6_to_double(s1->bbox.xMin + s1->pos.x);
             text_info->n_lines++;
         }
-
-        if (cur->symbol == ' ')
-            last_space = i;
-
-        // make sure the hard linebreak is not forgotten when
-        // there was a new soft linebreak just inserted
-        if (cur->symbol == '\n' && break_type == 1)
-            i--;
     }
 #define DIFF(x,y) (((x) < (y)) ? (y - x) : (x - y))
     exit = 0;
