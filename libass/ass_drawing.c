@@ -118,9 +118,10 @@ static void drawing_finish(ASS_Drawing *drawing, int raw_mode)
     // Close the last contour
     drawing_close_shape(drawing);
 
-    ass_msg(drawing->library, MSGL_V,
-            "Parsed drawing with %d points and %d contours", ol->n_points,
-            ol->n_contours);
+    if (drawing->library)
+        ass_msg(drawing->library, MSGL_V,
+                "Parsed drawing with %d points and %d contours", ol->n_points,
+                ol->n_contours);
 
     if (raw_mode)
         return;
@@ -367,7 +368,8 @@ ASS_Drawing *ass_drawing_new(void *fontconfig_priv, ASS_Font *font,
     drawing->fontconfig_priv = fontconfig_priv;
     drawing->font = font;
     drawing->ftlibrary = lib;
-    drawing->library = font->library;
+    if (font)
+        drawing->library = font->library;
 
     drawing->scale_x = 1.;
     drawing->scale_y = 1.;

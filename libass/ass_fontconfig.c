@@ -522,7 +522,8 @@ void fontconfig_done(FCInstance *priv)
 
     if (priv) {
 #ifdef CONFIG_FONTCONFIG
-        FcConfigDestroy(priv->config);
+        if (priv->config)
+            FcConfigDestroy(priv->config);
 #endif
         free(priv->path_default);
         free(priv->family_default);
