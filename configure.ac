@@ -34,8 +34,8 @@ AC_SEARCH_LIBS([iconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))
 AC_CHECK_LIB([m], [fabs])
 
 # Check for libraries via pkg-config
-AC_ARG_ENABLE([png], AS_HELP_STRING([--enable-png],
-    [enable png (test program) @<:@default=no@:>@]))
+AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
+    [enable test program (requires libpng) @<:@default=no@:>@]))
 AC_ARG_ENABLE([enca], AS_HELP_STRING([--disable-enca],
     [disable enca (charset autodetect) support @<:@default=check@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
@@ -66,7 +66,7 @@ PKG_CHECK_MODULES([ENCA], enca, [
 fi
 
 libpng=false
-if test x$enable_png = xyes; then
+if test x$enable_test = xyes; then
 PKG_CHECK_MODULES([LIBPNG], libpng >= 1.2.0, [
     CFLAGS="$CFLAGS $LIBPNG_CFLAGS"
     LIBS="$LIBS $LIBPNG_LIBS"

@@ -53,7 +53,7 @@ static void write_png(char *fname, image_t *img)
     info_ptr = png_create_info_struct(png_ptr);
     fp = NULL;
 
-    if (setjmp(png_ptr->jmpbuf)) {
+    if (setjmp(png_jmpbuf(png_ptr))) {
         png_destroy_write_struct(&png_ptr, &info_ptr);
         fclose(fp);
         return;
