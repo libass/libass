@@ -39,7 +39,7 @@ AC_ARG_ENABLE([png], AS_HELP_STRING([--enable-png],
 AC_ARG_ENABLE([enca], AS_HELP_STRING([--disable-enca],
     [disable enca (charset autodetect) support @<:@default=check@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
-    [disable fontconfig support @<:@default=check@:>@]))
+    [disable fontconfig support @<:@default=enabled@:>@]))
 
 PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.10.3, [
     CFLAGS="$CFLAGS $FREETYPE_CFLAGS"
@@ -53,7 +53,7 @@ PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.4.2, [
     LIBS="$LIBS $FONTCONFIG_LIBS"
     AC_DEFINE(CONFIG_FONTCONFIG, 1, [found fontconfig via pkg-config])
 	fontconfig=true
-    ], [fontconfig=false])
+    ])
 fi
 
 if test x$enable_enca != xno; then
@@ -71,8 +71,7 @@ PKG_CHECK_MODULES([LIBPNG], libpng >= 1.2.0, [
     CFLAGS="$CFLAGS $LIBPNG_CFLAGS"
     LIBS="$LIBS $LIBPNG_LIBS"
     AC_DEFINE(CONFIG_LIBPNG, 1, [found libpng via pkg-config])
-    libpng=true
-    ])
+    libpng=true])
 fi
 
 AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
