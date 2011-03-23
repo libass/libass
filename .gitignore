@@ -16,6 +16,6 @@ Makefile.in
 /libtool
 /ltmain.sh
 /missing
+/compile
 /libass.pc
-/shave/shave
-/shave/shave-libtool
+/m4
