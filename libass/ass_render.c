@@ -1302,6 +1302,11 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
             FT_Done_Glyph(outline);
         }
     }
+
+    // VSFilter compatibility: invisible fill and no border?
+    // In this case no shadow is supposed to be rendered.
+    if (!info->outline_glyph && (info->c[0] >> 24) == 0xFF)
+        info->bm_s = 0;
 }
 
 /**
