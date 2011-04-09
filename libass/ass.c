@@ -203,7 +203,6 @@ static int lookup_style(ASS_Track *track, char *name)
     if (*name == '*')
         ++name;                 // FIXME: what does '*' really mean ?
     for (i = track->n_styles - 1; i >= 0; --i) {
-        // FIXME: mb strcasecmp ?
         if (strcmp(track->styles[i].Name, name) == 0)
             return i;
     }
