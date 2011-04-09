@@ -446,12 +446,13 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
             face = font->faces[face_idx];
             index = FT_Get_Char_Index(face, ch);
             if (index == 0 && face->num_charmaps > 0) {
+                int i;
                 ass_msg(font->library, MSGL_WARN,
-                    "Glyph 0x%X not found, falling back to first charmap", ch);
-                FT_CharMap cur = face->charmap;
-                FT_Set_Charmap(face, face->charmaps[0]);
-                index = FT_Get_Char_Index(face, ch);
-                FT_Set_Charmap(face, cur);
+                    "Glyph 0x%X not found, broken font? Trying all charmaps", ch);
+                for (i = 0; i < face->num_charmaps; i++) {
+                    FT_Set_Charmap(face, face->charmaps[i]);
+                    if ((index = FT_Get_Char_Index(face, ch)) != 0) break;
+                }
             }
             if (index == 0) {
                 ass_msg(font->library, MSGL_ERR,
