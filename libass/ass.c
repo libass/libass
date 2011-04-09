@@ -164,6 +164,32 @@ static void rskip_spaces(char **str, char *limit)
 }
 
 /**
+ * \brief Set up default style
+ * \param style style to edit to defaults
+ * The parameters are mostly taken directly from VSFilter source for
+ * best compatibility.
+ */
+static void set_default_style(ASS_Style *style)
+{
+    style->Name             = strdup("Default");
+    style->FontName         = strdup("Arial");
+    style->FontSize         = 18;
+    style->PrimaryColour    = 0xffffff00;
+    style->SecondaryColour  = 0x00ffff00;
+    style->OutlineColour    = 0x00000000;
+    style->BackColour       = 0x00000000;
+    style->Bold             = 200;
+    style->ScaleX           = 1.0;
+    style->ScaleY           = 1.0;
+    style->Spacing          = 0;
+    style->BorderStyle      = 1;
+    style->Outline          = 2;
+    style->Shadow           = 3;
+    style->Alignment        = 2;
+    style->MarginL = style->MarginR = style->MarginV = 20;
+}
+
+/**
  * \brief find style by name
  * \param track track
  * \param name style name
@@ -308,8 +334,8 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
         // add "Default" style to the end
         // will be used if track does not contain a default style (or even does not contain styles at all)
         int sid = ass_alloc_style(track);
-        track->styles[sid].Name = strdup("Default");
-        track->styles[sid].FontName = strdup("Arial");
+        set_default_style(&track->styles[sid]);
+        track->default_style = sid;
     }
 
     for (i = 0; i < n_ignored; ++i) {
@@ -467,6 +493,14 @@ static int process_style(ASS_Track *track, char *str)
     }
 
     q = format = strdup(track->style_format);
+
+    // Add default style first
+    if (track->n_styles == 0) {
+        // will be used if track does not contain a default style (or even does not contain styles at all)
+        int sid = ass_alloc_style(track);
+        set_default_style(&track->styles[sid]);
+        track->default_style = sid;
+    }
 
     ass_msg(track->library, MSGL_V, "[%p] Style: %s", track, str);
 
