@@ -887,6 +887,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
 {
     render_priv->state.event = event;
     render_priv->state.style = render_priv->track->styles + event->Style;
+    render_priv->state.parsed_tags = 0;
 
     reset_render_context(render_priv);
 

@@ -39,6 +39,9 @@
 #define GLYPH_CACHE_MAX 1000
 #define BITMAP_CACHE_MAX_SIZE 30 * 1048576
 
+#define PARSED_FADE (1<<0)
+#define PARSED_A    (1<<1)
+
 typedef struct {
     double xMin;
     double xMax;
@@ -141,6 +144,7 @@ typedef struct {
 typedef struct {
     ASS_Event *event;
     ASS_Style *style;
+    int parsed_tags;
 
     ASS_Font *font;
     char *font_path;

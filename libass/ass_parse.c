@@ -503,16 +503,22 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             val = ((val - 1) % 3) + 1;  // horizontal alignment
             val += v * 4;
             ass_msg(render_priv->library, MSGL_DBG2, "align %d", val);
-            render_priv->state.alignment = val;
+            if ((render_priv->state.parsed_tags & PARSED_A) == 0) {
+                render_priv->state.alignment = val;
+                render_priv->state.parsed_tags |= PARSED_A;
+            }
         } else
             render_priv->state.alignment =
                 render_priv->state.style->Alignment;
     } else if (mystrcmp(&p, "a")) {
         int val;
-        if (mystrtoi(&p, &val) && val)
-            // take care of a vsfilter quirk: handle illegal \a8 like \a5
-            render_priv->state.alignment = (val == 8) ? 5 : val;
-        else
+        if (mystrtoi(&p, &val) && val) {
+            if ((render_priv->state.parsed_tags & PARSED_A) == 0) {
+                // take care of a vsfilter quirk: handle illegal \a8 like \a5
+                render_priv->state.alignment = (val == 8) ? 5 : val;
+                render_priv->state.parsed_tags |= PARSED_A;
+            }
+        } else
             render_priv->state.alignment =
                 render_priv->state.style->Alignment;
     } else if (mystrcmp(&p, "pos")) {
@@ -566,10 +572,13 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             mystrtoll(&p, &t4);
         }
         skip(')');
-        render_priv->state.fade =
-            interpolate_alpha(render_priv->time -
-                              render_priv->state.event->Start, t1, t2,
-                              t3, t4, a1, a2, a3);
+        if ((render_priv->state.parsed_tags & PARSED_FADE) == 0) {
+            render_priv->state.fade =
+                interpolate_alpha(render_priv->time -
+                        render_priv->state.event->Start, t1, t2,
+                        t3, t4, a1, a2, a3);
+            render_priv->state.parsed_tags |= PARSED_FADE;
+        }
     } else if (mystrcmp(&p, "org")) {
         int v1, v2;
         skip('(');
