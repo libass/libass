@@ -29,38 +29,6 @@
 #define SUBPIXEL_MASK 63
 #define SUBPIXEL_ACCURACY 7
 
-static void ass_lazy_track_init(ASS_Renderer *render_priv)
-{
-    ASS_Track *track = render_priv->track;
-
-    if (track->PlayResX && track->PlayResY)
-        return;
-    if (!track->PlayResX && !track->PlayResY) {
-        ass_msg(render_priv->library, MSGL_WARN,
-               "Neither PlayResX nor PlayResY defined. Assuming 384x288");
-        track->PlayResX = 384;
-        track->PlayResY = 288;
-    } else {
-        if (!track->PlayResY && track->PlayResX == 1280) {
-            track->PlayResY = 1024;
-            ass_msg(render_priv->library, MSGL_WARN,
-                   "PlayResY undefined, setting to %d", track->PlayResY);
-        } else if (!track->PlayResY) {
-            track->PlayResY = track->PlayResX * 3 / 4;
-            ass_msg(render_priv->library, MSGL_WARN,
-                   "PlayResY undefined, setting to %d", track->PlayResY);
-        } else if (!track->PlayResX && track->PlayResY == 1024) {
-            track->PlayResX = 1280;
-            ass_msg(render_priv->library, MSGL_WARN,
-                   "PlayResX undefined, setting to %d", track->PlayResX);
-        } else if (!track->PlayResX) {
-            track->PlayResX = track->PlayResY * 4 / 3;
-            ass_msg(render_priv->library, MSGL_WARN,
-                   "PlayResX undefined, setting to %d", track->PlayResX);
-        }
-    }
-}
-
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
 {
     int error;
@@ -2131,7 +2099,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     render_priv->track = track;
     render_priv->time = now;
 
-    ass_lazy_track_init(render_priv);
+    ass_lazy_track_init(render_priv->library, render_priv->track);
 
     render_priv->font_scale = settings_priv->font_size_coeff *
         render_priv->orig_height / render_priv->track->PlayResY;

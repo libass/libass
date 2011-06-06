@@ -265,4 +265,7 @@ typedef struct {
 void reset_render_context(ASS_Renderer *render_priv);
 void ass_free_images(ASS_Image *img);
 
+// XXX: this is actually in ass.c, includes should be fixed later on
+void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track);
+
 #endif /* LIBASS_RENDER_H */

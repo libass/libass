@@ -1269,3 +1269,36 @@ ASS_Track *ass_new_track(ASS_Library *library)
     track->parser_priv = calloc(1, sizeof(ASS_ParserPriv));
     return track;
 }
+
+/**
+ * \brief Prepare track for rendering
+ */
+void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track)
+{
+    if (track->PlayResX && track->PlayResY)
+        return;
+    if (!track->PlayResX && !track->PlayResY) {
+        ass_msg(lib, MSGL_WARN,
+               "Neither PlayResX nor PlayResY defined. Assuming 384x288");
+        track->PlayResX = 384;
+        track->PlayResY = 288;
+    } else {
+        if (!track->PlayResY && track->PlayResX == 1280) {
+            track->PlayResY = 1024;
+            ass_msg(lib, MSGL_WARN,
+                   "PlayResY undefined, setting to %d", track->PlayResY);
+        } else if (!track->PlayResY) {
+            track->PlayResY = track->PlayResX * 3 / 4;
+            ass_msg(lib, MSGL_WARN,
+                   "PlayResY undefined, setting to %d", track->PlayResY);
+        } else if (!track->PlayResX && track->PlayResY == 1024) {
+            track->PlayResX = 1280;
+            ass_msg(lib, MSGL_WARN,
+                   "PlayResX undefined, setting to %d", track->PlayResX);
+        } else if (!track->PlayResX) {
+            track->PlayResX = track->PlayResY * 4 / 3;
+            ass_msg(lib, MSGL_WARN,
+                   "PlayResX undefined, setting to %d", track->PlayResX);
+        }
+    }
+}
