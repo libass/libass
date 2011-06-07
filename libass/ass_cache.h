@@ -61,7 +61,8 @@ Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
 void *ass_cache_put(Cache *cache, void *key, void *value);
 void *ass_cache_get(Cache *cache, void *key);
 size_t ass_cache_empty(Cache *cache, size_t max_size);
-char *ass_cache_stats(Cache *cache);
+void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
+                     unsigned *misses, unsigned *count);
 void ass_cache_done(Cache *cache);
 Cache *ass_font_cache_create(void);
 Cache *ass_glyph_cache_create(void);

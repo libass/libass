@@ -259,20 +259,17 @@ size_t ass_cache_empty(Cache *cache, size_t max_size)
     return 0;
 }
 
-char *ass_cache_stats(Cache *cache)
+void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
+                     unsigned *misses, unsigned *count)
 {
-    // FIXME: implement this correctly
-    printf("cache statistics: \n  total accesses: %d\n  hits: %d\n  "
-            "misses: %d\n  object count: %d\n  size: %zd\n",
-            cache->hits + cache->misses, cache->hits,
-            cache->misses, cache->items, cache->cache_size);
-
-    return "not implemented";
+    *size = cache->cache_size;
+    *hits = cache->hits;
+    *misses = cache->misses;
+    *count = cache->items;
 }
 
 void ass_cache_done(Cache *cache)
 {
-    ass_cache_stats(cache);
     ass_cache_empty(cache, 0);
     free(cache->map);
     free(cache);
