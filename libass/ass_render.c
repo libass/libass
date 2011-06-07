@@ -60,10 +60,10 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->ftlibrary = ft;
     // images_root and related stuff is zero-filled in calloc
 
-    priv->cache.font_cache = ass_font_cache_init(library);
-    priv->cache.bitmap_cache = ass_bitmap_cache_init(library);
-    priv->cache.composite_cache = ass_composite_cache_init(library);
-    priv->cache.glyph_cache = ass_glyph_cache_init(library);
+    priv->cache.font_cache = ass_font_cache_create();
+    priv->cache.bitmap_cache = ass_bitmap_cache_create();
+    priv->cache.composite_cache = ass_composite_cache_create();
+    priv->cache.glyph_cache = ass_glyph_cache_create();
     priv->cache.glyph_max = GLYPH_CACHE_MAX;
     priv->cache.bitmap_max_size = BITMAP_CACHE_MAX_SIZE;
 
@@ -99,10 +99,10 @@ static void free_list_clear(ASS_Renderer *render_priv)
 
 void ass_renderer_done(ASS_Renderer *render_priv)
 {
-    ass_font_cache_done(render_priv->cache.font_cache);
-    ass_bitmap_cache_done(render_priv->cache.bitmap_cache);
-    ass_composite_cache_done(render_priv->cache.composite_cache);
-    ass_glyph_cache_done(render_priv->cache.glyph_cache);
+    ass_cache_done(render_priv->cache.font_cache);
+    ass_cache_done(render_priv->cache.bitmap_cache);
+    ass_cache_done(render_priv->cache.composite_cache);
+    ass_cache_done(render_priv->cache.glyph_cache);
 
     ass_free_images(render_priv->images_root);
     ass_free_images(render_priv->prev_images_root);
@@ -484,7 +484,7 @@ render_overlap(ASS_Renderer *render_priv, ASS_Image **last_tail,
     hk.by = by;
     hk.as = as;
     hk.bs = bs;
-    hv = cache_find_composite(render_priv->cache.composite_cache, &hk);
+    hv = ass_cache_get(render_priv->cache.composite_cache, &hk);
     if (hv) {
         (*last_tail)->bitmap = hv->a;
         (*tail)->bitmap = hv->b;
@@ -507,7 +507,7 @@ render_overlap(ASS_Renderer *render_priv, ASS_Image **last_tail,
     // Insert bitmaps into the cache
     chv.a = (*last_tail)->bitmap;
     chv.b = (*tail)->bitmap;
-    cache_add_composite(render_priv->cache.composite_cache, &hk, &chv);
+    ass_cache_put(render_priv->cache.composite_cache, &hk, &chv);
 }
 
 static void free_list_add(ASS_Renderer *render_priv, void *object)
@@ -548,7 +548,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     memset(&key, 0, sizeof(key));
     key.ch = -2;
     key.drawing_hash = drawing->hash;
-    val = cache_find_glyph(render_priv->cache.glyph_cache, &key);
+    val = ass_cache_get(render_priv->cache.glyph_cache, &key);
 
     if (val) {
         clip_bm = (FT_BitmapGlyph) val->glyph;
@@ -599,7 +599,7 @@ blend_vector_error:
         // Add to cache
         memset(&v, 0, sizeof(v));
         v.glyph = glyph;
-        cache_add_glyph(render_priv->cache.glyph_cache, &key, &v);
+        ass_cache_put(render_priv->cache.glyph_cache, &key, &v);
     }
 
     if (!clip_bm) goto blend_vector_exit;
@@ -1046,7 +1046,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
     memset(info, 0, sizeof(GlyphInfo));
 
     fill_glyph_hash(render_priv, &key, drawing, symbol);
-    val = cache_find_glyph(render_priv->cache.glyph_cache, &key);
+    val = ass_cache_get(render_priv->cache.glyph_cache, &key);
     if (val) {
         info->glyph = val->glyph;
         info->outline_glyph = val->outline_glyph;
@@ -1108,7 +1108,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
             v.asc = drawing->asc;
             v.desc = drawing->desc;
         }
-        cache_add_glyph(render_priv->cache.glyph_cache, &key, &v);
+        ass_cache_put(render_priv->cache.glyph_cache, &key, &v);
     }
 }
 
@@ -1202,7 +1202,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
     BitmapHashValue *val;
     BitmapHashKey *key = &info->hash_key;
 
-    val = cache_find_bitmap(render_priv->cache.bitmap_cache, key);
+    val = ass_cache_get(render_priv->cache.bitmap_cache, key);
 
     if (val) {
         info->bm = val->bm;
@@ -1265,7 +1265,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
             hash_val.bm_o = info->bm_o;
             hash_val.bm = info->bm;
             hash_val.bm_s = info->bm_s;
-            cache_add_bitmap(render_priv->cache.bitmap_cache, key, &hash_val);
+            ass_cache_put(render_priv->cache.bitmap_cache, key, &hash_val);
 
             FT_Done_Glyph(glyph);
             FT_Done_Glyph(outline);
@@ -2051,25 +2051,12 @@ void ass_free_images(ASS_Image *img)
  */
 static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
 {
-    if (cache->bitmap_cache->cache_size > cache->bitmap_max_size) {
-        ass_msg(priv->library, MSGL_V,
-                "Hitting hard bitmap cache limit (was: %ld bytes), "
-                "resetting.", (long) cache->bitmap_cache->cache_size);
-        cache->bitmap_cache = ass_bitmap_cache_reset(cache->bitmap_cache);
-        cache->composite_cache = ass_composite_cache_reset(
-            cache->composite_cache);
+    if (ass_cache_empty(cache->bitmap_cache, cache->bitmap_max_size) == 0) {
+        ass_cache_empty(cache->composite_cache, 0);
         ass_free_images(priv->prev_images_root);
         priv->prev_images_root = 0;
     }
-
-    if (cache->glyph_cache->count > cache->glyph_max
-        || cache->glyph_cache->cache_size > cache->bitmap_max_size) {
-        ass_msg(priv->library, MSGL_V,
-            "Hitting hard glyph cache limit (was: %d glyphs, %ld bytes), "
-            "resetting.",
-            cache->glyph_cache->count, (long) cache->glyph_cache->cache_size);
-        cache->glyph_cache = ass_glyph_cache_reset(cache->glyph_cache);
-    }
+    ass_cache_empty(cache->glyph_cache, cache->glyph_max);
 }
 
 /**

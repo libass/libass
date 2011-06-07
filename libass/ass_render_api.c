@@ -25,12 +25,9 @@ static void ass_reconfigure(ASS_Renderer *priv)
     ASS_Settings *settings = &priv->settings;
 
     priv->render_id++;
-    priv->cache.glyph_cache =
-        ass_glyph_cache_reset(priv->cache.glyph_cache);
-    priv->cache.bitmap_cache =
-        ass_bitmap_cache_reset(priv->cache.bitmap_cache);
-    priv->cache.composite_cache =
-        ass_composite_cache_reset(priv->cache.composite_cache);
+    ass_cache_empty(priv->cache.glyph_cache, 0);
+    ass_cache_empty(priv->cache.bitmap_cache, 0);
+    ass_cache_empty(priv->cache.composite_cache, 0);
     ass_free_images(priv->prev_images_root);
     priv->prev_images_root = 0;
 

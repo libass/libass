@@ -169,7 +169,7 @@ static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
 /**
  * \brief Create a new ASS_Font according to "desc" argument
  */
-ASS_Font *ass_font_new(void *font_cache, ASS_Library *library,
+ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
                        FT_Library ftlibrary, void *fc_priv,
                        ASS_FontDesc *desc)
 {
@@ -177,7 +177,7 @@ ASS_Font *ass_font_new(void *font_cache, ASS_Library *library,
     ASS_Font *fontp;
     ASS_Font font;
 
-    fontp = ass_font_cache_find((Hashmap *) font_cache, desc);
+    fontp = ass_cache_get(font_cache, desc);
     if (fontp)
         return fontp;
 
@@ -199,7 +199,7 @@ ASS_Font *ass_font_new(void *font_cache, ASS_Library *library,
         free(font.desc.family);
         return 0;
     } else
-        return ass_font_cache_add((Hashmap *) font_cache, &font);
+        return ass_cache_put(font_cache, &font.desc, &font);
 }
 
 /**

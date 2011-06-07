@@ -14,7 +14,7 @@
 #elif defined(CREATE_COMPARISON_FUNCTIONS)
 #undef CREATE_COMPARISON_FUNCTIONS
 #define START(funcname, structname) \
-    static int funcname##_compare(void *key1, void *key2, size_t key_size) \
+    static unsigned funcname##_compare(void *key1, void *key2, size_t key_size) \
     { \
         struct structname *a = key1; \
         struct structname *b = key2; \

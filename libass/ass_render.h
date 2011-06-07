@@ -203,10 +203,10 @@ typedef struct {
 } RenderContext;
 
 typedef struct {
-    Hashmap *font_cache;
-    Hashmap *glyph_cache;
-    Hashmap *bitmap_cache;
-    Hashmap *composite_cache;
+    Cache *font_cache;
+    Cache *glyph_cache;
+    Cache *bitmap_cache;
+    Cache *composite_cache;
     size_t glyph_max;
     size_t bitmap_max_size;
 } CacheStore;

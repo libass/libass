@@ -48,8 +48,9 @@ typedef struct {
     double size;
 } ASS_Font;
 
-// FIXME: passing the hashmap via a void pointer is very ugly.
-ASS_Font *ass_font_new(void *font_cache, ASS_Library *library,
+#include "ass_cache.h"
+
+ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
                        FT_Library ftlibrary, void *fc_priv,
                        ASS_FontDesc *desc);
 void ass_font_set_transform(ASS_Font *font, double scale_x,

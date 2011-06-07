@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
+ * Copyright (C) 2011 Grigori Goronzy <greg@chown.ath.cx>
  *
  * This file is part of libass.
  *
@@ -32,117 +33,28 @@
 #include "ass_bitmap.h"
 #include "ass_cache.h"
 
-static unsigned hashmap_hash(void *buf, size_t len)
-{
-    return fnv_32a_buf(buf, len, FNV1_32A_INIT);
-}
+// type-specific functions
+// create hash/compare functions for bitmap, glyph and composite cache
+#define CREATE_HASH_FUNCTIONS
+#include "ass_cache_template.h"
+#define CREATE_COMPARISON_FUNCTIONS
+#include "ass_cache_template.h"
 
-static int hashmap_key_compare(void *a, void *b, size_t size)
-{
-    return memcmp(a, b, size) == 0;
-}
-
-static void hashmap_item_dtor(void *key, size_t key_size, void *value,
-                              size_t value_size)
-{
-    free(key);
-    free(value);
-}
-
-Hashmap *hashmap_init(ASS_Library *library, size_t key_size,
-                      size_t value_size, int nbuckets,
-                      HashmapItemDtor item_dtor,
-                      HashmapKeyCompare key_compare,
-                      HashmapHash hash)
-{
-    Hashmap *map = calloc(1, sizeof(Hashmap));
-    map->library = library;
-    map->nbuckets = nbuckets;
-    map->key_size = key_size;
-    map->value_size = value_size;
-    map->root = calloc(nbuckets, sizeof(hashmap_item_p));
-    map->item_dtor = item_dtor ? item_dtor : hashmap_item_dtor;
-    map->key_compare = key_compare ? key_compare : hashmap_key_compare;
-    map->hash = hash ? hash : hashmap_hash;
-    return map;
-}
-
-void hashmap_done(Hashmap *map)
-{
-    int i;
-    // print stats
-    if (map->count > 0 || map->hit_count + map->miss_count > 0)
-        ass_msg(map->library, MSGL_V,
-               "cache statistics: \n  total accesses: %d\n  hits: %d\n  "
-               "misses: %d\n  object count: %d",
-               map->hit_count + map->miss_count, map->hit_count,
-               map->miss_count, map->count);
-
-    for (i = 0; i < map->nbuckets; ++i) {
-        HashmapItem *item = map->root[i];
-        while (item) {
-            HashmapItem *next = item->next;
-            map->item_dtor(item->key, map->key_size, item->value,
-                           map->value_size);
-            free(item);
-            item = next;
-        }
-    }
-    free(map->root);
-    free(map);
-}
-
-// does nothing if key already exists
-void *hashmap_insert(Hashmap *map, void *key, void *value)
-{
-    unsigned hash = map->hash(key, map->key_size);
-    HashmapItem **next = map->root + (hash % map->nbuckets);
-    while (*next) {
-        if (map->key_compare(key, (*next)->key, map->key_size))
-            return (*next)->value;
-        next = &((*next)->next);
-        assert(next);
-    }
-    (*next) = malloc(sizeof(HashmapItem));
-    (*next)->key = malloc(map->key_size);
-    (*next)->value = malloc(map->value_size);
-    memcpy((*next)->key, key, map->key_size);
-    memcpy((*next)->value, value, map->value_size);
-    (*next)->next = 0;
-
-    map->count++;
-    return (*next)->value;
-}
-
-void *hashmap_find(Hashmap *map, void *key)
-{
-    unsigned hash = map->hash(key, map->key_size);
-    HashmapItem *item = map->root[hash % map->nbuckets];
-    while (item) {
-        if (map->key_compare(key, item->key, map->key_size)) {
-            map->hit_count++;
-            return item->value;
-        }
-        item = item->next;
-    }
-    map->miss_count++;
-    return 0;
-}
-
-//---------------------------------
 // font cache
-
-static unsigned font_desc_hash(void *buf, size_t len)
+static unsigned font_hash(void *buf, size_t len)
 {
     ASS_FontDesc *desc = buf;
     unsigned hval;
     hval = fnv_32a_str(desc->family, FNV1_32A_INIT);
     hval = fnv_32a_buf(&desc->bold, sizeof(desc->bold), hval);
     hval = fnv_32a_buf(&desc->italic, sizeof(desc->italic), hval);
+    hval = fnv_32a_buf(&desc->treat_family_as_pattern,
+            sizeof(desc->treat_family_as_pattern), hval);
+    hval = fnv_32a_buf(&desc->vertical, sizeof(desc->vertical), hval);
     return hval;
 }
 
-static int font_compare(void *key1, void *key2, size_t key_size)
+static unsigned font_compare(void *key1, void *key2, size_t key_size)
 {
     ASS_FontDesc *a = key1;
     ASS_FontDesc *b = key2;
@@ -159,55 +71,14 @@ static int font_compare(void *key1, void *key2, size_t key_size)
     return 1;
 }
 
-static void font_hash_dtor(void *key, size_t key_size, void *value,
-                           size_t value_size)
+static void font_destruct(void *key, void *value)
 {
     ass_font_free(value);
     free(key);
 }
 
-ASS_Font *ass_font_cache_find(Hashmap *font_cache,
-                              ASS_FontDesc *desc)
-{
-    return hashmap_find(font_cache, desc);
-}
-
-/**
- * \brief Add a face struct to cache.
- * \param font font struct
-*/
-void *ass_font_cache_add(Hashmap *font_cache, ASS_Font *font)
-{
-    return hashmap_insert(font_cache, &(font->desc), font);
-}
-
-Hashmap *ass_font_cache_init(ASS_Library *library)
-{
-    Hashmap *font_cache;
-    font_cache = hashmap_init(library, sizeof(ASS_FontDesc),
-                              sizeof(ASS_Font),
-                              1000,
-                              font_hash_dtor, font_compare, font_desc_hash);
-    return font_cache;
-}
-
-void ass_font_cache_done(Hashmap *font_cache)
-{
-    hashmap_done(font_cache);
-}
-
-
-// Create hash/compare functions for bitmap and glyph
-#define CREATE_HASH_FUNCTIONS
-#include "ass_cache_template.h"
-#define CREATE_COMPARISON_FUNCTIONS
-#include "ass_cache_template.h"
-
-//---------------------------------
 // bitmap cache
-
-static void bitmap_hash_dtor(void *key, size_t key_size, void *value,
-                             size_t value_size)
+static void bitmap_destruct(void *key, void *value)
 {
     BitmapHashValue *v = value;
     if (v->bm)
@@ -220,59 +91,18 @@ static void bitmap_hash_dtor(void *key, size_t key_size, void *value,
     free(value);
 }
 
-void *cache_add_bitmap(Hashmap *bitmap_cache, BitmapHashKey *key,
-                       BitmapHashValue *val)
+static size_t bitmap_size(void *value, size_t value_size)
 {
-    // Note: this is only an approximation
+    BitmapHashValue *val = value;
     if (val->bm_o)
-        bitmap_cache->cache_size += val->bm_o->w * val->bm_o->h * 3;
+        return val->bm_o->w * val->bm_o->h * 3;
     else if (val->bm)
-        bitmap_cache->cache_size += val->bm->w * val->bm->h * 3;
-
-    return hashmap_insert(bitmap_cache, key, val);
+        return val->bm->w * val->bm->h * 3;
+    return 0;
 }
 
-/**
- * \brief Get a bitmap from bitmap cache.
- * \param key hash key
- * \return requested hash val or 0 if not found
-*/
-BitmapHashValue *cache_find_bitmap(Hashmap *bitmap_cache,
-                                   BitmapHashKey *key)
-{
-    return hashmap_find(bitmap_cache, key);
-}
-
-Hashmap *ass_bitmap_cache_init(ASS_Library *library)
-{
-    Hashmap *bitmap_cache;
-    bitmap_cache = hashmap_init(library,
-                                sizeof(BitmapHashKey),
-                                sizeof(BitmapHashValue),
-                                0xFFFF + 13,
-                                bitmap_hash_dtor, bitmap_compare,
-                                bitmap_hash);
-    return bitmap_cache;
-}
-
-void ass_bitmap_cache_done(Hashmap *bitmap_cache)
-{
-    hashmap_done(bitmap_cache);
-}
-
-Hashmap *ass_bitmap_cache_reset(Hashmap *bitmap_cache)
-{
-    ASS_Library *lib = bitmap_cache->library;
-
-    ass_bitmap_cache_done(bitmap_cache);
-    return ass_bitmap_cache_init(lib);
-}
-
-//---------------------------------
 // glyph cache
-
-static void glyph_hash_dtor(void *key, size_t key_size, void *value,
-                            size_t value_size)
+static void glyph_destruct(void *key, void *value)
 {
     GlyphHashValue *v = value;
     if (v->glyph)
@@ -283,57 +113,18 @@ static void glyph_hash_dtor(void *key, size_t key_size, void *value,
     free(value);
 }
 
-void *cache_add_glyph(Hashmap *glyph_cache, GlyphHashKey *key,
-                      GlyphHashValue *val)
+static size_t glyph_size(void *value, size_t value_size)
 {
-	if (val->glyph && val->glyph->format == FT_GLYPH_FORMAT_BITMAP) {
-		FT_Bitmap *bitmap = &((FT_BitmapGlyph) val->glyph)->bitmap;
-		glyph_cache->cache_size += bitmap->rows * bitmap->pitch;
-	}
-
-    return hashmap_insert(glyph_cache, key, val);
+    GlyphHashValue *val = value;
+    if (val->glyph && val->glyph->format == FT_GLYPH_FORMAT_BITMAP) {
+        FT_Bitmap *bitmap = &((FT_BitmapGlyph) val->glyph)->bitmap;
+        return bitmap->rows * bitmap->pitch;
+    }
+    return 0;
 }
 
-/**
- * \brief Get a glyph from glyph cache.
- * \param key hash key
- * \return requested hash val or 0 if not found
-*/
-GlyphHashValue *cache_find_glyph(Hashmap *glyph_cache,
-                                 GlyphHashKey *key)
-{
-    return hashmap_find(glyph_cache, key);
-}
-
-Hashmap *ass_glyph_cache_init(ASS_Library *library)
-{
-    Hashmap *glyph_cache;
-    glyph_cache = hashmap_init(library, sizeof(GlyphHashKey),
-                               sizeof(GlyphHashValue),
-                               0xFFFF + 13,
-                               glyph_hash_dtor, glyph_compare, glyph_hash);
-    return glyph_cache;
-}
-
-void ass_glyph_cache_done(Hashmap *glyph_cache)
-{
-    hashmap_done(glyph_cache);
-}
-
-Hashmap *ass_glyph_cache_reset(Hashmap *glyph_cache)
-{
-    ASS_Library *lib = glyph_cache->library;
-
-    ass_glyph_cache_done(glyph_cache);
-    return ass_glyph_cache_init(lib);
-}
-
-
-//---------------------------------
 // composite cache
-
-static void composite_hash_dtor(void *key, size_t key_size, void *value,
-                                size_t value_size)
+static void composite_destruct(void *key, void *value)
 {
     CompositeHashValue *v = value;
     free(v->a);
@@ -342,44 +133,173 @@ static void composite_hash_dtor(void *key, size_t key_size, void *value,
     free(value);
 }
 
-void *cache_add_composite(Hashmap *composite_cache,
-                          CompositeHashKey *key,
-                          CompositeHashValue *val)
+
+// Cache data
+typedef struct cache_item {
+    void *key;
+    void *value;
+    struct cache_item *next;
+} CacheItem;
+
+struct cache {
+    unsigned buckets;
+    CacheItem **map;
+
+    HashFunction hash_func;
+    ItemSize size_func;
+    HashCompare compare_func;
+    CacheItemDestructor destruct_func;
+    size_t key_size;
+    size_t value_size;
+
+    size_t cache_size;
+    unsigned hits;
+    unsigned misses;
+    unsigned items;
+};
+
+// Hash for a simple (single value or array) type
+static unsigned hash_simple(void *key, size_t key_size)
 {
-    return hashmap_insert(composite_cache, key, val);
+    return fnv_32a_buf(key, key_size, FNV1_32A_INIT);
 }
 
-/**
- * \brief Get a composite bitmap from composite cache.
- * \param key hash key
- * \return requested hash val or 0 if not found
-*/
-CompositeHashValue *cache_find_composite(Hashmap *composite_cache,
-                                         CompositeHashKey *key)
+// Comparison of a simple type
+static unsigned compare_simple(void *a, void *b, size_t key_size)
 {
-    return hashmap_find(composite_cache, key);
+    return memcmp(a, b, key_size) == 0;
 }
 
-Hashmap *ass_composite_cache_init(ASS_Library *library)
+// Default destructor
+static void destruct_simple(void *key, void *value)
 {
-    Hashmap *composite_cache;
-    composite_cache = hashmap_init(library, sizeof(CompositeHashKey),
-                                   sizeof(CompositeHashValue),
-                                   0xFFFF + 13,
-                                   composite_hash_dtor, composite_compare,
-                                   composite_hash);
-    return composite_cache;
+    free(key);
+    free(value);
 }
 
-void ass_composite_cache_done(Hashmap *composite_cache)
+
+// Create a cache with type-specific hash/compare/destruct/size functions
+Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
+                        CacheItemDestructor destruct_func, ItemSize size_func,
+                        size_t key_size, size_t value_size)
 {
-    hashmap_done(composite_cache);
+    Cache *cache = calloc(1, sizeof(*cache));
+    cache->buckets = 0xFFFF;
+    cache->hash_func = hash_simple;
+    cache->compare_func = compare_simple;
+    cache->destruct_func = destruct_simple;
+    cache->size_func = size_func;
+    if (hash_func)
+        cache->hash_func = hash_func;
+    if (compare_func)
+        cache->compare_func = compare_func;
+    if (destruct_func)
+        cache->destruct_func = destruct_func;
+    cache->key_size = key_size;
+    cache->value_size = value_size;
+    cache->map = calloc(cache->buckets, sizeof(CacheItem *));
+
+    return cache;
 }
 
-Hashmap *ass_composite_cache_reset(Hashmap *composite_cache)
+void *ass_cache_put(Cache *cache, void *key, void *value)
 {
-    ASS_Library *lib = composite_cache->library;
+    unsigned bucket = cache->hash_func(key, cache->key_size) % cache->buckets;
+    CacheItem **item = &cache->map[bucket];
+    while (*item)
+        *item = (*item)->next;
+    (*item) = calloc(1, sizeof(CacheItem));
+    (*item)->key = malloc(cache->key_size);
+    (*item)->value = malloc(cache->value_size);
+    memcpy((*item)->key, key, cache->key_size);
+    memcpy((*item)->value, value, cache->value_size);
 
-    ass_composite_cache_done(composite_cache);
-    return ass_composite_cache_init(lib);
+    cache->items++;
+    if (cache->size_func)
+        cache->cache_size += cache->size_func(value, cache->value_size);
+
+    return (*item)->value;
+}
+
+void *ass_cache_get(Cache *cache, void *key)
+{
+    unsigned bucket = cache->hash_func(key, cache->key_size) % cache->buckets;
+    CacheItem *item = cache->map[bucket];
+    while (item) {
+        if (cache->compare_func(key, item->key, cache->key_size)) {
+            cache->hits++;
+            return item->value;
+        }
+        item = item->next;
+    }
+    cache->misses++;
+    return NULL;
+}
+
+size_t ass_cache_empty(Cache *cache, size_t max_size)
+{
+    int i;
+
+    if (cache->cache_size < max_size)
+        return cache->cache_size;
+
+    for (i = 0; i < cache->buckets; i++) {
+        CacheItem *item = cache->map[i];
+        while (item) {
+            CacheItem *next = item->next;
+            cache->destruct_func(item->key, item->value);
+            free(item);
+            item = next;
+        }
+        cache->map[i] = NULL;
+    }
+
+    cache->items = cache->hits = cache->misses = cache->cache_size = 0;
+
+    return 0;
+}
+
+char *ass_cache_stats(Cache *cache)
+{
+    // FIXME: implement this correctly
+    printf("cache statistics: \n  total accesses: %d\n  hits: %d\n  "
+            "misses: %d\n  object count: %d\n  size: %zd\n",
+            cache->hits + cache->misses, cache->hits,
+            cache->misses, cache->items, cache->cache_size);
+
+    return "not implemented";
+}
+
+void ass_cache_done(Cache *cache)
+{
+    ass_cache_stats(cache);
+    ass_cache_empty(cache, 0);
+    free(cache->map);
+    free(cache);
+}
+
+// Type-specific creation function
+Cache *ass_font_cache_create(void)
+{
+    return ass_cache_create(font_hash, font_compare, font_destruct,
+            (ItemSize)NULL, sizeof(ASS_FontDesc), sizeof(ASS_Font));
+}
+
+Cache *ass_glyph_cache_create(void)
+{
+    return ass_cache_create(glyph_hash, glyph_compare, glyph_destruct,
+            glyph_size, sizeof(GlyphHashKey), sizeof(GlyphHashValue));
+}
+
+Cache *ass_bitmap_cache_create(void)
+{
+    return ass_cache_create(bitmap_hash, bitmap_compare, bitmap_destruct,
+            bitmap_size, sizeof(BitmapHashKey), sizeof(BitmapHashValue));
+}
+
+Cache *ass_composite_cache_create(void)
+{
+    return ass_cache_create(composite_hash, composite_compare,
+            composite_destruct, (ItemSize)NULL, sizeof(CompositeHashKey),
+            sizeof(CompositeHashValue));
 }
