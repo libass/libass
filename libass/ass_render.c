@@ -1364,16 +1364,17 @@ static void trim_whitespace(ASS_Renderer *render_priv)
             }
             // A break itself can contain a whitespace, too
             cur = ti->glyphs + i;
-            if (cur->symbol == ' ')
+            if (cur->symbol == ' ') {
                 cur->skip++;
-            // Mark whitespace after
-            j = i + 1;
-            cur = ti->glyphs + j;
-            while (j < ti->length && IS_WHITESPACE(cur)) {
-                cur->skip++;
-                cur = ti->glyphs + ++j;
+                // Mark whitespace after
+                j = i + 1;
+                cur = ti->glyphs + j;
+                while (j < ti->length && IS_WHITESPACE(cur)) {
+                    cur->skip++;
+                    cur = ti->glyphs + ++j;
+                }
+                i = j - 1;
             }
-            i = j - 1;
         }
     }
 }
