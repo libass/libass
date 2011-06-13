@@ -955,40 +955,53 @@ static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
  * Stroke an outline glyph in x/y direction.  Applies various fixups to get
  * around limitations of the FreeType stroker.
  */
-static void stroke_outline_glyph(ASS_Renderer *render_priv,
-                                 FT_OutlineGlyph *glyph, int sx, int sy)
+static void stroke_outline(ASS_Renderer *render_priv, FT_Outline *outline,
+                           int sx, int sy)
 {
     if (sx <= 0 && sy <= 0)
         return;
 
-    fix_freetype_stroker(*glyph, sx, sy);
+    fix_freetype_stroker(outline, sx, sy);
 
     // Borders are equal; use the regular stroker
     if (sx == sy && render_priv->state.stroker) {
         int error;
-        error = FT_Glyph_StrokeBorder((FT_Glyph *) glyph,
-                                      render_priv->state.stroker, 0, 1);
-        if (error)
+        unsigned n_points, n_contours;
+
+        FT_StrokerBorder border = FT_Outline_GetOutsideBorder(outline);
+        error = FT_Stroker_ParseOutline(render_priv->state.stroker, outline, 0);
+        if (error) {
             ass_msg(render_priv->library, MSGL_WARN,
-                    "FT_Glyph_Stroke error: %d", error);
+                    "FT_Stroker_ParseOutline failed, error: %d", error);
+        }
+        error = FT_Stroker_GetBorderCounts(render_priv->state.stroker, border,
+                &n_points, &n_contours);
+        if (error) {
+            ass_msg(render_priv->library, MSGL_WARN,
+                    "FT_Stroker_GetBorderCounts failed, error: %d", error);
+        }
+        FT_Outline_Done(render_priv->ftlibrary, outline);
+        FT_Outline_New(render_priv->ftlibrary, n_points, n_contours, outline);
+        outline->n_points = outline->n_contours = 0;
+        FT_Stroker_ExportBorder(render_priv->state.stroker, border, outline);
 
     // "Stroke" with the outline emboldener in two passes.
     // The outlines look uglier, but the emboldening never adds any points
     } else {
         int i;
-        FT_Outline *ol = &(*glyph)->outline;
         FT_Outline nol;
-        FT_Outline_New(render_priv->ftlibrary, ol->n_points,
-                       ol->n_contours, &nol);
-        FT_Outline_Copy(ol, &nol);
 
-        FT_Outline_Embolden(ol, sx * 2);
-        FT_Outline_Translate(ol, -sx, -sx);
+        FT_Outline_New(render_priv->ftlibrary, outline->n_points,
+                       outline->n_contours, &nol);
+        FT_Outline_Copy(outline, &nol);
+
+        FT_Outline_Embolden(outline, sx * 2);
+        FT_Outline_Translate(outline, -sx, -sx);
         FT_Outline_Embolden(&nol, sy * 2);
         FT_Outline_Translate(&nol, -sy, -sy);
 
-        for (i = 0; i < ol->n_points; i++)
-            ol->points[i].y = nol.points[i].y;
+        for (i = 0; i < outline->n_points; i++)
+            outline->points[i].y = nol.points[i].y;
 
         FT_Outline_Done(render_priv->ftlibrary, &nol);
     }
@@ -1091,12 +1104,12 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
                    && key.scale_x && key.scale_y) {
 
             FT_Glyph_Copy(info->glyph, &info->outline_glyph);
-            stroke_outline_glyph(render_priv,
-                                 (FT_OutlineGlyph *) &info->outline_glyph,
-                                 double_to_d6(render_priv->state.border_x *
-                                              render_priv->border_scale),
-                                 double_to_d6(render_priv->state.border_y *
-                                              render_priv->border_scale));
+            stroke_outline(render_priv,
+                    &((FT_OutlineGlyph) info->outline_glyph)->outline,
+                    double_to_d6(render_priv->state.border_x *
+                        render_priv->border_scale),
+                    double_to_d6(render_priv->state.border_y *
+                        render_priv->border_scale));
         }
 
         memset(&v, 0, sizeof(v));

@@ -606,9 +606,9 @@ static int get_contour_direction(FT_Vector *points, int start, int end)
  * \brief Fix-up stroker result for huge borders by removing inside contours
  * that would reverse in size
  */
-void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x, int border_y)
+void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
 {
-    int nc = glyph->outline.n_contours;
+    int nc = outline->n_contours;
     int begin, stop;
     char modified = 0;
     char *valid_cont = malloc(nc);
@@ -618,14 +618,14 @@ void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x, int border_y)
     int i, j;
     int inside_direction;
 
-    inside_direction = FT_Outline_Get_Orientation(&glyph->outline) ==
+    inside_direction = FT_Outline_Get_Orientation(outline) ==
         FT_ORIENTATION_TRUETYPE;
 
     // create a list of cboxes of the contours
     for (i = 0; i < nc; i++) {
         start = end + 1;
-        end = glyph->outline.contours[i];
-        get_contour_cbox(&boxes[i], glyph->outline.points, start, end);
+        end = outline->contours[i];
+        get_contour_cbox(&boxes[i], outline->points, start, end);
     }
 
     // for each contour, check direction and whether it's "outside"
@@ -633,8 +633,8 @@ void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x, int border_y)
     end = -1;
     for (i = 0; i < nc; i++) {
         start = end + 1;
-        end = glyph->outline.contours[i];
-        int dir = get_contour_direction(glyph->outline.points, start, end);
+        end = outline->contours[i];
+        int dir = get_contour_direction(outline->points, start, end);
         valid_cont[i] = 1;
         if (dir == inside_direction) {
             for (j = 0; j < nc; j++) {
@@ -650,19 +650,19 @@ void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x, int border_y)
              * inside of - assume the font is buggy and it should be
              * an "outside" contour, and reverse it */
             for (j = 0; j < (end + 1 - start) / 2; j++) {
-                FT_Vector temp = glyph->outline.points[start + j];
-                char temp2 = glyph->outline.tags[start + j];
-                glyph->outline.points[start + j] = glyph->outline.points[end - j];
-                glyph->outline.points[end - j] = temp;
-                glyph->outline.tags[start + j] = glyph->outline.tags[end - j];
-                glyph->outline.tags[end - j] = temp2;
+                FT_Vector temp = outline->points[start + j];
+                char temp2 = outline->tags[start + j];
+                outline->points[start + j] = outline->points[end - j];
+                outline->points[end - j] = temp;
+                outline->tags[start + j] = outline->tags[end - j];
+                outline->tags[end - j] = temp2;
             }
             dir ^= 1;
         }
         check_inside:
         if (dir == inside_direction) {
             FT_BBox box;
-            get_contour_cbox(&box, glyph->outline.points, start, end);
+            get_contour_cbox(&box, outline->points, start, end);
             int width = box.xMax - box.xMin;
             int height = box.yMax - box.yMin;
             if (width < border_x * 2 || height < border_y * 2) {
@@ -677,12 +677,12 @@ void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x, int border_y)
         for (i = 0; i < nc; i++) {
             if (valid_cont[i])
                 continue;
-            begin = (i == 0) ? 0 : glyph->outline.contours[i - 1] + 1;
-            stop = glyph->outline.contours[i];
+            begin = (i == 0) ? 0 : outline->contours[i - 1] + 1;
+            stop = outline->contours[i];
             for (j = begin; j <= stop; j++) {
-                glyph->outline.points[j].x = 0;
-                glyph->outline.points[j].y = 0;
-                glyph->outline.tags[j] = 0;
+                outline->points[j].x = 0;
+                outline->points[j].y = 0;
+                outline->tags[j] = 0;
             }
         }
     }

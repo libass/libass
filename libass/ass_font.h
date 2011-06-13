@@ -62,6 +62,6 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
                             uint32_t ch, ASS_Hinting hinting, int flags);
 FT_Vector ass_font_get_kerning(ASS_Font *font, uint32_t c1, uint32_t c2);
 void ass_font_free(ASS_Font *font);
-void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x, int border_y);
+void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y);
 
 #endif                          /* LIBASS_FONT_H */
