@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
+ * Copyright (C) 2011 Grigori Goronzy <greg@chown.ath.cx>
  *
  * This file is part of libass.
  *
@@ -22,6 +23,7 @@
 #include <assert.h>
 #include <ft2build.h>
 #include FT_GLYPH_H
+#include FT_OUTLINE_H
 
 #include "ass_utils.h"
 #include "ass_bitmap.h"
@@ -175,48 +177,53 @@ int check_glyph_area(ASS_Library *library, FT_Glyph glyph)
 static Bitmap *glyph_to_bitmap_internal(ASS_Library *library,
                                           FT_Glyph glyph, int bord)
 {
-    FT_BitmapGlyph bg;
-    FT_Bitmap *bit;
     Bitmap *bm;
     int w, h;
-    unsigned char *src;
-    unsigned char *dst;
-    int i;
     int error;
+    FT_BBox bbox;
+    FT_Bitmap bitmap;
+    FT_Outline *outline = &((FT_OutlineGlyph)glyph)->outline;
 
-    if (check_glyph_area(library, glyph))
-        return 0;
-    error = FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 0);
-    if (error) {
-        ass_msg(library, MSGL_WARN, "FT_Glyph_To_Bitmap error %d",
-               error);
-        return 0;
+    FT_Outline_Get_CBox(outline, &bbox);
+    // move glyph to origin (0, 0)
+    bbox.xMin &= ~63;
+    bbox.yMin &= ~63;
+    FT_Outline_Translate(outline, -bbox.xMin, -bbox.yMin);
+    // bitmap size
+    bbox.xMax = (bbox.xMax + 63) & ~63;
+    bbox.yMax = (bbox.yMax + 63) & ~63;
+    w = (bbox.xMax - bbox.xMin) >> 6;
+    h = (bbox.yMax - bbox.yMin) >> 6;
+    // pen offset
+    bbox.xMin >>= 6;
+    bbox.yMax >>= 6;
+
+    if (w * h > 8000000) {
+        ass_msg(library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
+                w, h);
+        return NULL;
     }
 
-    bg = (FT_BitmapGlyph) glyph;
-    bit = &(bg->bitmap);
-    if (bit->pixel_mode != FT_PIXEL_MODE_GRAY) {
-        ass_msg(library, MSGL_WARN, "Unsupported pixel mode: %d",
-               (int) (bit->pixel_mode));
-        FT_Done_Glyph(glyph);
-        return 0;
-    }
-
-    w = bit->width;
-    h = bit->rows;
+    // allocate and set up bitmap
     bm = alloc_bitmap(w + 2 * bord, h + 2 * bord);
-    bm->left = bg->left - bord;
-    bm->top = -bg->top - bord;
+    bm->left = bbox.xMin - bord;
+    bm->top = -bbox.yMax - bord;
+    bitmap.width = w;
+    bitmap.rows = h;
+    bitmap.pitch = bm->w;
+    bitmap.buffer = bm->buffer + bord + bm->w * bord;
+    bitmap.num_grays = 256;
+    bitmap.pixel_mode = FT_PIXEL_MODE_GRAY;
 
-    src = bit->buffer;
-    dst = bm->buffer + bord + bm->w * bord;
-    for (i = 0; i < h; ++i) {
-        memcpy(dst, src, w);
-        src += bit->pitch;
-        dst += bm->w;
+    // render into target bitmap
+    // XXX: this uses the FT_Library from the glyph. Instead a reference to the
+    // FT_Library should be passed to this function (plus outline)
+    if ((error = FT_Outline_Get_Bitmap(glyph->library, outline, &bitmap))) {
+        ass_msg(library, MSGL_WARN, "Failed to rasterize glyph: %d\n", error);
+        ass_free_bitmap(bm);
+        return NULL;
     }
 
-    FT_Done_Glyph(glyph);
     return bm;
 }
 
