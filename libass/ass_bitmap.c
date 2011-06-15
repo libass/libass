@@ -174,15 +174,14 @@ int check_glyph_area(ASS_Library *library, FT_Glyph glyph)
         return 0;
 }
 
-static Bitmap *glyph_to_bitmap_internal(ASS_Library *library,
-                                          FT_Glyph glyph, int bord)
+Bitmap *outline_to_bitmap(ASS_Library *library, FT_Library ftlib,
+                          FT_Outline *outline, int bord)
 {
     Bitmap *bm;
     int w, h;
     int error;
     FT_BBox bbox;
     FT_Bitmap bitmap;
-    FT_Outline *outline = &((FT_OutlineGlyph)glyph)->outline;
 
     FT_Outline_Get_CBox(outline, &bbox);
     // move glyph to origin (0, 0)
@@ -218,7 +217,7 @@ static Bitmap *glyph_to_bitmap_internal(ASS_Library *library,
     // render into target bitmap
     // XXX: this uses the FT_Library from the glyph. Instead a reference to the
     // FT_Library should be passed to this function (plus outline)
-    if ((error = FT_Outline_Get_Bitmap(glyph->library, outline, &bitmap))) {
+    if ((error = FT_Outline_Get_Bitmap(ftlib, outline, &bitmap))) {
         ass_msg(library, MSGL_WARN, "Failed to rasterize glyph: %d\n", error);
         ass_free_bitmap(bm);
         return NULL;
@@ -461,11 +460,11 @@ static void be_blur(unsigned char *buf, int w, int h)
     }
 }
 
-int glyph_to_bitmap(ASS_Library *library, ASS_SynthPriv *priv_blur,
-                    FT_Glyph glyph, FT_Glyph outline_glyph,
-                    Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
-                    int be, double blur_radius, FT_Vector shadow_offset,
-                    int border_style)
+int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
+                       FT_Library ftlib, FT_Outline *outline, FT_Outline *border,
+                       Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
+                       int be, double blur_radius, FT_Vector shadow_offset,
+                       int border_style)
 {
     blur_radius *= 2;
     int bbord = be > 0 ? sqrt(2 * be) : 0;
@@ -478,13 +477,13 @@ int glyph_to_bitmap(ASS_Library *library, ASS_SynthPriv *priv_blur,
 
     *bm_g = *bm_o = *bm_s = 0;
 
-    if (glyph)
-        *bm_g = glyph_to_bitmap_internal(library, glyph, bord);
+    if (outline)
+        *bm_g = outline_to_bitmap(library, ftlib, outline, bord);
     if (!*bm_g)
         return 1;
 
-    if (outline_glyph) {
-        *bm_o = glyph_to_bitmap_internal(library, outline_glyph, bord);
+    if (border) {
+        *bm_o = outline_to_bitmap(library, ftlib, border, bord);
         if (!*bm_o) {
             return 1;
         }

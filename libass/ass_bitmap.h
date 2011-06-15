@@ -35,6 +35,8 @@ typedef struct {
     unsigned char *buffer;      // w x h buffer
 } Bitmap;
 
+Bitmap *outline_to_bitmap(ASS_Library *library, FT_Library ftlib,
+                          FT_Outline *outline, int bord);
 /**
  * \brief perform glyph rendering
  * \param glyph original glyph
@@ -44,11 +46,11 @@ typedef struct {
  * \param bm_g out: pointer to the bitmap of glyph shadow is returned here
  * \param be 1 = produces blurred bitmaps, 0 = normal bitmaps
  */
-int glyph_to_bitmap(ASS_Library *library, ASS_SynthPriv *priv_blur,
-                    FT_Glyph glyph, FT_Glyph outline_glyph,
-                    Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
-                    int be, double blur_radius, FT_Vector shadow_offset,
-                    int border_style);
+int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
+                       FT_Library ftlib, FT_Outline *outline, FT_Outline *border,
+                       Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
+                       int be, double blur_radius, FT_Vector shadow_offset,
+                       int border_style);
 
 void ass_free_bitmap(Bitmap *bm);
 int check_glyph_area(ASS_Library *library, FT_Glyph glyph);
