@@ -22,7 +22,7 @@
 #include <inttypes.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include FT_GLYPH_H
+#include FT_OUTLINE_H
 
 #include <assert.h>
 
@@ -105,21 +105,23 @@ static size_t bitmap_size(void *value, size_t value_size)
 static void glyph_destruct(void *key, void *value)
 {
     GlyphHashValue *v = value;
-    if (v->glyph)
-        FT_Done_Glyph(v->glyph);
-    if (v->outline_glyph)
-        FT_Done_Glyph(v->outline_glyph);
+    if (v->outline)
+        outline_free(v->lib, v->outline);
+    if (v->border)
+        outline_free(v->lib, v->border);
     free(key);
     free(value);
 }
 
 static size_t glyph_size(void *value, size_t value_size)
 {
+#if 0
     GlyphHashValue *val = value;
     if (val->glyph && val->glyph->format == FT_GLYPH_FORMAT_BITMAP) {
         FT_Bitmap *bitmap = &((FT_BitmapGlyph) val->glyph)->bitmap;
         return bitmap->rows * bitmap->pitch;
     }
+#endif
     return 0;
 }
 

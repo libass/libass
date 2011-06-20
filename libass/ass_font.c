@@ -388,6 +388,25 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
     return 0;
 }
 
+void outline_copy(FT_Library lib, FT_Outline *source, FT_Outline **dest)
+{
+    if (source == NULL) {
+        *dest = NULL;
+        return;
+    }
+    *dest = calloc(1, sizeof(**dest));
+
+    FT_Outline_New(lib, source->n_points, source->n_contours, *dest);
+    FT_Outline_Copy(source, *dest);
+}
+
+void outline_free(FT_Library lib, FT_Outline *outline)
+{
+    if (outline)
+        FT_Outline_Done(lib, outline);
+    free(outline);
+}
+
 /**
  * Slightly embold a glyph without touching its metrics
  */

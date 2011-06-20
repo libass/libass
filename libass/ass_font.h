@@ -22,6 +22,8 @@
 #include <stdint.h>
 #include <ft2build.h>
 #include FT_GLYPH_H
+#include FT_OUTLINE_H
+
 #include "ass.h"
 #include "ass_types.h"
 
@@ -63,5 +65,7 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
 FT_Vector ass_font_get_kerning(ASS_Font *font, uint32_t c1, uint32_t c2);
 void ass_font_free(ASS_Font *font);
 void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y);
+void outline_copy(FT_Library lib, FT_Outline *source, FT_Outline **dest);
+void outline_free(FT_Library lib, FT_Outline *outline);
 
 #endif                          /* LIBASS_FONT_H */

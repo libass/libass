@@ -99,8 +99,8 @@ typedef enum {
 typedef struct {
     unsigned symbol;
     unsigned skip;              // skip glyph when layouting text
-    FT_Glyph glyph;
-    FT_Glyph outline_glyph;
+    FT_Outline *outline;
+    FT_Outline *border;
     Bitmap *bm;                 // glyph bitmap
     Bitmap *bm_o;               // outline bitmap
     Bitmap *bm_s;               // shadow bitmap

@@ -532,8 +532,8 @@ static void free_list_add(ASS_Renderer *render_priv, void *object)
 static void blend_vector_clip(ASS_Renderer *render_priv,
                               ASS_Image *head)
 {
-    FT_Glyph glyph;
-    FT_BitmapGlyph clip_bm;
+    FT_Outline *outline;
+    Bitmap *clip_bm = NULL;
     ASS_Image *cur;
     ASS_Drawing *drawing = render_priv->state.clip_drawing;
     GlyphHashKey key;
@@ -543,6 +543,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     if (!drawing)
         return;
 
+    // FIXME: reimplement cache
+#if 0
     // Try to get mask from cache
     ass_drawing_hash(drawing);
     memset(&key, 0, sizeof(key));
@@ -553,11 +555,13 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     if (val) {
         clip_bm = (FT_BitmapGlyph) val->glyph;
     } else {
+#endif
         GlyphHashValue v;
 
         // Not found in cache, parse and rasterize it
-        glyph = (FT_Glyph) *ass_drawing_parse(drawing, 1);
-        if (!glyph) {
+        ass_drawing_parse(drawing, 1);
+        outline = &drawing->glyph->outline;
+        if (!outline) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
             goto blend_vector_error;
@@ -574,33 +578,28 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
                                  trans.x, trans.y);
         }
 
-        // Check glyph bounding box size
-        if (check_glyph_area(render_priv->library, glyph)) {
-            FT_Done_Glyph(glyph);
-            glyph = 0;
-            goto blend_vector_error;
-        }
-
         ass_msg(render_priv->library, MSGL_DBG2,
                 "Parsed vector clip: scales (%f, %f) string [%s]\n",
                 drawing->scale_x, drawing->scale_y, drawing->text);
 
-        error = FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
-        if (error) {
+        clip_bm = outline_to_bitmap(render_priv->library,
+                render_priv->ftlibrary, outline, 0);
+        if (clip_bm == NULL) {
             ass_msg(render_priv->library, MSGL_WARN,
                 "Clip vector rasterization failed: %d. Skipping.", error);
-            FT_Done_Glyph(glyph);
-            glyph = 0;
+            FT_Outline_Done(render_priv->ftlibrary, outline);
         }
 
-blend_vector_error:
-        clip_bm = (FT_BitmapGlyph) glyph;
+        //clip_bm = (FT_BitmapGlyph) glyph;
 
+#if 0
         // Add to cache
         memset(&v, 0, sizeof(v));
         v.glyph = glyph;
         ass_cache_put(render_priv->cache.glyph_cache, &key, &v);
     }
+#endif
+blend_vector_error:
 
     if (!clip_bm) goto blend_vector_exit;
 
@@ -613,17 +612,17 @@ blend_vector_error:
         unsigned char *abuffer, *bbuffer, *nbuffer;
 
         abuffer = cur->bitmap;
-        bbuffer = clip_bm->bitmap.buffer;
+        bbuffer = clip_bm->buffer;
         ax = cur->dst_x;
         ay = cur->dst_y;
         aw = cur->w;
         ah = cur->h;
         as = cur->stride;
         bx = clip_bm->left;
-        by = -clip_bm->top;
-        bw = clip_bm->bitmap.width;
-        bh = clip_bm->bitmap.rows;
-        bs = clip_bm->bitmap.pitch;
+        by = clip_bm->top;
+        bw = clip_bm->w;
+        bh = clip_bm->h;
+        bs = clip_bm->w;    // XXX: add real stride support
 
         // Calculate overlap coordinates
         left = (ax > bx) ? ax : bx;
@@ -682,6 +681,8 @@ blend_vector_error:
     }
 
 blend_vector_exit:
+    ass_free_bitmap(clip_bm);
+    FT_Outline_Done(render_priv->ftlibrary, outline);
     ass_drawing_free(render_priv->state.clip_drawing);
     render_priv->state.clip_drawing = 0;
 }
@@ -899,15 +900,13 @@ static void free_render_context(ASS_Renderer *render_priv)
  * opaque rectangle.
  */
 static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
-                            FT_Glyph glyph, int sx, int sy)
+                            FT_Outline *ol, FT_Vector advance, int sx, int sy)
 {
     int asc = 0, desc = 0;
     int i;
-    int adv = d16_to_d6(glyph->advance.x);
+    int adv = advance.x;
     double scale_y = render_priv->state.scale_y;
     double scale_x = render_priv->state.scale_x;
-    FT_OutlineGlyph og = (FT_OutlineGlyph) glyph;
-    FT_Outline *ol;
 
     // to avoid gaps
     sx = FFMAX(64, sx);
@@ -939,10 +938,9 @@ static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
         { .x = -sx,         .y = -desc - sy },
     };
 
-    FT_Outline_Done(render_priv->ftlibrary, &og->outline);
-    FT_Outline_New(render_priv->ftlibrary, 4, 1, &og->outline);
+    FT_Outline_Done(render_priv->ftlibrary, ol);
+    FT_Outline_New(render_priv->ftlibrary, 4, 1, ol);
 
-    ol = &og->outline;
     ol->n_points = ol->n_contours = 0;
     for (i = 0; i < 4; i++) {
         ol->points[ol->n_points] = points[i];
@@ -1061,8 +1059,8 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
     fill_glyph_hash(render_priv, &key, drawing, symbol);
     val = ass_cache_get(render_priv->cache.glyph_cache, &key);
     if (val) {
-        info->glyph = val->glyph;
-        info->outline_glyph = val->outline_glyph;
+        info->outline = val->outline;
+        info->border = val->border;
         info->bbox = val->bbox_scaled;
         info->advance.x = val->advance.x;
         info->advance.y = val->advance.y;
@@ -1075,26 +1073,36 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
         if (drawing->hash) {
             if(!ass_drawing_parse(drawing, 0))
                 return;
-            info->glyph = (FT_Glyph) drawing->glyph;
+            outline_copy(render_priv->ftlibrary, &drawing->glyph->outline,
+                    &info->outline);
+            info->advance.x = d16_to_d6(((FT_Glyph)drawing->glyph)->advance.x);
+            info->advance.y = d16_to_d6(((FT_Glyph)drawing->glyph)->advance.y);
+            FT_Done_Glyph((FT_Glyph)drawing->glyph);
         } else {
-            info->glyph =
+            FT_Glyph glyph =
                 ass_font_get_glyph(render_priv->fontconfig_priv,
                                    render_priv->state.font, symbol,
                                    render_priv->settings.hinting,
                                    render_priv->state.flags);
+            if (glyph != NULL) {
+                outline_copy(render_priv->ftlibrary,
+                        &((FT_OutlineGlyph)glyph)->outline, &info->outline);
+                info->advance.x = d16_to_d6(glyph->advance.x);
+                info->advance.y = d16_to_d6(glyph->advance.y);
+                FT_Done_Glyph(glyph);
+            }
         }
-        if (!info->glyph)
+        if (!info->outline)
             return;
 
-        info->advance.x = d16_to_d6(info->glyph->advance.x);
-        info->advance.y = d16_to_d6(info->glyph->advance.y);
-        FT_Glyph_Get_CBox(info->glyph, FT_GLYPH_BBOX_SUBPIXELS, &info->bbox);
+        FT_Outline_Get_CBox(info->outline, &info->bbox);
 
         if (render_priv->state.style->BorderStyle == 3 &&
             (render_priv->state.border_x > 0||
              render_priv->state.border_y > 0)) {
-            FT_Glyph_Copy(info->glyph, &info->outline_glyph);
-            draw_opaque_box(render_priv, symbol, info->outline_glyph,
+            outline_copy(render_priv->ftlibrary, info->outline, &info->border);
+            draw_opaque_box(render_priv, symbol, info->border,
+                            info->advance,
                             double_to_d6(render_priv->state.border_x *
                                          render_priv->border_scale),
                             double_to_d6(render_priv->state.border_y *
@@ -1103,9 +1111,8 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
                     || render_priv->state.border_y > 0)
                    && key.scale_x && key.scale_y) {
 
-            FT_Glyph_Copy(info->glyph, &info->outline_glyph);
-            stroke_outline(render_priv,
-                    &((FT_OutlineGlyph) info->outline_glyph)->outline,
+            outline_copy(render_priv->ftlibrary, info->outline, &info->border);
+            stroke_outline(render_priv, info->border,
                     double_to_d6(render_priv->state.border_x *
                         render_priv->border_scale),
                     double_to_d6(render_priv->state.border_y *
@@ -1113,8 +1120,9 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
         }
 
         memset(&v, 0, sizeof(v));
-        v.glyph = info->glyph;
-        v.outline_glyph = info->outline_glyph;
+        v.lib = render_priv->ftlibrary;
+        v.outline = info->outline;
+        v.border = info->border;
         v.advance = info->advance;
         v.bbox_scaled = info->bbox;
         if (drawing->hash) {
@@ -1131,7 +1139,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
  * onto the screen plane.
  */
 static void
-transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx, double fry,
+transform_3d_points(FT_Vector shift, FT_Outline *outline, double frx, double fry,
                     double frz, double fax, double fay, double scale,
                     int yshift)
 {
@@ -1141,7 +1149,6 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx, double fry,
     double cx = cos(frx);
     double cy = cos(fry);
     double cz = cos(frz);
-    FT_Outline *outline = &((FT_OutlineGlyph) glyph)->outline;
     FT_Vector *p = outline->points;
     double x, y, z, xx, yy, zz;
     int i, dist;
@@ -1184,19 +1191,19 @@ transform_3d_points(FT_Vector shift, FT_Glyph glyph, double frx, double fry,
  * Rotates both glyphs by frx, fry and frz. Shift vector is added before rotation and subtracted after it.
  */
 static void
-transform_3d(FT_Vector shift, FT_Glyph *glyph, FT_Glyph *glyph2,
+transform_3d(FT_Vector shift, FT_Outline *outline, FT_Outline *border,
              double frx, double fry, double frz, double fax, double fay,
              double scale, int yshift)
 {
     frx = -frx;
     frz = -frz;
     if (frx != 0. || fry != 0. || frz != 0. || fax != 0. || fay != 0.) {
-        if (glyph && *glyph)
-            transform_3d_points(shift, *glyph, frx, fry, frz,
+        if (outline)
+            transform_3d_points(shift, outline, frx, fry, frz,
                                 fax, fay, scale, yshift);
 
-        if (glyph2 && *glyph2)
-            transform_3d_points(shift, *glyph2, frx, fry, frz,
+        if (border)
+            transform_3d_points(shift, border, frx, fry, frz,
                                 fax, fay, scale, yshift);
     }
 }
@@ -1227,14 +1234,13 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         int error;
         double fax_scaled, fay_scaled;
         info->bm = info->bm_o = info->bm_s = 0;
-        if (info->glyph && info->symbol != '\n' && info->symbol != 0
+        if (info->outline && info->symbol != '\n' && info->symbol != 0
             && !info->skip) {
-            FT_Glyph glyph;
-            FT_Glyph outline;
+            FT_Outline *outline, *border;
             double scale_x = render_priv->font_scale_x;
 
-            FT_Glyph_Copy(info->glyph, &glyph);
-            FT_Glyph_Copy(info->outline_glyph, &outline);
+            outline_copy(render_priv->ftlibrary, info->outline, &outline);
+            outline_copy(render_priv->ftlibrary, info->border, &border);
             // calculating rotation shift vector (from rotation origin to the glyph basepoint)
             shift.x = key->shift_x;
             shift.y = key->shift_y;
@@ -1242,7 +1248,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                          render_priv->state.scale_x;
             fay_scaled = info->fay * render_priv->state.scale_y;
             // apply rotation
-            transform_3d(shift, &glyph, &outline,
+            transform_3d(shift, outline, border,
                          info->frx, info->fry, info->frz, fax_scaled,
                          fay_scaled, render_priv->font_scale, info->asc);
 
@@ -1251,24 +1257,21 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                             0, double_to_d16(1.0) };
 
             // subpixel shift
-            if (glyph) {
-                FT_Outline *outl = &((FT_OutlineGlyph) glyph)->outline;
-                if (scale_x != 1.0)
-                    FT_Outline_Transform(outl, &m);
-                FT_Outline_Translate(outl, key->advance.x, -key->advance.y);
-            }
             if (outline) {
-                FT_Outline *outl = &((FT_OutlineGlyph) outline)->outline;
                 if (scale_x != 1.0)
-                    FT_Outline_Transform(outl, &m);
-                FT_Outline_Translate(outl, key->advance.x, -key->advance.y);
+                    FT_Outline_Transform(outline, &m);
+                FT_Outline_Translate(outline, key->advance.x, -key->advance.y);
+            }
+            if (border) {
+                if (scale_x != 1.0)
+                    FT_Outline_Transform(border, &m);
+                FT_Outline_Translate(border, key->advance.x, -key->advance.y);
             }
             // render glyph
             error = outline_to_bitmap3(render_priv->library,
                                        render_priv->synth_priv,
                                        render_priv->ftlibrary,
-                                       &((FT_OutlineGlyph)glyph)->outline,
-                                       &((FT_OutlineGlyph)outline)->outline,
+                                       outline, border,
                                        &info->bm, &info->bm_o,
                                        &info->bm_s, info->be,
                                        info->blur * render_priv->border_scale,
@@ -1282,14 +1285,14 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
             hash_val.bm_s = info->bm_s;
             ass_cache_put(render_priv->cache.bitmap_cache, key, &hash_val);
 
-            FT_Done_Glyph(glyph);
-            FT_Done_Glyph(outline);
+            outline_free(render_priv->ftlibrary, outline);
+            outline_free(render_priv->ftlibrary, border);
         }
     }
 
     // VSFilter compatibility: invisible fill and no border?
     // In this case no shadow is supposed to be rendered.
-    if (!info->outline_glyph && (info->c[0] >> 24) == 0xFF)
+    if (!info->border && (info->c[0] >> 24) == 0xFF)
         info->bm_s = 0;
 }
 

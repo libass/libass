@@ -42,8 +42,9 @@ typedef struct {
 } CompositeHashValue;
 
 typedef struct {
-    FT_Glyph glyph;
-    FT_Glyph outline_glyph;
+    FT_Library lib;
+    FT_Outline *outline;
+    FT_Outline *border;
     FT_BBox bbox_scaled;        // bbox after scaling, but before rotation
     FT_Vector advance;          // 26.6, advance distance to the next bitmap in line
     int asc, desc;              // ascender/descender of a drawing
