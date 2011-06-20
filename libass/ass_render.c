@@ -559,8 +559,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         GlyphHashValue v;
 
         // Not found in cache, parse and rasterize it
-        ass_drawing_parse(drawing, 1);
-        outline = &drawing->glyph->outline;
+        outline = ass_drawing_parse(drawing, 1);
         if (!outline) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
@@ -574,8 +573,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
                 .x = int_to_d6(render_priv->settings.left_margin),
                 .y = -int_to_d6(render_priv->settings.top_margin),
             };
-            FT_Outline_Translate(&drawing->glyph->outline,
-                                 trans.x, trans.y);
+            FT_Outline_Translate(outline, trans.x, trans.y);
         }
 
         ass_msg(render_priv->library, MSGL_DBG2,
@@ -587,7 +585,6 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         if (clip_bm == NULL) {
             ass_msg(render_priv->library, MSGL_WARN,
                 "Clip vector rasterization failed: %d. Skipping.", error);
-            FT_Outline_Done(render_priv->ftlibrary, outline);
         }
 
         //clip_bm = (FT_BitmapGlyph) glyph;
@@ -682,7 +679,6 @@ blend_vector_error:
 
 blend_vector_exit:
     ass_free_bitmap(clip_bm);
-    FT_Outline_Done(render_priv->ftlibrary, outline);
     ass_drawing_free(render_priv->state.clip_drawing);
     render_priv->state.clip_drawing = 0;
 }
@@ -879,9 +875,8 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.effect_timing = 0;
     render_priv->state.effect_skip_timing = 0;
     ass_drawing_free(render_priv->state.drawing);
-    render_priv->state.drawing = ass_drawing_new(render_priv->fontconfig_priv,
-                                                 render_priv->state.font,
-                                                 render_priv->ftlibrary);
+    render_priv->state.drawing = ass_drawing_new(render_priv->library,
+            render_priv->ftlibrary);
 
     apply_transition_effects(render_priv, event);
 }
@@ -1073,11 +1068,10 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
         if (drawing->hash) {
             if(!ass_drawing_parse(drawing, 0))
                 return;
-            outline_copy(render_priv->ftlibrary, &drawing->glyph->outline,
+            outline_copy(render_priv->ftlibrary, &drawing->outline,
                     &info->outline);
-            info->advance.x = d16_to_d6(((FT_Glyph)drawing->glyph)->advance.x);
-            info->advance.y = d16_to_d6(((FT_Glyph)drawing->glyph)->advance.y);
-            FT_Done_Glyph((FT_Glyph)drawing->glyph);
+            info->advance.x = drawing->advance.x;
+            info->advance.y = drawing->advance.y;
         } else {
             FT_Glyph glyph =
                 ass_font_get_glyph(render_priv->fontconfig_priv,
@@ -1805,9 +1799,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         if (drawing->hash) {
             ass_drawing_free(drawing);
             drawing = render_priv->state.drawing =
-                ass_drawing_new(render_priv->fontconfig_priv,
-                    render_priv->state.font,
-                    render_priv->ftlibrary);
+                ass_drawing_new(render_priv->library, render_priv->ftlibrary);
         }
     }
 

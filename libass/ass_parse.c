@@ -216,13 +216,9 @@ static char *parse_vector_clip(ASS_Renderer *render_priv, char *p)
     int res = 0;
     ASS_Drawing *drawing = render_priv->state.clip_drawing;
 
-    if (drawing && drawing->glyph)
-        FT_Done_Glyph((FT_Glyph) drawing->glyph);
     ass_drawing_free(drawing);
-    render_priv->state.clip_drawing = ass_drawing_new(
-        render_priv->fontconfig_priv,
-        render_priv->state.font,
-        render_priv->ftlibrary);
+    render_priv->state.clip_drawing =
+        ass_drawing_new(render_priv->library, render_priv->ftlibrary);
     drawing = render_priv->state.clip_drawing;
     skipopt('(');
     res = mystrtoi(&p, &scale);
