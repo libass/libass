@@ -30,8 +30,6 @@
 #include "ass.h"
 #include "ass_library.h"
 #include "ass_font.h"
-#include "ass_bitmap.h"
-#include "ass_cache.h"
 #include "ass_fontconfig.h"
 #include "ass_utils.h"
 

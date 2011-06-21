@@ -22,7 +22,6 @@
 #include <math.h>
 
 #include "ass_utils.h"
-#include "ass_font.h"
 #include "ass_drawing.h"
 
 #define CURVE_ACCURACY 64.0
