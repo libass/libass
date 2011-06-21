@@ -159,21 +159,6 @@ static Bitmap *copy_bitmap(const Bitmap *src)
     return dst;
 }
 
-int check_glyph_area(ASS_Library *library, FT_Glyph glyph)
-{
-    FT_BBox bbox;
-    long long dx, dy;
-    FT_Glyph_Get_CBox(glyph, FT_GLYPH_BBOX_TRUNCATE, &bbox);
-    dx = bbox.xMax - bbox.xMin;
-    dy = bbox.yMax - bbox.yMin;
-    if (dx * dy > 8000000) {
-        ass_msg(library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
-               (int) dx, (int) dy);
-        return 1;
-    } else
-        return 0;
-}
-
 Bitmap *outline_to_bitmap(ASS_Library *library, FT_Library ftlib,
                           FT_Outline *outline, int bord)
 {

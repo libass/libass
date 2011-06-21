@@ -53,6 +53,5 @@ int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
                        int border_style);
 
 void ass_free_bitmap(Bitmap *bm);
-int check_glyph_area(ASS_Library *library, FT_Glyph glyph);
 
 #endif                          /* LIBASS_BITMAP_H */
