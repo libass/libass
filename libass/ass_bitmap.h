@@ -32,6 +32,7 @@ void ass_synth_done(ASS_SynthPriv *priv);
 typedef struct {
     int left, top;
     int w, h;                   // width, height
+    int stride;
     unsigned char *buffer;      // w x h buffer
 } Bitmap;
 
