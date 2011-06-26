@@ -202,8 +202,6 @@ Bitmap *outline_to_bitmap(ASS_Library *library, FT_Library ftlib,
     bitmap.pixel_mode = FT_PIXEL_MODE_GRAY;
 
     // render into target bitmap
-    // XXX: this uses the FT_Library from the glyph. Instead a reference to the
-    // FT_Library should be passed to this function (plus outline)
     if ((error = FT_Outline_Get_Bitmap(ftlib, outline, &bitmap))) {
         ass_msg(library, MSGL_WARN, "Failed to rasterize glyph: %d\n", error);
         ass_free_bitmap(bm);
