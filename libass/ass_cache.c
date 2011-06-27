@@ -276,10 +276,14 @@ int ass_cache_empty(Cache *cache, size_t max_size)
 void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
                      unsigned *misses, unsigned *count)
 {
-    *size = cache->cache_size;
-    *hits = cache->hits;
-    *misses = cache->misses;
-    *count = cache->items;
+    if (size)
+        *size = cache->cache_size;
+    if (hits)
+        *hits = cache->hits;
+    if (misses)
+        *misses = cache->misses;
+    if (count)
+        *count = cache->items;
 }
 
 void ass_cache_done(Cache *cache)
