@@ -611,7 +611,7 @@ blend_vector_error:
         by = clip_bm->top;
         bw = clip_bm->w;
         bh = clip_bm->h;
-        bs = clip_bm->w;    // XXX: add real stride support
+        bs = clip_bm->stride;
 
         // Calculate overlap coordinates
         left = (ax > bx) ? ax : bx;
