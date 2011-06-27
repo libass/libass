@@ -71,6 +71,17 @@ typedef struct outline_hash_key {
     } u;
 } OutlineHashKey;
 
+typedef struct bitmap_hash_key {
+    enum {
+        BITMAP_OUTLINE,
+        BITMAP_CLIP,
+    } type;
+    union {
+        OutlineBitmapHashKey outline;
+        ClipMaskHashKey clip;
+    } u;
+} BitmapHashKey;
+
 Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
                         CacheItemDestructor destruct_func, ItemSize size_func,
                         size_t key_size, size_t value_size);

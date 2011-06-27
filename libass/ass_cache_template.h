@@ -59,8 +59,8 @@
 
 
 
-// describes a bitmap; bitmaps with equivalents structs are considered identical
-START(bitmap, bitmap_hash_key)
+// describes an outline bitmap
+START(outline_bitmap, outline_bitmap_hash_key)
     GENERIC(OutlineHashValue *, outline)
     GENERIC(char, be) // blur edges
     GENERIC(double, blur) // gaussian blur
@@ -76,7 +76,12 @@ START(bitmap, bitmap_hash_key)
     GENERIC(int, shift_y)
     FTVECTOR(advance) // subpixel shift vector
     FTVECTOR(shadow_offset) // shadow subpixel shift
-END(BitmapHashKey)
+END(OutlineBitmapHashKey)
+
+// describe a clip mask bitmap
+START(clip_bitmap, clip_bitmap_hash_key)
+    STRING(text)
+END(ClipMaskHashKey)
 
 // describes an outline glyph
 START(glyph, glyph_hash_key)

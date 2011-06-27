@@ -536,27 +536,23 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     Bitmap *clip_bm = NULL;
     ASS_Image *cur;
     ASS_Drawing *drawing = render_priv->state.clip_drawing;
-    //GlyphHashKey key;
-    //GlyphHashValue *val;
+    BitmapHashKey key;
+    BitmapHashValue *val;
     int error;
 
     if (!drawing)
         return;
 
-    // FIXME: reimplement cache
-#if 0
     // Try to get mask from cache
-    ass_drawing_hash(drawing);
     memset(&key, 0, sizeof(key));
-    key.ch = -2;
-    key.drawing_hash = drawing->hash;
-    val = ass_cache_get(render_priv->cache.glyph_cache, &key);
+    key.type = BITMAP_CLIP;
+    key.u.clip.text = strdup(drawing->text);
+    val = ass_cache_get(render_priv->cache.bitmap_cache, &key);
 
     if (val) {
-        clip_bm = (FT_BitmapGlyph) val->glyph;
+        clip_bm = val->bm;
     } else {
-#endif
-        //GlyphHashValue v;
+        BitmapHashValue v;
 
         // Not found in cache, parse and rasterize it
         outline = ass_drawing_parse(drawing, 1);
@@ -587,15 +583,11 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
                 "Clip vector rasterization failed: %d. Skipping.", error);
         }
 
-        //clip_bm = (FT_BitmapGlyph) glyph;
-
-#if 0
         // Add to cache
         memset(&v, 0, sizeof(v));
-        v.glyph = glyph;
-        ass_cache_put(render_priv->cache.glyph_cache, &key, &v);
+        v.bm = clip_bm;
+        ass_cache_put(render_priv->cache.bitmap_cache, &key, &v);
     }
-#endif
 blend_vector_error:
 
     if (!clip_bm) goto blend_vector_exit;
@@ -678,7 +670,6 @@ blend_vector_error:
     }
 
 blend_vector_exit:
-    ass_free_bitmap(clip_bm);
     ass_drawing_free(render_priv->state.clip_drawing);
     render_priv->state.clip_drawing = 0;
 }
@@ -1059,7 +1050,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
     fill_glyph_hash(render_priv, &key, drawing, symbol);
     val = ass_cache_get(render_priv->cache.outline_cache, &key);
     if (val) {
-        info->hash_key.outline = val;
+        info->hash_key.u.outline.outline = val;
         info->outline = val->outline;
         info->border = val->border;
         info->bbox = val->bbox_scaled;
@@ -1130,7 +1121,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
             v.asc = drawing->asc;
             v.desc = drawing->desc;
         }
-        info->hash_key.outline =
+        info->hash_key.u.outline.outline =
             ass_cache_put(render_priv->cache.outline_cache, &key, &v);
     }
 }
@@ -1222,7 +1213,7 @@ static void
 get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 {
     BitmapHashValue *val;
-    BitmapHashKey *key = &info->hash_key;
+    OutlineBitmapHashKey *key = &info->hash_key.u.outline;
 
     val = ass_cache_get(render_priv->cache.bitmap_cache, key);
 
@@ -1599,7 +1590,7 @@ static void get_base_point(DBBox *bbox, int alignment, double *bx, double *by)
  * Prepare bitmap hash key of a glyph
  */
 static void
-fill_bitmap_hash(ASS_Renderer *priv, BitmapHashKey *hash_key)
+fill_bitmap_hash(ASS_Renderer *priv, OutlineBitmapHashKey *hash_key)
 {
     hash_key->frx = rot_key(priv->state.frx);
     hash_key->fry = rot_key(priv->state.fry);
@@ -1779,7 +1770,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         }
 
         // fill bitmap hash
-        fill_bitmap_hash(render_priv, &glyphs[text_info->length].hash_key);
+        glyphs[text_info->length].hash_key.type = BITMAP_OUTLINE;
+        fill_bitmap_hash(render_priv, &glyphs[text_info->length].hash_key.u.outline);
 
         text_info->length++;
 
@@ -1990,16 +1982,14 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
         for (i = 0; i < text_info->length; ++i) {
             GlyphInfo *info = glyphs + i;
+            OutlineBitmapHashKey *key = &info->hash_key.u.outline;
 
-            if (info->hash_key.frx || info->hash_key.fry
-                || info->hash_key.frz || info->hash_key.fax
-                || info->hash_key.fay) {
-                info->hash_key.shift_x = info->pos.x + double_to_d6(device_x - center.x);
-                info->hash_key.shift_y =
-                    -(info->pos.y + double_to_d6(device_y - center.y));
+            if (key->frx || key->fry || key->frz || key->fax || key->fay) {
+                key->shift_x = info->pos.x + double_to_d6(device_x - center.x);
+                key->shift_y = -(info->pos.y + double_to_d6(device_y - center.y));
             } else {
-                info->hash_key.shift_x = 0;
-                info->hash_key.shift_y = 0;
+                key->shift_x = 0;
+                key->shift_y = 0;
             }
         }
     }
@@ -2008,11 +1998,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     device_x *= render_priv->font_scale_x;
     for (i = 0; i < text_info->length; ++i) {
         GlyphInfo *g = glyphs + i;
+        OutlineBitmapHashKey *key = &g->hash_key.u.outline;
         g->pos.x *= render_priv->font_scale_x;
-        g->hash_key.advance.x =
+        key->advance.x =
             double_to_d6(device_x - (int) device_x +
             d6_to_double(g->pos.x & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
-        g->hash_key.advance.y =
+        key->advance.y =
             double_to_d6(device_y - (int) device_y +
             d6_to_double(g->pos.y & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
         get_bitmap_glyph(render_priv, glyphs + i);

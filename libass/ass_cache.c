@@ -76,12 +76,15 @@ static void font_destruct(void *key, void *value)
 static void bitmap_destruct(void *key, void *value)
 {
     BitmapHashValue *v = value;
+    BitmapHashKey *k = key;
     if (v->bm)
         ass_free_bitmap(v->bm);
     if (v->bm_o)
         ass_free_bitmap(v->bm_o);
     if (v->bm_s)
         ass_free_bitmap(v->bm_s);
+    if (k->type == BITMAP_CLIP)
+        free(k->u.clip.text);
     free(key);
     free(value);
 }
@@ -94,6 +97,28 @@ static size_t bitmap_size(void *value, size_t value_size)
     else if (val->bm)
         return val->bm->w * val->bm->h * 3;
     return 0;
+}
+
+static unsigned bitmap_hash(void *key, size_t key_size)
+{
+    BitmapHashKey *k = key;
+    switch (k->type) {
+        case BITMAP_OUTLINE: return outline_bitmap_hash(&k->u, key_size);
+        case BITMAP_CLIP: return clip_bitmap_hash(&k->u, key_size);
+        default: return 0;
+    }
+}
+
+static unsigned bitmap_compare (void *a, void *b, size_t key_size)
+{
+    BitmapHashKey *ak = a;
+    BitmapHashKey *bk = b;
+    if (ak->type != bk->type) return 0;
+    switch (ak->type) {
+        case BITMAP_OUTLINE: return outline_bitmap_compare(&ak->u, &bk->u, key_size);
+        case BITMAP_CLIP: return clip_bitmap_compare(&ak->u, &bk->u, key_size);
+        default: return 0;
+    }
 }
 
 // composite cache
