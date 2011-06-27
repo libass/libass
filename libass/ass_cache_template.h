@@ -61,17 +61,9 @@
 
 // describes a bitmap; bitmaps with equivalents structs are considered identical
 START(bitmap, bitmap_hash_key)
-    GENERIC(char, bitmap) // bool : true = bitmap, false = outline
-    GENERIC(ASS_Font *, font)
-    GENERIC(double, size) // font size
-    GENERIC(uint32_t, ch) // character code
-    FTVECTOR(outline) // border width, 16.16 fixed point value
-    GENERIC(int, bold)
-    GENERIC(int, italic)
+    GENERIC(OutlineHashValue *, outline)
     GENERIC(char, be) // blur edges
     GENERIC(double, blur) // gaussian blur
-    GENERIC(unsigned, scale_x) // 16.16
-    GENERIC(unsigned, scale_y) // 16.16
     GENERIC(int, frx) // signed 16.16
     GENERIC(int, fry) // signed 16.16
     GENERIC(int, frz) // signed 16.16
@@ -84,9 +76,6 @@ START(bitmap, bitmap_hash_key)
     GENERIC(int, shift_y)
     FTVECTOR(advance) // subpixel shift vector
     FTVECTOR(shadow_offset) // shadow subpixel shift
-    GENERIC(unsigned, drawing_hash) // hashcode of a drawing
-    GENERIC(unsigned, flags)    // glyph decoration
-    GENERIC(unsigned, border_style)
 END(BitmapHashKey)
 
 // describes an outline glyph

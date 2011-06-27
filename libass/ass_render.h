@@ -121,6 +121,7 @@ typedef struct {
     double shadow_y;
     double frx, fry, frz;       // rotation
     double fax, fay;            // text shearing
+    unsigned italic;
 
     BitmapHashKey hash_key;
 } GlyphInfo;

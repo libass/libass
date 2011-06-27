@@ -1055,9 +1055,11 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
     memset(&key, 0, sizeof(key));
     memset(info, 0, sizeof(GlyphInfo));
 
+    info->italic = render_priv->state.italic;
     fill_glyph_hash(render_priv, &key, drawing, symbol);
     val = ass_cache_get(render_priv->cache.outline_cache, &key);
     if (val) {
+        info->hash_key.outline = val;
         info->outline = val->outline;
         info->border = val->border;
         info->bbox = val->bbox_scaled;
@@ -1128,7 +1130,8 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
             v.asc = drawing->asc;
             v.desc = drawing->desc;
         }
-        ass_cache_put(render_priv->cache.outline_cache, &key, &v);
+        info->hash_key.outline =
+            ass_cache_put(render_priv->cache.outline_cache, &key, &v);
     }
 }
 
@@ -1274,7 +1277,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                                        &info->bm, &info->bm_o,
                                        &info->bm_s, info->be,
                                        info->blur * render_priv->border_scale,
-                                       key->shadow_offset, key->border_style);
+                                       key->shadow_offset,
+                                       render_priv->state.style->BorderStyle);
             if (error)
                 info->symbol = 0;
 
@@ -1595,23 +1599,8 @@ static void get_base_point(DBBox *bbox, int alignment, double *bx, double *by)
  * Prepare bitmap hash key of a glyph
  */
 static void
-fill_bitmap_hash(ASS_Renderer *priv, BitmapHashKey *hash_key,
-                 ASS_Drawing *drawing, FT_Vector pen, uint32_t code)
+fill_bitmap_hash(ASS_Renderer *priv, BitmapHashKey *hash_key)
 {
-    if (!drawing->hash) {
-        hash_key->font = priv->state.font;
-        hash_key->size = priv->state.font_size;
-        hash_key->bold = priv->state.bold;
-        hash_key->italic = priv->state.italic;
-    } else {
-        hash_key->drawing_hash = drawing->hash;
-        hash_key->size = drawing->scale;
-    }
-    hash_key->ch = code;
-    hash_key->outline.x = double_to_d16(priv->state.border_x);
-    hash_key->outline.y = double_to_d16(priv->state.border_y);
-    hash_key->scale_x = double_to_d16(priv->state.scale_x);
-    hash_key->scale_y = double_to_d16(priv->state.scale_y);
     hash_key->frx = rot_key(priv->state.frx);
     hash_key->fry = rot_key(priv->state.fry);
     hash_key->frz = rot_key(priv->state.frz);
@@ -1619,14 +1608,12 @@ fill_bitmap_hash(ASS_Renderer *priv, BitmapHashKey *hash_key,
     hash_key->fay = double_to_d16(priv->state.fay);
     hash_key->be = priv->state.be;
     hash_key->blur = priv->state.blur;
-    hash_key->border_style = priv->state.style->BorderStyle;
     hash_key->shadow_offset.x = double_to_d6(
             priv->state.shadow_x * priv->border_scale -
             (int) (priv->state.shadow_x * priv->border_scale));
     hash_key->shadow_offset.y = double_to_d6(
             priv->state.shadow_y * priv->border_scale -
             (int) (priv->state.shadow_y * priv->border_scale));
-    hash_key->flags = priv->state.flags;
 }
 
 /**
@@ -1731,12 +1718,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
         // Add additional space after italic to non-italic style changes
         if (text_info->length &&
-            glyphs[text_info->length - 1].hash_key.italic &&
+            glyphs[text_info->length - 1].italic &&
             !render_priv->state.italic) {
             int back = text_info->length - 1;
             GlyphInfo *og = &glyphs[back];
             while (back && og->bbox.xMax - og->bbox.xMin == 0
-                   && og->hash_key.italic)
+                   && og->italic)
                 og = &glyphs[--back];
             if (og->bbox.xMax > og->advance.x) {
                 // The FreeType oblique slants by 6/16
@@ -1792,8 +1779,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         }
 
         // fill bitmap hash
-        fill_bitmap_hash(render_priv, &glyphs[text_info->length].hash_key,
-                         drawing, pen, code);
+        fill_bitmap_hash(render_priv, &glyphs[text_info->length].hash_key);
 
         text_info->length++;
 
@@ -2067,12 +2053,17 @@ void ass_free_images(ASS_Image *img)
  */
 static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
 {
-    if (ass_cache_empty(cache->bitmap_cache, cache->bitmap_max_size) == 0) {
+    if (ass_cache_empty(cache->bitmap_cache, cache->bitmap_max_size)) {
         ass_cache_empty(cache->composite_cache, 0);
         ass_free_images(priv->prev_images_root);
         priv->prev_images_root = 0;
     }
-    ass_cache_empty(cache->outline_cache, cache->glyph_max);
+    if (ass_cache_empty(cache->outline_cache, cache->glyph_max)) {
+        ass_cache_empty(cache->bitmap_cache, 0);
+        ass_cache_empty(cache->composite_cache, 0);
+        ass_free_images(priv->prev_images_root);
+        priv->prev_images_root = 0;
+    }
 }
 
 /**
