@@ -229,6 +229,8 @@ void *ass_cache_put(Cache *cache, void *key, void *value)
     cache->items++;
     if (cache->size_func)
         cache->cache_size += cache->size_func(value, cache->value_size);
+    else
+        cache->cache_size++;
 
     return (*item)->value;
 }
@@ -248,12 +250,12 @@ void *ass_cache_get(Cache *cache, void *key)
     return NULL;
 }
 
-size_t ass_cache_empty(Cache *cache, size_t max_size)
+int ass_cache_empty(Cache *cache, size_t max_size)
 {
     int i;
 
     if (cache->cache_size < max_size)
-        return cache->cache_size;
+        return 0;
 
     for (i = 0; i < cache->buckets; i++) {
         CacheItem *item = cache->map[i];
@@ -268,7 +270,7 @@ size_t ass_cache_empty(Cache *cache, size_t max_size)
 
     cache->items = cache->hits = cache->misses = cache->cache_size = 0;
 
-    return 0;
+    return 1;
 }
 
 void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,

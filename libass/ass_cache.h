@@ -26,6 +26,28 @@
 
 typedef struct cache Cache;
 
+// cache values
+
+typedef struct {
+    Bitmap *bm;               // the actual bitmaps
+    Bitmap *bm_o;
+    Bitmap *bm_s;
+} BitmapHashValue;
+
+typedef struct {
+    unsigned char *a;
+    unsigned char *b;
+} CompositeHashValue;
+
+typedef struct {
+    FT_Library lib;
+    FT_Outline *outline;
+    FT_Outline *border;
+    FT_BBox bbox_scaled;        // bbox after scaling, but before rotation
+    FT_Vector advance;          // 26.6, advance distance to the next outline in line
+    int asc, desc;              // ascender/descender
+} OutlineHashValue;
+
 // Create definitions for bitmap, outline and composite hash keys
 #define CREATE_STRUCT_DEFINITIONS
 #include "ass_cache_template.h"
@@ -49,34 +71,12 @@ typedef struct outline_hash_key {
     } u;
 } OutlineHashKey;
 
-// cache values
-
-typedef struct {
-    Bitmap *bm;               // the actual bitmaps
-    Bitmap *bm_o;
-    Bitmap *bm_s;
-} BitmapHashValue;
-
-typedef struct {
-    unsigned char *a;
-    unsigned char *b;
-} CompositeHashValue;
-
-typedef struct {
-    FT_Library lib;
-    FT_Outline *outline;
-    FT_Outline *border;
-    FT_BBox bbox_scaled;        // bbox after scaling, but before rotation
-    FT_Vector advance;          // 26.6, advance distance to the next outline in line
-    int asc, desc;              // ascender/descender
-} OutlineHashValue;
-
 Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
                         CacheItemDestructor destruct_func, ItemSize size_func,
                         size_t key_size, size_t value_size);
 void *ass_cache_put(Cache *cache, void *key, void *value);
 void *ass_cache_get(Cache *cache, void *key);
-size_t ass_cache_empty(Cache *cache, size_t max_size);
+int ass_cache_empty(Cache *cache, size_t max_size);
 void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
                      unsigned *misses, unsigned *count);
 void ass_cache_done(Cache *cache);
