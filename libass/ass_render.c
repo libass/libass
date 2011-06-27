@@ -63,7 +63,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->cache.font_cache = ass_font_cache_create();
     priv->cache.bitmap_cache = ass_bitmap_cache_create();
     priv->cache.composite_cache = ass_composite_cache_create();
-    priv->cache.glyph_cache = ass_glyph_cache_create();
+    priv->cache.outline_cache = ass_outline_cache_create();
     priv->cache.glyph_max = GLYPH_CACHE_MAX;
     priv->cache.bitmap_max_size = BITMAP_CACHE_MAX_SIZE;
 
@@ -102,7 +102,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     ass_cache_done(render_priv->cache.font_cache);
     ass_cache_done(render_priv->cache.bitmap_cache);
     ass_cache_done(render_priv->cache.composite_cache);
-    ass_cache_done(render_priv->cache.glyph_cache);
+    ass_cache_done(render_priv->cache.outline_cache);
 
     ass_free_images(render_priv->images_root);
     ass_free_images(render_priv->prev_images_root);
@@ -536,8 +536,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     Bitmap *clip_bm = NULL;
     ASS_Image *cur;
     ASS_Drawing *drawing = render_priv->state.clip_drawing;
-    GlyphHashKey key;
-    GlyphHashValue *val;
+    //GlyphHashKey key;
+    //GlyphHashValue *val;
     int error;
 
     if (!drawing)
@@ -556,7 +556,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         clip_bm = (FT_BitmapGlyph) val->glyph;
     } else {
 #endif
-        GlyphHashValue v;
+        //GlyphHashValue v;
 
         // Not found in cache, parse and rasterize it
         outline = ass_drawing_parse(drawing, 1);
@@ -1004,20 +1004,24 @@ static void stroke_outline(ASS_Renderer *render_priv, FT_Outline *outline,
  * \brief Prepare glyph hash
  */
 static void
-fill_glyph_hash(ASS_Renderer *priv, GlyphHashKey *key,
+fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
                 ASS_Drawing *drawing, uint32_t ch)
 {
     if (drawing->hash) {
+        DrawingHashKey *key = &outline_key->u.drawing;
+        outline_key->type = OUTLINE_DRAWING;
         key->scale_x = double_to_d16(priv->state.scale_x);
         key->scale_y = double_to_d16(priv->state.scale_y);
-        key->outline.x = priv->state.border_x * 0xFFFF;
-        key->outline.y = priv->state.border_y * 0xFFFF;
+        key->outline.x = double_to_d16(priv->state.border_x);
+        key->outline.y = double_to_d16(priv->state.border_y);
         key->border_style = priv->state.style->BorderStyle;
-        key->drawing_hash = drawing->hash;
-        // not very clean, but works
-        key->size = drawing->scale;
-        key->ch = -1;
+        key->hash = drawing->hash;
+        key->text = strdup(drawing->text);
+        key->pbo = drawing->pbo;
+        key->scale = drawing->scale;
     } else {
+        GlyphHashKey *key = &outline_key->u.glyph;
+        outline_key->type = OUTLINE_GLYPH;
         key->font = priv->state.font;
         key->size = priv->state.font_size;
         key->ch = ch;
@@ -1025,8 +1029,8 @@ fill_glyph_hash(ASS_Renderer *priv, GlyphHashKey *key,
         key->italic = priv->state.italic;
         key->scale_x = double_to_d16(priv->state.scale_x);
         key->scale_y = double_to_d16(priv->state.scale_y);
-        key->outline.x = priv->state.border_x * 0xFFFF;
-        key->outline.y = priv->state.border_y * 0xFFFF;
+        key->outline.x = double_to_d16(priv->state.border_x);
+        key->outline.y = double_to_d16(priv->state.border_y);
         key->flags = priv->state.flags;
         key->border_style = priv->state.style->BorderStyle;
     }
@@ -1045,14 +1049,14 @@ static void
 get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
                   ASS_Drawing *drawing)
 {
-    GlyphHashValue *val;
-    GlyphHashKey key;
+    OutlineHashValue *val;
+    OutlineHashKey key;
 
     memset(&key, 0, sizeof(key));
     memset(info, 0, sizeof(GlyphInfo));
 
     fill_glyph_hash(render_priv, &key, drawing, symbol);
-    val = ass_cache_get(render_priv->cache.glyph_cache, &key);
+    val = ass_cache_get(render_priv->cache.outline_cache, &key);
     if (val) {
         info->outline = val->outline;
         info->border = val->border;
@@ -1064,7 +1068,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
             drawing->desc = val->desc;
         }
     } else {
-        GlyphHashValue v;
+        OutlineHashValue v;
         if (drawing->hash) {
             if(!ass_drawing_parse(drawing, 0))
                 return;
@@ -1103,7 +1107,8 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
                                          render_priv->border_scale));
         } else if ((render_priv->state.border_x > 0
                     || render_priv->state.border_y > 0)
-                   && key.scale_x && key.scale_y) {
+                && double_to_d6(render_priv->state.scale_x)
+                && double_to_d6(render_priv->state.scale_y)) {
 
             outline_copy(render_priv->ftlibrary, info->outline, &info->border);
             stroke_outline(render_priv, info->border,
@@ -1123,7 +1128,7 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
             v.asc = drawing->asc;
             v.desc = drawing->desc;
         }
-        ass_cache_put(render_priv->cache.glyph_cache, &key, &v);
+        ass_cache_put(render_priv->cache.outline_cache, &key, &v);
     }
 }
 
@@ -2067,7 +2072,7 @@ static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
         ass_free_images(priv->prev_images_root);
         priv->prev_images_root = 0;
     }
-    ass_cache_empty(cache->glyph_cache, cache->glyph_max);
+    ass_cache_empty(cache->outline_cache, cache->glyph_max);
 }
 
 /**

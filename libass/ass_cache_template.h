@@ -4,6 +4,8 @@
     typedef struct structname {
 #define GENERIC(type, member) \
         type member;
+#define STRING(member) \
+        char *member;
 #define FTVECTOR(member) \
         FT_Vector member;
 #define BITMAPHASHKEY(member) \
@@ -21,6 +23,8 @@
         return // conditions follow
 #define GENERIC(type, member) \
             a->member == b->member &&
+#define STRING(member) \
+            strcmp(a->member, b->member) == 0 &&
 #define FTVECTOR(member) \
             a->member.x == b->member.x && a->member.y == b->member.y &&
 #define BITMAPHASHKEY(member) \
@@ -38,6 +42,8 @@
         unsigned hval = FNV1_32A_INIT;
 #define GENERIC(type, member) \
         hval = fnv_32a_buf(&p->member, sizeof(p->member), hval);
+#define STRING(member) \
+        hval = fnv_32a_str(p->member, hval);
 #define FTVECTOR(member) GENERIC(, member.x); GENERIC(, member.y);
 #define BITMAPHASHKEY(member) { \
         unsigned temp = bitmap_hash(&p->member, sizeof(p->member)); \
@@ -98,6 +104,18 @@ START(glyph, glyph_hash_key)
     GENERIC(unsigned, border_style)
 END(GlyphHashKey)
 
+// describes an outline drawing
+START(drawing, drawing_hash_key)
+    GENERIC(unsigned, scale_x)
+    GENERIC(unsigned, scale_y)
+    GENERIC(int, pbo)
+    FTVECTOR(outline)
+    GENERIC(unsigned, border_style)
+    GENERIC(int, scale)
+    GENERIC(unsigned, hash)
+    STRING(text)
+END(DrawingHashKey)
+
 // Cache for composited bitmaps
 START(composite, composite_hash_key)
     GENERIC(int, aw)
@@ -117,6 +135,7 @@ END(CompositeHashKey)
 
 #undef START
 #undef GENERIC
+#undef STRING
 #undef FTVECTOR
 #undef BITMAPHASHKEY
 #undef END

@@ -204,7 +204,7 @@ typedef struct {
 
 typedef struct {
     Cache *font_cache;
-    Cache *glyph_cache;
+    Cache *outline_cache;
     Cache *bitmap_cache;
     Cache *composite_cache;
     size_t glyph_max;

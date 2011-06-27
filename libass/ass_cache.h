@@ -26,9 +26,30 @@
 
 typedef struct cache Cache;
 
-// Create definitions for bitmap, glyph and composite hash keys
+// Create definitions for bitmap, outline and composite hash keys
 #define CREATE_STRUCT_DEFINITIONS
 #include "ass_cache_template.h"
+
+// Type-specific function pointers
+typedef unsigned(*HashFunction)(void *key, size_t key_size);
+typedef size_t(*ItemSize)(void *value, size_t value_size);
+typedef unsigned(*HashCompare)(void *a, void *b, size_t key_size);
+typedef void(*CacheItemDestructor)(void *key, void *value);
+
+// cache hash keys
+
+typedef struct outline_hash_key {
+    enum {
+        OUTLINE_GLYPH,
+        OUTLINE_DRAWING,
+    } type;
+    union {
+        GlyphHashKey glyph;
+        DrawingHashKey drawing;
+    } u;
+} OutlineHashKey;
+
+// cache values
 
 typedef struct {
     Bitmap *bm;               // the actual bitmaps
@@ -46,15 +67,9 @@ typedef struct {
     FT_Outline *outline;
     FT_Outline *border;
     FT_BBox bbox_scaled;        // bbox after scaling, but before rotation
-    FT_Vector advance;          // 26.6, advance distance to the next bitmap in line
-    int asc, desc;              // ascender/descender of a drawing
-} GlyphHashValue;
-
-// Type-specific function pointers
-typedef unsigned(*HashFunction)(void *key, size_t key_size);
-typedef size_t(*ItemSize)(void *value, size_t value_size);
-typedef unsigned(*HashCompare)(void *a, void *b, size_t key_size);
-typedef void(*CacheItemDestructor)(void *key, void *value);
+    FT_Vector advance;          // 26.6, advance distance to the next outline in line
+    int asc, desc;              // ascender/descender
+} OutlineHashValue;
 
 Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
                         CacheItemDestructor destruct_func, ItemSize size_func,
@@ -66,7 +81,7 @@ void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
                      unsigned *misses, unsigned *count);
 void ass_cache_done(Cache *cache);
 Cache *ass_font_cache_create(void);
-Cache *ass_glyph_cache_create(void);
+Cache *ass_outline_cache_create(void);
 Cache *ass_bitmap_cache_create(void);
 Cache *ass_composite_cache_create(void);
 

@@ -29,7 +29,7 @@
 #include "ass_cache.h"
 
 // type-specific functions
-// create hash/compare functions for bitmap, glyph and composite cache
+// create hash/compare functions for bitmap, outline and composite cache
 #define CREATE_HASH_FUNCTIONS
 #include "ass_cache_template.h"
 #define CREATE_COMPARISON_FUNCTIONS
@@ -96,30 +96,6 @@ static size_t bitmap_size(void *value, size_t value_size)
     return 0;
 }
 
-// glyph cache
-static void glyph_destruct(void *key, void *value)
-{
-    GlyphHashValue *v = value;
-    if (v->outline)
-        outline_free(v->lib, v->outline);
-    if (v->border)
-        outline_free(v->lib, v->border);
-    free(key);
-    free(value);
-}
-
-static size_t glyph_size(void *value, size_t value_size)
-{
-#if 0
-    GlyphHashValue *val = value;
-    if (val->glyph && val->glyph->format == FT_GLYPH_FORMAT_BITMAP) {
-        FT_Bitmap *bitmap = &((FT_BitmapGlyph) val->glyph)->bitmap;
-        return bitmap->rows * bitmap->pitch;
-    }
-#endif
-    return 0;
-}
-
 // composite cache
 static void composite_destruct(void *key, void *value)
 {
@@ -129,6 +105,45 @@ static void composite_destruct(void *key, void *value)
     free(key);
     free(value);
 }
+
+// outline cache
+
+static unsigned outline_hash(void *key, size_t key_size)
+{
+    OutlineHashKey *k = key;
+    switch (k->type) {
+        case OUTLINE_GLYPH: return glyph_hash(&k->u, key_size);
+        case OUTLINE_DRAWING: return drawing_hash(&k->u, key_size);
+        default: return 0;
+    }
+}
+
+static unsigned outline_compare(void *a, void *b, size_t key_size)
+{
+    OutlineHashKey *ak = a;
+    OutlineHashKey *bk = b;
+    if (ak->type != bk->type) return 0;
+    switch (ak->type) {
+        case OUTLINE_GLYPH: return glyph_compare(&ak->u, &bk->u, key_size);
+        case OUTLINE_DRAWING: return drawing_compare(&ak->u, &bk->u, key_size);
+        default: return 0;
+    }
+}
+
+static void outline_destruct(void *key, void *value)
+{
+    OutlineHashValue *v = value;
+    OutlineHashKey *k = key;
+    if (v->outline)
+        outline_free(v->lib, v->outline);
+    if (v->border)
+        outline_free(v->lib, v->border);
+    if (k->type == OUTLINE_DRAWING)
+        free(k->u.drawing.text);
+    free(key);
+    free(value);
+}
+
 
 
 // Cache data
@@ -279,10 +294,10 @@ Cache *ass_font_cache_create(void)
             (ItemSize)NULL, sizeof(ASS_FontDesc), sizeof(ASS_Font));
 }
 
-Cache *ass_glyph_cache_create(void)
+Cache *ass_outline_cache_create(void)
 {
-    return ass_cache_create(glyph_hash, glyph_compare, glyph_destruct,
-            glyph_size, sizeof(GlyphHashKey), sizeof(GlyphHashValue));
+    return ass_cache_create(outline_hash, outline_compare, outline_destruct,
+            NULL, sizeof(OutlineHashKey), sizeof(OutlineHashValue));
 }
 
 Cache *ass_bitmap_cache_create(void)
