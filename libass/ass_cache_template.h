@@ -93,7 +93,6 @@ START(glyph, glyph_hash_key)
     GENERIC(unsigned, scale_x) // 16.16
     GENERIC(unsigned, scale_y) // 16.16
     FTVECTOR(outline) // border width, 16.16
-    GENERIC(unsigned, drawing_hash) // hashcode of a drawing
     GENERIC(unsigned, flags)    // glyph decoration flags
     GENERIC(unsigned, border_style)
 END(GlyphHashKey)
