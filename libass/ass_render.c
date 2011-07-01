@@ -1056,10 +1056,8 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
         info->bbox = val->bbox_scaled;
         info->advance.x = val->advance.x;
         info->advance.y = val->advance.y;
-        if (drawing->hash) {
-            drawing->asc = val->asc;
-            drawing->desc = val->desc;
-        }
+        info->asc = val->asc;
+        info->desc = val->desc;
     } else {
         OutlineHashValue v;
         if (drawing->hash) {
@@ -1069,6 +1067,8 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
                     &info->outline);
             info->advance.x = drawing->advance.x;
             info->advance.y = drawing->advance.y;
+            info->asc = drawing->asc;
+            info->desc = drawing->desc;
         } else {
             FT_Glyph glyph =
                 ass_font_get_glyph(render_priv->fontconfig_priv,
@@ -1081,6 +1081,10 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
                 info->advance.x = d16_to_d6(glyph->advance.x);
                 info->advance.y = d16_to_d6(glyph->advance.y);
                 FT_Done_Glyph(glyph);
+                ass_font_get_asc_desc(render_priv->state.font, symbol,
+                        &info->asc, &info->desc);
+                info->asc  *= render_priv->state.scale_y;
+                info->desc *= render_priv->state.scale_y;
             }
         }
         if (!info->outline)
@@ -1117,10 +1121,8 @@ get_outline_glyph(ASS_Renderer *render_priv, int symbol, GlyphInfo *info,
         v.border = info->border;
         v.advance = info->advance;
         v.bbox_scaled = info->bbox;
-        if (drawing->hash) {
-            v.asc = drawing->asc;
-            v.desc = drawing->desc;
-        }
+        v.asc = info->asc;
+        v.desc = info->desc;
         info->hash_key.u.outline.outline =
             ass_cache_put(render_priv->cache.outline_cache, &key, &v);
     }
@@ -1757,17 +1759,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         glyphs[text_info->length].frz = render_priv->state.frz;
         glyphs[text_info->length].fax = render_priv->state.fax;
         glyphs[text_info->length].fay = render_priv->state.fay;
-        if (drawing->hash) {
-            glyphs[text_info->length].asc = drawing->asc;
-            glyphs[text_info->length].desc = drawing->desc;
-        } else {
-            ass_font_get_asc_desc(render_priv->state.font, code,
-                                  &glyphs[text_info->length].asc,
-                                  &glyphs[text_info->length].desc);
-
-            glyphs[text_info->length].asc *= render_priv->state.scale_y;
-            glyphs[text_info->length].desc *= render_priv->state.scale_y;
-        }
 
         // fill bitmap hash
         glyphs[text_info->length].hash_key.type = BITMAP_OUTLINE;
