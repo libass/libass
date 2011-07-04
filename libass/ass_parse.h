@@ -27,6 +27,7 @@
 #define _a(c)   ((c) & 0xFF)
 
 void update_font(ASS_Renderer *render_priv);
+double ensure_font_size(ASS_Renderer *priv, double size);
 void change_border(ASS_Renderer *render_priv, double border_x,
                    double border_y);
 void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event);

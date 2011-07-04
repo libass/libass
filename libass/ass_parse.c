@@ -47,17 +47,18 @@ static inline int mystrcmp(char **p, const char *sample)
         return 0;
 }
 
-static void change_font_size(ASS_Renderer *render_priv, double sz)
+double ensure_font_size(ASS_Renderer *priv, double size)
 {
-    double size = sz * render_priv->font_scale;
-
     if (size < 1)
         size = 1;
-    else if (size > render_priv->height * 2)
-        size = render_priv->height * 2;
+    else if (size > priv->height * 2)
+        size = priv->height * 2;
 
-    ass_font_set_size(render_priv->state.font, size);
+    return size;
+}
 
+static void change_font_size(ASS_Renderer *render_priv, double sz)
+{
     render_priv->state.font_size = sz;
 }
 
