@@ -150,7 +150,6 @@ typedef struct {
     int parsed_tags;
 
     ASS_Font *font;
-    char *font_path;
     double font_size;
     int flags;                  // decoration flags (underline/strike-through)
 
