@@ -798,6 +798,37 @@ static void compute_string_bbox(TextInfo *info, DBBox *bbox)
 }
 
 /**
+  * \brief Compute the size of the target bitmap for a run of outlines.
+  * \param run first outline of the run
+  * \param len run length
+  * \param w returns target width, in pixels
+  * \param h returns target height, in pixels
+  */
+static void compute_run_size(GlyphInfo *run, size_t len, int *w, int *h)
+{
+    int i;
+    FT_BBox bbox;
+    bbox.xMin = bbox.yMin = INT_MAX;
+    bbox.xMax = bbox.yMax = INT_MIN;
+
+    for (i = 0; i < len; i++) {
+        GlyphInfo *info = run + i;
+        if (info->skip || info->symbol == 0 || info->symbol == '\n')
+            continue;
+        bbox.xMin = FFMIN(bbox.xMin, info->pos.x + info->bbox.xMin);
+        bbox.yMin = FFMIN(bbox.yMin, info->pos.y + info->bbox.yMin);
+        bbox.xMax = FFMAX(bbox.xMax, info->pos.x + info->bbox.xMax);
+        bbox.yMax = FFMAX(bbox.yMax, info->pos.y + info->bbox.yMax);
+    }
+    bbox.xMin &= ~63;
+    bbox.yMin &= ~63;
+    bbox.xMax = (bbox.xMax + 63) & ~63;
+    bbox.yMax = (bbox.yMax + 63) & ~63;
+    *w = (bbox.xMax - bbox.xMin) >> 6;
+    *h = (bbox.yMax - bbox.yMin) >> 6;
+}
+
+/**
  * \brief partially reset render_context to style values
  * Works like {\r}: resets some style overrides
  */
@@ -865,6 +896,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.effect_type = EF_NONE;
     render_priv->state.effect_timing = 0;
     render_priv->state.effect_skip_timing = 0;
+    render_priv->state.bm_run_id = 0;
     ass_drawing_free(render_priv->state.drawing);
     render_priv->state.drawing = ass_drawing_new(render_priv->library,
             render_priv->ftlibrary);
@@ -1416,6 +1448,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     double pen_shift_x;
     double pen_shift_y;
     int cur_line;
+    int run_offset;
     TextInfo *text_info = &render_priv->text_info;
 
     last_space = -1;
@@ -1525,6 +1558,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     pen_shift_x = 0.;
     pen_shift_y = 0.;
     cur_line = 1;
+    run_offset = 0;
 
     i = 0;
     cur = text_info->glyphs + i;
@@ -1541,12 +1575,14 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
                 text_info->lines[cur_line - 1].desc +
                 text_info->lines[cur_line].asc;
             cur_line++;
+            run_offset++;
             pen_shift_x = d6_to_double(-cur->pos.x);
             pen_shift_y += height + render_priv->settings.line_spacing;
             ass_msg(render_priv->library, MSGL_DBG2,
                    "shifting from %d to %d by (%f, %f)", i,
                    text_info->length - 1, pen_shift_x, pen_shift_y);
         }
+        cur->bm_run_id += run_offset;
         cur->pos.x += double_to_d6(pen_shift_x);
         cur->pos.y += double_to_d6(pen_shift_y);
     }
@@ -1759,6 +1795,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         glyphs[text_info->length].frz = render_priv->state.frz;
         glyphs[text_info->length].fax = render_priv->state.fax;
         glyphs[text_info->length].fay = render_priv->state.fay;
+        glyphs[text_info->length].bm_run_id = render_priv->state.bm_run_id;
 
         // fill bitmap hash
         glyphs[text_info->length].hash_key.type = BITMAP_OUTLINE;
@@ -1998,6 +2035,31 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             double_to_d6(device_y - (int) device_y +
             d6_to_double(g->pos.y & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
         get_bitmap_glyph(render_priv, glyphs + i);
+    }
+
+    // Compute runs and their bboxes
+    // XXX: currently does nothing visible/functional
+    for (i = 0; i < text_info->length; i++) {
+        GlyphInfo *g = glyphs + i;
+        OutlineBitmapHashKey *key = &g->hash_key.u.outline;
+        int w, h;
+
+        // skip non-visual glyphs
+        if (g->skip || g->symbol == '\n' || g->symbol == 0)
+            continue;
+
+        // Determine run length and compute run bbox
+        int run_len = 0;
+        int cur_run = g->bm_run_id;
+        while (g->bm_run_id == cur_run && (i + run_len) < text_info->length) {
+            g++;
+            run_len++;
+        }
+        g = glyphs + i;
+        compute_run_size(g, run_len, &w, &h);
+        //printf("run_id %d len %d size %d %d\n", g->bm_run_id, run_len, w, h);
+
+        i += run_len - 1;
     }
 
     memset(event_images, 0, sizeof(*event_images));

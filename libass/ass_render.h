@@ -123,6 +123,8 @@ typedef struct {
     double fax, fay;            // text shearing
     unsigned italic;
 
+    int bm_run_id;
+
     BitmapHashKey hash_key;
 } GlyphInfo;
 
@@ -186,6 +188,9 @@ typedef struct {
     Effect effect_type;
     int effect_timing;
     int effect_skip_timing;
+
+    // bitmap run id (used for final bitmap rendering)
+    int bm_run_id;
 
     enum {
         SCROLL_LR,              // left-to-right
