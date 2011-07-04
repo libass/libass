@@ -40,6 +40,8 @@ AC_ARG_ENABLE([enca], AS_HELP_STRING([--disable-enca],
     [disable enca (charset autodetect) support @<:@default=check@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
     [disable fontconfig support @<:@default=enabled@:>@]))
+AC_ARG_ENABLE([fribidi], AS_HELP_STRING([--disable-fribidi],
+    [disable bidi support @<:@default=enabled@:>@]))
 
 PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.10.3, [
     CFLAGS="$CFLAGS $FREETYPE_CFLAGS"
@@ -53,6 +55,15 @@ PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.4.2, [
     LIBS="$LIBS $FONTCONFIG_LIBS"
     AC_DEFINE(CONFIG_FONTCONFIG, 1, [found fontconfig via pkg-config])
 	fontconfig=true
+    ])
+fi
+
+if test x$enable_fribidi != xno; then
+PKG_CHECK_MODULES([FRIBIDI], fribidi >= 0.19.0, [
+    CFLAGS="$CFLAGS $FRIBIDI_CFLAGS"
+    LIBS="$LIBS $FRIBIDI_LIBS"
+    AC_DEFINE(CONFIG_FRIBIDI, 1, [found fribidi via pkg-config])
+	fribidi=true
     ])
 fi
 
@@ -83,6 +94,9 @@ if test x$enca = xtrue; then
 fi
 if test x$fontconfig = xtrue; then
     PKG_REQUIRES="fontconfig >= 2.2.0, ${PKG_REQUIRES}"
+fi
+if test x$fribidi = xtrue; then
+    PKG_REQUIRES="fribidi >= 0.19.0, ${PKG_REQUIRES}"
 fi
 AC_SUBST([PKG_REQUIRES])
 
