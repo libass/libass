@@ -1306,7 +1306,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 
     // VSFilter compatibility: invisible fill and no border?
     // In this case no shadow is supposed to be rendered.
-    if (!info->outline_glyph && (info->c[0] >> 24) == 0xFF)
+    if (!info->outline_glyph && (info->c[0] & 0xFF) == 0xFF)
         info->bm_s = 0;
 }
 
