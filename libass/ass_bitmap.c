@@ -486,7 +486,7 @@ int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
         if (*bm_o)
             be_blur(*bm_o);
         else
-            be_blur(*bm_o);
+            be_blur(*bm_g);
     }
 
     // Apply gaussian blur
