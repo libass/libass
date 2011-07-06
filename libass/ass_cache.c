@@ -244,7 +244,7 @@ void *ass_cache_put(Cache *cache, void *key, void *value)
     unsigned bucket = cache->hash_func(key, cache->key_size) % cache->buckets;
     CacheItem **item = &cache->map[bucket];
     while (*item)
-        *item = (*item)->next;
+        item = &(*item)->next;
     (*item) = calloc(1, sizeof(CacheItem));
     (*item)->key = malloc(cache->key_size);
     (*item)->value = malloc(cache->value_size);
