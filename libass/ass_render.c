@@ -23,6 +23,7 @@
 
 #include "ass_render.h"
 #include "ass_parse.h"
+#include "ass_shaper.h"
 
 #define MAX_GLYPHS_INITIAL 1024
 #define MAX_LINES_INITIAL 64
@@ -1572,6 +1573,9 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
             double height =
                 text_info->lines[cur_line - 1].desc +
                 text_info->lines[cur_line].asc;
+            text_info->lines[cur_line - 1].len = i -
+                text_info->lines[cur_line - 1].offset;
+            text_info->lines[cur_line].offset = i;
             cur_line++;
             run_offset++;
             pen_shift_x = d6_to_double(-cur->pos.x);
@@ -1584,6 +1588,16 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
         cur->pos.x += double_to_d6(pen_shift_x);
         cur->pos.y += double_to_d6(pen_shift_y);
     }
+    text_info->lines[cur_line - 1].len =
+        text_info->length - text_info->lines[cur_line - 1].offset;
+
+#if 0
+    // print line info
+    for (i = 0; i < text_info->n_lines; i++) {
+        printf("line %d offset %d length %d\n", i, text_info->lines[i].offset,
+                text_info->lines[i].len);
+    }
+#endif
 }
 
 /**
@@ -1774,13 +1788,42 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     }
 
-    // Retrieve and layout outline glyphs into a line
+    if (text_info->length == 0) {
+        // no valid symbols in the event; this can be smth like {comment}
+        free_render_context(render_priv);
+        return 1;
+    }
+
+    // Allocate bidi work arrays
+    FriBidiCharType *ctypes = calloc(sizeof(*ctypes), text_info->length);
+    FriBidiLevel *emblevels = calloc(sizeof(*emblevels), text_info->length);
+    FriBidiStrIndex *cmap   = calloc(sizeof(*cmap), text_info->length);
+
+    // Shape text
+    ass_shaper_shape(text_info, ctypes, emblevels);
+
+    // Retrieve glyphs
+    for (i = 0; i < text_info->length; i++) {
+        GlyphInfo *info = glyphs + i;
+        get_outline_glyph(render_priv, info);
+
+        // add displacement for vertical shearing
+        info->advance.y += (info->fay * info->scale_y) * info->advance.x;
+
+        // add horizontal letter spacing
+        info->advance.x += double_to_d6(render_priv->state.hspacing *
+                render_priv->font_scale * info->scale_x);
+
+    }
+
+    // Preliminary layout (for line wrapping)
     previous = 0;
     pen.x = 0;
     pen.y = 0;
     for (i = 0; i < text_info->length; i++) {
         GlyphInfo *info = glyphs + i;
 
+#if 0
         // Add kerning to pen
         if (kern && previous && info->symbol && !info->drawing) {
             FT_Vector delta;
@@ -1788,9 +1831,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             pen.x += delta.x * info->scale_x;
             pen.y += delta.y * info->scale_y;
         }
-
-        // Retrieve outline
-        get_outline_glyph(render_priv, info);
 
         // Add additional space after italic to non-italic style changes
         if (i && glyphs[i - 1].italic && !info->italic) {
@@ -1804,15 +1844,13 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 pen.x += og->bbox.yMax * 0.375;
             }
         }
+#endif
 
         info->pos.x = pen.x;
         info->pos.y = pen.y;
 
         pen.x += info->advance.x;
-        pen.x += double_to_d6(render_priv->state.hspacing *
-                              render_priv->font_scale * info->scale_x);
         pen.y += info->advance.y;
-        pen.y += (info->fay * info->scale_y) * info->advance.x;
 
         previous = info->symbol;
 
@@ -1821,11 +1859,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         fill_bitmap_hash(render_priv, info, &info->hash_key.u.outline);
     }
 
-    if (text_info->length == 0) {
-        // no valid symbols in the event; this can be smth like {comment}
-        free_render_context(render_priv);
-        return 1;
-    }
 
     // depends on glyph x coordinates being monotonous, so it should be done before line wrap
     process_karaoke_effects(render_priv);
@@ -1854,11 +1887,24 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         // rearrange text in several lines
         wrap_lines_smart(render_priv, max_text_width);
 
+        // Reorder text into visual order
+        ass_shaper_reorder(text_info, ctypes, emblevels, cmap);
+
+        // Reposition according to the map
+        // FIXME: y coordinate for shearing, etc.
+        pen.x = 0;
+        for (i = 0; i < text_info->length; i++) {
+            GlyphInfo *info = glyphs + cmap[i];
+            if (glyphs[i].linebreak)
+                pen.x = 0;
+            info->pos.x = pen.x;
+            pen.x += info->advance.x;
+        }
+
         // align text
         last_break = -1;
         for (i = 1; i < text_info->length + 1; ++i) {   // (text_info->length + 1) is the end of the last line
-            if ((i == text_info->length)
-                || glyphs[i].linebreak) {
+            if ((i == text_info->length) || glyphs[i].linebreak) {
                 double width, shift = 0;
                 GlyphInfo *first_glyph =
                     glyphs + last_break + 1;
@@ -2079,6 +2125,10 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->shift_direction = (valign == VALIGN_TOP) ? 1 : -1;
     event_images->event = event;
     event_images->imgs = render_text(render_priv, (int) device_x, (int) device_y);
+
+    free(ctypes);
+    free(emblevels);
+    free(cmap);
 
     free_render_context(render_priv);
 
