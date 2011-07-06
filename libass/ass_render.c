@@ -75,6 +75,8 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
     priv->settings.font_size_coeff = 1.;
 
+    ass_shaper_info(library);
+
   ass_init_exit:
     if (priv)
         ass_msg(library, MSGL_V, "Init");

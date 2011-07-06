@@ -22,6 +22,15 @@
 #include "ass_shaper.h"
 
 /**
+ * \brief Print version information
+ */
+void ass_shaper_info(ASS_Library *lib)
+{
+    ass_msg(lib, MSGL_V, "Complex text layout enabled, using FriBidi "
+            FRIBIDI_VERSION);
+}
+
+/**
  * \brief Shape an event's text. Calculates directional runs and shapes them.
  * \param text_info event's text
  * \param ctypes returns character types
