@@ -94,7 +94,7 @@ void ass_shaper_reorder(TextInfo *text_info, FriBidiCharType *ctypes,
                         FriBidiLevel *emblevels, FriBidiStrIndex *cmap)
 {
     int i;
-    FriBidiParType dir = FRIBIDI_PAR_LTR;
+    FriBidiParType dir;
 
     // Initialize reorder map
     for (i = 0; i < text_info->length; i++)
@@ -104,6 +104,7 @@ void ass_shaper_reorder(TextInfo *text_info, FriBidiCharType *ctypes,
     for (i = 0; i < text_info->n_lines; i++) {
         LineInfo *line = text_info->lines + i;
         int level;
+        dir = FRIBIDI_PAR_ON;
 
         // FIXME: we should actually specify
         // the correct paragraph base direction
