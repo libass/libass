@@ -1893,14 +1893,23 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         ass_shaper_reorder(text_info, ctypes, emblevels, cmap);
 
         // Reposition according to the map
-        // FIXME: y coordinate for shearing, etc.
         pen.x = 0;
+        pen.y = 0;
+        int lineno = 1;
         for (i = 0; i < text_info->length; i++) {
             GlyphInfo *info = glyphs + cmap[i];
-            if (glyphs[i].linebreak)
+            if (glyphs[i].linebreak) {
                 pen.x = 0;
+                pen.y += double_to_d6(text_info->lines[lineno-1].desc);
+                pen.y += double_to_d6(text_info->lines[lineno].asc);
+                pen.y += double_to_d6(render_priv->settings.line_spacing);
+                lineno++;
+            }
+            if (info->skip) continue;
             info->pos.x = pen.x;
+            info->pos.y = pen.y;
             pen.x += info->advance.x;
+            pen.y += info->advance.y;
         }
 
         // align text
