@@ -1250,7 +1250,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
     BitmapHashValue *val;
     OutlineBitmapHashKey *key = &info->hash_key.u.outline;
 
-    val = ass_cache_get(render_priv->cache.bitmap_cache, key);
+    val = ass_cache_get(render_priv->cache.bitmap_cache, &info->hash_key);
 
     if (val) {
         info->bm = val->bm;
@@ -1312,7 +1312,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
             hash_val.bm_o = info->bm_o;
             hash_val.bm = info->bm;
             hash_val.bm_s = info->bm_s;
-            ass_cache_put(render_priv->cache.bitmap_cache, key, &hash_val);
+            ass_cache_put(render_priv->cache.bitmap_cache, &info->hash_key,
+                    &hash_val);
 
             outline_free(render_priv->ftlibrary, outline);
             outline_free(render_priv->ftlibrary, border);
