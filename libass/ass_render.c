@@ -1877,42 +1877,48 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     MarginV =
         (event->MarginV) ? event->MarginV : render_priv->state.style->MarginV;
 
+    // calculate max length of a line
+    double max_text_width =
+        x2scr(render_priv, render_priv->track->PlayResX - MarginR) -
+        x2scr(render_priv, MarginL);
+
+    // wrap lines
     if (render_priv->state.evt_type != EVENT_HSCROLL) {
-        double max_text_width;
-
-        // calculate max length of a line
-        max_text_width =
-            x2scr(render_priv,
-                  render_priv->track->PlayResX - MarginR) -
-            x2scr(render_priv, MarginL);
-
         // rearrange text in several lines
         wrap_lines_smart(render_priv, max_text_width);
+    } else {
+        // no breaking or wrapping, everything in a single line
+        text_info->lines[0].offset = 0;
+        text_info->lines[0].len = text_info->length;
+        text_info->n_lines = 1;
+        measure_text(render_priv);
+    }
 
-        // Reorder text into visual order
-        ass_shaper_reorder(text_info, ctypes, emblevels, cmap);
+    // Reorder text into visual order
+    ass_shaper_reorder(text_info, ctypes, emblevels, cmap);
 
-        // Reposition according to the map
-        pen.x = 0;
-        pen.y = 0;
-        int lineno = 1;
-        for (i = 0; i < text_info->length; i++) {
-            GlyphInfo *info = glyphs + cmap[i];
-            if (glyphs[i].linebreak) {
-                pen.x = 0;
-                pen.y += double_to_d6(text_info->lines[lineno-1].desc);
-                pen.y += double_to_d6(text_info->lines[lineno].asc);
-                pen.y += double_to_d6(render_priv->settings.line_spacing);
-                lineno++;
-            }
-            if (info->skip) continue;
-            info->pos.x = pen.x;
-            info->pos.y = pen.y;
-            pen.x += info->advance.x;
-            pen.y += info->advance.y;
+    // Reposition according to the map
+    pen.x = 0;
+    pen.y = 0;
+    int lineno = 1;
+    for (i = 0; i < text_info->length; i++) {
+        GlyphInfo *info = glyphs + cmap[i];
+        if (glyphs[i].linebreak) {
+            pen.x = 0;
+            pen.y += double_to_d6(text_info->lines[lineno-1].desc);
+            pen.y += double_to_d6(text_info->lines[lineno].asc);
+            pen.y += double_to_d6(render_priv->settings.line_spacing);
+            lineno++;
         }
+        if (info->skip) continue;
+        info->pos.x = pen.x;
+        info->pos.y = pen.y;
+        pen.x += info->advance.x;
+        pen.y += info->advance.y;
+    }
 
-        // align text
+    // align lines
+    if (render_priv->state.evt_type != EVENT_HSCROLL) {
         last_break = -1;
         double width = 0;
         for (i = 0; i <= text_info->length; ++i) {   // (text_info->length + 1) is the end of the last line
@@ -1935,8 +1941,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                     glyphs[i].symbol != '\n' && glyphs[i].symbol != 0)
                 width += d6_to_double(glyphs[i].advance.x);
         }
-    } else {                    // render_priv->state.evt_type == EVENT_HSCROLL
-        measure_text(render_priv);
     }
 
     // determing text bounding box
