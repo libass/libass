@@ -1914,25 +1914,10 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
         // align text
         last_break = -1;
-        for (i = 1; i < text_info->length + 1; ++i) {   // (text_info->length + 1) is the end of the last line
+        double width = 0;
+        for (i = 0; i <= text_info->length; ++i) {   // (text_info->length + 1) is the end of the last line
             if ((i == text_info->length) || glyphs[i].linebreak) {
-                double width, shift = 0;
-                GlyphInfo *first_glyph =
-                    glyphs + last_break + 1;
-                GlyphInfo *last_glyph = glyphs + i - 1;
-
-                while (first_glyph < last_glyph && first_glyph->skip)
-                    first_glyph++;
-
-                while ((last_glyph > first_glyph)
-                       && ((last_glyph->symbol == '\n')
-                           || (last_glyph->symbol == 0)
-                           || (last_glyph->skip)))
-                    last_glyph--;
-
-                width = d6_to_double(
-                    last_glyph->pos.x + last_glyph->advance.x -
-                    first_glyph->pos.x);
+                double shift = 0;
                 if (halign == HALIGN_LEFT) {    // left aligned, no action
                     shift = 0;
                 } else if (halign == HALIGN_RIGHT) {    // right aligned
@@ -1944,7 +1929,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                     glyphs[j].pos.x += double_to_d6(shift);
                 }
                 last_break = i - 1;
+                width = 0;
             }
+            if (i < text_info->length && !glyphs[i].skip &&
+                    glyphs[i].symbol != '\n' && glyphs[i].symbol != 0)
+                width += d6_to_double(glyphs[i].advance.x);
         }
     } else {                    // render_priv->state.evt_type == EVENT_HSCROLL
         measure_text(render_priv);
