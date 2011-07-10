@@ -42,6 +42,7 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
     int i, last_break;
     FriBidiParType dir;
     FriBidiChar *event_text = calloc(sizeof(*event_text), text_info->length);
+    FriBidiJoiningType *joins = calloc(sizeof(*joins), text_info->length);
     GlyphInfo *glyphs = text_info->glyphs;
 
     // Get bidi character types and embedding levels
@@ -68,25 +69,27 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
     printf("\n");
 #endif
 
-    // Call FriBidi's glyph mirroring shaper.
-    // This shaper implements rule L4 of the bidi algorithm
-    fribidi_shape_mirroring(emblevels, text_info->length, event_text);
-    for (i = 0; i < text_info->length; i++) {
-        glyphs[i].symbol = event_text[i];
-    }
+    // Use FriBidi's shaper for mirroring and simple Arabic shaping
+    fribidi_get_joining_types(event_text, text_info->length, joins);
+    fribidi_join_arabic(ctypes, text_info->length, emblevels, joins);
+    fribidi_shape(FRIBIDI_FLAGS_DEFAULT | FRIBIDI_FLAGS_ARABIC, emblevels,
+            text_info->length, joins, event_text);
 
     // XXX: insert HarfBuzz shaper here
 
-    // Skip direction override characters
-    // NOTE: Behdad said HarfBuzz is supposed to remove these, but this hasn't
-    // been implemented yet
+    // Update glyphs
     for (i = 0; i < text_info->length; i++) {
+        glyphs[i].symbol = event_text[i];
+        // Skip direction override characters
+        // NOTE: Behdad said HarfBuzz is supposed to remove these, but this hasn't
+        // been implemented yet
         if (glyphs[i].symbol <= 0x202F && glyphs[i].symbol >= 0x202a) {
             glyphs[i].symbol = 0;
             glyphs[i].skip++;
         }
     }
 
+    free(joins);
     free(event_text);
 }
 
