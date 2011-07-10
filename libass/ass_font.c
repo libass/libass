@@ -422,33 +422,35 @@ static void ass_glyph_embolden(FT_GlyphSlot slot)
 }
 
 /**
- * \brief Get a glyph
- * \param ch character code
- **/
-FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
-                            uint32_t ch, ASS_Hinting hinting, int deco)
+ * \brief Get glyph and face index
+ * Finds a face that has the requested codepoint and returns both face
+ * and glyph index.
+ */
+int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
+                       int *face_index, int *glyph_index)
 {
-    int error;
     int index = 0;
     int i;
-    FT_Glyph glyph;
     FT_Face face = 0;
-    int flags = 0;
-    int vertical = font->desc.vertical;
 
-    if (ch < 0x20)
+    *face_index = 0;
+    *face_index = 0;
+
+    if (symbol < 0x20)
         return 0;
     // Handle NBSP like a regular space when rendering the glyph
-    if (ch == 0xa0)
-        ch = ' ';
+    if (symbol == 0xa0)
+        symbol = ' ';
     if (font->n_faces == 0)
         return 0;
 
     for (i = 0; i < font->n_faces; ++i) {
         face = font->faces[i];
-        index = FT_Get_Char_Index(face, ch);
-        if (index)
+        index = FT_Get_Char_Index(face, symbol);
+        if (index) {
+            *face_index = i;
             break;
+        }
     }
 
 #ifdef CONFIG_FONTCONFIG
@@ -456,30 +458,48 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
         int face_idx;
         ass_msg(font->library, MSGL_INFO,
                 "Glyph 0x%X not found, selecting one more "
-                "font for (%s, %d, %d)", ch, font->desc.family,
+                "font for (%s, %d, %d)", symbol, font->desc.family,
                 font->desc.bold, font->desc.italic);
-        face_idx = add_face(fontconfig_priv, font, ch);
+        face_idx = *face_index = add_face(fcpriv, font, symbol);
         if (face_idx >= 0) {
             face = font->faces[face_idx];
-            index = FT_Get_Char_Index(face, ch);
+            index = FT_Get_Char_Index(face, symbol);
             if (index == 0 && face->num_charmaps > 0) {
                 int i;
                 ass_msg(font->library, MSGL_WARN,
-                    "Glyph 0x%X not found, broken font? Trying all charmaps", ch);
+                    "Glyph 0x%X not found, broken font? Trying all charmaps", symbol);
                 for (i = 0; i < face->num_charmaps; i++) {
                     FT_Set_Charmap(face, face->charmaps[i]);
-                    if ((index = FT_Get_Char_Index(face, ch)) != 0) break;
+                    if ((index = FT_Get_Char_Index(face, symbol)) != 0) break;
                 }
             }
             if (index == 0) {
                 ass_msg(font->library, MSGL_ERR,
                         "Glyph 0x%X not found in font for (%s, %d, %d)",
-                        ch, font->desc.family, font->desc.bold,
+                        symbol, font->desc.family, font->desc.bold,
                         font->desc.italic);
             }
         }
     }
 #endif
+    *glyph_index = index;
+
+    return 1;
+}
+
+/**
+ * \brief Get a glyph
+ * \param ch character code
+ **/
+FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
+                            uint32_t ch, int face_index, int index,
+                            ASS_Hinting hinting, int deco)
+{
+    int error;
+    FT_Glyph glyph;
+    FT_Face face = font->faces[face_index];
+    int flags = 0;
+    int vertical = font->desc.vertical;
 
     flags = FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
             | FT_LOAD_IGNORE_TRANSFORM;

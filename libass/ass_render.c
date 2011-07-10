@@ -1106,13 +1106,17 @@ get_outline_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         } else {
             double size_scaled = ensure_font_size(render_priv,
                     info->font_size * render_priv->font_scale);
+            int face_index = 0;
+            int index = 0;
             ass_font_set_size(info->font, size_scaled);
             ass_font_set_transform(info->font, info->scale_x,
                     info->scale_y, NULL);
+            ass_font_get_index(render_priv->fontconfig_priv, info->font,
+                    info->symbol, &face_index, &index);
             FT_Glyph glyph =
                 ass_font_get_glyph(render_priv->fontconfig_priv, info->font,
-                        info->symbol, render_priv->settings.hinting,
-                        info->flags);
+                        info->symbol, face_index, index,
+                        render_priv->settings.hinting, info->flags);
             if (glyph != NULL) {
                 outline_copy(render_priv->ftlibrary,
                         &((FT_OutlineGlyph)glyph)->outline, &info->outline);
