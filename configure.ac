@@ -67,6 +67,15 @@ PKG_CHECK_MODULES([FRIBIDI], fribidi >= 0.19.0, [
     ])
 fi
 
+if test x$enable_harfbuzz != xno; then
+PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.7.0, [
+    CFLAGS="$CFLAGS $HARFBUZZ_CFLAGS"
+    LIBS="$LIBS $HARFBUZZ_LIBS"
+    AC_DEFINE(CONFIG_HARFBUZZ, 1, [found harfbuzz-ng via pkg-config])
+	harfbuzz=true
+    ])
+fi
+
 if test x$enable_enca != xno; then
 PKG_CHECK_MODULES([ENCA], enca, [
     CFLAGS="$CFLAGS $ENCA_CFLAGS"
@@ -97,6 +106,9 @@ if test x$fontconfig = xtrue; then
 fi
 if test x$fribidi = xtrue; then
     PKG_REQUIRES="fribidi >= 0.19.0, ${PKG_REQUIRES}"
+fi
+if test x$harfbuzz = xtrue; then
+    PKG_REQUIRES="harfbuzz >= 0.7.0, ${PKG_REQUIRES}"
 fi
 AC_SUBST([PKG_REQUIRES])
 
