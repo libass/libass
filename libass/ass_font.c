@@ -433,24 +433,32 @@ int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
     int i;
     FT_Face face = 0;
 
-    *face_index = 0;
-    *face_index = 0;
+    *glyph_index = 0;
 
-    if (symbol < 0x20)
+    if (symbol < 0x20) {
+        *face_index = 0;
         return 0;
+    }
     // Handle NBSP like a regular space when rendering the glyph
     if (symbol == 0xa0)
         symbol = ' ';
-    if (font->n_faces == 0)
+    if (font->n_faces == 0) {
+        *face_index = 0;
         return 0;
+    }
 
-    for (i = 0; i < font->n_faces; ++i) {
+    // try with the requested face
+    if (*face_index < font->n_faces) {
         face = font->faces[i];
         index = FT_Get_Char_Index(face, symbol);
-        if (index) {
+    }
+
+    // not found in requested face, try all others
+    for (i = 0; i < font->n_faces && index == 0; ++i) {
+        face = font->faces[i];
+        index = FT_Get_Char_Index(face, symbol);
+        if (index)
             *face_index = i;
-            break;
-        }
     }
 
 #ifdef CONFIG_FONTCONFIG

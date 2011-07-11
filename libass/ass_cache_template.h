@@ -87,7 +87,8 @@ END(ClipMaskHashKey)
 START(glyph, glyph_hash_key)
     GENERIC(ASS_Font *, font)
     GENERIC(double, size) // font size
-    GENERIC(uint32_t, ch) // character code
+    GENERIC(int, face_index)
+    GENERIC(int, glyph_index)
     GENERIC(int, bold)
     GENERIC(int, italic)
     GENERIC(unsigned, scale_x) // 16.16

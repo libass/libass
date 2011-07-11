@@ -100,6 +100,8 @@ typedef struct {
     unsigned symbol;
     unsigned skip;              // skip glyph when layouting text
     ASS_Font *font;
+    int face_index;
+    int glyph_index;
     double font_size;
     ASS_Drawing *drawing;
     FT_Outline *outline;
@@ -109,6 +111,7 @@ typedef struct {
     Bitmap *bm_s;               // shadow bitmap
     FT_BBox bbox;
     FT_Vector pos;
+    FT_Vector offset;
     char linebreak;             // the first (leading) glyph of some line ?
     uint32_t c[4];              // colors
     FT_Vector advance;          // 26.6
@@ -131,6 +134,7 @@ typedef struct {
     int flags;
 
     int bm_run_id;
+    int shape_run_id;
 
     BitmapHashKey hash_key;
 } GlyphInfo;

@@ -1050,7 +1050,8 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
         outline_key->type = OUTLINE_GLYPH;
         key->font = info->font;
         key->size = info->font_size;
-        key->ch = info->symbol;
+        key->face_index = info->face_index;
+        key->glyph_index = info->glyph_index;
         key->bold = info->bold;
         key->italic = info->italic;
         key->scale_x = double_to_d16(info->scale_x);
@@ -1085,8 +1086,11 @@ get_outline_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         info->outline = val->outline;
         info->border = val->border;
         info->bbox = val->bbox_scaled;
-        info->advance.x = val->advance.x;
-        info->advance.y = val->advance.y;
+        // XXX: more elegant solution?
+        if (info->drawing) {
+            info->advance.x = info->drawing->advance.x;
+            info->advance.y = info->drawing->advance.y;
+        }
         info->asc = val->asc;
         info->desc = val->desc;
     } else {
@@ -1106,22 +1110,22 @@ get_outline_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         } else {
             double size_scaled = ensure_font_size(render_priv,
                     info->font_size * render_priv->font_scale);
-            int face_index = 0;
-            int index = 0;
             ass_font_set_size(info->font, size_scaled);
             ass_font_set_transform(info->font, info->scale_x,
                     info->scale_y, NULL);
-            ass_font_get_index(render_priv->fontconfig_priv, info->font,
-                    info->symbol, &face_index, &index);
+            // symbol might have been changed. re-get it.
+            //if (info->face_index < 0)
+            //    ass_font_get_index(render_priv->fontconfig_priv, info->font,
+            //            info->symbol, &info->face_index, &info->glyph_index);
             FT_Glyph glyph =
                 ass_font_get_glyph(render_priv->fontconfig_priv, info->font,
-                        info->symbol, face_index, index,
+                        info->symbol, info->face_index, info->glyph_index,
                         render_priv->settings.hinting, info->flags);
             if (glyph != NULL) {
                 outline_copy(render_priv->ftlibrary,
                         &((FT_OutlineGlyph)glyph)->outline, &info->outline);
-                info->advance.x = d16_to_d6(glyph->advance.x);
-                info->advance.y = d16_to_d6(glyph->advance.y);
+                //info->advance.x = d16_to_d6(glyph->advance.x);
+                //info->advance.y = d16_to_d6(glyph->advance.y);
                 FT_Done_Glyph(glyph);
                 ass_font_get_asc_desc(info->font, info->symbol,
                         &info->asc, &info->desc);
@@ -1795,6 +1799,35 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     }
 
+    // Determine shape runs
+    int shape_run = 0;
+    for (i = 0; i < text_info->length; i++) {
+        GlyphInfo *last = glyphs + i - 1;
+        GlyphInfo *info = glyphs + i;
+        // skip drawings
+        if (info->symbol == 0xfffc)
+            continue;
+        // initialize face_index to continue with the same face, if possible
+        // XXX: can be problematic in some cases, for example if a font misses
+        // a single glyph, like space (U+0020)
+        if (i > 0)
+            info->face_index = last->face_index;
+        // set size and get glyph index
+        double size_scaled = ensure_font_size(render_priv,
+                info->font_size * render_priv->font_scale);
+        ass_font_set_size(info->font, size_scaled);
+        ass_font_get_index(render_priv->fontconfig_priv, info->font,
+                info->symbol, &info->face_index, &info->glyph_index);
+        // shape runs share the same font face and size
+        if (i > 0 && (last->font != info->font ||
+                      last->font_size != info->font_size ||
+                      last->face_index != info->face_index))
+            shape_run++;
+        info->shape_run_id = shape_run;
+        //printf("glyph '%c' shape run id %d face %d\n", info->symbol, info->shape_run_id,
+        //        info->face_index);
+    }
+
     if (text_info->length == 0) {
         // no valid symbols in the event; this can be smth like {comment}
         free_render_context(render_priv);
@@ -1831,14 +1864,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         GlyphInfo *info = glyphs + i;
 
 #if 0
-        // Add kerning to pen
-        if (kern && previous && info->symbol && !info->drawing) {
-            FT_Vector delta;
-            delta = ass_font_get_kerning(info->font, previous, info->symbol);
-            pen.x += delta.x * info->scale_x;
-            pen.y += delta.y * info->scale_y;
-        }
-
         // Add additional space after italic to non-italic style changes
         if (i && glyphs[i - 1].italic && !info->italic) {
             int back = i - 1;
@@ -1916,8 +1941,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             lineno++;
         }
         if (info->skip) continue;
-        info->pos.x = pen.x;
-        info->pos.y = pen.y;
+        info->pos.x = info->offset.x + pen.x;
+        info->pos.y = info->offset.y + pen.y;
         pen.x += info->advance.x;
         pen.y += info->advance.y;
     }
