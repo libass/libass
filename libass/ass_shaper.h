@@ -24,6 +24,7 @@
 void ass_shaper_info(ASS_Library *lib);
 void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
                       FriBidiLevel *emblevels);
+void ass_shaper_cleanup(TextInfo *text_info);
 void ass_shaper_reorder(TextInfo *text_info, FriBidiCharType *ctypes,
                         FriBidiLevel *emblevels, FriBidiStrIndex *cmap);
 #endif

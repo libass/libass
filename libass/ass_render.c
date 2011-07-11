@@ -698,22 +698,31 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
             || (info->shadow_x == 0 && info->shadow_y == 0) || info->skip)
             continue;
 
-        pen_x =
-            dst_x + (info->pos.x >> 6) +
-            (int) (info->shadow_x * render_priv->border_scale);
-        pen_y =
-            dst_y + (info->pos.y >> 6) +
-            (int) (info->shadow_y * render_priv->border_scale);
-        bm = info->bm_s;
+        while (info) {
+            if (!info->bm_s) {
+                info = info->next;
+                continue;
+            }
 
-        here_tail = tail;
-        tail =
-            render_glyph(render_priv, bm, pen_x, pen_y, info->c[3], 0,
-                         1000000, tail);
-        if (last_tail && tail != here_tail && ((info->c[3] & 0xff) > 0))
-            render_overlap(render_priv, last_tail, here_tail);
+            pen_x =
+                dst_x + (info->pos.x >> 6) +
+                (int) (info->shadow_x * render_priv->border_scale);
+            pen_y =
+                dst_y + (info->pos.y >> 6) +
+                (int) (info->shadow_y * render_priv->border_scale);
+            bm = info->bm_s;
 
-        last_tail = here_tail;
+            here_tail = tail;
+            tail =
+                render_glyph(render_priv, bm, pen_x, pen_y, info->c[3], 0,
+                        1000000, tail);
+
+            if (last_tail && tail != here_tail && ((info->c[3] & 0xff) > 0))
+                render_overlap(render_priv, last_tail, here_tail);
+            last_tail = here_tail;
+
+            info = info->next;
+        }
     }
 
     last_tail = 0;
@@ -723,22 +732,30 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
             || info->skip)
             continue;
 
-        pen_x = dst_x + (info->pos.x >> 6);
-        pen_y = dst_y + (info->pos.y >> 6);
-        bm = info->bm_o;
+        while (info) {
+            if (!info->bm_o) {
+                info = info->next;
+                continue;
+            }
 
-        if ((info->effect_type == EF_KARAOKE_KO)
-            && (info->effect_timing <= (info->bbox.xMax >> 6))) {
-            // do nothing
-        } else {
-            here_tail = tail;
-            tail =
-                render_glyph(render_priv, bm, pen_x, pen_y, info->c[2],
-                             0, 1000000, tail);
-            if (last_tail && tail != here_tail && ((info->c[2] & 0xff) > 0))
-                render_overlap(render_priv, last_tail, here_tail);
+            pen_x = dst_x + (info->pos.x >> 6);
+            pen_y = dst_y + (info->pos.y >> 6);
+            bm = info->bm_o;
 
-            last_tail = here_tail;
+            if ((info->effect_type == EF_KARAOKE_KO)
+                    && (info->effect_timing <= (info->bbox.xMax >> 6))) {
+                // do nothing
+            } else {
+                here_tail = tail;
+                tail =
+                    render_glyph(render_priv, bm, pen_x, pen_y, info->c[2],
+                            0, 1000000, tail);
+                if (last_tail && tail != here_tail && ((info->c[2] & 0xff) > 0))
+                    render_overlap(render_priv, last_tail, here_tail);
+
+                last_tail = here_tail;
+            }
+            info = info->next;
         }
     }
 
@@ -748,28 +765,36 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
             || info->skip)
             continue;
 
-        pen_x = dst_x + (info->pos.x >> 6);
-        pen_y = dst_y + (info->pos.y >> 6);
-        bm = info->bm;
+        while (info) {
+            if (!info->bm) {
+                info = info->next;
+                continue;
+            }
 
-        if ((info->effect_type == EF_KARAOKE)
-            || (info->effect_type == EF_KARAOKE_KO)) {
-            if (info->effect_timing > (info->bbox.xMax >> 6))
+            pen_x = dst_x + (info->pos.x >> 6);
+            pen_y = dst_y + (info->pos.y >> 6);
+            bm = info->bm;
+
+            if ((info->effect_type == EF_KARAOKE)
+                    || (info->effect_type == EF_KARAOKE_KO)) {
+                if (info->effect_timing > (info->bbox.xMax >> 6))
+                    tail =
+                        render_glyph(render_priv, bm, pen_x, pen_y,
+                                info->c[0], 0, 1000000, tail);
+                else
+                    tail =
+                        render_glyph(render_priv, bm, pen_x, pen_y,
+                                info->c[1], 0, 1000000, tail);
+            } else if (info->effect_type == EF_KARAOKE_KF) {
                 tail =
-                    render_glyph(render_priv, bm, pen_x, pen_y,
-                                 info->c[0], 0, 1000000, tail);
-            else
+                    render_glyph(render_priv, bm, pen_x, pen_y, info->c[0],
+                            info->c[1], info->effect_timing, tail);
+            } else
                 tail =
-                    render_glyph(render_priv, bm, pen_x, pen_y,
-                                 info->c[1], 0, 1000000, tail);
-        } else if (info->effect_type == EF_KARAOKE_KF) {
-            tail =
-                render_glyph(render_priv, bm, pen_x, pen_y, info->c[0],
-                             info->c[1], info->effect_timing, tail);
-        } else
-            tail =
-                render_glyph(render_priv, bm, pen_x, pen_y, info->c[0],
-                             0, 1000000, tail);
+                    render_glyph(render_priv, bm, pen_x, pen_y, info->c[0],
+                            0, 1000000, tail);
+            info = info->next;
+        }
     }
 
     *tail = 0;
@@ -778,23 +803,27 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
     return head;
 }
 
-static void compute_string_bbox(TextInfo *info, DBBox *bbox)
+static void compute_string_bbox(TextInfo *text, DBBox *bbox)
 {
     int i;
 
-    if (info->length > 0) {
+    if (text->length > 0) {
         bbox->xMin = 32000;
         bbox->xMax = -32000;
-        bbox->yMin = -1 * info->lines[0].asc + d6_to_double(info->glyphs[0].pos.y);
-        bbox->yMax = info->height - info->lines[0].asc +
-                     d6_to_double(info->glyphs[0].pos.y);
+        bbox->yMin = -1 * text->lines[0].asc + d6_to_double(text->glyphs[0].pos.y);
+        bbox->yMax = text->height - text->lines[0].asc +
+                     d6_to_double(text->glyphs[0].pos.y);
 
-        for (i = 0; i < info->length; ++i) {
-            if (info->glyphs[i].skip) continue;
-            double s = d6_to_double(info->glyphs[i].pos.x);
-            double e = s + d6_to_double(info->glyphs[i].advance.x);
-            bbox->xMin = FFMIN(bbox->xMin, s);
-            bbox->xMax = FFMAX(bbox->xMax, e);
+        for (i = 0; i < text->length; ++i) {
+            GlyphInfo *info = text->glyphs + i;
+            if (info->skip) continue;
+            while (info) {
+                double s = d6_to_double(info->pos.x);
+                double e = s + d6_to_double(info->advance.x);
+                bbox->xMin = FFMIN(bbox->xMin, s);
+                bbox->xMax = FFMAX(bbox->xMax, e);
+                info = info->next;
+            }
         }
     } else
         bbox->xMin = bbox->xMax = bbox->yMin = bbox->yMax = 0.;
@@ -1845,7 +1874,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     // Retrieve glyphs
     for (i = 0; i < text_info->length; i++) {
         GlyphInfo *info = glyphs + i;
-        get_outline_glyph(render_priv, info);
+        while (info) {
+            get_outline_glyph(render_priv, info);
+            info = info->next;
+        }
+        info = glyphs + i;
 
         // add displacement for vertical shearing
         info->advance.y += (info->fay * info->scale_y) * info->advance.x;
@@ -1862,33 +1895,36 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     pen.y = 0;
     for (i = 0; i < text_info->length; i++) {
         GlyphInfo *info = glyphs + i;
+        while (info) {
 
 #if 0
-        // Add additional space after italic to non-italic style changes
-        if (i && glyphs[i - 1].italic && !info->italic) {
-            int back = i - 1;
-            GlyphInfo *og = &glyphs[back];
-            while (back && og->bbox.xMax - og->bbox.xMin == 0
-                   && og->italic)
-                og = &glyphs[--back];
-            if (og->bbox.xMax > og->advance.x) {
-                // The FreeType oblique slants by 6/16
-                pen.x += og->bbox.yMax * 0.375;
+            // Add additional space after italic to non-italic style changes
+            if (i && glyphs[i - 1].italic && !info->italic) {
+                int back = i - 1;
+                GlyphInfo *og = &glyphs[back];
+                while (back && og->bbox.xMax - og->bbox.xMin == 0
+                        && og->italic)
+                    og = &glyphs[--back];
+                if (og->bbox.xMax > og->advance.x) {
+                    // The FreeType oblique slants by 6/16
+                    pen.x += og->bbox.yMax * 0.375;
+                }
             }
-        }
 #endif
 
-        info->pos.x = pen.x;
-        info->pos.y = pen.y;
+            info->pos.x = pen.x;
+            info->pos.y = pen.y;
 
+            // fill bitmap hash
+            info->hash_key.type = BITMAP_OUTLINE;
+            fill_bitmap_hash(render_priv, info, &info->hash_key.u.outline);
+
+            info = info->next;
+        }
+        info = glyphs + i;
         pen.x += info->advance.x;
         pen.y += info->advance.y;
-
         previous = info->symbol;
-
-        // fill bitmap hash
-        info->hash_key.type = BITMAP_OUTLINE;
-        fill_bitmap_hash(render_priv, info, &info->hash_key.u.outline);
     }
 
 
@@ -1941,8 +1977,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             lineno++;
         }
         if (info->skip) continue;
-        info->pos.x = info->offset.x + pen.x;
-        info->pos.y = info->offset.y + pen.y;
+        while (info) {
+            info->pos.x = info->offset.x + pen.x;
+            info->pos.y = info->offset.y + pen.y;
+            info = info->next;
+        }
+        info = glyphs + cmap[i];
         pen.x += info->advance.x;
         pen.y += info->advance.y;
     }
@@ -1962,14 +2002,19 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                     shift = (max_text_width - width) / 2.0;
                 }
                 for (j = last_break + 1; j < i; ++j) {
-                    glyphs[j].pos.x += double_to_d6(shift);
+                    GlyphInfo *info = glyphs + j;
+                    while (info) {
+                        info->pos.x += double_to_d6(shift);
+                        info = info->next;
+                    }
                 }
                 last_break = i - 1;
                 width = 0;
             }
             if (i < text_info->length && !glyphs[i].skip &&
-                    glyphs[i].symbol != '\n' && glyphs[i].symbol != 0)
+                    glyphs[i].symbol != '\n' && glyphs[i].symbol != 0) {
                 width += d6_to_double(glyphs[i].advance.x);
+            }
         }
     }
 
@@ -2096,14 +2141,17 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
         for (i = 0; i < text_info->length; ++i) {
             GlyphInfo *info = glyphs + i;
-            OutlineBitmapHashKey *key = &info->hash_key.u.outline;
+            while (info) {
+                OutlineBitmapHashKey *key = &info->hash_key.u.outline;
 
-            if (key->frx || key->fry || key->frz || key->fax || key->fay) {
-                key->shift_x = info->pos.x + double_to_d6(device_x - center.x);
-                key->shift_y = -(info->pos.y + double_to_d6(device_y - center.y));
-            } else {
-                key->shift_x = 0;
-                key->shift_y = 0;
+                if (key->frx || key->fry || key->frz || key->fax || key->fay) {
+                    key->shift_x = info->pos.x + double_to_d6(device_x - center.x);
+                    key->shift_y = -(info->pos.y + double_to_d6(device_y - center.y));
+                } else {
+                    key->shift_x = 0;
+                    key->shift_y = 0;
+                }
+                info = info->next;
             }
         }
     }
@@ -2111,16 +2159,19 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     // convert glyphs to bitmaps
     device_x *= render_priv->font_scale_x;
     for (i = 0; i < text_info->length; ++i) {
-        GlyphInfo *g = glyphs + i;
-        OutlineBitmapHashKey *key = &g->hash_key.u.outline;
-        g->pos.x *= render_priv->font_scale_x;
-        key->advance.x =
-            double_to_d6(device_x - (int) device_x +
-            d6_to_double(g->pos.x & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
-        key->advance.y =
-            double_to_d6(device_y - (int) device_y +
-            d6_to_double(g->pos.y & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
-        get_bitmap_glyph(render_priv, glyphs + i);
+        GlyphInfo *info = glyphs + i;
+        while (info) {
+            OutlineBitmapHashKey *key = &info->hash_key.u.outline;
+            info->pos.x *= render_priv->font_scale_x;
+            key->advance.x =
+                double_to_d6(device_x - (int) device_x +
+                        d6_to_double(info->pos.x & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
+            key->advance.y =
+                double_to_d6(device_y - (int) device_y +
+                        d6_to_double(info->pos.y & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
+            get_bitmap_glyph(render_priv, info);
+            info = info->next;
+        }
     }
 
     // Compute runs and their bboxes
@@ -2164,6 +2215,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     free(emblevels);
     free(cmap);
 
+    ass_shaper_cleanup(text_info);
     free_render_context(render_priv);
 
     return 0;

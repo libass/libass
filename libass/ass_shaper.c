@@ -128,6 +128,9 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
         // Update glyphs
         for (j = 0; j < num_glyphs; j++) {
             int idx = glyph_info[j].cluster + runs[i].offset;
+            GlyphInfo *info = glyphs + idx;
+            GlyphInfo *root = info;
+
 #if 0
             printf("run %d cluster %d codepoint %d -> '%c'\n", i, idx,
                     glyph_info[j].codepoint, event_text[idx]);
@@ -135,12 +138,30 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
                     pos[j].x_offset, pos[j].y_offset,
                     pos[j].x_advance, pos[j].y_advance);
 #endif
-            glyphs[idx].skip = 0;
-            glyphs[idx].glyph_index = glyph_info[j].codepoint;
-            glyphs[idx].offset.x    = pos[j].x_offset * glyphs[idx].scale_x;
-            glyphs[idx].offset.y    = pos[j].y_offset * glyphs[idx].scale_y;
-            glyphs[idx].advance.x   = pos[j].x_advance * glyphs[idx].scale_x;
-            glyphs[idx].advance.y   = pos[j].y_advance * glyphs[idx].scale_y;
+
+            // if we have more than one glyph per cluster, allocate a new one
+            // and attach to the root glyph
+            if (info->skip == 0) {
+                //printf("duplicate cluster entry, adding glyph\n");
+                while (info->next)
+                    info = info->next;
+                info->next = malloc(sizeof(GlyphInfo));
+                memcpy(info->next, info, sizeof(GlyphInfo));
+                info = info->next;
+                info->next = NULL;
+            }
+
+            // set position and advance
+            info->skip = 0;
+            info->glyph_index = glyph_info[j].codepoint;
+            info->offset.x    = pos[j].x_offset * info->scale_x;
+            info->offset.y    = pos[j].y_offset * info->scale_y;
+            info->advance.x   = pos[j].x_advance * info->scale_x;
+            info->advance.y   = pos[j].y_advance * info->scale_y;
+
+            // accumulate maximum advance in the root glyph
+            root->advance.x = FFMAX(root->advance.x, info->advance.x);
+            root->advance.y = FFMAX(root->advance.y, info->advance.y);
         }
     }
 
@@ -164,6 +185,25 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
 
     free(joins);
     free(event_text);
+}
+
+/**
+ * \brief clean up additional data temporarily needed for shaping and
+ * (e.g. additional glyphs allocated)
+ */
+void ass_shaper_cleanup(TextInfo *text_info)
+{
+    int i;
+
+    for (i = 0; i < text_info->length; i++) {
+        GlyphInfo *info = text_info->glyphs + i;
+        info = info->next;
+        while (info) {
+            GlyphInfo *next = info->next;
+            free(info);
+            info = next;
+        }
+    }
 }
 
 void ass_shaper_reorder(TextInfo *text_info, FriBidiCharType *ctypes,

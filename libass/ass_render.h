@@ -96,7 +96,7 @@ typedef enum {
 
 // describes a glyph
 // GlyphInfo and TextInfo are used for text centering and word-wrapping operations
-typedef struct {
+typedef struct glyph_info {
     unsigned symbol;
     unsigned skip;              // skip glyph when layouting text
     ASS_Font *font;
@@ -137,6 +137,9 @@ typedef struct {
     int shape_run_id;
 
     BitmapHashKey hash_key;
+
+    // next glyph in this cluster
+    struct glyph_info *next;
 } GlyphInfo;
 
 typedef struct {
