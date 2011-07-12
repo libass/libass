@@ -1115,10 +1115,9 @@ get_outline_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         info->outline = val->outline;
         info->border = val->border;
         info->bbox = val->bbox_scaled;
-        // XXX: more elegant solution?
         if (info->drawing) {
-            info->advance.x = info->drawing->advance.x;
-            info->advance.y = info->drawing->advance.y;
+            info->cluster_advance.x = info->advance.x = val->advance.x;
+            info->cluster_advance.y = info->advance.y = val->advance.y;
         }
         info->asc = val->asc;
         info->desc = val->desc;
@@ -1131,8 +1130,8 @@ get_outline_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                 return;
             outline_copy(render_priv->ftlibrary, &drawing->outline,
                     &info->outline);
-            info->advance.x = drawing->advance.x;
-            info->advance.y = drawing->advance.y;
+            info->cluster_advance.x = info->advance.x = drawing->advance.x;
+            info->cluster_advance.y = info->advance.y = drawing->advance.y;
             info->asc = drawing->asc;
             info->desc = drawing->desc;
             ass_drawing_free(drawing);
@@ -1189,7 +1188,7 @@ get_outline_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         v.lib = render_priv->ftlibrary;
         v.outline = info->outline;
         v.border = info->border;
-        v.advance = info->advance;
+        v.advance = info->cluster_advance;
         v.bbox_scaled = info->bbox;
         v.asc = info->asc;
         v.desc = info->desc;
@@ -1881,10 +1880,10 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         info = glyphs + i;
 
         // add displacement for vertical shearing
-        info->advance.y += (info->fay * info->scale_y) * info->advance.x;
+        info->cluster_advance.y += (info->fay * info->scale_y) * info->cluster_advance.x;
 
         // add horizontal letter spacing
-        info->advance.x += double_to_d6(render_priv->state.hspacing *
+        info->cluster_advance.x += double_to_d6(render_priv->state.hspacing *
                 render_priv->font_scale * info->scale_x);
 
     }
@@ -1895,6 +1894,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     pen.y = 0;
     for (i = 0; i < text_info->length; i++) {
         GlyphInfo *info = glyphs + i;
+        FT_Vector cluster_pen = pen;
         while (info) {
 
 #if 0
@@ -1912,8 +1912,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             }
 #endif
 
-            info->pos.x = pen.x;
-            info->pos.y = pen.y;
+            info->pos.x = cluster_pen.x;
+            info->pos.y = cluster_pen.y;
+
+            cluster_pen.x += info->advance.x;
+            cluster_pen.y += info->advance.y;
 
             // fill bitmap hash
             info->hash_key.type = BITMAP_OUTLINE;
@@ -1922,8 +1925,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             info = info->next;
         }
         info = glyphs + i;
-        pen.x += info->advance.x;
-        pen.y += info->advance.y;
+        pen.x += info->cluster_advance.x;
+        pen.y += info->cluster_advance.y;
         previous = info->symbol;
     }
 
@@ -1977,14 +1980,17 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             lineno++;
         }
         if (info->skip) continue;
+        FT_Vector cluster_pen = pen;
         while (info) {
-            info->pos.x = info->offset.x + pen.x;
-            info->pos.y = info->offset.y + pen.y;
+            info->pos.x = info->offset.x + cluster_pen.x;
+            info->pos.y = info->offset.y + cluster_pen.y;
+            cluster_pen.x += info->advance.x;
+            cluster_pen.y += info->advance.y;
             info = info->next;
         }
         info = glyphs + cmap[i];
-        pen.x += info->advance.x;
-        pen.y += info->advance.y;
+        pen.x += info->cluster_advance.x;
+        pen.y += info->cluster_advance.y;
     }
 
     // align lines
@@ -2013,7 +2019,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             }
             if (i < text_info->length && !glyphs[i].skip &&
                     glyphs[i].symbol != '\n' && glyphs[i].symbol != 0) {
-                width += d6_to_double(glyphs[i].advance.x);
+                width += d6_to_double(glyphs[i].cluster_advance.x);
             }
         }
     }

@@ -98,6 +98,7 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
         // get length and level of the current run
         int k = i;
         int level = glyphs[i].shape_run_id;
+        int direction = emblevels[k] % 2;
         while (i < (text_info->length - 1) && level == glyphs[i+1].shape_run_id)
             i++;
         //printf("run %d from %d to %d with level %d\n", run, k, i, level);
@@ -106,7 +107,7 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
         runs[run].end    = i;
         runs[run].buf    = hb_buffer_create(i - k + 1);
         runs[run].font   = hb_ft_font_create(run_font, NULL);
-        hb_buffer_set_direction(runs[run].buf, (level % 2) ? HB_DIRECTION_RTL :
+        hb_buffer_set_direction(runs[run].buf, direction ? HB_DIRECTION_RTL :
                 HB_DIRECTION_LTR);
         hb_buffer_add_utf32(runs[run].buf, event_text + k, i - k + 1,
                 0, i - k + 1);
@@ -130,7 +131,6 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
             int idx = glyph_info[j].cluster + runs[i].offset;
             GlyphInfo *info = glyphs + idx;
             GlyphInfo *root = info;
-
 #if 0
             printf("run %d cluster %d codepoint %d -> '%c'\n", i, idx,
                     glyph_info[j].codepoint, event_text[idx]);
@@ -155,13 +155,13 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
             info->skip = 0;
             info->glyph_index = glyph_info[j].codepoint;
             info->offset.x    = pos[j].x_offset * info->scale_x;
-            info->offset.y    = pos[j].y_offset * info->scale_y;
+            info->offset.y    = -pos[j].y_offset * info->scale_y;
             info->advance.x   = pos[j].x_advance * info->scale_x;
-            info->advance.y   = pos[j].y_advance * info->scale_y;
+            info->advance.y   = -pos[j].y_advance * info->scale_y;
 
-            // accumulate maximum advance in the root glyph
-            root->advance.x = FFMAX(root->advance.x, info->advance.x);
-            root->advance.y = FFMAX(root->advance.y, info->advance.y);
+            // accumulate advance in the root glyph
+            root->cluster_advance.x += info->advance.x;
+            root->cluster_advance.y += info->advance.y;
         }
     }
 

@@ -115,6 +115,7 @@ typedef struct glyph_info {
     char linebreak;             // the first (leading) glyph of some line ?
     uint32_t c[4];              // colors
     FT_Vector advance;          // 26.6
+    FT_Vector cluster_advance;
     Effect effect_type;
     int effect_timing;          // time duration of current karaoke word
     // after process_karaoke_effects: distance in pixels from the glyph origin.
