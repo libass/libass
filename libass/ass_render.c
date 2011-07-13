@@ -1848,12 +1848,26 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         }
         info = glyphs + i;
 
+        // Add additional space after italic to non-italic style changes
+        if (i && glyphs[i - 1].italic && !info->italic) {
+            int back = i - 1;
+            GlyphInfo *og = &glyphs[back];
+            while (back && og->bbox.xMax - og->bbox.xMin == 0
+                    && og->italic)
+                og = &glyphs[--back];
+            if (og->bbox.xMax > og->cluster_advance.x) {
+                // The FreeType oblique slants by 6/16
+                og->cluster_advance.x += og->bbox.yMax * 0.375;
+            }
+        }
+
         // add horizontal letter spacing
         info->cluster_advance.x += double_to_d6(render_priv->state.hspacing *
                 render_priv->font_scale * info->scale_x);
 
         // add displacement for vertical shearing
         info->cluster_advance.y += (info->fay * info->scale_y) * info->cluster_advance.x;
+
     }
 
     // Preliminary layout (for line wrapping)
@@ -1864,22 +1878,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         GlyphInfo *info = glyphs + i;
         FT_Vector cluster_pen = pen;
         while (info) {
-
-#if 0
-            // Add additional space after italic to non-italic style changes
-            if (i && glyphs[i - 1].italic && !info->italic) {
-                int back = i - 1;
-                GlyphInfo *og = &glyphs[back];
-                while (back && og->bbox.xMax - og->bbox.xMin == 0
-                        && og->italic)
-                    og = &glyphs[--back];
-                if (og->bbox.xMax > og->advance.x) {
-                    // The FreeType oblique slants by 6/16
-                    pen.x += og->bbox.yMax * 0.375;
-                }
-            }
-#endif
-
             info->pos.x = cluster_pen.x;
             info->pos.y = cluster_pen.y;
 
