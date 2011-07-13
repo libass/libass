@@ -819,6 +819,11 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         if (!mystrtoi(&p, &val))
             val = render_priv->track->WrapStyle;
         render_priv->state.wrap_style = val;
+    } else if (mystrcmp(&p, "fe")) {
+        int val;
+        if (!mystrtoi(&p, &val))
+            val = render_priv->state.style->Encoding;
+        render_priv->state.font_encoding = val;
     }
 
     return p;

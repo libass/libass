@@ -898,6 +898,7 @@ void reset_render_context(ASS_Renderer *render_priv)
     render_priv->state.frz = M_PI * render_priv->state.style->Angle / 180.;
     render_priv->state.fax = render_priv->state.fay = 0.;
     render_priv->state.wrap_style = render_priv->track->WrapStyle;
+    render_priv->state.font_encoding = render_priv->state.style->Encoding;
 }
 
 /**
@@ -1835,6 +1836,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     }
 
     // Find shape runs and shape text
+    ass_shaper_set_base_direction(render_priv->shaper,
+            resolve_base_direction(render_priv->state.font_encoding));
     ass_shaper_find_runs(render_priv->shaper, render_priv, glyphs,
             text_info->length);
     ass_shaper_shape(render_priv->shaper, text_info);

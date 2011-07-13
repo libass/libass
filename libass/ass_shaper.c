@@ -40,6 +40,7 @@ struct ass_shaper {
     FriBidiCharType *ctypes;
     FriBidiLevel *emblevels;
     FriBidiStrIndex *cmap;
+    FriBidiParType base_direction;
     // OpenType features
     int n_features;
     hb_feature_t *features;
@@ -93,8 +94,10 @@ ASS_Shaper *ass_shaper_new(size_t prealloc)
 {
     ASS_Shaper *shaper = calloc(sizeof(*shaper), 1);
 
+    shaper->base_direction = FRIBIDI_PAR_ON;
     init_features(shaper);
     check_allocations(shaper, prealloc);
+
     return shaper;
 }
 
@@ -287,6 +290,15 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
 }
 
 /**
+ * \brief Set base direction (paragraph direction) of the text.
+ * \param dir base direction
+ */
+void ass_shaper_set_base_direction(ASS_Shaper *shaper, FriBidiParType dir)
+{
+    shaper->base_direction = dir;
+}
+
+/**
  * \brief Shape an event's text. Calculates directional runs and shapes them.
  * \param text_info event's text
  */
@@ -305,7 +317,7 @@ void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         // embedding levels should be calculated paragraph by paragraph
         if (glyphs[i].symbol == '\n' || i == text_info->length - 1) {
             //printf("paragraph from %d to %d\n", last_break, i);
-            dir = FRIBIDI_PAR_ON;
+            dir = shaper->base_direction;
             fribidi_get_bidi_types(shaper->event_text + last_break,
                     i - last_break + 1, shaper->ctypes + last_break);
             fribidi_get_par_embedding_levels(shaper->ctypes + last_break,
@@ -368,7 +380,6 @@ void ass_shaper_cleanup(ASS_Shaper *shaper, TextInfo *text_info)
 FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
 {
     int i;
-    FriBidiParType dir;
 
     // Initialize reorder map
     for (i = 0; i < text_info->length; i++)
@@ -378,7 +389,7 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
     for (i = 0; i < text_info->n_lines; i++) {
         LineInfo *line = text_info->lines + i;
         int level;
-        dir = FRIBIDI_PAR_ON;
+        FriBidiParType dir = FRIBIDI_PAR_ON;
 
         // FIXME: we should actually specify
         // the correct paragraph base direction
@@ -398,4 +409,24 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
 #endif
 
     return shaper->cmap;
+}
+
+/**
+ * \brief Resolve a Windows font encoding number to a suitable
+ * base direction. 177 and 178 are Hebrew and Arabic respectively, and
+ * they map to RTL. 1 is autodetection and is mapped to just that.
+ * Everything else is mapped to LTR.
+ * \param enc Windows font encoding
+ */
+FriBidiParType resolve_base_direction(int enc)
+{
+    switch (enc) {
+        case 1:
+            return FRIBIDI_PAR_ON;
+        case 177:
+        case 178:
+            return FRIBIDI_PAR_RTL;
+        default:
+            return FRIBIDI_PAR_LTR;
+    }
 }
