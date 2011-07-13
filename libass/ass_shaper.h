@@ -16,15 +16,21 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef ASS_SHAPER_H
-#define ASS_SHAPER_H
+#ifndef LIBASS_SHAPER_H
+#define LIBASS_SHAPER_H
+
+#include "config.h"
 
 #include <fribidi/fribidi.h>
+#include "ass_render.h"
 
 void ass_shaper_info(ASS_Library *lib);
-void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
-                      FriBidiLevel *emblevels);
-void ass_shaper_cleanup(TextInfo *text_info);
-void ass_shaper_reorder(TextInfo *text_info, FriBidiCharType *ctypes,
-                        FriBidiLevel *emblevels, FriBidiStrIndex *cmap);
+ASS_Shaper *ass_shaper_new(size_t prealloc);
+void ass_shaper_free(ASS_Shaper *shaper);
+void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
+                          GlyphInfo *glyphs, size_t len);
+void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info);
+void ass_shaper_cleanup(ASS_Shaper *shaper, TextInfo *text_info);
+FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info);
+
 #endif

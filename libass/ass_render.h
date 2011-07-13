@@ -27,6 +27,9 @@
 #include FT_GLYPH_H
 #include FT_SYNTHESIS_H
 
+// XXX: fix the inclusion mess so we can avoid doing this here
+typedef struct ass_shaper ASS_Shaper;
+
 #include "ass.h"
 #include "ass_font.h"
 #include "ass_bitmap.h"
@@ -239,6 +242,7 @@ struct ass_renderer {
     ASS_Settings settings;
     int render_id;
     ASS_SynthPriv *synth_priv;
+    ASS_Shaper *shaper;
 
     ASS_Image *images_root;     // rendering result is stored here
     ASS_Image *prev_images_root;

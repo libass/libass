@@ -19,10 +19,21 @@
 #include <fribidi/fribidi.h>
 #include <hb-ft.h>
 
-#include "ass_render.h"
 #include "ass_shaper.h"
+#include "ass_render.h"
+#include "ass_font.h"
+#include "ass_parse.h"
 
-#define MAX_RUNS 30
+#define MAX_RUNS 50
+
+struct ass_shaper {
+    // FriBidi log2vis
+    int n_glyphs;
+    FriBidiChar *event_text;
+    FriBidiCharType *ctypes;
+    FriBidiLevel *emblevels;
+    FriBidiStrIndex *cmap;
+};
 
 /**
  * \brief Print version information
@@ -34,20 +45,52 @@ void ass_shaper_info(ASS_Library *lib)
 }
 
 /**
- * \brief Shape an event's text. Calculates directional runs and shapes them.
- * \param text_info event's text
- * \param ctypes returns character types
- * \param emblevels returns embedding levels (directional runs)
+ * \brief grow arrays, if needed
+ * \param new_size requested size
  */
-void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
-                      FriBidiLevel *emblevels)
+static void check_allocations(ASS_Shaper *shaper, size_t new_size)
 {
-    int i, j, last_break;
-    FriBidiParType dir;
-    FriBidiChar *event_text = calloc(sizeof(*event_text), text_info->length);
-    FriBidiJoiningType *joins = calloc(sizeof(*joins), text_info->length);
-    GlyphInfo *glyphs = text_info->glyphs;
-    // XXX: dynamically allocate
+    if (new_size > shaper->n_glyphs) {
+        shaper->event_text = realloc(shaper->event_text, sizeof(FriBidiChar) * new_size);
+        shaper->ctypes     = realloc(shaper->ctypes, sizeof(FriBidiCharType) * new_size);
+        shaper->emblevels  = realloc(shaper->emblevels, sizeof(FriBidiLevel) * new_size);
+        shaper->cmap       = realloc(shaper->cmap, sizeof(FriBidiStrIndex) * new_size);
+    }
+}
+
+/**
+ * \brief Create a new shaper instance and preallocate data structures
+ * \param prealloc preallocation size
+ */
+ASS_Shaper *ass_shaper_new(size_t prealloc)
+{
+    ASS_Shaper *shaper = calloc(sizeof(*shaper), 1);
+
+    check_allocations(shaper, prealloc);
+    return shaper;
+}
+
+/**
+ * \brief Free shaper and related data
+ */
+void ass_shaper_free(ASS_Shaper *shaper)
+{
+    free(shaper->event_text);
+    free(shaper->ctypes);
+    free(shaper->emblevels);
+    free(shaper->cmap);
+    free(shaper);
+}
+
+/**
+ * \brief Shape event text with HarfBuzz. Full OpenType shaping.
+ * \param glyphs glyph clusters
+ * \param len number of clusters
+ */
+static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
+{
+    int i, j;
+    int run = 0;
     struct {
         int offset;
         int end;
@@ -55,51 +98,13 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
         hb_font_t *font;
     } runs[MAX_RUNS];
 
-    // Get bidi character types and embedding levels
-    last_break = 0;
-    for (i = 0; i < text_info->length; i++) {
-        event_text[i] = glyphs[i].symbol;
-        // embedding levels should be calculated paragraph by paragraph
-        if (glyphs[i].symbol == '\n' || i == text_info->length - 1) {
-            //printf("paragraph from %d to %d\n", last_break, i);
-            dir = FRIBIDI_PAR_ON;
-            fribidi_get_bidi_types(event_text + last_break, i - last_break + 1,
-                    ctypes + last_break);
-            fribidi_get_par_embedding_levels(ctypes + last_break,
-                    i - last_break + 1, &dir, emblevels + last_break);
-            last_break = i + 1;
-        }
-    }
 
-    // add embedding levels to shape runs for final runs
-    for (i = 0; i < text_info->length; i++) {
-        glyphs[i].shape_run_id += emblevels[i];
-    }
-
-#if 0
-    printf("levels ");
-    for (i = 0; i < text_info->length; i++) {
-        printf("%d ", glyphs[i].shape_run_id);
-    }
-    printf("\n");
-#endif
-
-#if 0
-    // Use FriBidi's shaper for mirroring and simple Arabic shaping
-    fribidi_get_joining_types(event_text, text_info->length, joins);
-    fribidi_join_arabic(ctypes, text_info->length, emblevels, joins);
-    fribidi_shape(FRIBIDI_FLAGS_DEFAULT | FRIBIDI_FLAGS_ARABIC, emblevels,
-            text_info->length, joins, event_text);
-#endif
-
-    // Shape runs with HarfBuzz-ng
-    int run = 0;
-    for (i = 0; i < text_info->length && run < MAX_RUNS; i++, run++) {
+    for (i = 0; i < len && run < MAX_RUNS; i++, run++) {
         // get length and level of the current run
         int k = i;
         int level = glyphs[i].shape_run_id;
-        int direction = emblevels[k] % 2;
-        while (i < (text_info->length - 1) && level == glyphs[i+1].shape_run_id)
+        int direction = shaper->emblevels[k] % 2;
+        while (i < (len - 1) && level == glyphs[i+1].shape_run_id)
             i++;
         //printf("run %d from %d to %d with level %d\n", run, k, i, level);
         FT_Face run_font = glyphs[k].font->faces[glyphs[k].face_index];
@@ -109,14 +114,14 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
         runs[run].font   = hb_ft_font_create(run_font, NULL);
         hb_buffer_set_direction(runs[run].buf, direction ? HB_DIRECTION_RTL :
                 HB_DIRECTION_LTR);
-        hb_buffer_add_utf32(runs[run].buf, event_text + k, i - k + 1,
+        hb_buffer_add_utf32(runs[run].buf, shaper->event_text + k, i - k + 1,
                 0, i - k + 1);
         hb_shape(runs[run].font, runs[run].buf, NULL, 0);
     }
     //printf("shaped %d runs\n", run);
 
     // Initialize: skip all glyphs, this is undone later as needed
-    for (i = 0; i < text_info->length; i++)
+    for (i = 0; i < len; i++)
         glyphs[i].skip = 1;
 
     // Update glyph indexes, positions and advances from the shaped runs
@@ -171,9 +176,110 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
         hb_font_destroy(runs[i].font);
     }
 
+}
+
+/**
+ * \brief Shape event text with FriBidi. Does mirroring and simple
+ * Arabic shaping.
+ * \param len number of clusters
+ */
+static void shape_fribidi(ASS_Shaper *shaper, size_t len)
+{
+    FriBidiJoiningType *joins = calloc(sizeof(*joins), len);
+
+    fribidi_get_joining_types(shaper->event_text, len, joins);
+    fribidi_join_arabic(shaper->ctypes, len, shaper->emblevels, joins);
+    fribidi_shape(FRIBIDI_FLAGS_DEFAULT | FRIBIDI_FLAGS_ARABIC,
+            shaper->emblevels, len, joins, shaper->event_text);
+
+    free(joins);
+}
+
+/**
+ * \brief Find shape runs according to the event's selected fonts
+ */
+void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
+                          GlyphInfo *glyphs, size_t len)
+{
+    int i;
+    int shape_run = 0;
+
+    for (i = 0; i < len; i++) {
+        GlyphInfo *last = glyphs + i - 1;
+        GlyphInfo *info = glyphs + i;
+        // skip drawings
+        if (info->symbol == 0xfffc)
+            continue;
+        // initialize face_index to continue with the same face, if possible
+        // XXX: can be problematic in some cases, for example if a font misses
+        // a single glyph, like space (U+0020)
+        if (i > 0)
+            info->face_index = last->face_index;
+        // set size and get glyph index
+        double size_scaled = ensure_font_size(render_priv,
+                info->font_size * render_priv->font_scale);
+        ass_font_set_size(info->font, size_scaled);
+        ass_font_get_index(render_priv->fontconfig_priv, info->font,
+                info->symbol, &info->face_index, &info->glyph_index);
+        // shape runs share the same font face and size
+        if (i > 0 && (last->font != info->font ||
+                    last->font_size != info->font_size ||
+                    last->face_index != info->face_index))
+            shape_run++;
+        info->shape_run_id = shape_run;
+        //printf("glyph '%c' shape run id %d face %d\n", info->symbol, info->shape_run_id,
+        //        info->face_index);
+    }
+
+}
+
+/**
+ * \brief Shape an event's text. Calculates directional runs and shapes them.
+ * \param text_info event's text
+ */
+void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
+{
+    int i, last_break;
+    FriBidiParType dir;
+    GlyphInfo *glyphs = text_info->glyphs;
+
+    check_allocations(shaper, text_info->length);
+
+    // Get bidi character types and embedding levels
+    last_break = 0;
+    for (i = 0; i < text_info->length; i++) {
+        shaper->event_text[i] = glyphs[i].symbol;
+        // embedding levels should be calculated paragraph by paragraph
+        if (glyphs[i].symbol == '\n' || i == text_info->length - 1) {
+            //printf("paragraph from %d to %d\n", last_break, i);
+            dir = FRIBIDI_PAR_ON;
+            fribidi_get_bidi_types(shaper->event_text + last_break,
+                    i - last_break + 1, shaper->ctypes + last_break);
+            fribidi_get_par_embedding_levels(shaper->ctypes + last_break,
+                    i - last_break + 1, &dir, shaper->emblevels + last_break);
+            last_break = i + 1;
+        }
+    }
+
+    // add embedding levels to shape runs for final runs
+    for (i = 0; i < text_info->length; i++) {
+        glyphs[i].shape_run_id += shaper->emblevels[i];
+    }
+
+#if 0
+    printf("levels ");
+    for (i = 0; i < text_info->length; i++) {
+        printf("%d ", glyphs[i].shape_run_id);
+    }
+    printf("\n");
+#endif
+
+    //shape_fribidi(shaper, text_info->length);
+    shape_harfbuzz(shaper, glyphs, text_info->length);
+
     // Update glyphs
     for (i = 0; i < text_info->length; i++) {
-        glyphs[i].symbol = event_text[i];
+        glyphs[i].symbol = shaper->event_text[i];
         // Skip direction override control characters
         // NOTE: Behdad said HarfBuzz is supposed to remove these, but this hasn't
         // been implemented yet
@@ -182,16 +288,13 @@ void ass_shaper_shape(TextInfo *text_info, FriBidiCharType *ctypes,
             glyphs[i].skip++;
         }
     }
-
-    free(joins);
-    free(event_text);
 }
 
 /**
  * \brief clean up additional data temporarily needed for shaping and
  * (e.g. additional glyphs allocated)
  */
-void ass_shaper_cleanup(TextInfo *text_info)
+void ass_shaper_cleanup(ASS_Shaper *shaper, TextInfo *text_info)
 {
     int i;
 
@@ -206,15 +309,17 @@ void ass_shaper_cleanup(TextInfo *text_info)
     }
 }
 
-void ass_shaper_reorder(TextInfo *text_info, FriBidiCharType *ctypes,
-                        FriBidiLevel *emblevels, FriBidiStrIndex *cmap)
+/**
+ * \brief Calculate reorder map to render glyphs in visual order
+ */
+FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
 {
     int i;
     FriBidiParType dir;
 
     // Initialize reorder map
     for (i = 0; i < text_info->length; i++)
-        cmap[i] = i;
+        shaper->cmap[i] = i;
 
     // Create reorder map line-by-line
     for (i = 0; i < text_info->n_lines; i++) {
@@ -225,8 +330,9 @@ void ass_shaper_reorder(TextInfo *text_info, FriBidiCharType *ctypes,
         // FIXME: we should actually specify
         // the correct paragraph base direction
         level = fribidi_reorder_line(FRIBIDI_FLAGS_DEFAULT,
-                ctypes + line->offset, line->len, 0, dir,
-                emblevels + line->offset, NULL, cmap + line->offset);
+                shaper->ctypes + line->offset, line->len, 0, dir,
+                shaper->emblevels + line->offset, NULL,
+                shaper->cmap + line->offset);
         //printf("reorder line %d to level %d\n", i, level);
     }
 
@@ -238,4 +344,5 @@ void ass_shaper_reorder(TextInfo *text_info, FriBidiCharType *ctypes,
     printf("\n");
 #endif
 
+    return shaper->cmap;
 }

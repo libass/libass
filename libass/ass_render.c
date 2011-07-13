@@ -75,6 +75,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
     priv->settings.font_size_coeff = 1.;
 
+    priv->shaper = ass_shaper_new(0);
     ass_shaper_info(library);
 
   ass_init_exit:
@@ -120,6 +121,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
         fontconfig_done(render_priv->fontconfig_priv);
     if (render_priv->synth_priv)
         ass_synth_done(render_priv->synth_priv);
+    ass_shaper_free(render_priv->shaper);
     free(render_priv->eimg);
     free(render_priv->text_info.glyphs);
     free(render_priv->text_info.lines);
@@ -1827,48 +1829,16 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     }
 
-    // Determine shape runs
-    int shape_run = 0;
-    for (i = 0; i < text_info->length; i++) {
-        GlyphInfo *last = glyphs + i - 1;
-        GlyphInfo *info = glyphs + i;
-        // skip drawings
-        if (info->symbol == 0xfffc)
-            continue;
-        // initialize face_index to continue with the same face, if possible
-        // XXX: can be problematic in some cases, for example if a font misses
-        // a single glyph, like space (U+0020)
-        if (i > 0)
-            info->face_index = last->face_index;
-        // set size and get glyph index
-        double size_scaled = ensure_font_size(render_priv,
-                info->font_size * render_priv->font_scale);
-        ass_font_set_size(info->font, size_scaled);
-        ass_font_get_index(render_priv->fontconfig_priv, info->font,
-                info->symbol, &info->face_index, &info->glyph_index);
-        // shape runs share the same font face and size
-        if (i > 0 && (last->font != info->font ||
-                      last->font_size != info->font_size ||
-                      last->face_index != info->face_index))
-            shape_run++;
-        info->shape_run_id = shape_run;
-        //printf("glyph '%c' shape run id %d face %d\n", info->symbol, info->shape_run_id,
-        //        info->face_index);
-    }
-
     if (text_info->length == 0) {
         // no valid symbols in the event; this can be smth like {comment}
         free_render_context(render_priv);
         return 1;
     }
 
-    // Allocate bidi work arrays
-    FriBidiCharType *ctypes = calloc(sizeof(*ctypes), text_info->length);
-    FriBidiLevel *emblevels = calloc(sizeof(*emblevels), text_info->length);
-    FriBidiStrIndex *cmap   = calloc(sizeof(*cmap), text_info->length);
-
-    // Shape text
-    ass_shaper_shape(text_info, ctypes, emblevels);
+    // Find shape runs and shape text
+    ass_shaper_find_runs(render_priv->shaper, render_priv, glyphs,
+            text_info->length);
+    ass_shaper_shape(render_priv->shaper, text_info);
 
     // Retrieve glyphs
     for (i = 0; i < text_info->length; i++) {
@@ -1964,7 +1934,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     }
 
     // Reorder text into visual order
-    ass_shaper_reorder(text_info, ctypes, emblevels, cmap);
+    FriBidiStrIndex *cmap = ass_shaper_reorder(render_priv->shaper, text_info);
 
     // Reposition according to the map
     pen.x = 0;
@@ -2217,11 +2187,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->event = event;
     event_images->imgs = render_text(render_priv, (int) device_x, (int) device_y);
 
-    free(ctypes);
-    free(emblevels);
-    free(cmap);
-
-    ass_shaper_cleanup(text_info);
+    ass_shaper_cleanup(render_priv->shaper, text_info);
     free_render_context(render_priv);
 
     return 0;
