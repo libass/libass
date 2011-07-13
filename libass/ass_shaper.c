@@ -239,6 +239,16 @@ static void shape_fribidi(ASS_Shaper *shaper, size_t len)
 }
 
 /**
+ * \brief Toggle kerning for HarfBuzz shaping.
+ * NOTE: currently only works with OpenType fonts, the TrueType fallback *always*
+ * kerns. It's a bug in HarfBuzz.
+ */
+void ass_shaper_set_kerning(ASS_Shaper *shaper, int kern)
+{
+    shaper->features[KERN].value = !!kern;
+}
+
+/**
  * \brief Find shape runs according to the event's selected fonts
  */
 void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,

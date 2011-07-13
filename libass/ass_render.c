@@ -1719,7 +1719,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     int MarginL, MarginR, MarginV;
     int last_break;
     int alignment, halign, valign;
-    int kern = render_priv->track->Kerning;
     double device_x = 0;
     double device_y = 0;
     TextInfo *text_info = &render_priv->text_info;
@@ -2264,6 +2263,8 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
             render_priv->track->PlayResY;
     else
         render_priv->border_scale = 1.;
+
+    ass_shaper_set_kerning(render_priv->shaper, track->Kerning);
 
     // PAR correction
     render_priv->font_scale_x = render_priv->settings.aspect /
