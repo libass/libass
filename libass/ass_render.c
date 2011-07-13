@@ -2152,6 +2152,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         }
     }
 
+#if 0
     // Compute runs and their bboxes
     // XXX: currently does nothing visible/functional
     for (i = 0; i < text_info->length; i++) {
@@ -2176,6 +2177,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
         i += run_len - 1;
     }
+#endif
 
     memset(event_images, 0, sizeof(*event_images));
     event_images->top = device_y - text_info->lines[0].asc;
