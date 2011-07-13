@@ -26,6 +26,13 @@
 
 #define MAX_RUNS 50
 
+enum {
+    VERT = 0,
+    VKNA,
+    KERN
+};
+#define NUM_FEATURES 3
+
 struct ass_shaper {
     // FriBidi log2vis
     int n_glyphs;
@@ -33,6 +40,9 @@ struct ass_shaper {
     FriBidiCharType *ctypes;
     FriBidiLevel *emblevels;
     FriBidiStrIndex *cmap;
+    // OpenType features
+    int n_features;
+    hb_feature_t *features;
 };
 
 /**
@@ -59,6 +69,23 @@ static void check_allocations(ASS_Shaper *shaper, size_t new_size)
 }
 
 /**
+ * \brief set up the HarfBuzz OpenType feature list with some
+ * standard features.
+ */
+static void init_features(ASS_Shaper *shaper)
+{
+    shaper->features = calloc(sizeof(hb_feature_t), NUM_FEATURES);
+
+    shaper->n_features = NUM_FEATURES;
+    shaper->features[VERT].tag = HB_TAG('v', 'e', 'r', 't');
+    shaper->features[VERT].end = INT_MAX;
+    shaper->features[VKNA].tag = HB_TAG('v', 'k', 'n', 'a');
+    shaper->features[VKNA].end = INT_MAX;
+    shaper->features[KERN].tag = HB_TAG('k', 'e', 'r', 'n');
+    shaper->features[KERN].end = INT_MAX;
+}
+
+/**
  * \brief Create a new shaper instance and preallocate data structures
  * \param prealloc preallocation size
  */
@@ -66,6 +93,7 @@ ASS_Shaper *ass_shaper_new(size_t prealloc)
 {
     ASS_Shaper *shaper = calloc(sizeof(*shaper), 1);
 
+    init_features(shaper);
     check_allocations(shaper, prealloc);
     return shaper;
 }
@@ -79,7 +107,20 @@ void ass_shaper_free(ASS_Shaper *shaper)
     free(shaper->ctypes);
     free(shaper->emblevels);
     free(shaper->cmap);
+    free(shaper->features);
     free(shaper);
+}
+
+/**
+ * \brief Set features depending on properties of the run
+ */
+static void set_run_features(ASS_Shaper *shaper, GlyphInfo *info)
+{
+        // enable vertical substitutions for @font runs
+        if (info->font->desc.vertical)
+            shaper->features[VERT].value = shaper->features[VKNA].value = 1;
+        else
+            shaper->features[VERT].value = shaper->features[VKNA].value = 0;
 }
 
 /**
@@ -112,11 +153,13 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         runs[run].end    = i;
         runs[run].buf    = hb_buffer_create(i - k + 1);
         runs[run].font   = hb_ft_font_create(run_font, NULL);
+        set_run_features(shaper, glyphs + k);
         hb_buffer_set_direction(runs[run].buf, direction ? HB_DIRECTION_RTL :
                 HB_DIRECTION_LTR);
         hb_buffer_add_utf32(runs[run].buf, shaper->event_text + k, i - k + 1,
                 0, i - k + 1);
-        hb_shape(runs[run].font, runs[run].buf, NULL, 0);
+        hb_shape(runs[run].font, runs[run].buf, shaper->features,
+                shaper->n_features);
     }
     //printf("shaped %d runs\n", run);
 
