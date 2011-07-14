@@ -46,6 +46,10 @@ struct ass_shaper {
     hb_feature_t *features;
 };
 
+struct ass_shaper_font_data {
+    hb_font_t *fonts[ASS_FONT_MAX_FACES];
+};
+
 /**
  * \brief Print version information
  */
@@ -114,6 +118,15 @@ void ass_shaper_free(ASS_Shaper *shaper)
     free(shaper);
 }
 
+void ass_shaper_font_data_free(ASS_ShaperFontData *priv)
+{
+    int i;
+    for (i = 0; i < ASS_FONT_MAX_FACES; i++)
+        if (priv->fonts[i])
+            hb_font_destroy(priv->fonts[i]);
+    free(priv);
+}
+
 /**
  * \brief Set features depending on properties of the run
  */
@@ -124,6 +137,28 @@ static void set_run_features(ASS_Shaper *shaper, GlyphInfo *info)
             shaper->features[VERT].value = shaper->features[VKNA].value = 1;
         else
             shaper->features[VERT].value = shaper->features[VKNA].value = 0;
+}
+
+/**
+ * \brief Retrieve HarfBuzz font from cache.
+ * Create it from FreeType font, if needed.
+ * \param info glyph cluster
+ * \return HarfBuzz font
+ */
+static hb_font_t *get_hb_font(GlyphInfo *info)
+{
+    ASS_Font *font = info->font;
+    hb_font_t **hb_fonts;
+
+    if (!font->shaper_priv)
+        font->shaper_priv = calloc(sizeof(ASS_ShaperFontData), 1);
+
+    hb_fonts = font->shaper_priv->fonts;
+    if (!hb_fonts[info->face_index])
+        hb_fonts[info->face_index] =
+            hb_ft_font_create(font->faces[info->face_index], NULL);
+
+    return hb_fonts[info->face_index];
 }
 
 /**
@@ -151,11 +186,10 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         while (i < (len - 1) && level == glyphs[i+1].shape_run_id)
             i++;
         //printf("run %d from %d to %d with level %d\n", run, k, i, level);
-        FT_Face run_font = glyphs[k].font->faces[glyphs[k].face_index];
         runs[run].offset = k;
         runs[run].end    = i;
         runs[run].buf    = hb_buffer_create(i - k + 1);
-        runs[run].font   = hb_ft_font_create(run_font, NULL);
+        runs[run].font   = get_hb_font(glyphs + k);
         set_run_features(shaper, glyphs + k);
         hb_buffer_set_direction(runs[run].buf, direction ? HB_DIRECTION_RTL :
                 HB_DIRECTION_LTR);
@@ -219,7 +253,6 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
     // Free runs and associated data
     for (i = 0; i < run; i++) {
         hb_buffer_destroy(runs[i].buf);
-        hb_font_destroy(runs[i].font);
     }
 
 }

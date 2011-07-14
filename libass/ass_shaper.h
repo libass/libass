@@ -36,4 +36,6 @@ void ass_shaper_cleanup(ASS_Shaper *shaper, TextInfo *text_info);
 FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info);
 FriBidiParType resolve_base_direction(int font_encoding);
 
+void ass_shaper_font_data_free(ASS_ShaperFontData *priv);
+
 #endif

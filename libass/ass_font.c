@@ -32,6 +32,7 @@
 #include "ass_font.h"
 #include "ass_fontconfig.h"
 #include "ass_utils.h"
+#include "ass_shaper.h"
 
 #define VERTICAL_LOWER_BOUND 0x02f1
 
@@ -181,6 +182,7 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
 
     font.library = library;
     font.ftlibrary = ftlibrary;
+    font.shaper_priv = NULL;
     font.n_faces = 0;
     font.desc.family = strdup(desc->family);
     font.desc.treat_family_as_pattern = desc->treat_family_as_pattern;
@@ -603,6 +605,8 @@ void ass_font_free(ASS_Font *font)
     for (i = 0; i < font->n_faces; ++i)
         if (font->faces[i])
             FT_Done_Face(font->faces[i]);
+    if (font->shaper_priv)
+        ass_shaper_font_data_free(font->shaper_priv);
     free(font->desc.family);
     free(font);
 }

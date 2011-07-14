@@ -31,6 +31,8 @@
 #define DECO_UNDERLINE 1
 #define DECO_STRIKETHROUGH 2
 
+typedef struct ass_shaper_font_data ASS_ShaperFontData;
+
 typedef struct {
     char *family;
     unsigned bold;
@@ -44,6 +46,7 @@ typedef struct {
     ASS_Library *library;
     FT_Library ftlibrary;
     FT_Face faces[ASS_FONT_MAX_FACES];
+    ASS_ShaperFontData *shaper_priv;
     int n_faces;
     double scale_x, scale_y;    // current transform
     FT_Vector v;                // current shift
