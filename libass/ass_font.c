@@ -446,7 +446,7 @@ int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
 
     // try with the requested face
     if (*face_index < font->n_faces) {
-        face = font->faces[i];
+        face = font->faces[*face_index];
         index = FT_Get_Char_Index(face, symbol);
     }
 
