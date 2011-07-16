@@ -307,8 +307,6 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
         if (i > 0)
             info->face_index = last->face_index;
         // set size and get glyph index
-        double size_scaled = ensure_font_size(render_priv,
-                info->font_size * render_priv->font_scale);
         ass_font_get_index(render_priv->fontconfig_priv, info->font,
                 info->symbol, &info->face_index, &info->glyph_index);
         // shape runs share the same font face and size
