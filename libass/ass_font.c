@@ -90,8 +90,6 @@ static int find_font(ASS_Library *library, char *name)
     return -1;
 }
 
-static void face_set_size(FT_Face face, double size);
-
 static void buggy_font_workaround(FT_Face face)
 {
     // Some fonts have zero Ascender/Descender fields in 'hhea' table.
@@ -160,7 +158,7 @@ static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
     buggy_font_workaround(face);
 
     font->faces[font->n_faces++] = face;
-    face_set_size(face, font->size);
+    ass_face_set_size(face, font->size);
     free(path);
     return font->n_faces - 1;
 }
@@ -216,7 +214,7 @@ void ass_font_set_transform(ASS_Font *font, double scale_x,
     }
 }
 
-static void face_set_size(FT_Face face, double size)
+void ass_face_set_size(FT_Face face, double size)
 {
     TT_HoriHeader *hori = FT_Get_Sfnt_Table(face, ft_sfnt_hhea);
     TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
@@ -251,7 +249,7 @@ void ass_font_set_size(ASS_Font *font, double size)
     if (font->size != size) {
         font->size = size;
         for (i = 0; i < font->n_faces; ++i)
-            face_set_size(font->faces[i], size);
+            ass_face_set_size(font->faces[i], size);
     }
 }
 

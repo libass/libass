@@ -1139,9 +1139,8 @@ get_outline_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
             info->desc = drawing->desc;
             ass_drawing_free(drawing);
         } else {
-            double size_scaled = ensure_font_size(render_priv,
-                    info->font_size * render_priv->font_scale);
-            ass_font_set_size(info->font, size_scaled);
+            ass_face_set_size(info->font->faces[info->face_index],
+                    info->font_size);
             ass_font_set_transform(info->font, info->scale_x,
                     info->scale_y, NULL);
             // symbol might have been changed. re-get it.
@@ -1797,7 +1796,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             render_priv->state.effect_timing;
         glyphs[text_info->length].effect_skip_timing =
             render_priv->state.effect_skip_timing;
-        glyphs[text_info->length].font_size = render_priv->state.font_size;
+        glyphs[text_info->length].font_size = ensure_font_size(render_priv,
+                    render_priv->state.font_size * render_priv->font_scale);
         glyphs[text_info->length].be = render_priv->state.be;
         glyphs[text_info->length].blur = render_priv->state.blur;
         glyphs[text_info->length].shadow_x = render_priv->state.shadow_x;

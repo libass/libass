@@ -158,6 +158,8 @@ static hb_font_t *get_hb_font(GlyphInfo *info)
         hb_fonts[info->face_index] =
             hb_ft_font_create(font->faces[info->face_index], NULL);
 
+    ass_face_set_size(font->faces[info->face_index], info->font_size);
+
     return hb_fonts[info->face_index];
 }
 
@@ -307,7 +309,6 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
         // set size and get glyph index
         double size_scaled = ensure_font_size(render_priv,
                 info->font_size * render_priv->font_scale);
-        ass_font_set_size(info->font, size_scaled);
         ass_font_get_index(render_priv->fontconfig_priv, info->font,
                 info->symbol, &info->face_index, &info->glyph_index);
         // shape runs share the same font face and size
