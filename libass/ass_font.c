@@ -487,6 +487,8 @@ int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
         }
     }
 #endif
+    // FIXME: make sure we have a valid face_index. this is a HACK.
+    *face_index  = FFMAX(*face_index, 0);
     *glyph_index = index;
 
     return 1;
