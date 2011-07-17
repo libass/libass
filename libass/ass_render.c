@@ -1529,12 +1529,13 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
                                            sizeof(LineInfo) *
                                            text_info->max_lines);
             }
-            if (lead < text_info->length)
+            if (lead < text_info->length) {
                 text_info->glyphs[lead].linebreak = break_type;
-            last_space = -1;
-            s1 = text_info->glyphs + lead;
-            s_offset = d6_to_double(s1->bbox.xMin + s1->pos.x);
-            text_info->n_lines++;
+                last_space = -1;
+                s1 = text_info->glyphs + lead;
+                s_offset = d6_to_double(s1->bbox.xMin + s1->pos.x);
+                text_info->n_lines++;
+            }
         }
     }
 #define DIFF(x,y) (((x) < (y)) ? (y - x) : (x - y))
