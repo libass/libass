@@ -603,8 +603,20 @@ static int get_contour_direction(FT_Vector *points, int start, int end)
 }
 
 /**
- * \brief Fix-up stroker result for huge borders by removing inside contours
- * that would reverse in size
+ * \brief Apply fixups to please the FreeType stroker and improve the
+ * rendering result, especially in case the outline has some anomalies.
+ * At the moment, the following fixes are done:
+ *
+ * 1. Reverse contours that have "inside" winding direction but are not
+ *    contained in any other contours' cbox.
+ * 2. Remove "inside" contours depending on border size, so that large
+ *    borders do not reverse the winding direction, which leads to "holes"
+ *    inside the border. The inside will be filled by the border of the
+ *    outside contour anyway in this case.
+ *
+ * \param outline FreeType outline, modified in-place
+ * \param border_x border size, x direction, d6 format
+ * \param border_x border size, y direction, d6 format
  */
 void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x, int border_y)
 {
@@ -672,19 +684,27 @@ void fix_freetype_stroker(FT_OutlineGlyph glyph, int border_x, int border_y)
         }
     }
 
-    // zero-out contours that can be removed; much simpler than copying
+    // if we need to modify the outline, rewrite it and skip
+    // the contours that we determined should be removed.
     if (modified) {
+        FT_Outline *outline = &glyph->outline;
+        int p = 0, c = 0;
         for (i = 0; i < nc; i++) {
-            if (valid_cont[i])
+            if (!valid_cont[i])
                 continue;
             begin = (i == 0) ? 0 : glyph->outline.contours[i - 1] + 1;
             stop = glyph->outline.contours[i];
             for (j = begin; j <= stop; j++) {
-                glyph->outline.points[j].x = 0;
-                glyph->outline.points[j].y = 0;
-                glyph->outline.tags[j] = 0;
+                outline->points[p].x = outline->points[j].x;
+                outline->points[p].y = outline->points[j].y;
+                outline->tags[p] = outline->tags[j];
+                p++;
             }
+            outline->contours[c] = p - 1;
+            c++;
         }
+        outline->n_points = p;
+        outline->n_contours = c;
     }
 
     free(boxes);
