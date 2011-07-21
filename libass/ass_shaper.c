@@ -140,6 +140,20 @@ static void set_run_features(ASS_Shaper *shaper, GlyphInfo *info)
 }
 
 /**
+ * \brief Update HarfBuzz's idea of font metrics
+ * \param hb_font HarfBuzz font
+ * \param face associated FreeType font face
+ */
+static void update_hb_size(hb_font_t *hb_font, FT_Face face)
+{
+    hb_font_set_scale (hb_font,
+            ((uint64_t) face->size->metrics.x_scale * (uint64_t) face->units_per_EM) >> 16,
+            ((uint64_t) face->size->metrics.y_scale * (uint64_t) face->units_per_EM) >> 16);
+    hb_font_set_ppem (hb_font, face->size->metrics.x_ppem,
+            face->size->metrics.y_ppem);
+}
+
+/**
  * \brief Retrieve HarfBuzz font from cache.
  * Create it from FreeType font, if needed.
  * \param info glyph cluster
@@ -153,12 +167,14 @@ static hb_font_t *get_hb_font(GlyphInfo *info)
     if (!font->shaper_priv)
         font->shaper_priv = calloc(sizeof(ASS_ShaperFontData), 1);
 
+
     hb_fonts = font->shaper_priv->fonts;
     if (!hb_fonts[info->face_index])
         hb_fonts[info->face_index] =
             hb_ft_font_create(font->faces[info->face_index], NULL);
 
     ass_face_set_size(font->faces[info->face_index], info->font_size);
+    update_hb_size(hb_fonts[info->face_index], font->faces[info->face_index]);
 
     return hb_fonts[info->face_index];
 }
