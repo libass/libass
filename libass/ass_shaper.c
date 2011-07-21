@@ -317,11 +317,6 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
         // skip drawings
         if (info->symbol == 0xfffc)
             continue;
-        // initialize face_index to continue with the same face, if possible
-        // XXX: can be problematic in some cases, for example if a font misses
-        // a single glyph, like space (U+0020)
-        if (i > 0)
-            info->face_index = last->face_index;
         // set size and get glyph index
         ass_font_get_index(render_priv->fontconfig_priv, info->font,
                 info->symbol, &info->face_index, &info->glyph_index);
