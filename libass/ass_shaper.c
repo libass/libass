@@ -436,7 +436,7 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
 
         // FIXME: we should actually specify
         // the correct paragraph base direction
-        level = fribidi_reorder_line(FRIBIDI_FLAGS_DEFAULT,
+        level = fribidi_reorder_line(0,
                 shaper->ctypes + line->offset, line->len, 0, dir,
                 shaper->emblevels + line->offset, NULL,
                 shaper->cmap + line->offset);
