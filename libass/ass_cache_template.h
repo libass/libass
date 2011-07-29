@@ -98,6 +98,15 @@ START(glyph, glyph_hash_key)
     GENERIC(unsigned, border_style)
 END(GlyphHashKey)
 
+START(glyph_metrics, glyph_metrics_hash_key)
+    GENERIC(ASS_Font *, font)
+    GENERIC(double, size)
+    GENERIC(int, face_index)
+    GENERIC(int, glyph_index)
+    GENERIC(unsigned, scale_x)
+    GENERIC(unsigned, scale_y)
+END(GlyphMetricsHashKey)
+
 // describes an outline drawing
 START(drawing, drawing_hash_key)
     GENERIC(unsigned, scale_x)

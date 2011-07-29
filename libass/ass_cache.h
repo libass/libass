@@ -48,6 +48,10 @@ typedef struct {
     int asc, desc;              // ascender/descender
 } OutlineHashValue;
 
+typedef struct {
+    FT_Glyph_Metrics metrics;
+} GlyphMetricsHashValue;
+
 // Create definitions for bitmap, outline and composite hash keys
 #define CREATE_STRUCT_DEFINITIONS
 #include "ass_cache_template.h"
@@ -93,6 +97,7 @@ void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
 void ass_cache_done(Cache *cache);
 Cache *ass_font_cache_create(void);
 Cache *ass_outline_cache_create(void);
+Cache *ass_glyph_metrics_cache_create(void);
 Cache *ass_bitmap_cache_create(void);
 Cache *ass_composite_cache_create(void);
 

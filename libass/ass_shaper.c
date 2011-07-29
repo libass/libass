@@ -23,6 +23,7 @@
 #include "ass_render.h"
 #include "ass_font.h"
 #include "ass_parse.h"
+#include "ass_cache.h"
 
 #define MAX_RUNS 50
 
@@ -44,10 +45,19 @@ struct ass_shaper {
     // OpenType features
     int n_features;
     hb_feature_t *features;
+    // Glyph metrics cache, to speed up shaping
+    Cache *metrics_cache;
+};
+
+struct ass_shaper_metrics_data {
+    Cache *metrics_cache;
+    GlyphMetricsHashKey hash_key;
 };
 
 struct ass_shaper_font_data {
     hb_font_t *fonts[ASS_FONT_MAX_FACES];
+    hb_font_funcs_t *font_funcs[ASS_FONT_MAX_FACES];
+    struct ass_shaper_metrics_data *metrics_data[ASS_FONT_MAX_FACES];
 };
 
 /**
@@ -102,6 +112,8 @@ ASS_Shaper *ass_shaper_new(size_t prealloc)
     init_features(shaper);
     check_allocations(shaper, prealloc);
 
+    shaper->metrics_cache = ass_glyph_metrics_cache_create();
+
     return shaper;
 }
 
@@ -110,6 +122,7 @@ ASS_Shaper *ass_shaper_new(size_t prealloc)
  */
 void ass_shaper_free(ASS_Shaper *shaper)
 {
+    ass_cache_done(shaper->metrics_cache);
     free(shaper->event_text);
     free(shaper->ctypes);
     free(shaper->emblevels);
@@ -122,8 +135,11 @@ void ass_shaper_font_data_free(ASS_ShaperFontData *priv)
 {
     int i;
     for (i = 0; i < ASS_FONT_MAX_FACES; i++)
-        if (priv->fonts[i])
+        if (priv->fonts[i]) {
+            free(priv->metrics_data[i]);
             hb_font_destroy(priv->fonts[i]);
+            hb_font_funcs_destroy(priv->font_funcs[i]);
+        }
     free(priv);
 }
 
@@ -153,13 +169,174 @@ static void update_hb_size(hb_font_t *hb_font, FT_Face face)
             face->size->metrics.y_ppem);
 }
 
+
+/*
+ * Cached glyph metrics getters follow
+ *
+ * These functions replace HarfBuzz' standard FreeType font functions
+ * and provide cached access to essential glyph metrics. This usually
+ * speeds up shaping a lot. It also allows us to use custom load flags.
+ *
+ */
+
+GlyphMetricsHashValue *
+get_cached_metrics(struct ass_shaper_metrics_data *metrics, FT_Face face,
+                   hb_codepoint_t glyph)
+{
+    GlyphMetricsHashValue *val;
+
+    metrics->hash_key.glyph_index = glyph;
+    val = ass_cache_get(metrics->metrics_cache, &metrics->hash_key);
+
+    if (!val) {
+        int load_flags = FT_LOAD_DEFAULT | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
+            | FT_LOAD_IGNORE_TRANSFORM;
+        GlyphMetricsHashValue new_val;
+
+        if (FT_Load_Glyph(face, glyph, load_flags))
+            return NULL;
+
+        memcpy(&new_val.metrics, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
+        val = ass_cache_put(metrics->metrics_cache, &metrics->hash_key, &new_val);
+    }
+
+    return val;
+}
+
+static hb_bool_t
+get_glyph(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
+          hb_codepoint_t variation, hb_codepoint_t *glyph, void *user_data)
+{
+    FT_Face face = font_data;
+
+    if (variation)
+        *glyph = FT_Face_GetCharVariantIndex(face, unicode, variation);
+    else
+        *glyph = FT_Get_Char_Index(face, unicode);
+
+    return *glyph != 0;
+}
+
+static hb_position_t
+cached_h_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
+                 void *user_data)
+{
+    FT_Face face = font_data;
+    struct ass_shaper_metrics_data *metrics_priv = user_data;
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, glyph);
+
+    if (!metrics)
+        return 0;
+
+    return metrics->metrics.horiAdvance;
+}
+
+static hb_position_t
+cached_v_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
+                 void *user_data)
+{
+    FT_Face face = font_data;
+    struct ass_shaper_metrics_data *metrics_priv = user_data;
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, glyph);
+
+    if (!metrics)
+        return 0;
+
+    return metrics->metrics.vertAdvance;
+
+}
+
+static hb_bool_t
+cached_h_origin(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
+                hb_position_t *x, hb_position_t *y, void *user_data)
+{
+    return 1;
+}
+
+static hb_bool_t
+cached_v_origin(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
+                hb_position_t *x, hb_position_t *y, void *user_data)
+{
+    FT_Face face = font_data;
+    struct ass_shaper_metrics_data *metrics_priv = user_data;
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, glyph);
+
+    if (!metrics)
+        return 0;
+
+    *x = metrics->metrics.horiBearingX - metrics->metrics.vertBearingX;
+    *y = metrics->metrics.horiBearingY - (-metrics->metrics.vertBearingY);
+
+    return 1;
+}
+
+static hb_position_t
+get_h_kerning(hb_font_t *font, void *font_data, hb_codepoint_t first,
+                 hb_codepoint_t second, void *user_data)
+{
+    FT_Face face = font_data;
+    FT_Vector kern;
+
+    if (FT_Get_Kerning (face, first, second, FT_KERNING_DEFAULT, &kern))
+        return 0;
+
+    return kern.x;
+}
+
+static hb_position_t
+get_v_kerning(hb_font_t *font, void *font_data, hb_codepoint_t first,
+                 hb_codepoint_t second, void *user_data)
+{
+    return 0;
+}
+
+static hb_bool_t
+cached_extents(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
+               hb_glyph_extents_t *extents, void *user_data)
+{
+    FT_Face face = font_data;
+    struct ass_shaper_metrics_data *metrics_priv = user_data;
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, glyph);
+
+    if (!metrics)
+        return 0;
+
+    extents->x_bearing = metrics->metrics.horiBearingX;
+    extents->y_bearing = metrics->metrics.horiBearingY;
+    extents->width     = metrics->metrics.width;
+    extents->height    = metrics->metrics.height;
+
+    return 1;
+}
+
+static hb_bool_t
+get_contour_point(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
+                     unsigned int point_index, hb_position_t *x,
+                     hb_position_t *y, void *user_data)
+{
+    FT_Face face = font_data;
+    int load_flags = FT_LOAD_DEFAULT | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
+        | FT_LOAD_IGNORE_TRANSFORM;
+
+    if (FT_Load_Glyph(face, glyph, load_flags))
+        return 0;
+
+    if (point_index >= (unsigned)face->glyph->outline.n_points)
+        return 0;
+
+    *x = face->glyph->outline.points[point_index].x;
+    *y = face->glyph->outline.points[point_index].y;
+
+    return 1;
+}
+
 /**
  * \brief Retrieve HarfBuzz font from cache.
  * Create it from FreeType font, if needed.
  * \param info glyph cluster
  * \return HarfBuzz font
  */
-static hb_font_t *get_hb_font(GlyphInfo *info)
+static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
 {
     ASS_Font *font = info->font;
     hb_font_t **hb_fonts;
@@ -169,12 +346,52 @@ static hb_font_t *get_hb_font(GlyphInfo *info)
 
 
     hb_fonts = font->shaper_priv->fonts;
-    if (!hb_fonts[info->face_index])
+    if (!hb_fonts[info->face_index]) {
         hb_fonts[info->face_index] =
             hb_ft_font_create(font->faces[info->face_index], NULL);
 
+        // set up cached metrics access
+        font->shaper_priv->metrics_data[info->face_index] =
+            calloc(sizeof(struct ass_shaper_metrics_data), 1);
+        struct ass_shaper_metrics_data *metrics =
+            font->shaper_priv->metrics_data[info->face_index];
+        metrics->metrics_cache = shaper->metrics_cache;
+
+        hb_font_funcs_t *funcs = hb_font_funcs_create();
+        font->shaper_priv->font_funcs[info->face_index] = funcs;
+        hb_font_funcs_set_glyph_func(funcs, get_glyph,
+                metrics, NULL);
+        hb_font_funcs_set_glyph_h_advance_func(funcs, cached_h_advance,
+                metrics, NULL);
+        hb_font_funcs_set_glyph_v_advance_func(funcs, cached_v_advance,
+                metrics, NULL);
+        hb_font_funcs_set_glyph_h_origin_func(funcs, cached_h_origin,
+                metrics, NULL);
+        hb_font_funcs_set_glyph_v_origin_func(funcs, cached_v_origin,
+                metrics, NULL);
+        hb_font_funcs_set_glyph_h_kerning_func(funcs, get_h_kerning,
+                metrics, NULL);
+        hb_font_funcs_set_glyph_v_kerning_func(funcs, get_v_kerning,
+                metrics, NULL);
+        hb_font_funcs_set_glyph_extents_func(funcs, cached_extents,
+                metrics, NULL);
+        hb_font_funcs_set_glyph_contour_point_func(funcs, get_contour_point,
+                metrics, NULL);
+        hb_font_set_funcs(hb_fonts[info->face_index], funcs,
+                font->faces[info->face_index], NULL);
+    }
+
     ass_face_set_size(font->faces[info->face_index], info->font_size);
     update_hb_size(hb_fonts[info->face_index], font->faces[info->face_index]);
+
+    // update hash key for cached metrics
+    struct ass_shaper_metrics_data *metrics =
+        font->shaper_priv->metrics_data[info->face_index];
+    metrics->hash_key.font = info->font;
+    metrics->hash_key.face_index = info->face_index;
+    metrics->hash_key.size = info->font_size;
+    metrics->hash_key.scale_x = double_to_d6(info->scale_x);
+    metrics->hash_key.scale_y = double_to_d6(info->scale_y);
 
     return hb_fonts[info->face_index];
 }
@@ -207,7 +424,7 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         runs[run].offset = k;
         runs[run].end    = i;
         runs[run].buf    = hb_buffer_create(i - k + 1);
-        runs[run].font   = get_hb_font(glyphs + k);
+        runs[run].font   = get_hb_font(shaper, glyphs + k);
         set_run_features(shaper, glyphs + k);
         hb_buffer_set_direction(runs[run].buf, direction ? HB_DIRECTION_RTL :
                 HB_DIRECTION_LTR);

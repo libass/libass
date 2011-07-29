@@ -331,6 +331,13 @@ Cache *ass_outline_cache_create(void)
             NULL, sizeof(OutlineHashKey), sizeof(OutlineHashValue));
 }
 
+Cache *ass_glyph_metrics_cache_create(void)
+{
+    return ass_cache_create(glyph_metrics_hash, glyph_metrics_compare, NULL,
+            (ItemSize) NULL, sizeof(GlyphMetricsHashKey),
+            sizeof(GlyphMetricsHashValue));
+}
+
 Cache *ass_bitmap_cache_create(void)
 {
     return ass_cache_create(bitmap_hash, bitmap_compare, bitmap_destruct,
