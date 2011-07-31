@@ -1,3 +1,8 @@
+libass (0.9.13)
+ * Fix critical problem with the outline preprocessor, fixes crash with
+   FreeType 2.4.6
+ * Various small bugfixes, merged from master
+
 libass (0.9.12)
  * Switch to permissive (ISC) license
  * Support \fs+ and \fs- syntax for modifying font size
