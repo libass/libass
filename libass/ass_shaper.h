@@ -31,6 +31,7 @@ void ass_shaper_set_kerning(ASS_Shaper *shaper, int kern);
 void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
                           GlyphInfo *glyphs, size_t len);
 void ass_shaper_set_base_direction(ASS_Shaper *shaper, FriBidiParType dir);
+void ass_shaper_set_language(ASS_Shaper *shaper, const char *code);
 void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info);
 void ass_shaper_cleanup(ASS_Shaper *shaper, TextInfo *text_info);
 FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info);

@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <inttypes.h>
+#include <ctype.h>
 
 #ifdef CONFIG_ICONV
 #include <iconv.h>
@@ -69,6 +70,7 @@ void ass_free_track(ASS_Track *track)
     }
     free(track->style_format);
     free(track->event_format);
+    free(track->Language);
     if (track->styles) {
         for (i = 0; i < track->n_styles; ++i)
             ass_free_style(track, i);
@@ -595,6 +597,12 @@ static int process_info_line(ASS_Track *track, char *str)
         track->ScaledBorderAndShadow = parse_bool(str + 22);
     } else if (!strncmp(str, "Kerning:", 8)) {
         track->Kerning = parse_bool(str + 8);
+    } else if (!strncmp(str, "Language:", 9)) {
+        char *p = str + 9;
+        while (*p && isspace(*p)) p++;
+        track->Language = malloc(3);
+        strncpy(track->Language, p, 2);
+        track->Language[2] = 0;
     }
     return 0;
 }

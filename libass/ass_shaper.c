@@ -45,6 +45,7 @@ struct ass_shaper {
     // OpenType features
     int n_features;
     hb_feature_t *features;
+    hb_language_t language;
     // Glyph metrics cache, to speed up shaping
     Cache *metrics_cache;
 };
@@ -428,6 +429,7 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         set_run_features(shaper, glyphs + k);
         hb_buffer_set_direction(runs[run].buf, direction ? HB_DIRECTION_RTL :
                 HB_DIRECTION_LTR);
+        hb_buffer_set_language(runs[run].buf, shaper->language);
         hb_buffer_add_utf32(runs[run].buf, shaper->event_text + k, i - k + 1,
                 0, i - k + 1);
         hb_shape(runs[run].font, runs[run].buf, shaper->features,
@@ -556,6 +558,17 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
 void ass_shaper_set_base_direction(ASS_Shaper *shaper, FriBidiParType dir)
 {
     shaper->base_direction = dir;
+}
+
+/**
+ * \brief Set language hint. Some languages have specific character variants,
+ * like Serbian Cyrillic.
+ * \param lang ISO 639-1 two-letter language code
+ */
+void ass_shaper_set_language(ASS_Shaper *shaper, const char *code)
+{
+    printf("setting language to '%s'\n", code);
+    shaper->language = hb_language_from_string(code);
 }
 
 /**
