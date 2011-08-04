@@ -421,7 +421,6 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         int direction = shaper->emblevels[k] % 2;
         while (i < (len - 1) && level == glyphs[i+1].shape_run_id)
             i++;
-        //printf("run %d from %d to %d with level %d\n", run, k, i, level);
         runs[run].offset = k;
         runs[run].end    = i;
         runs[run].buf    = hb_buffer_create(i - k + 1);
@@ -435,7 +434,6 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         hb_shape(runs[run].font, runs[run].buf, shaper->features,
                 shaper->n_features);
     }
-    //printf("shaped %d runs\n", run);
 
     // Initialize: skip all glyphs, this is undone later as needed
     for (i = 0; i < len; i++)
@@ -446,25 +444,15 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         int num_glyphs = hb_buffer_get_length(runs[i].buf);
         hb_glyph_info_t *glyph_info = hb_buffer_get_glyph_infos(runs[i].buf, NULL);
         hb_glyph_position_t *pos    = hb_buffer_get_glyph_positions(runs[i].buf, NULL);
-        //printf("run text len %d num_glyphs %d\n", runs[i].end - runs[i].offset + 1,
-        //        num_glyphs);
-        // Update glyphs
+
         for (j = 0; j < num_glyphs; j++) {
             int idx = glyph_info[j].cluster + runs[i].offset;
             GlyphInfo *info = glyphs + idx;
             GlyphInfo *root = info;
-#if 0
-            printf("run %d cluster %d codepoint %d -> '%c'\n", i, idx,
-                    glyph_info[j].codepoint, event_text[idx]);
-            printf("position %d %d advance %d %d\n",
-                    pos[j].x_offset, pos[j].y_offset,
-                    pos[j].x_advance, pos[j].y_advance);
-#endif
 
             // if we have more than one glyph per cluster, allocate a new one
             // and attach to the root glyph
             if (info->skip == 0) {
-                //printf("duplicate cluster entry, adding glyph\n");
                 while (info->next)
                     info = info->next;
                 info->next = malloc(sizeof(GlyphInfo));
@@ -545,8 +533,6 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
                     last->face_index != info->face_index))
             shape_run++;
         info->shape_run_id = shape_run;
-        //printf("glyph '%c' shape run id %d face %d\n", info->symbol, info->shape_run_id,
-        //        info->face_index);
     }
 
 }
@@ -567,7 +553,6 @@ void ass_shaper_set_base_direction(ASS_Shaper *shaper, FriBidiParType dir)
  */
 void ass_shaper_set_language(ASS_Shaper *shaper, const char *code)
 {
-    printf("setting language to '%s'\n", code);
     shaper->language = hb_language_from_string(code);
 }
 
@@ -589,7 +574,6 @@ void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         shaper->event_text[i] = glyphs[i].symbol;
         // embedding levels should be calculated paragraph by paragraph
         if (glyphs[i].symbol == '\n' || i == text_info->length - 1) {
-            //printf("paragraph from %d to %d\n", last_break, i);
             dir = shaper->base_direction;
             fribidi_get_bidi_types(shaper->event_text + last_break,
                     i - last_break + 1, shaper->ctypes + last_break);
@@ -603,14 +587,6 @@ void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     for (i = 0; i < text_info->length; i++) {
         glyphs[i].shape_run_id += shaper->emblevels[i];
     }
-
-#if 0
-    printf("levels ");
-    for (i = 0; i < text_info->length; i++) {
-        printf("%d ", glyphs[i].shape_run_id);
-    }
-    printf("\n");
-#endif
 
     //shape_fribidi(shaper, text_info->length);
     shape_harfbuzz(shaper, glyphs, text_info->length);
@@ -668,16 +644,7 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
                 shaper->ctypes + line->offset, line->len, 0, dir,
                 shaper->emblevels + line->offset, NULL,
                 shaper->cmap + line->offset);
-        //printf("reorder line %d to level %d\n", i, level);
     }
-
-#if 0
-    printf("map ");
-    for (i = 0; i < text_info->length; i++) {
-        printf("%d ", cmap[i]);
-    }
-    printf("\n");
-#endif
 
     return shaper->cmap;
 }
