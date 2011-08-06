@@ -1859,10 +1859,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             while (back && og->bbox.xMax - og->bbox.xMin == 0
                     && og->italic)
                 og = &glyphs[--back];
-            if (og->bbox.xMax > og->cluster_advance.x) {
-                // The FreeType oblique slants by 6/16
-                og->cluster_advance.x += og->bbox.yMax * 0.375;
-            }
+            if (og->bbox.xMax > og->cluster_advance.x)
+                og->cluster_advance.x = og->bbox.xMax;
         }
 
         // add horizontal letter spacing
