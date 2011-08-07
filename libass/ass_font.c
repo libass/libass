@@ -31,7 +31,7 @@
 #include "ass.h"
 #include "ass_library.h"
 #include "ass_font.h"
-#include "ass_fontconfig.h"
+#include "ass_fontselect.h"
 #include "ass_utils.h"
 #include "ass_shaper.h"
 
@@ -127,7 +127,7 @@ static void buggy_font_workaround(FT_Face face)
  * \brief Select a face with the given charcode and add it to ASS_Font
  * \return index of the new face in font->faces, -1 if failed
  */
-static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
+static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 {
     char *path;
     int index;
@@ -138,10 +138,9 @@ static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
     if (font->n_faces == ASS_FONT_MAX_FACES)
         return -1;
 
-    path =
-        fontconfig_select(font->library, fc_priv, font->desc.family,
-                          font->desc.treat_family_as_pattern,
-                          font->desc.bold, font->desc.italic, &index, ch);
+    path = ass_font_select(fontsel, font->library, font->desc.family,
+            font->desc.bold, font->desc.italic, &index, ch);
+
     if (!path)
         return -1;
 
@@ -181,7 +180,7 @@ static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
  * \brief Create a new ASS_Font according to "desc" argument
  */
 ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
-                       FT_Library ftlibrary, void *fc_priv,
+                       FT_Library ftlibrary, ASS_FontSelector *fontsel,
                        ASS_FontDesc *desc)
 {
     int error;
@@ -197,7 +196,6 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
     font.shaper_priv = NULL;
     font.n_faces = 0;
     font.desc.family = strdup(desc->family);
-    font.desc.treat_family_as_pattern = desc->treat_family_as_pattern;
     font.desc.bold = desc->bold;
     font.desc.italic = desc->italic;
     font.desc.vertical = desc->vertical;
@@ -206,7 +204,7 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
     font.v.x = font.v.y = 0;
     font.size = 0.;
 
-    error = add_face(fc_priv, &font, 0);
+    error = add_face(fontsel, &font, 0);
     if (error == -1) {
         free(font.desc.family);
         return 0;
@@ -484,8 +482,8 @@ static void ass_glyph_embolden(FT_GlyphSlot slot)
  * Finds a face that has the requested codepoint and returns both face
  * and glyph index.
  */
-int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
-                       int *face_index, int *glyph_index)
+int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
+                       uint32_t symbol, int *face_index, int *glyph_index)
 {
     int index = 0;
     int i;
@@ -519,14 +517,13 @@ int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
             *face_index = i;
     }
 
-#ifdef CONFIG_FONTCONFIG
     if (index == 0) {
         int face_idx;
         ass_msg(font->library, MSGL_INFO,
                 "Glyph 0x%X not found, selecting one more "
                 "font for (%s, %d, %d)", symbol, font->desc.family,
                 font->desc.bold, font->desc.italic);
-        face_idx = *face_index = add_face(fcpriv, font, symbol);
+        face_idx = *face_index = add_face(fontsel, font, symbol);
         if (face_idx >= 0) {
             face = font->faces[face_idx];
             index = FT_Get_Char_Index(face, ass_font_index_magic(face, symbol));
@@ -547,7 +544,7 @@ int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
             }
         }
     }
-#endif
+
     // FIXME: make sure we have a valid face_index. this is a HACK.
     *face_index  = FFMAX(*face_index, 0);
     *glyph_index = index;
@@ -559,9 +556,8 @@ int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
  * \brief Get a glyph
  * \param ch character code
  **/
-FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
-                            uint32_t ch, int face_index, int index,
-                            ASS_Hinting hinting, int deco)
+FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
+                            int index, ASS_Hinting hinting, int deco)
 {
     int error;
     FT_Glyph glyph;

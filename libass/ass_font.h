@@ -26,6 +26,7 @@
 
 #include "ass.h"
 #include "ass_types.h"
+#include "ass_fontselect.h"
 
 #define VERTICAL_LOWER_BOUND 0x02f1
 
@@ -39,7 +40,6 @@ typedef struct {
     char *family;
     unsigned bold;
     unsigned italic;
-    int treat_family_as_pattern;
     int vertical;               // @font vertical layout
 } ASS_FontDesc;
 
@@ -58,7 +58,7 @@ typedef struct {
 #include "ass_cache.h"
 
 ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
-                       FT_Library ftlibrary, void *fc_priv,
+                       FT_Library ftlibrary, ASS_FontSelector *fontsel,
                        ASS_FontDesc *desc);
 void ass_font_set_transform(ASS_Font *font, double scale_x,
                             double scale_y, FT_Vector *v);
@@ -66,10 +66,10 @@ void ass_face_set_size(FT_Face face, double size);
 void ass_font_set_size(ASS_Font *font, double size);
 void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
                            int *desc);
-int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
-                       int *face_index, int *glyph_index);
+int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
+                       uint32_t symbol, int *face_index, int *glyph_index);
 uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol);
-FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
+FT_Glyph ass_font_get_glyph(ASS_Font *font,
                             uint32_t ch, int face_index, int index,
                             ASS_Hinting hinting, int deco);
 FT_Vector ass_font_get_kerning(ASS_Font *font, uint32_t c1, uint32_t c2);

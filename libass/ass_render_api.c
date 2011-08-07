@@ -144,11 +144,10 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
     priv->settings.default_family =
         default_family ? strdup(default_family) : 0;
 
-    if (priv->fontconfig_priv)
-        fontconfig_done(priv->fontconfig_priv);
-    priv->fontconfig_priv =
-        fontconfig_init(priv->library, priv->ftlibrary, default_family,
-                        default_font, fc, config, update);
+    if (priv->fontselect)
+        ass_fontselect_free(priv->fontselect);
+    priv->fontselect = ass_fontselect_init(priv->library, priv->ftlibrary,
+            default_family, default_font);
 }
 
 void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits)
@@ -169,7 +168,8 @@ void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style)
 
 int ass_fonts_update(ASS_Renderer *render_priv)
 {
-    return fontconfig_update(render_priv->fontconfig_priv);
+    //return fontconfig_update(render_priv->fontselect);
+    return 1;
 }
 
 void ass_set_cache_limits(ASS_Renderer *render_priv, int glyph_max,

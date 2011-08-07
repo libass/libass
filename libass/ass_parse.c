@@ -102,7 +102,6 @@ void update_font(ASS_Renderer *render_priv)
 {
     unsigned val;
     ASS_FontDesc desc;
-    desc.treat_family_as_pattern = render_priv->state.treat_family_as_pattern;
 
     if (render_priv->state.family[0] == '@') {
         desc.vertical = 1;
@@ -129,7 +128,7 @@ void update_font(ASS_Renderer *render_priv)
 
     render_priv->state.font =
         ass_font_new(render_priv->cache.font_cache, render_priv->library,
-                     render_priv->ftlibrary, render_priv->fontconfig_priv,
+                     render_priv->ftlibrary, render_priv->fontselect,
                      &desc);
     free(desc.family);
 
