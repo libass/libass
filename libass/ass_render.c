@@ -122,8 +122,8 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     }
     if (render_priv->ftlibrary)
         FT_Done_FreeType(render_priv->ftlibrary);
-    if (render_priv->fontconfig_priv)
-        fontconfig_done(render_priv->fontconfig_priv);
+    if (render_priv->fontselect)
+        ass_fontselect_free(render_priv->fontselect);
     if (render_priv->synth_priv)
         ass_synth_done(render_priv->synth_priv);
     ass_shaper_free(render_priv->shaper);
@@ -1149,7 +1149,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             ass_font_set_transform(info->font, info->scale_x,
                     info->scale_y, NULL);
             FT_Glyph glyph =
-                ass_font_get_glyph(priv->fontconfig_priv, info->font,
+                ass_font_get_glyph(info->font,
                         info->symbol, info->face_index, info->glyph_index,
                         priv->settings.hinting, info->flags);
             if (glyph != NULL) {
@@ -2245,7 +2245,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     if (render_priv->library != track->library)
         return 1;
 
-    if (!render_priv->fontconfig_priv)
+    if (!render_priv->fontselect)
         return 1;
 
     free_list_clear(render_priv);

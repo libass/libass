@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
+ * Copyright (C) 2011 Grigori Goronzy <greg@chown.ath.cx>
  *
  * This file is part of libass.
  *
@@ -16,30 +16,20 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef LIBASS_FONTCONFIG_H
-#define LIBASS_FONTCONFIG_H
+#include "config.h"
 
-#include <stdint.h>
 #include "ass_types.h"
-#include "ass.h"
-#include <ft2build.h>
-#include FT_FREETYPE_H
+#include "ass_fontselect.h"
+
+#ifndef ASS_FONTCONFIG_H
+#define ASS_FONTCONFIG_H
 
 #ifdef CONFIG_FONTCONFIG
-#include <fontconfig/fontconfig.h>
+
+ASS_FontProvider *
+ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
+                            const char *config);
+
 #endif
 
-typedef struct fc_instance FCInstance;
-
-FCInstance *fontconfig_init(ASS_Library *library,
-                            FT_Library ftlibrary, const char *family,
-                            const char *path, int fc, const char *config,
-                            int update);
-char *fontconfig_select(ASS_Library *library, FCInstance *priv,
-                        const char *family, int treat_family_as_pattern,
-                        unsigned bold, unsigned italic, int *index,
-                        uint32_t code);
-void fontconfig_done(FCInstance *priv);
-int fontconfig_update(FCInstance *priv);
-
-#endif                          /* LIBASS_FONTCONFIG_H */
+#endif
