@@ -35,6 +35,7 @@ enum {
 #define NUM_FEATURES 3
 
 struct ass_shaper {
+    ASS_ShapingLevel shaping_level;
     // FriBidi log2vis
     int n_glyphs;
     FriBidiChar *event_text;
@@ -487,14 +488,24 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
  * Arabic shaping.
  * \param len number of clusters
  */
-static void shape_fribidi(ASS_Shaper *shaper, size_t len)
+static void shape_fribidi(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 {
+    int i;
     FriBidiJoiningType *joins = calloc(sizeof(*joins), len);
 
+    // shape on codepoint level
     fribidi_get_joining_types(shaper->event_text, len, joins);
     fribidi_join_arabic(shaper->ctypes, len, shaper->emblevels, joins);
     fribidi_shape(FRIBIDI_FLAGS_DEFAULT | FRIBIDI_FLAGS_ARABIC,
             shaper->emblevels, len, joins, shaper->event_text);
+
+    // update indexes
+    for (i = 0; i < len; i++) {
+        GlyphInfo *info = glyphs + i;
+        FT_Face face = info->font->faces[info->face_index];
+        info->symbol = shaper->event_text[i];
+        info->glyph_index = FT_Get_Char_Index(face, shaper->event_text[i]);
+    }
 
     free(joins);
 }
@@ -557,6 +568,14 @@ void ass_shaper_set_language(ASS_Shaper *shaper, const char *code)
 }
 
 /**
+ * Set shaping level. Essentially switches between FriBidi and HarfBuzz.
+ */
+void ass_shaper_set_level(ASS_Shaper *shaper, ASS_ShapingLevel level)
+{
+    shaper->shaping_level = level;
+}
+
+/**
  * \brief Shape an event's text. Calculates directional runs and shapes them.
  * \param text_info event's text
  */
@@ -588,12 +607,17 @@ void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         glyphs[i].shape_run_id += shaper->emblevels[i];
     }
 
-    //shape_fribidi(shaper, text_info->length);
-    shape_harfbuzz(shaper, glyphs, text_info->length);
+    switch (shaper->shaping_level) {
+    case ASS_SHAPING_SIMPLE:
+        shape_fribidi(shaper, glyphs, text_info->length);
+        break;
+    case ASS_SHAPING_COMPLEX:
+        shape_harfbuzz(shaper, glyphs, text_info->length);
+        break;
+    }
 
-    // Update glyphs
+    // clean up
     for (i = 0; i < text_info->length; i++) {
-        glyphs[i].symbol = shaper->event_text[i];
         // Skip direction override control characters
         // NOTE: Behdad said HarfBuzz is supposed to remove these, but this hasn't
         // been implemented yet

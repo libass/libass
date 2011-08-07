@@ -76,6 +76,7 @@ typedef struct {
     double aspect;              // frame aspect ratio, d_width / d_height.
     double storage_aspect;      // pixel ratio of the source image
     ASS_Hinting hinting;
+    ASS_ShapingLevel shaper;
 
     char *default_font;
     char *default_family;

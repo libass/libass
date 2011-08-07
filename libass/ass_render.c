@@ -77,6 +77,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
     priv->shaper = ass_shaper_new(0);
     ass_shaper_info(library);
+    priv->settings.shaper = ASS_SHAPING_COMPLEX;
 
   ass_init_exit:
     if (priv)
@@ -1104,21 +1105,21 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
  * The glyphs are returned in info->glyph and info->outline_glyph
  */
 static void
-get_outline_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
+get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 {
     OutlineHashValue *val;
     OutlineHashKey key;
 
     memset(&info->hash_key, 0, sizeof(key));
 
-    fill_glyph_hash(render_priv, &key, info);
-    val = ass_cache_get(render_priv->cache.outline_cache, &key);
+    fill_glyph_hash(priv, &key, info);
+    val = ass_cache_get(priv->cache.outline_cache, &key);
     if (val) {
         info->hash_key.u.outline.outline = val;
         info->outline = val->outline;
         info->border = val->border;
         info->bbox = val->bbox_scaled;
-        if (info->drawing) {
+        if (info->drawing || priv->settings.shaper == ASS_SHAPING_SIMPLE) {
             info->cluster_advance.x = info->advance.x = val->advance.x;
             info->cluster_advance.y = info->advance.y = val->advance.y;
         }
@@ -1131,7 +1132,7 @@ get_outline_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
             ass_drawing_hash(drawing);
             if(!ass_drawing_parse(drawing, 0))
                 return;
-            outline_copy(render_priv->ftlibrary, &drawing->outline,
+            outline_copy(priv->ftlibrary, &drawing->outline,
                     &info->outline);
             info->cluster_advance.x = info->advance.x = drawing->advance.x;
             info->cluster_advance.y = info->advance.y = drawing->advance.y;
@@ -1143,19 +1144,17 @@ get_outline_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                     info->font_size);
             ass_font_set_transform(info->font, info->scale_x,
                     info->scale_y, NULL);
-            // symbol might have been changed. re-get it.
-            //if (info->face_index < 0)
-            //    ass_font_get_index(render_priv->fontconfig_priv, info->font,
-            //            info->symbol, &info->face_index, &info->glyph_index);
             FT_Glyph glyph =
-                ass_font_get_glyph(render_priv->fontconfig_priv, info->font,
+                ass_font_get_glyph(priv->fontconfig_priv, info->font,
                         info->symbol, info->face_index, info->glyph_index,
-                        render_priv->settings.hinting, info->flags);
+                        priv->settings.hinting, info->flags);
             if (glyph != NULL) {
-                outline_copy(render_priv->ftlibrary,
+                outline_copy(priv->ftlibrary,
                         &((FT_OutlineGlyph)glyph)->outline, &info->outline);
-                //info->advance.x = d16_to_d6(glyph->advance.x);
-                //info->advance.y = d16_to_d6(glyph->advance.y);
+                if (priv->settings.shaper == ASS_SHAPING_SIMPLE) {
+                    info->cluster_advance.x = d16_to_d6(glyph->advance.x);
+                    info->cluster_advance.y = d16_to_d6(glyph->advance.y);
+                }
                 FT_Done_Glyph(glyph);
                 ass_font_get_asc_desc(info->font, info->symbol,
                         &info->asc, &info->desc);
@@ -1168,26 +1167,24 @@ get_outline_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 
         FT_Outline_Get_CBox(info->outline, &info->bbox);
 
-        if (render_priv->state.style->BorderStyle == 3 &&
+        if (priv->state.style->BorderStyle == 3 &&
             (info->border_x > 0|| info->border_y > 0)) {
-            outline_copy(render_priv->ftlibrary, info->outline, &info->border);
-            draw_opaque_box(render_priv, info->symbol, info->border,
+            outline_copy(priv->ftlibrary, info->outline, &info->border);
+            draw_opaque_box(priv, info->symbol, info->border,
                             info->advance,
-                            double_to_d6(info->border_x *
-                                         render_priv->border_scale),
-                            double_to_d6(info->border_y *
-                                         render_priv->border_scale));
+                            double_to_d6(info->border_x * priv->border_scale),
+                            double_to_d6(info->border_y * priv->border_scale));
         } else if ((info->border_x > 0 || info->border_y > 0)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
 
-            outline_copy(render_priv->ftlibrary, info->outline, &info->border);
-            stroke_outline(render_priv, info->border,
-                    double_to_d6(info->border_x * render_priv->border_scale),
-                    double_to_d6(info->border_y * render_priv->border_scale));
+            outline_copy(priv->ftlibrary, info->outline, &info->border);
+            stroke_outline(priv, info->border,
+                    double_to_d6(info->border_x * priv->border_scale),
+                    double_to_d6(info->border_y * priv->border_scale));
         }
 
         memset(&v, 0, sizeof(v));
-        v.lib = render_priv->ftlibrary;
+        v.lib = priv->ftlibrary;
         v.outline = info->outline;
         v.border = info->border;
         v.advance = info->cluster_advance;
@@ -1195,7 +1192,7 @@ get_outline_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         v.asc = info->asc;
         v.desc = info->desc;
         info->hash_key.u.outline.outline =
-            ass_cache_put(render_priv->cache.outline_cache, &key, &v);
+            ass_cache_put(priv->cache.outline_cache, &key, &v);
     }
 }
 
@@ -2269,6 +2266,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     ass_shaper_set_kerning(render_priv->shaper, track->Kerning);
     if (track->Language)
         ass_shaper_set_language(render_priv->shaper, track->Language);
+    ass_shaper_set_level(render_priv->shaper, render_priv->settings.shaper);
 
     // PAR correction
     render_priv->font_scale_x = render_priv->settings.aspect /
