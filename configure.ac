@@ -40,13 +40,19 @@ AC_ARG_ENABLE([enca], AS_HELP_STRING([--disable-enca],
     [disable enca (charset autodetect) support @<:@default=check@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
     [disable fontconfig support @<:@default=enabled@:>@]))
-AC_ARG_ENABLE([fribidi], AS_HELP_STRING([--disable-fribidi],
-    [disable bidi support @<:@default=enabled@:>@]))
+AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
+    [disable HarfBuzz support @<:@default=check@:>@]))
 
 PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.10.3, [
     CFLAGS="$CFLAGS $FREETYPE_CFLAGS"
     LIBS="$LIBS $FREETYPE_LIBS"
     AC_DEFINE(CONFIG_FREETYPE, 1, [found freetype2 via pkg-config])
+    ])
+
+PKG_CHECK_MODULES([FRIBIDI], fribidi >= 0.19.0, [
+    CFLAGS="$CFLAGS $FRIBIDI_CFLAGS"
+    LIBS="$LIBS $FRIBIDI_LIBS"
+    AC_DEFINE(CONFIG_FRIBIDI, 1, [found fribidi via pkg-config])
     ])
 
 if test x$enable_fontconfig != xno; then
@@ -58,22 +64,13 @@ PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.4.2, [
     ])
 fi
 
-if test x$enable_fribidi != xno; then
-PKG_CHECK_MODULES([FRIBIDI], fribidi >= 0.19.0, [
-    CFLAGS="$CFLAGS $FRIBIDI_CFLAGS"
-    LIBS="$LIBS $FRIBIDI_LIBS"
-    AC_DEFINE(CONFIG_FRIBIDI, 1, [found fribidi via pkg-config])
-	fribidi=true
-    ])
-fi
-
 if test x$enable_harfbuzz != xno; then
 PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.7.0, [
     CFLAGS="$CFLAGS $HARFBUZZ_CFLAGS"
     LIBS="$LIBS $HARFBUZZ_LIBS"
     AC_DEFINE(CONFIG_HARFBUZZ, 1, [found harfbuzz-ng via pkg-config])
 	harfbuzz=true
-    ])
+    ], [harfbuzz=false])
 fi
 
 if test x$enable_enca != xno; then
@@ -98,14 +95,12 @@ AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
 
 # Add dependent libraries to pkg-config for static linking
 PKG_REQUIRES="freetype2 >= 9.6.3"
+PKG_REQUIRES="fribidi >= 0.19.0, ${PKG_REQUIRES}"
 if test x$enca = xtrue; then
     PKG_REQUIRES="enca, ${PKG_REQUIRES}"
 fi
 if test x$fontconfig = xtrue; then
     PKG_REQUIRES="fontconfig >= 2.2.0, ${PKG_REQUIRES}"
-fi
-if test x$fribidi = xtrue; then
-    PKG_REQUIRES="fribidi >= 0.19.0, ${PKG_REQUIRES}"
 fi
 if test x$harfbuzz = xtrue; then
     PKG_REQUIRES="harfbuzz >= 0.7.0, ${PKG_REQUIRES}"

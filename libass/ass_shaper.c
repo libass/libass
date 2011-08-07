@@ -16,8 +16,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "config.h"
+
 #include <fribidi/fribidi.h>
-#include <hb-ft.h>
 
 #include "ass_shaper.h"
 #include "ass_render.h"
@@ -27,15 +28,19 @@
 
 #define MAX_RUNS 50
 
+#ifdef CONFIG_HARFBUZZ
+#include <hb-ft.h>
 enum {
     VERT = 0,
     VKNA,
     KERN
 };
 #define NUM_FEATURES 3
+#endif
 
 struct ass_shaper {
     ASS_ShapingLevel shaping_level;
+
     // FriBidi log2vis
     int n_glyphs;
     FriBidiChar *event_text;
@@ -43,14 +48,19 @@ struct ass_shaper {
     FriBidiLevel *emblevels;
     FriBidiStrIndex *cmap;
     FriBidiParType base_direction;
+
+#ifdef CONFIG_HARFBUZZ
     // OpenType features
     int n_features;
     hb_feature_t *features;
     hb_language_t language;
+
     // Glyph metrics cache, to speed up shaping
     Cache *metrics_cache;
+#endif
 };
 
+#ifdef CONFIG_HARFBUZZ
 struct ass_shaper_metrics_data {
     Cache *metrics_cache;
     GlyphMetricsHashKey hash_key;
@@ -61,14 +71,19 @@ struct ass_shaper_font_data {
     hb_font_funcs_t *font_funcs[ASS_FONT_MAX_FACES];
     struct ass_shaper_metrics_data *metrics_data[ASS_FONT_MAX_FACES];
 };
+#endif
 
 /**
  * \brief Print version information
  */
 void ass_shaper_info(ASS_Library *lib)
 {
-    ass_msg(lib, MSGL_V, "Complex text layout enabled, using FriBidi "
-            FRIBIDI_VERSION " HarfBuzz-ng %s", hb_version_string());
+    ass_msg(lib, MSGL_V, "Shaper: FriBidi "
+            FRIBIDI_VERSION " (SIMPLE)"
+#ifdef CONFIG_HARFBUZZ
+            " HarfBuzz-ng %s (COMPLEX)", hb_version_string()
+#endif
+           );
 }
 
 /**
@@ -86,6 +101,37 @@ static void check_allocations(ASS_Shaper *shaper, size_t new_size)
 }
 
 /**
+ * \brief Free shaper and related data
+ */
+void ass_shaper_free(ASS_Shaper *shaper)
+{
+#ifdef CONFIG_HARFBUZZ
+    ass_cache_done(shaper->metrics_cache);
+    free(shaper->features);
+#endif
+    free(shaper->event_text);
+    free(shaper->ctypes);
+    free(shaper->emblevels);
+    free(shaper->cmap);
+    free(shaper);
+}
+
+void ass_shaper_font_data_free(ASS_ShaperFontData *priv)
+{
+#ifdef CONFIG_HARFBUZZ
+    int i;
+    for (i = 0; i < ASS_FONT_MAX_FACES; i++)
+        if (priv->fonts[i]) {
+            free(priv->metrics_data[i]);
+            hb_font_destroy(priv->fonts[i]);
+            hb_font_funcs_destroy(priv->font_funcs[i]);
+        }
+    free(priv);
+#endif
+}
+
+#ifdef CONFIG_HARFBUZZ
+/**
  * \brief set up the HarfBuzz OpenType feature list with some
  * standard features.
  */
@@ -100,49 +146,6 @@ static void init_features(ASS_Shaper *shaper)
     shaper->features[VKNA].end = INT_MAX;
     shaper->features[KERN].tag = HB_TAG('k', 'e', 'r', 'n');
     shaper->features[KERN].end = INT_MAX;
-}
-
-/**
- * \brief Create a new shaper instance and preallocate data structures
- * \param prealloc preallocation size
- */
-ASS_Shaper *ass_shaper_new(size_t prealloc)
-{
-    ASS_Shaper *shaper = calloc(sizeof(*shaper), 1);
-
-    shaper->base_direction = FRIBIDI_PAR_ON;
-    init_features(shaper);
-    check_allocations(shaper, prealloc);
-
-    shaper->metrics_cache = ass_glyph_metrics_cache_create();
-
-    return shaper;
-}
-
-/**
- * \brief Free shaper and related data
- */
-void ass_shaper_free(ASS_Shaper *shaper)
-{
-    ass_cache_done(shaper->metrics_cache);
-    free(shaper->event_text);
-    free(shaper->ctypes);
-    free(shaper->emblevels);
-    free(shaper->cmap);
-    free(shaper->features);
-    free(shaper);
-}
-
-void ass_shaper_font_data_free(ASS_ShaperFontData *priv)
-{
-    int i;
-    for (i = 0; i < ASS_FONT_MAX_FACES; i++)
-        if (priv->fonts[i]) {
-            free(priv->metrics_data[i]);
-            hb_font_destroy(priv->fonts[i]);
-            hb_font_funcs_destroy(priv->font_funcs[i]);
-        }
-    free(priv);
 }
 
 /**
@@ -482,6 +485,7 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
     }
 
 }
+#endif
 
 /**
  * \brief Shape event text with FriBidi. Does mirroring and simple
@@ -517,7 +521,9 @@ static void shape_fribidi(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
  */
 void ass_shaper_set_kerning(ASS_Shaper *shaper, int kern)
 {
+#ifdef CONFIG_HARFBUZZ
     shaper->features[KERN].value = !!kern;
+#endif
 }
 
 /**
@@ -564,7 +570,9 @@ void ass_shaper_set_base_direction(ASS_Shaper *shaper, FriBidiParType dir)
  */
 void ass_shaper_set_language(ASS_Shaper *shaper, const char *code)
 {
+#ifdef CONFIG_HARFBUZZ
     shaper->language = hb_language_from_string(code);
+#endif
 }
 
 /**
@@ -607,6 +615,7 @@ void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         glyphs[i].shape_run_id += shaper->emblevels[i];
     }
 
+#ifdef CONFIG_HARFBUZZ
     switch (shaper->shaping_level) {
     case ASS_SHAPING_SIMPLE:
         shape_fribidi(shaper, glyphs, text_info->length);
@@ -615,6 +624,10 @@ void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         shape_harfbuzz(shaper, glyphs, text_info->length);
         break;
     }
+#else
+        shape_fribidi(shaper, glyphs, text_info->length);
+#endif
+
 
     // clean up
     for (i = 0; i < text_info->length; i++) {
@@ -627,6 +640,26 @@ void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         }
     }
 }
+
+/**
+ * \brief Create a new shaper instance and preallocate data structures
+ * \param prealloc preallocation size
+ */
+ASS_Shaper *ass_shaper_new(size_t prealloc)
+{
+    ASS_Shaper *shaper = calloc(sizeof(*shaper), 1);
+
+    shaper->base_direction = FRIBIDI_PAR_ON;
+    check_allocations(shaper, prealloc);
+
+#ifdef CONFIG_HARFBUZZ
+    init_features(shaper);
+    shaper->metrics_cache = ass_glyph_metrics_cache_create();
+#endif
+
+    return shaper;
+}
+
 
 /**
  * \brief clean up additional data temporarily needed for shaping and

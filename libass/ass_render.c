@@ -77,7 +77,11 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
     priv->shaper = ass_shaper_new(0);
     ass_shaper_info(library);
+#ifdef CONFIG_HARFBUZZ
     priv->settings.shaper = ASS_SHAPING_COMPLEX;
+#else
+    priv->settings.shaper = ASS_SHAPING_SIMPLE;
+#endif
 
   ass_init_exit:
     if (priv)
