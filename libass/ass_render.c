@@ -1118,30 +1118,22 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 
     fill_glyph_hash(priv, &key, info);
     val = ass_cache_get(priv->cache.outline_cache, &key);
-    if (val) {
-        info->hash_key.u.outline.outline = val;
-        info->outline = val->outline;
-        info->border = val->border;
-        info->bbox = val->bbox_scaled;
-        if (info->drawing || priv->settings.shaper == ASS_SHAPING_SIMPLE) {
-            info->cluster_advance.x = info->advance.x = val->advance.x;
-            info->cluster_advance.y = info->advance.y = val->advance.y;
-        }
-        info->asc = val->asc;
-        info->desc = val->desc;
-    } else {
+
+    if (!val) {
         OutlineHashValue v;
+        memset(&v, 0, sizeof(v));
+
         if (info->drawing) {
             ASS_Drawing *drawing = info->drawing;
             ass_drawing_hash(drawing);
             if(!ass_drawing_parse(drawing, 0))
                 return;
             outline_copy(priv->ftlibrary, &drawing->outline,
-                    &info->outline);
-            info->cluster_advance.x = info->advance.x = drawing->advance.x;
-            info->cluster_advance.y = info->advance.y = drawing->advance.y;
-            info->asc = drawing->asc;
-            info->desc = drawing->desc;
+                    &v.outline);
+            v.advance.x = drawing->advance.x;
+            v.advance.y = drawing->advance.y;
+            v.asc = drawing->asc;
+            v.desc = drawing->desc;
             ass_drawing_free(drawing);
         } else {
             ass_face_set_size(info->font->faces[info->face_index],
@@ -1154,50 +1146,53 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                         priv->settings.hinting, info->flags);
             if (glyph != NULL) {
                 outline_copy(priv->ftlibrary,
-                        &((FT_OutlineGlyph)glyph)->outline, &info->outline);
+                        &((FT_OutlineGlyph)glyph)->outline, &v.outline);
                 if (priv->settings.shaper == ASS_SHAPING_SIMPLE) {
-                    info->cluster_advance.x = d16_to_d6(glyph->advance.x);
-                    info->cluster_advance.y = d16_to_d6(glyph->advance.y);
+                    v.advance.x = d16_to_d6(glyph->advance.x);
+                    v.advance.y = d16_to_d6(glyph->advance.y);
                 }
                 FT_Done_Glyph(glyph);
                 ass_font_get_asc_desc(info->font, info->symbol,
-                        &info->asc, &info->desc);
-                info->asc  *= info->scale_y;
-                info->desc *= info->scale_y;
+                        &v.asc, &v.desc);
+                v.asc  *= info->scale_y;
+                v.desc *= info->scale_y;
             }
         }
-        if (!info->outline)
+
+        if (!v.outline)
             return;
 
-        FT_Outline_Get_CBox(info->outline, &info->bbox);
+        FT_Outline_Get_CBox(v.outline, &v.bbox_scaled);
 
         if (priv->state.style->BorderStyle == 3 &&
             (info->border_x > 0|| info->border_y > 0)) {
-            outline_copy(priv->ftlibrary, info->outline, &info->border);
-            draw_opaque_box(priv, info->symbol, info->border,
-                            info->advance,
+            outline_copy(priv->ftlibrary, v.outline, &v.border);
+            draw_opaque_box(priv, info->symbol, v.border, v.advance,
                             double_to_d6(info->border_x * priv->border_scale),
                             double_to_d6(info->border_y * priv->border_scale));
         } else if ((info->border_x > 0 || info->border_y > 0)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
 
-            outline_copy(priv->ftlibrary, info->outline, &info->border);
-            stroke_outline(priv, info->border,
+            outline_copy(priv->ftlibrary, v.outline, &v.border);
+            stroke_outline(priv, v.border,
                     double_to_d6(info->border_x * priv->border_scale),
                     double_to_d6(info->border_y * priv->border_scale));
         }
 
-        memset(&v, 0, sizeof(v));
         v.lib = priv->ftlibrary;
-        v.outline = info->outline;
-        v.border = info->border;
-        v.advance = info->cluster_advance;
-        v.bbox_scaled = info->bbox;
-        v.asc = info->asc;
-        v.desc = info->desc;
-        info->hash_key.u.outline.outline =
-            ass_cache_put(priv->cache.outline_cache, &key, &v);
+        val = ass_cache_put(priv->cache.outline_cache, &key, &v);
     }
+
+    info->hash_key.u.outline.outline = val;
+    info->outline = val->outline;
+    info->border = val->border;
+    info->bbox = val->bbox_scaled;
+    if (info->drawing || priv->settings.shaper == ASS_SHAPING_SIMPLE) {
+        info->cluster_advance.x = info->advance.x = val->advance.x;
+        info->cluster_advance.y = info->advance.y = val->advance.y;
+    }
+    info->asc = val->asc;
+    info->desc = val->desc;
 }
 
 /**
