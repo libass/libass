@@ -138,7 +138,7 @@ char *trim_space(char *str)
     int right = strlen(str) - 1;
 
     while (isspace(str[left])) left++;
-    while (isspace(str[right])) right--;
+    while (right > left && isspace(str[right])) right--;
 
     if (left > 0)
         for (i = 0; i <= right - left; i++)
