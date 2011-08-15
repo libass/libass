@@ -24,7 +24,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <strings.h>
-#include <limits.h>
+#include <ctype.h>
 
 #include "ass_library.h"
 #include "ass.h"
@@ -329,6 +329,24 @@ void ass_msg(ASS_Library *priv, int lvl, char *fmt, ...)
     va_start(va, fmt);
     priv->msg_callback(lvl, fmt, va, priv->msg_callback_data);
     va_end(va);
+}
+
+char *trim_space(char *str)
+{
+    int i;
+    int left = 0;
+    int right = strlen(str) - 1;
+
+    while (isspace(str[left])) left++;
+    while (isspace(str[right])) right--;
+
+    if (left > 0)
+        for (i = 0; i <= right - left; i++)
+            str[i] = str[left+i];
+
+    str[right-left+1] = '\0';
+
+    return str;
 }
 
 unsigned ass_utf8_get_char(char **str)
