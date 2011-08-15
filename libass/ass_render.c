@@ -1118,30 +1118,22 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 
     fill_glyph_hash(priv, &key, info);
     val = ass_cache_get(priv->cache.outline_cache, &key);
-    if (val) {
-        info->hash_key.u.outline.outline = val;
-        info->outline = val->outline;
-        info->border = val->border;
-        info->bbox = val->bbox_scaled;
-        if (info->drawing || priv->settings.shaper == ASS_SHAPING_SIMPLE) {
-            info->cluster_advance.x = info->advance.x = val->advance.x;
-            info->cluster_advance.y = info->advance.y = val->advance.y;
-        }
-        info->asc = val->asc;
-        info->desc = val->desc;
-    } else {
+
+    if (!val) {
         OutlineHashValue v;
+        memset(&v, 0, sizeof(v));
+
         if (info->drawing) {
             ASS_Drawing *drawing = info->drawing;
             ass_drawing_hash(drawing);
             if(!ass_drawing_parse(drawing, 0))
                 return;
             outline_copy(priv->ftlibrary, &drawing->outline,
-                    &info->outline);
-            info->cluster_advance.x = info->advance.x = drawing->advance.x;
-            info->cluster_advance.y = info->advance.y = drawing->advance.y;
-            info->asc = drawing->asc;
-            info->desc = drawing->desc;
+                    &v.outline);
+            v.advance.x = drawing->advance.x;
+            v.advance.y = drawing->advance.y;
+            v.asc = drawing->asc;
+            v.desc = drawing->desc;
             ass_drawing_free(drawing);
         } else {
             ass_face_set_size(info->font->faces[info->face_index],
@@ -1154,50 +1146,53 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                         priv->settings.hinting, info->flags);
             if (glyph != NULL) {
                 outline_copy(priv->ftlibrary,
-                        &((FT_OutlineGlyph)glyph)->outline, &info->outline);
+                        &((FT_OutlineGlyph)glyph)->outline, &v.outline);
                 if (priv->settings.shaper == ASS_SHAPING_SIMPLE) {
-                    info->cluster_advance.x = d16_to_d6(glyph->advance.x);
-                    info->cluster_advance.y = d16_to_d6(glyph->advance.y);
+                    v.advance.x = d16_to_d6(glyph->advance.x);
+                    v.advance.y = d16_to_d6(glyph->advance.y);
                 }
                 FT_Done_Glyph(glyph);
                 ass_font_get_asc_desc(info->font, info->symbol,
-                        &info->asc, &info->desc);
-                info->asc  *= info->scale_y;
-                info->desc *= info->scale_y;
+                        &v.asc, &v.desc);
+                v.asc  *= info->scale_y;
+                v.desc *= info->scale_y;
             }
         }
-        if (!info->outline)
+
+        if (!v.outline)
             return;
 
-        FT_Outline_Get_CBox(info->outline, &info->bbox);
+        FT_Outline_Get_CBox(v.outline, &v.bbox_scaled);
 
         if (priv->state.style->BorderStyle == 3 &&
             (info->border_x > 0|| info->border_y > 0)) {
-            outline_copy(priv->ftlibrary, info->outline, &info->border);
-            draw_opaque_box(priv, info->symbol, info->border,
-                            info->advance,
+            outline_copy(priv->ftlibrary, v.outline, &v.border);
+            draw_opaque_box(priv, info->symbol, v.border, v.advance,
                             double_to_d6(info->border_x * priv->border_scale),
                             double_to_d6(info->border_y * priv->border_scale));
         } else if ((info->border_x > 0 || info->border_y > 0)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
 
-            outline_copy(priv->ftlibrary, info->outline, &info->border);
-            stroke_outline(priv, info->border,
+            outline_copy(priv->ftlibrary, v.outline, &v.border);
+            stroke_outline(priv, v.border,
                     double_to_d6(info->border_x * priv->border_scale),
                     double_to_d6(info->border_y * priv->border_scale));
         }
 
-        memset(&v, 0, sizeof(v));
         v.lib = priv->ftlibrary;
-        v.outline = info->outline;
-        v.border = info->border;
-        v.advance = info->cluster_advance;
-        v.bbox_scaled = info->bbox;
-        v.asc = info->asc;
-        v.desc = info->desc;
-        info->hash_key.u.outline.outline =
-            ass_cache_put(priv->cache.outline_cache, &key, &v);
+        val = ass_cache_put(priv->cache.outline_cache, &key, &v);
     }
+
+    info->hash_key.u.outline.outline = val;
+    info->outline = val->outline;
+    info->border = val->border;
+    info->bbox = val->bbox_scaled;
+    if (info->drawing || priv->settings.shaper == ASS_SHAPING_SIMPLE) {
+        info->cluster_advance.x = info->advance.x = val->advance.x;
+        info->cluster_advance.y = info->advance.y = val->advance.y;
+    }
+    info->asc = val->asc;
+    info->desc = val->desc;
 }
 
 /**
@@ -1289,75 +1284,74 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
     BitmapHashValue *val;
     OutlineBitmapHashKey *key = &info->hash_key.u.outline;
 
+    if (!info->outline || info->symbol == '\n' || info->symbol == 0 || info->skip)
+        return;
+
     val = ass_cache_get(render_priv->cache.bitmap_cache, &info->hash_key);
 
-    if (val) {
-        info->bm = val->bm;
-        info->bm_o = val->bm_o;
-        info->bm_s = val->bm_s;
-    } else {
+    if (!val) {
         FT_Vector shift;
         BitmapHashValue hash_val;
         int error;
         double fax_scaled, fay_scaled;
-        info->bm = info->bm_o = info->bm_s = 0;
-        if (info->outline && info->symbol != '\n' && info->symbol != 0
-            && !info->skip) {
-            FT_Outline *outline, *border;
-            double scale_x = render_priv->font_scale_x;
+        FT_Outline *outline, *border;
+        double scale_x = render_priv->font_scale_x;
 
-            outline_copy(render_priv->ftlibrary, info->outline, &outline);
-            outline_copy(render_priv->ftlibrary, info->border, &border);
-            // calculating rotation shift vector (from rotation origin to the glyph basepoint)
-            shift.x = key->shift_x;
-            shift.y = key->shift_y;
-            fax_scaled = info->fax *
-                         render_priv->state.scale_x;
-            fay_scaled = info->fay * render_priv->state.scale_y;
-            // apply rotation
-            transform_3d(shift, outline, border,
-                         info->frx, info->fry, info->frz, fax_scaled,
-                         fay_scaled, render_priv->font_scale, info->asc);
+        hash_val.bm = hash_val.bm_o = hash_val.bm_s = 0;
 
-            // PAR correction scaling
-            FT_Matrix m = { double_to_d16(scale_x), 0,
-                            0, double_to_d16(1.0) };
+        outline_copy(render_priv->ftlibrary, info->outline, &outline);
+        outline_copy(render_priv->ftlibrary, info->border, &border);
 
-            // subpixel shift
-            if (outline) {
-                if (scale_x != 1.0)
-                    FT_Outline_Transform(outline, &m);
-                FT_Outline_Translate(outline, key->advance.x, -key->advance.y);
-            }
-            if (border) {
-                if (scale_x != 1.0)
-                    FT_Outline_Transform(border, &m);
-                FT_Outline_Translate(border, key->advance.x, -key->advance.y);
-            }
-            // render glyph
-            error = outline_to_bitmap3(render_priv->library,
-                                       render_priv->synth_priv,
-                                       render_priv->ftlibrary,
-                                       outline, border,
-                                       &info->bm, &info->bm_o,
-                                       &info->bm_s, info->be,
-                                       info->blur * render_priv->border_scale,
-                                       key->shadow_offset,
-                                       render_priv->state.style->BorderStyle);
-            if (error)
-                info->symbol = 0;
+        // calculating rotation shift vector (from rotation origin to the glyph basepoint)
+        shift.x = key->shift_x;
+        shift.y = key->shift_y;
+        fax_scaled = info->fax * render_priv->state.scale_x;
+        fay_scaled = info->fay * render_priv->state.scale_y;
 
-            // add bitmaps to cache
-            hash_val.bm_o = info->bm_o;
-            hash_val.bm = info->bm;
-            hash_val.bm_s = info->bm_s;
-            ass_cache_put(render_priv->cache.bitmap_cache, &info->hash_key,
-                    &hash_val);
+        // apply rotation
+        transform_3d(shift, outline, border,
+                info->frx, info->fry, info->frz, fax_scaled,
+                fay_scaled, render_priv->font_scale, info->asc);
 
-            outline_free(render_priv->ftlibrary, outline);
-            outline_free(render_priv->ftlibrary, border);
+        // PAR correction scaling
+        FT_Matrix m = { double_to_d16(scale_x), 0,
+            0, double_to_d16(1.0) };
+
+        // subpixel shift
+        if (outline) {
+            if (scale_x != 1.0)
+                FT_Outline_Transform(outline, &m);
+            FT_Outline_Translate(outline, key->advance.x, -key->advance.y);
         }
+        if (border) {
+            if (scale_x != 1.0)
+                FT_Outline_Transform(border, &m);
+            FT_Outline_Translate(border, key->advance.x, -key->advance.y);
+        }
+
+        // render glyph
+        error = outline_to_bitmap3(render_priv->library,
+                render_priv->synth_priv,
+                render_priv->ftlibrary,
+                outline, border,
+                &hash_val.bm, &hash_val.bm_o,
+                &hash_val.bm_s, info->be,
+                info->blur * render_priv->border_scale,
+                key->shadow_offset,
+                render_priv->state.style->BorderStyle);
+        if (error)
+            info->symbol = 0;
+
+        val = ass_cache_put(render_priv->cache.bitmap_cache, &info->hash_key,
+                &hash_val);
+
+        outline_free(render_priv->ftlibrary, outline);
+        outline_free(render_priv->ftlibrary, border);
     }
+
+    info->bm = val->bm;
+    info->bm_o = val->bm_o;
+    info->bm_s = val->bm_s;
 
     // VSFilter compatibility: invisible fill and no border?
     // In this case no shadow is supposed to be rendered.
