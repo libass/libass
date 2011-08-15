@@ -263,8 +263,8 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     req.weight  = bold;
     req.n_fullname   = 1;
     req.fullnames    = &req_fullname;
-    req.fullnames[0] = (char *)family;
-    req.family       = strdup(family);
+    req.fullnames[0] = trim_space(strdup(family));
+    req.family       = trim_space(strdup(family));
     char *p = strchr(req.family, ' ');
     if (p) *p = 0;
 
@@ -281,6 +281,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
             && font_infos[info_index].funcs.check_glyph(font_infos[info_index].priv, code) == 0)
         info_index++;
 
+    free(req.fullnames[0]);
     free(req.family);
 
     // return best match
