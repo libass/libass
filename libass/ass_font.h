@@ -24,9 +24,13 @@
 #include FT_GLYPH_H
 #include FT_OUTLINE_H
 
+typedef struct ass_font ASS_Font;
+typedef struct ass_font_desc ASS_FontDesc;
+
 #include "ass.h"
 #include "ass_types.h"
 #include "ass_fontselect.h"
+#include "ass_cache.h"
 
 #define VERTICAL_LOWER_BOUND 0x02f1
 
@@ -34,28 +38,25 @@
 #define DECO_UNDERLINE 1
 #define DECO_STRIKETHROUGH 2
 
-typedef struct ass_shaper_font_data ASS_ShaperFontData;
-
-typedef struct {
+struct ass_font_desc {
     char *family;
     unsigned bold;
     unsigned italic;
     int vertical;               // @font vertical layout
-} ASS_FontDesc;
+};
 
-typedef struct {
+struct ass_font {
     ASS_FontDesc desc;
     ASS_Library *library;
     FT_Library ftlibrary;
+    int faces_uid[ASS_FONT_MAX_FACES];
     FT_Face faces[ASS_FONT_MAX_FACES];
     ASS_ShaperFontData *shaper_priv;
     int n_faces;
     double scale_x, scale_y;    // current transform
     FT_Vector v;                // current shift
     double size;
-} ASS_Font;
-
-#include "ass_cache.h"
+};
 
 ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
                        FT_Library ftlibrary, ASS_FontSelector *fontsel,

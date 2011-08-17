@@ -130,19 +130,26 @@ static void buggy_font_workaround(FT_Face face)
 static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 {
     char *path;
-    int index;
+    int i, index, uid;
+    int error, mem_idx;
     FT_Face face;
-    int error;
-    int mem_idx;
 
     if (font->n_faces == ASS_FONT_MAX_FACES)
         return -1;
 
-    path = ass_font_select(fontsel, font->library, font->desc.family,
-            font->desc.bold, font->desc.italic, &index, ch);
+    path = ass_font_select(fontsel, font->library, font , &index, &uid, ch);
 
     if (!path)
         return -1;
+
+    for (i = 0; i < font->n_faces; i++) {
+        if (font->faces_uid[i] == uid) {
+            ass_msg(font->library, MSGL_INFO,
+                    "Got a font face that already is available! Skipping.");
+            free(path);
+            return -1;
+        }
+    }
 
     mem_idx = find_font(font->library, path);
     if (mem_idx >= 0) {
@@ -170,7 +177,8 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     charmap_magic(font->library, face);
     buggy_font_workaround(face);
 
-    font->faces[font->n_faces++] = face;
+    font->faces[font->n_faces] = face;
+    font->faces_uid[font->n_faces++] = uid;
     ass_face_set_size(face, font->size);
     free(path);
     return font->n_faces - 1;
@@ -667,9 +675,10 @@ void ass_font_free(ASS_Font *font)
     int i;
     if (font->shaper_priv)
         ass_shaper_font_data_free(font->shaper_priv);
-    for (i = 0; i < font->n_faces; ++i)
+    for (i = 0; i < font->n_faces; ++i) {
         if (font->faces[i])
             FT_Done_Face(font->faces[i]);
+    }
     free(font->desc.family);
     free(font);
 }

@@ -20,14 +20,17 @@
 #define LIBASS_FONTCONFIG_H
 
 #include <stdint.h>
-#include "ass_types.h"
-#include "ass.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+typedef struct ass_shaper_font_data ASS_ShaperFontData;
 typedef struct font_selector ASS_FontSelector;
 typedef struct font_provider ASS_FontProvider;
 typedef struct font_info ASS_FontInfo;
+
+#include "ass_types.h"
+#include "ass.h"
+#include "ass_font.h"
 
 // get face data
 typedef void *(*GetFaceFunc)(void *);
@@ -58,9 +61,8 @@ ASS_FontSelector *
 ass_fontselect_init(ASS_Library *library,
                     FT_Library ftlibrary, const char *family,
                     const char *path);
-char *ass_font_select(ASS_FontSelector *priv, ASS_Library *lib,
-                      const char *family, unsigned bold, unsigned italic,
-                      int *index, uint32_t code);
+char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
+                      ASS_Font *font, int *index, int *uid, uint32_t code);
 void ass_fontselect_free(ASS_FontSelector *priv);
 
 // Font provider functions
