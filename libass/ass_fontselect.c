@@ -92,6 +92,44 @@ struct font_provider {
     void *priv;
 };
 
+// simple glyph coverage map
+typedef struct coverage_map CoverageMap;
+struct coverage_map {
+    int n_codepoint;
+    uint32_t *codepoints;
+};
+
+static int check_glyph_ft(void *data, uint32_t codepoint)
+{
+    int i;
+    CoverageMap *coverage = (CoverageMap *)data;
+
+    if (!codepoint)
+        return 1;
+
+    // XXX: sort at map creation and use bsearch here - is this worth it?
+    for (i = 0; i < coverage->n_codepoint; i++)
+        if (coverage->codepoints[i] == codepoint)
+            return 1;
+
+    return 0;
+}
+
+static void coverage_map_destroy(void *data)
+{
+    CoverageMap *coverage = (CoverageMap *)data;
+
+    free(coverage->codepoints);
+    free(coverage);
+}
+
+static ASS_FontProviderFuncs ft_funcs = {
+    NULL,
+    check_glyph_ft,
+    coverage_map_destroy,
+    NULL,
+};
+
 ASS_FontProvider *
 ass_font_provider_new(ASS_FontSelector *selector, ASS_FontProviderFuncs *funcs,
                       void *priv)
@@ -417,6 +455,33 @@ static int get_font_info(FT_Library lib, FT_Face face, ASS_FontInfo *info)
     return 1;
 }
 
+static CoverageMap *get_coverage_map(FT_Face face)
+{
+    int i = 0;
+    int n_codepoint = 0;
+    uint32_t codepoint;
+    unsigned index;
+    CoverageMap *coverage = calloc(1, sizeof(CoverageMap));
+
+    // determine number of codepoints first
+    codepoint = FT_Get_First_Char(face, &index);
+    while (index) {
+        n_codepoint++;
+        codepoint = FT_Get_Next_Char(face, codepoint, &index);
+    }
+
+    coverage->codepoints = calloc(n_codepoint, sizeof(uint32_t));
+    codepoint = FT_Get_First_Char(face, &index);
+    while (index) {
+        coverage->codepoints[i++] = codepoint;
+        codepoint = FT_Get_Next_Char(face, codepoint, &index);
+    }
+
+    coverage->n_codepoint = n_codepoint;
+
+    return coverage;
+}
+
 /**
  * \brief Process memory font.
  * \param priv private data
@@ -447,6 +512,8 @@ static void process_fontdata(ASS_FontSelector *priv, ASS_Library *library,
         }
         num_faces = face->num_faces;
 
+        charmap_magic(library, face);
+
         // get font metadata and add to list
         ASS_FontInfo info;
         memset(&info, 0, sizeof(ASS_FontInfo));
@@ -455,7 +522,17 @@ static void process_fontdata(ASS_FontSelector *priv, ASS_Library *library,
         info.index = face_index;
         info.path  = strdup(name);
 
-        priv->font_infos = realloc(priv->font_infos, sizeof(ASS_FontInfo) * (priv->n_font + 1));
+        info.uid = priv->uid++;
+        info.priv = get_coverage_map(face);
+        info.funcs = ft_funcs;
+
+        // check size
+        if (priv->n_font >= priv->alloc_font) {
+            priv->alloc_font = FFMAX(1, 2 * priv->alloc_font);
+            priv->font_infos = realloc(priv->font_infos,
+                    priv->alloc_font * sizeof(ASS_FontInfo));
+        }
+
         memcpy(priv->font_infos + priv->n_font, &info, sizeof(ASS_FontInfo));
         priv->n_font++;
 
@@ -484,12 +561,12 @@ ass_fontselect_init(ASS_Library *library,
     priv->path_default = path ? strdup(path) : NULL;
     priv->index_default = 0;
 
-    // XXX: for now, always add the fontconfig provider
-    priv->provider = ass_fontconfig_add_provider(library, priv, NULL);
-
     // XXX: use a real font provider for this
     for (i = 0; i < library->num_fontdata; ++i)
         process_fontdata(priv, library, ftlibrary, i);
+
+    // XXX: for now, always add the fontconfig provider
+    priv->provider = ass_fontconfig_add_provider(library, priv, NULL);
 
     return priv;
 }
