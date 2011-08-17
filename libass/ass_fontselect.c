@@ -37,6 +37,7 @@
 #include "ass_library.h"
 #include "ass_fontselect.h"
 #include "ass_fontconfig.h"
+#include "ass_font.h"
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 #define MAX_FULLNAME 100
@@ -44,6 +45,8 @@
 // proposed structure for holding font data, used for collection
 // and matching. strings are utf-8.
 struct font_info {
+    int uid;            // unique font face id
+
     char *family;       // family name
     char **fullnames;   // list of localized fullnames (e.g. Arial Bold Italic)
     int n_fullname;
@@ -66,6 +69,9 @@ struct font_info {
 };
 
 struct font_selector {
+    // uid counter
+    int uid;
+
     // fallbacks
     char *family_default;
     char *path_default;
@@ -120,6 +126,9 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     // copy over metadata
     info = selector->font_infos + selector->n_font;
     memset(info, 0, sizeof(ASS_FontInfo));
+
+    // set uid
+    info->uid = selector->uid++;
 
     info->slant       = meta->slant;
     info->weight      = meta->weight;
@@ -245,8 +254,8 @@ static int font_info_compare(const void *av, const void *bv)
 }
 
 static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
-                          const char *family, unsigned bold,
-                          unsigned italic, int *index, uint32_t code)
+                         const char *family, unsigned bold, unsigned italic,
+                         int *index, int *uid, uint32_t code)
 {
     int num_fonts = priv->n_font;
     ASS_FontInfo *font_infos = priv->font_infos;
@@ -288,6 +297,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     if (!font_infos[info_index].path)
         return NULL;
     *index = font_infos[info_index].index;
+    *uid   = font_infos[info_index].uid;
     return strdup(font_infos[info_index].path);
 }
 
@@ -304,17 +314,19 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
  * \return font file path
 */
 char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
-                      const char *family, unsigned bold, unsigned italic,
-                      int *index, uint32_t code)
+                      ASS_Font *font, int *index, int *uid, uint32_t code)
 {
     char *res = 0;
+    const char *family = font->desc.family;
+    unsigned bold = font->desc.bold;
+    unsigned italic = font->desc.italic;
 
     if (family && *family)
-        res = select_font(priv, library, family, bold, italic, index, code);
+        res = select_font(priv, library, family, bold, italic, index, uid, code);
 
     if (!res && priv->family_default) {
         res = select_font(priv, library, priv->family_default, bold,
-                italic, index, code);
+                italic, index, uid, code);
         if (res)
             ass_msg(library, MSGL_WARN, "fontselect: Using default "
                     "font family: (%s, %d, %d) -> %s, %d",
@@ -331,7 +343,7 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
 
     if (!res) {
         res = select_font(priv, library, "Arial", bold, italic,
-                           index, code);
+                           index, uid, code);
         if (res)
             ass_msg(library, MSGL_WARN, "fontselect: Using 'Arial' "
                     "font family: (%s, %d, %d) -> %s, %d", family, bold,
@@ -467,6 +479,7 @@ ass_fontselect_init(ASS_Library *library,
     int i;
     ASS_FontSelector *priv = calloc(1, sizeof(ASS_FontSelector));
 
+    priv->uid = 1;
     priv->family_default = family ? strdup(family) : NULL;
     priv->path_default = path ? strdup(path) : NULL;
     priv->index_default = 0;
