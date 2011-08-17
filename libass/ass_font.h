@@ -58,6 +58,7 @@ struct ass_font {
     double size;
 };
 
+void charmap_magic(ASS_Library *library, FT_Face face);
 ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
                        FT_Library ftlibrary, ASS_FontSelector *fontsel,
                        ASS_FontDesc *desc);

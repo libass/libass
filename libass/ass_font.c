@@ -39,7 +39,7 @@
  * Select a good charmap, prefer Microsoft Unicode charmaps.
  * Otherwise, let FreeType decide.
  */
-static void charmap_magic(ASS_Library *library, FT_Face face)
+void charmap_magic(ASS_Library *library, FT_Face face)
 {
     int i;
     int ms_cmap = -1;
