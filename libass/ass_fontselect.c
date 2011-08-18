@@ -61,8 +61,8 @@ struct font_info {
     // similarity score
     unsigned score;
 
-    // callbacks
-    ASS_FontProviderFuncs funcs;
+    // font source
+    ASS_FontProvider *provider;
 
     // private data for callbacks
     void *priv;
@@ -198,7 +198,7 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
 
     info->index = index;
     info->priv  = data;
-    info->funcs = provider->funcs;
+    info->provider = provider;
 
     selector->n_font++;
 
@@ -312,6 +312,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                          int *index, int *uid, uint32_t code)
 {
     int num_fonts = priv->n_font;
+    int idx = 0;
     ASS_FontInfo *font_infos = priv->font_infos;
     ASS_FontInfo req;
     char *req_fullname;
@@ -339,20 +340,26 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
             font_info_compare);
 
     // check glyph coverage
-    int info_index = 0;
-    while (info_index < priv->n_font && font_infos[info_index].funcs.check_glyph
-            && font_infos[info_index].funcs.check_glyph(font_infos[info_index].priv, code) == 0)
-        info_index++;
+    while (idx < priv->n_font) {
+        ASS_FontProvider *provider = font_infos[idx].provider;
+        if (!provider || !provider->funcs.check_glyph) {
+            idx++;
+            continue;
+        }
+        if (provider->funcs.check_glyph(font_infos[idx].priv, code) > 0)
+            break;
+        idx++;
+    }
 
     free(req.fullnames[0]);
     free(req.family);
 
     // return best match
-    if (!font_infos[info_index].path)
+    if (!font_infos[idx].path)
         return NULL;
-    *index = font_infos[info_index].index;
-    *uid   = font_infos[info_index].uid;
-    return strdup(font_infos[info_index].path);
+    *index = font_infos[idx].index;
+    *uid   = font_infos[idx].uid;
+    return strdup(font_infos[idx].path);
 }
 
 
@@ -646,8 +653,8 @@ void ass_fontselect_free(ASS_FontSelector *priv)
             free(info->family);
             if (info->path)
                 free(info->path);
-            if (info->funcs.destroy_font)
-                info->funcs.destroy_font(info->priv);
+            if (info->provider && info->provider->funcs.destroy_font)
+                info->provider->funcs.destroy_font(info->priv);
         }
         free(priv->font_infos);
         free(priv->path_default);
