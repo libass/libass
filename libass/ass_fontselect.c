@@ -340,7 +340,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
             font_info_compare);
 
     // check glyph coverage
-    while (idx < priv->n_font - 1) {
+    while (idx < priv->n_font) {
         ASS_FontProvider *provider = font_infos[idx].provider;
         if (!provider || !provider->funcs.check_glyph) {
             idx++;
@@ -355,6 +355,8 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     free(req.family);
 
     // return best match
+    if (idx == priv->n_font)
+        return NULL;
     if (!font_infos[idx].path)
         return NULL;
     *index = font_infos[idx].index;
