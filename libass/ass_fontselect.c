@@ -375,8 +375,6 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     free(req.fullnames[0]);
     free(req.family);
 
-    font_info_dump(font_infos, priv->n_font);
-
     // return best match
     if (idx == priv->n_font)
         return NULL;
