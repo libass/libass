@@ -42,8 +42,8 @@
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 #define MAX_FULLNAME 100
 
-// proposed structure for holding font data, used for collection
-// and matching. strings are utf-8.
+// internal font database element
+// all strings are utf-8
 struct font_info {
     int uid;            // unique font face id
 
@@ -130,19 +130,35 @@ static ASS_FontProviderFuncs ft_funcs = {
     NULL,
 };
 
+/**
+ * \brief Create a bare font provider.
+ * \param selector parent selector. The provider will be attached to it.
+ * \param funcs callback/destroy functions
+ * \param data private data of the provider
+ * \return the font provider
+ */
 ASS_FontProvider *
 ass_font_provider_new(ASS_FontSelector *selector, ASS_FontProviderFuncs *funcs,
-                      void *priv)
+                      void *data)
 {
     ASS_FontProvider *provider = calloc(1, sizeof(ASS_FontProvider));
 
     provider->parent   = selector;
     provider->funcs    = *funcs;
-    provider->priv     = priv;
+    provider->priv     = data;
 
     return provider;
 }
 
+/**
+ * \brief Add a font to a font provider.
+ * \param provider the font provider
+ * \param meta basic metadata of the font
+ * \param path path to the font file, or NULL
+ * \param index face index inside the file
+ * \param data private data for the font
+ * \return success
+ */
 int
 ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
@@ -396,6 +412,15 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
     return res;
 }
 
+
+/**
+ * \brief Read basic metadata (names, weight, slant) from a FreeType face,
+ * as required for the FontSelector for matching and sorting.
+ * \param lib FreeType library
+ * \param face FreeType face
+ * \param info metadata, returned here
+ * \return success
+ */
 static int
 get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 {
@@ -453,6 +478,11 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     return 1;
 }
 
+/**
+ * \brief Free the dynamically allocated fields of metadata
+ * created by get_font_info.
+ * \param meta metadata created by get_font_info
+ */
 static void free_font_info(ASS_FontProviderMetaData *meta)
 {
     int i;
@@ -465,6 +495,12 @@ static void free_font_info(ASS_FontProviderMetaData *meta)
     free(meta->fullnames);
 }
 
+/**
+ * \brief Calculate a coverage map (array with codepoints) from a FreeType
+ * face. This can be used to check glyph coverage quickly.
+ * \param face FreeType face
+ * \return CoverageMap structure
+ */
 static CoverageMap *get_coverage_map(FT_Face face)
 {
     int i = 0;
@@ -594,7 +630,7 @@ ass_fontselect_init(ASS_Library *library,
 
 /**
  * \brief Free font selector and release associated data
- *
+ * \param the font selector
  */
 void ass_fontselect_free(ASS_FontSelector *priv)
 {
