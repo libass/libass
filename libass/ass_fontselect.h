@@ -49,6 +49,10 @@ typedef struct font_provider_funcs {
     DestroyProviderFunc destroy_provider;
 } ASS_FontProviderFuncs;
 
+#define FONT_WEIGHT_LIGHT  300
+#define FONT_WEIGHT_MEDIUM 400
+#define FONT_WEIGHT_BOLD   700
+
 typedef struct font_provider_meta_data {
     char *family;
     char **fullnames;
