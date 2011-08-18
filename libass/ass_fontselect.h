@@ -60,7 +60,7 @@ typedef struct font_provider_meta_data {
 ASS_FontSelector *
 ass_fontselect_init(ASS_Library *library,
                     FT_Library ftlibrary, const char *family,
-                    const char *path);
+                    const char *path, const char *config, int fc);
 char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
                       ASS_Font *font, int *index, int *uid, uint32_t code);
 void ass_fontselect_free(ASS_FontSelector *priv);

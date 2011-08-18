@@ -129,12 +129,12 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
     if (priv->fontselect)
         ass_fontselect_free(priv->fontselect);
     priv->fontselect = ass_fontselect_init(priv->library, priv->ftlibrary,
-            default_family, default_font);
+            default_family, default_font, config, fc);
 }
 
 int ass_fonts_update(ASS_Renderer *render_priv)
 {
-    //return fontconfig_update(render_priv->fontselect);
+    // This is just a stub now!
     return 1;
 }
 
