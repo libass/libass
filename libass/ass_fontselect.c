@@ -42,6 +42,16 @@
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 #define MAX_FULLNAME 100
 
+static const char *fallback_fonts[] = {
+    // generic latin sans-serif fonts
+    "Arial",
+    "DejaVu Sans",
+    // fonts with lots of coverage
+    "Arial Unicode MS",
+    "FreeSerif",
+    NULL
+};
+
 // internal font database element
 // all strings are utf-8
 struct font_info {
@@ -224,43 +234,44 @@ void ass_font_provider_free(ASS_FontProvider *provider)
  * \param b font request
  * \return matching score
  */
-static unsigned font_info_similarity(ASS_FontInfo *a, ASS_FontInfo *b)
+static unsigned font_info_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
 {
     int i, j;
     unsigned similarity = 0;
+    const char **fallback = fallback_fonts;
 
     // compare fullnames
     // a matching fullname is very nice and instantly drops the score to zero
     similarity = 10000;
     for (i = 0; i < a->n_fullname; i++)
-        for (j = 0; j < b->n_fullname; j++) {
-            if (ABS(strcasecmp(a->fullnames[i], b->fullnames[j])) == 0)
+        for (j = 0; j < req->n_fullname; j++) {
+            if (strcasecmp(a->fullnames[i], req->fullnames[j]) == 0)
                 similarity = 0;
         }
 
     // if we don't have any match, compare fullnames against family
     // sometimes the family name is used similarly
     if (similarity > 0) {
-        for (i = 0; i < b->n_fullname; i++) {
-            if (ABS(strcasecmp(a->family, b->fullnames[i])) == 0)
+        for (i = 0; i < req->n_fullname; i++) {
+            if (strcasecmp(a->family, req->fullnames[i]) == 0)
                 similarity = 0;
         }
     }
 
     // compare shortened family, if no fullname matches
-    if (similarity > 0 && ABS(strcasecmp(a->family, b->family)) == 0)
+    if (similarity > 0 && strcasecmp(a->family, req->family) == 0)
         similarity = 1000;
 
     // nothing found? Try fallback fonts
-    // XXX: add more than arial
-    if (similarity > 1000 && ABS(strcasecmp(a->family, "Arial")) == 0)
-        similarity = 2000;
+    while (similarity > 2000 && *fallback)
+        if (strcmp(a->family, *fallback++) == 0)
+            similarity = 2000;
 
     // compare slant
-    similarity += ABS(a->slant - b->slant);
+    similarity += ABS(a->slant - req->slant);
 
     // compare weight
-    similarity += ABS(a->weight - b->weight);
+    similarity += ABS(a->weight - req->weight);
 
     return similarity;
 }
