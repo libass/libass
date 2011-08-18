@@ -260,12 +260,12 @@ static unsigned font_info_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
 
     // compare shortened family, if no fullname matches
     if (similarity > 0 && strcasecmp(a->family, req->family) == 0)
-        similarity = 1000;
+        similarity = 2000;
 
     // nothing found? Try fallback fonts
     while (similarity > 2000 && *fallback)
         if (strcmp(a->family, *fallback++) == 0)
-            similarity = 2000;
+            similarity = 5000;
 
     // compare slant
     similarity += ABS(a->slant - req->slant);
