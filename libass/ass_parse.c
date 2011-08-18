@@ -113,10 +113,10 @@ void update_font(ASS_Renderer *render_priv)
 
     val = render_priv->state.bold;
     // 0 = normal, 1 = bold, >1 = exact weight
-    if (val == 1)
-        val = 200;              // bold
+    if (val == 1 || val == -1)
+        val = 700;               // bold
     else if (val <= 0)
-        val = 80;               // normal
+        val = 400;               // normal
     desc.bold = val;
 
     val = render_priv->state.italic;

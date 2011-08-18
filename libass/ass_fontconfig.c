@@ -71,7 +71,7 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
     for (i = 0; i < fonts->nfont; i++) {
         FcPattern *pat = fonts->fonts[i];
         FcBool outline;
-        int index;
+        int index, weight;
         char *path;
         char *fullnames[MAX_FULLNAME];
 
@@ -82,10 +82,20 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
 
         // simple types
         result  = FcPatternGetInteger(pat, FC_SLANT, 0, &meta.slant);
-        result |= FcPatternGetInteger(pat, FC_WEIGHT, 0, &meta.weight);
+        result |= FcPatternGetInteger(pat, FC_WEIGHT, 0, &weight);
         result |= FcPatternGetInteger(pat, FC_INDEX, 0, &index);
         if (result != FcResultMatch)
             continue;
+
+        // fontconfig uses its own weight scale, apparently derived
+        // from typographical weight. we're using truetype weights, so
+        // convert appropriately
+        if (weight <= FC_WEIGHT_LIGHT)
+            meta.weight = FONT_WEIGHT_LIGHT;
+        else if (weight <= FC_WEIGHT_MEDIUM)
+            meta.weight = FONT_WEIGHT_MEDIUM;
+        else
+            meta.weight = FONT_WEIGHT_BOLD;
 
         // family name
         // HACK: get the last family name. that fixes fonts

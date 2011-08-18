@@ -365,6 +365,8 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     free(req.fullnames[0]);
     free(req.family);
 
+    font_info_dump(font_infos, priv->n_font);
+
     // return best match
     if (idx == priv->n_font)
         return NULL;
@@ -485,7 +487,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 
     // calculate sensible slant and weight from style attributes
     slant  = 110 * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
-    weight = 120 * !!(face->style_flags & FT_STYLE_FLAG_BOLD) + 80;
+    weight = 300 * !!(face->style_flags & FT_STYLE_FLAG_BOLD) + 400;
 
     // fill our struct
     info->family = family;
