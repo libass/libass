@@ -62,7 +62,7 @@ struct font_info {
     int n_fullname;
 
     int slant;
-    int weight;
+    int weight;         // TrueType scale, 100-900
 
     // how to access this face
     char *path;
@@ -175,10 +175,20 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
                            unsigned int index, void *data)
 {
     int i;
+    int weight, slant;
     ASS_FontSelector *selector = provider->parent;
     ASS_FontInfo *info;
 
     // TODO: sanity checks. do we have a path or valid get_face function?
+
+    weight = meta->weight;
+    slant  = meta->slant;
+
+    // check slant/weight for validity, use defaults if they're invalid
+    if (weight < 100 || weight > 900)
+        meta->weight = 400;
+    if (slant < 0 || slant > 110)
+        slant = 0;
 
     // check size
     if (selector->n_font >= selector->alloc_font) {
@@ -194,8 +204,8 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     // set uid
     info->uid = selector->uid++;
 
-    info->slant       = meta->slant;
-    info->weight      = meta->weight;
+    info->slant       = slant;
+    info->weight      = weight;
     info->family      = strdup(meta->family);
     info->n_fullname  = meta->n_fullname;
     info->fullnames   = calloc(meta->n_fullname, sizeof(char *));
