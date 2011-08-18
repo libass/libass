@@ -629,8 +629,10 @@ ass_fontselect_init(ASS_Library *library,
     priv->embedded_provider = ass_embedded_fonts_add_provider(library, priv,
             ftlibrary);
 
+#ifdef CONFIG_FONTCONFIG
     // XXX: for now, always add the fontconfig provider
     priv->default_provider = ass_fontconfig_add_provider(library, priv, NULL);
+#endif
 
     return priv;
 }
@@ -663,7 +665,9 @@ void ass_fontselect_free(ASS_FontSelector *priv)
 
     // TODO: we should track all child font providers and
     // free them here
+#ifdef CONFIG_FONTCONFIG
     ass_font_provider_free(priv->default_provider);
+#endif
     ass_font_provider_free(priv->embedded_provider);
 
     free(priv);
