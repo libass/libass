@@ -82,8 +82,8 @@ struct font_selector {
     int alloc_font;
     ASS_FontInfo *font_infos;
 
-    // XXX: for now, manage a single provider
-    ASS_FontProvider *provider;
+    ASS_FontProvider *default_provider;
+    ASS_FontProvider *embedded_provider;
 };
 
 struct font_provider {
@@ -396,13 +396,14 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
     return res;
 }
 
-static int get_font_info(FT_Library lib, FT_Face face, ASS_FontInfo *info)
+static int
+get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 {
     int i;
     int num_fullname = 0;
     int num_names = FT_Get_Sfnt_Name_Count(face);
     int slant, weight;
-    char *fullnames[100];
+    char *fullnames[MAX_FULLNAME];
     char *family = NULL;
     iconv_t utf16to8;
 
@@ -412,12 +413,9 @@ static int get_font_info(FT_Library lib, FT_Face face, ASS_FontInfo *info)
 
     // scan font names
     utf16to8 = iconv_open("UTF-8", "UTF-16BE");
-    for (i = 0; i < num_names && num_fullname < 100; i++) {
+    for (i = 0; i < num_names && num_fullname < MAX_FULLNAME; i++) {
         FT_SfntName name;
         FT_Get_Sfnt_Name(face, i, &name);
-        //printf("name %d pid %d eid %d lid %d nameid %d\n",
-        //        i, name.platform_id, name.encoding_id, name.language_id, name.name_id);
-        // we add both full names and alternate family names to the list of full names
         if (name.platform_id == 3 && (name.name_id == 4 || name.name_id == 1)) {
             char buf[1024];
             char *bufptr = buf;
@@ -453,6 +451,18 @@ static int get_font_info(FT_Library lib, FT_Face face, ASS_FontInfo *info)
     info->n_fullname = num_fullname;
 
     return 1;
+}
+
+static void free_font_info(ASS_FontProviderMetaData *meta)
+{
+    int i;
+
+    free(meta->family);
+
+    for (i = 0; i < meta->n_fullname; i++)
+        free(meta->fullnames[i]);
+
+    free(meta->fullnames);
 }
 
 static CoverageMap *get_coverage_map(FT_Face face)
@@ -491,7 +501,7 @@ static CoverageMap *get_coverage_map(FT_Face face)
  *
  * Builds a font pattern in memory via FT_New_Memory_Face/FcFreeTypeQueryFace.
 */
-static void process_fontdata(ASS_FontSelector *priv, ASS_Library *library,
+static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
                              FT_Library ftlibrary, int idx)
 {
     int rc;
@@ -503,6 +513,9 @@ static void process_fontdata(ASS_FontSelector *priv, ASS_Library *library,
     int face_index, num_faces = 1;
 
     for (face_index = 0; face_index < num_faces; ++face_index) {
+        ASS_FontProviderMetaData info;
+        CoverageMap *coverage;
+
         rc = FT_New_Memory_Face(ftlibrary, (unsigned char *) data,
                                 data_size, face_index, &face);
         if (rc) {
@@ -510,34 +523,44 @@ static void process_fontdata(ASS_FontSelector *priv, ASS_Library *library,
                    name);
             return;
         }
+
         num_faces = face->num_faces;
 
         charmap_magic(library, face);
 
-        // get font metadata and add to list
-        ASS_FontInfo info;
-        memset(&info, 0, sizeof(ASS_FontInfo));
-        if (!get_font_info(ftlibrary, face, &info))
+        memset(&info, 0, sizeof(ASS_FontProviderMetaData));
+        if (!get_font_info(ftlibrary, face, &info)) {
+            FT_Done_Face(face);
             continue;
-        info.index = face_index;
-        info.path  = strdup(name);
-
-        info.uid = priv->uid++;
-        info.priv = get_coverage_map(face);
-        info.funcs = ft_funcs;
-
-        // check size
-        if (priv->n_font >= priv->alloc_font) {
-            priv->alloc_font = FFMAX(1, 2 * priv->alloc_font);
-            priv->font_infos = realloc(priv->font_infos,
-                    priv->alloc_font * sizeof(ASS_FontInfo));
         }
 
-        memcpy(priv->font_infos + priv->n_font, &info, sizeof(ASS_FontInfo));
-        priv->n_font++;
+        coverage = get_coverage_map(face);
+        ass_font_provider_add_font(priv, &info, name, face_index, coverage);
 
+        free_font_info(&info);
         FT_Done_Face(face);
     }
+}
+
+/**
+ * \brief Create font provider for embedded fonts. This parses the fonts known
+ * to the current ASS_Library and adds them to the selector.
+ * \param lib library
+ * \param selector font selector
+ * \param ftlib FreeType library - used for querying fonts
+ * \return font provider
+ */
+static ASS_FontProvider *
+ass_embedded_fonts_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
+                                FT_Library ftlib)
+{
+    int i;
+    ASS_FontProvider *priv = ass_font_provider_new(selector, &ft_funcs, NULL);
+
+    for (i = 0; i < lib->num_fontdata; ++i)
+        process_fontdata(priv, lib, ftlib, i);
+
+    return priv;
 }
 
 /**
@@ -553,7 +576,6 @@ ass_fontselect_init(ASS_Library *library,
                     FT_Library ftlibrary, const char *family,
                     const char *path)
 {
-    int i;
     ASS_FontSelector *priv = calloc(1, sizeof(ASS_FontSelector));
 
     priv->uid = 1;
@@ -561,12 +583,11 @@ ass_fontselect_init(ASS_Library *library,
     priv->path_default = path ? strdup(path) : NULL;
     priv->index_default = 0;
 
-    // XXX: use a real font provider for this
-    for (i = 0; i < library->num_fontdata; ++i)
-        process_fontdata(priv, library, ftlibrary, i);
+    priv->embedded_provider = ass_embedded_fonts_add_provider(library, priv,
+            ftlibrary);
 
     // XXX: for now, always add the fontconfig provider
-    priv->provider = ass_fontconfig_add_provider(library, priv, NULL);
+    priv->default_provider = ass_fontconfig_add_provider(library, priv, NULL);
 
     return priv;
 }
@@ -599,7 +620,8 @@ void ass_fontselect_free(ASS_FontSelector *priv)
 
     // TODO: we should track all child font providers and
     // free them here
-    ass_font_provider_free(priv->provider);
+    ass_font_provider_free(priv->default_provider);
+    ass_font_provider_free(priv->embedded_provider);
 
     free(priv);
 }
