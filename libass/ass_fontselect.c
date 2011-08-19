@@ -179,7 +179,9 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     ASS_FontSelector *selector = provider->parent;
     ASS_FontInfo *info;
 
-    // TODO: sanity checks. do we have a path or valid get_face function?
+    // XXX: there's no support for memory fonts yet
+    if (!path)
+        return 0;
 
     weight = meta->weight;
     slant  = meta->slant;
