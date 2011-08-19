@@ -225,13 +225,66 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     return 1;
 }
 
+/**
+ * \brief Clean up font database. Deletes all fonts that have an invalid
+ * font provider (NULL).
+ * \param selector the font selector
+ */
+static void ass_fontselect_cleanup(ASS_FontSelector *selector)
+{
+    int i, w;
+
+    for (i = 0, w = 0; i < selector->n_font; i++) {
+        ASS_FontInfo *info = selector->font_infos + i;
+
+        // update write pointer
+        if (info->provider != NULL) {
+            // rewrite, if needed
+            if (w != i)
+                memcpy(selector->font_infos + w, selector->font_infos + i,
+                        sizeof(ASS_FontInfo));
+            w++;
+        }
+
+    }
+
+    selector->n_font = w;
+}
+
 void ass_font_provider_free(ASS_FontProvider *provider)
 {
-    // TODO: this should probably remove all fonts that belong
-    // to this provider from the list
+    int i, j;
+    ASS_FontSelector *selector = provider->parent;
 
-    if (provider && provider->funcs.destroy_provider)
+    // free all fonts and mark their entries
+    for (i = 0; i < selector->n_font; i++) {
+        ASS_FontInfo *info = selector->font_infos + i;
+
+        if (info->provider == provider) {
+            for (j = 0; j < info->n_fullname; j++)
+                free(info->fullnames[j]);
+
+            free(info->fullnames);
+            free(info->family);
+
+            if (info->path)
+                free(info->path);
+
+            if (info->provider->funcs.destroy_font)
+                info->provider->funcs.destroy_font(info->priv);
+
+            info->provider = NULL;
+        }
+
+    }
+
+    // delete marked entries
+    ass_fontselect_cleanup(selector);
+
+    // free private data of the provider
+    if (provider->funcs.destroy_provider)
         provider->funcs.destroy_provider(provider->priv);
+
     free(provider);
 }
 
@@ -667,30 +720,17 @@ ass_fontselect_init(ASS_Library *library,
  */
 void ass_fontselect_free(ASS_FontSelector *priv)
 {
-    int i;
-
-    if (priv) {
-        for (i = 0; i < priv->n_font; i++) {
-            ASS_FontInfo *info = priv->font_infos + i;
-            int j;
-            for (j = 0; j < info->n_fullname; j++)
-                free(info->fullnames[j]);
-            free(info->fullnames);
-            free(info->family);
-            if (info->path)
-                free(info->path);
-            if (info->provider && info->provider->funcs.destroy_font)
-                info->provider->funcs.destroy_font(info->priv);
-        }
-        free(priv->font_infos);
-        free(priv->path_default);
-        free(priv->family_default);
-    }
-
-    // TODO: we should track all child font providers and
-    // free them here
-    ass_font_provider_free(priv->default_provider);
+    if (priv->default_provider)
+        ass_font_provider_free(priv->default_provider);
     ass_font_provider_free(priv->embedded_provider);
+
+    // XXX: not quite sure, maybe we should track all registered
+    // providers and free them right here. or should that be the
+    // responsibility of the library user?
+
+    free(priv->font_infos);
+    free(priv->path_default);
+    free(priv->family_default);
 
     free(priv);
 }
