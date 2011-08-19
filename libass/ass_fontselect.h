@@ -52,6 +52,9 @@ typedef struct font_provider_funcs {
 #define FONT_WEIGHT_LIGHT  300
 #define FONT_WEIGHT_MEDIUM 400
 #define FONT_WEIGHT_BOLD   700
+#define FONT_SLANT_NONE    0
+#define FONT_SLANT_ITALIC  100
+#define FONT_SLANT_OBLIQUE 110
 
 typedef struct font_provider_meta_data {
     char *family;
