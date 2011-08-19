@@ -186,7 +186,7 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
 
     // check slant/weight for validity, use defaults if they're invalid
     if (weight < 100 || weight > 900)
-        meta->weight = 400;
+        weight = 400;
     if (slant < 0 || slant > 110)
         slant = 0;
 
