@@ -35,3 +35,6 @@ ass_fonts_update
 ass_set_cache_limits
 ass_flush_events
 ass_set_shaper
+ass_create_font_provider
+ass_font_provider_add_font
+ass_font_provider_free

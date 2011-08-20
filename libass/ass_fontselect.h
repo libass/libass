@@ -25,44 +25,11 @@
 
 typedef struct ass_shaper_font_data ASS_ShaperFontData;
 typedef struct font_selector ASS_FontSelector;
-typedef struct font_provider ASS_FontProvider;
 typedef struct font_info ASS_FontInfo;
 
 #include "ass_types.h"
 #include "ass.h"
 #include "ass_font.h"
-
-// get face data
-typedef void *(*GetFaceFunc)(void *, size_t *);
-
-// check for a glyph
-typedef int (*CheckGlyphFunc)(void *, uint32_t);
-
-// destroy font_info and related data
-typedef void (*DestroyFunc)(void *);
-typedef void (*DestroyProviderFunc)(void *);
-
-typedef struct font_provider_funcs {
-    GetFaceFunc     get_face;
-    CheckGlyphFunc  check_glyph;
-    DestroyFunc     destroy_font;
-    DestroyProviderFunc destroy_provider;
-} ASS_FontProviderFuncs;
-
-#define FONT_WEIGHT_LIGHT  300
-#define FONT_WEIGHT_MEDIUM 400
-#define FONT_WEIGHT_BOLD   700
-#define FONT_SLANT_NONE    0
-#define FONT_SLANT_ITALIC  100
-#define FONT_SLANT_OBLIQUE 110
-
-typedef struct font_provider_meta_data {
-    char *family;
-    char **fullnames;
-    int n_fullname;
-    int slant;
-    int weight;
-} ASS_FontProviderMetaData;
 
 ASS_FontSelector *
 ass_fontselect_init(ASS_Library *library,
@@ -76,9 +43,5 @@ void ass_fontselect_free(ASS_FontSelector *priv);
 // Font provider functions
 ASS_FontProvider *ass_font_provider_new(ASS_FontSelector *selector,
         ASS_FontProviderFuncs *funcs, void *data);
-int ass_font_provider_add_font(ASS_FontProvider *provider,
-        ASS_FontProviderMetaData *meta, const char *path, unsigned int index,
-        void *data);
-void ass_font_provider_free(ASS_FontProvider *provider);
 
 #endif                          /* LIBASS_FONTCONFIG_H */
