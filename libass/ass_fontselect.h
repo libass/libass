@@ -33,7 +33,7 @@ typedef struct font_info ASS_FontInfo;
 #include "ass_font.h"
 
 // get face data
-typedef void *(*GetFaceFunc)(void *);
+typedef void *(*GetFaceFunc)(void *, size_t *);
 
 // check for a glyph
 typedef int (*CheckGlyphFunc)(void *, uint32_t);
@@ -69,7 +69,8 @@ ass_fontselect_init(ASS_Library *library,
                     FT_Library ftlibrary, const char *family,
                     const char *path, const char *config, int fc);
 char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
-                      ASS_Font *font, int *index, int *uid, uint32_t code);
+                      ASS_Font *font, int *index, int *uid, ASS_Buffer *data,
+                      uint32_t code);
 void ass_fontselect_free(ASS_FontSelector *priv);
 
 // Font provider functions

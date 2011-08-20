@@ -65,8 +65,8 @@ struct font_info {
     int weight;         // TrueType scale, 100-900
 
     // how to access this face
-    char *path;
-    int index;
+    char *path;         // absolute path
+    int index;          // font index inside font collections
 
     // similarity score
     unsigned score;
@@ -109,10 +109,17 @@ struct coverage_map {
     uint32_t *codepoints;
 };
 
+typedef struct font_data_ft FontDataFT;
+struct font_data_ft {
+    ASS_Library *lib;
+    CoverageMap *coverage;
+    char *name;
+};
+
 static int check_glyph_ft(void *data, uint32_t codepoint)
 {
     int i;
-    CoverageMap *coverage = (CoverageMap *)data;
+    CoverageMap *coverage = ((FontDataFT *)data)->coverage;
 
     if (!codepoint)
         return 1;
@@ -133,10 +140,50 @@ static void coverage_map_destroy(void *data)
     free(coverage);
 }
 
+static void destroy_font_ft(void *data)
+{
+    FontDataFT *fd = (FontDataFT *)data;
+
+    if (fd->coverage)
+        coverage_map_destroy(fd->coverage);
+
+    free(fd->name);
+    free(fd);
+}
+
+/**
+ * \brief find a memory font by name
+ * \param library ASS library
+ * \param name font name
+ */
+static int find_font(ASS_Library *library, char *name)
+{
+    int i;
+    for (i = 0; i < library->num_fontdata; ++i)
+        if (strcasecmp(name, library->fontdata[i].name) == 0)
+            return i;
+    return -1;
+}
+
+static void *get_face_embedded(void *data, size_t *len)
+{
+    int i;
+    FontDataFT *ft = (FontDataFT *)data;
+    ASS_Fontdata *fd = ft->lib->fontdata;
+
+    i = find_font(ft->lib, ft->name);
+
+    if (i < 0)
+        return NULL;
+
+    *len = fd[i].size;
+    return fd[i].data;
+}
+
 static ASS_FontProviderFuncs ft_funcs = {
-    NULL,
+    get_face_embedded,
     check_glyph_ft,
-    coverage_map_destroy,
+    destroy_font_ft,
     NULL,
 };
 
@@ -178,10 +225,6 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     int weight, slant;
     ASS_FontSelector *selector = provider->parent;
     ASS_FontInfo *info;
-
-    // XXX: there's no support for memory fonts yet
-    if (!path)
-        return 0;
 
     weight = meta->weight;
     slant  = meta->slant;
@@ -385,7 +428,7 @@ static int font_info_compare(const void *av, const void *bv)
 
 static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                          const char *family, unsigned bold, unsigned italic,
-                         int *index, int *uid, uint32_t code)
+                         int *index, int *uid, ASS_Buffer *face, uint32_t code)
 {
     int num_fonts = priv->n_font;
     int idx = 0;
@@ -430,14 +473,20 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     free(req.fullnames[0]);
     free(req.family);
 
-    // return best match
-    if (idx == priv->n_font)
-        return NULL;
-    if (!font_infos[idx].path)
-        return NULL;
     *index = font_infos[idx].index;
     *uid   = font_infos[idx].uid;
-    return strdup(font_infos[idx].path);
+
+    // nothing found
+    if (idx == priv->n_font)
+        return NULL;
+
+    // if there is no valid path, this is a memory font
+    if (font_infos[idx].path == NULL) {
+        ASS_FontProvider *provider = font_infos[idx].provider;
+        face->buf = provider->funcs.get_face(font_infos[idx].priv, &face->len);
+        return strdup("");  // empty string indicates a memory font
+    } else
+        return strdup(font_infos[idx].path);
 }
 
 
@@ -453,7 +502,8 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
  * \return font file path
 */
 char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
-                      ASS_Font *font, int *index, int *uid, uint32_t code)
+                      ASS_Font *font, int *index, int *uid, ASS_Buffer *data,
+                      uint32_t code)
 {
     char *res = 0;
     const char *family = font->desc.family;
@@ -461,15 +511,16 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
     unsigned italic = font->desc.italic;
 
     if (family && *family)
-        res = select_font(priv, library, family, bold, italic, index, uid, code);
+        res = select_font(priv, library, family, bold, italic, index, uid,
+                data, code);
 
     if (!res && priv->family_default) {
         res = select_font(priv, library, priv->family_default, bold,
-                italic, index, uid, code);
+                italic, index, uid, data, code);
         if (res)
             ass_msg(library, MSGL_WARN, "fontselect: Using default "
                     "font family: (%s, %d, %d) -> %s, %d",
-                    family, bold, italic, res, *index);
+                    family, bold, italic, res[0] ? res : "<memory>", *index);
     }
 
     if (!res && priv->path_default) {
@@ -482,17 +533,17 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
 
     if (!res) {
         res = select_font(priv, library, "Arial", bold, italic,
-                           index, uid, code);
+                           index, uid, data, code);
         if (res)
             ass_msg(library, MSGL_WARN, "fontselect: Using 'Arial' "
                     "font family: (%s, %d, %d) -> %s, %d", family, bold,
-                    italic, res, *index);
+                    italic, res[0] ? res : "<memory>", *index);
     }
 
     if (res)
         ass_msg(library, MSGL_V,
                 "fontselect: (%s, %d, %d) -> %s, %d", family, bold,
-                italic, res, *index);
+                italic, res[0] ? res : "<memory>", *index);
 
     return res;
 }
@@ -635,7 +686,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
 
     for (face_index = 0; face_index < num_faces; ++face_index) {
         ASS_FontProviderMetaData info;
-        CoverageMap *coverage;
+        FontDataFT *ft;
 
         rc = FT_New_Memory_Face(ftlibrary, (unsigned char *) data,
                                 data_size, face_index, &face);
@@ -655,8 +706,12 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
             continue;
         }
 
-        coverage = get_coverage_map(face);
-        ass_font_provider_add_font(priv, &info, name, face_index, coverage);
+        ft = calloc(1, sizeof(FontDataFT));
+        ft->lib      = library;
+        ft->coverage = get_coverage_map(face);
+        ft->name     = strdup(name);
+
+        ass_font_provider_add_font(priv, &info, NULL, face_index, ft);
 
         free_font_info(&info);
         FT_Done_Face(face);

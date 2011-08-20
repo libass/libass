@@ -78,18 +78,6 @@ void charmap_magic(ASS_Library *library, FT_Face face)
     }
 }
 
-/**
- * \brief find a memory font by name
- */
-static int find_font(ASS_Library *library, char *name)
-{
-    int i;
-    for (i = 0; i < library->num_fontdata; ++i)
-        if (strcasecmp(name, library->fontdata[i].name) == 0)
-            return i;
-    return -1;
-}
-
 static void buggy_font_workaround(FT_Face face)
 {
     // Some fonts have zero Ascender/Descender fields in 'hhea' table.
@@ -116,14 +104,15 @@ static void buggy_font_workaround(FT_Face face)
 static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 {
     char *path;
-    int i, index, uid;
-    int error, mem_idx;
+    int i, index, uid, error;
+    ASS_Buffer mem_font = { NULL, 0 };
     FT_Face face;
 
     if (font->n_faces == ASS_FONT_MAX_FACES)
         return -1;
 
-    path = ass_font_select(fontsel, font->library, font , &index, &uid, ch);
+    path = ass_font_select(fontsel, font->library, font , &index, &uid,
+            &mem_font, ch);
 
     if (!path)
         return -1;
@@ -137,14 +126,9 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
         }
     }
 
-    mem_idx = find_font(font->library, path);
-    if (mem_idx >= 0) {
-        error =
-            FT_New_Memory_Face(font->ftlibrary,
-                               (unsigned char *) font->library->
-                               fontdata[mem_idx].data,
-                               font->library->fontdata[mem_idx].size, index,
-                               &face);
+    if (mem_font.buf) {
+        error = FT_New_Memory_Face(font->ftlibrary, mem_font.buf, mem_font.len,
+                    index, &face);
         if (error) {
             ass_msg(font->library, MSGL_WARN,
                     "Error opening memory font: '%s'", path);
@@ -160,6 +144,7 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
             return -1;
         }
     }
+
     charmap_magic(font->library, face);
     buggy_font_workaround(face);
 
