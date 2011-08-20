@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
+ * Copyright (C) 2011 Grigori Goronzy <greg@chown.ath.cx>
  *
  * This file is part of libass.
  *
@@ -433,6 +434,40 @@ void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style);
  * \return success
  */
 int ass_fonts_update(ASS_Renderer *priv);
+
+/**
+ * \brief Create an empty font provider. A font provider can be used to
+ * provide additional fonts to libass.
+ * \param priv parent renderer
+ * \param funcs callback functions
+ * \param private data for provider callbacks
+ *
+ */
+ASS_FontProvider *
+ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
+                         void *data);
+
+/**
+ * \brief Add a font to a font provider.
+ * \param provider the font provider
+ * \param meta font metadata. See struct definition for more information.
+ * \param path absolute path to font, or NULL for memory-based fonts
+ * \param index index inside a font collection file
+ * \param data private data for font callbacks
+ * \return success
+ *
+ */
+int
+ass_font_provider_add_font(ASS_FontProvider *provider,
+                           ASS_FontProviderMetaData *meta, const char *path,
+                           unsigned int index, void *data);
+
+/**
+ * \brief Free font provider and associated fonts.
+ * \param provider the font provider
+ *
+ */
+void ass_font_provider_free(ASS_FontProvider *provider);
 
 /**
  * \brief Set hard cache limits.  Do not set, or set to zero, for reasonable

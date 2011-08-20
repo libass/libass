@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
+ * Copyright (C) 2011 Grigori Goronzy <greg@chown.ath.cx>
  *
  * This file is part of libass.
  *
@@ -28,11 +29,47 @@
 #define HALIGN_CENTER 2
 #define HALIGN_RIGHT 3
 
+#define FONT_WEIGHT_LIGHT  300
+#define FONT_WEIGHT_MEDIUM 400
+#define FONT_WEIGHT_BOLD   700
+#define FONT_SLANT_NONE    0
+#define FONT_SLANT_ITALIC  100
+#define FONT_SLANT_OBLIQUE 110
+
+
 /* Opaque objects internally used by libass.  Contents are private. */
 typedef struct ass_renderer ASS_Renderer;
 typedef struct render_priv ASS_RenderPriv;
 typedef struct parser_priv ASS_ParserPriv;
 typedef struct ass_library ASS_Library;
+typedef struct font_provider ASS_FontProvider;
+
+
+/* Font Provider */
+typedef void *(*GetFaceFunc)(void *, size_t *);
+typedef int  (*CheckGlyphFunc)(void *, uint32_t);
+typedef void (*DestroyFontFunc)(void *);
+typedef void (*DestroyProviderFunc)(void *);
+
+typedef struct font_provider_funcs {
+    GetFaceFunc     get_face;       // callback for memory fonts
+    CheckGlyphFunc  check_glyph;    // test codepoint for coverage
+    DestroyFontFunc destroy_font;   // destroy a single font
+    DestroyProviderFunc destroy_provider;   // destroy provider only
+} ASS_FontProviderFuncs;
+
+/*
+ * Basic font metadata. All strings must be encoded with UTF-8.
+ * At minimum `family' is required.
+ */
+typedef struct font_provider_meta_data {
+    char *family;       // English font family, e.g. "Arial"
+    char **fullnames;   // list of localized full names, e.g. "Arial Bold"
+    int n_fullname;     // number of localized full names
+    int slant;          // uses the above scale (NONE/ITALIC/OBLIQUE)
+    int weight;         // TrueType scale, 100-900
+} ASS_FontProviderMetaData;
+
 
 /* ASS Style: line */
 typedef struct ass_style {
@@ -62,6 +99,7 @@ typedef struct ass_style {
     int treat_fontname_as_pattern;
     double Blur;
 } ASS_Style;
+
 
 /*
  * ASS_Event corresponds to a single Dialogue line;

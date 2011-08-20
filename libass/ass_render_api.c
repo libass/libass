@@ -179,3 +179,10 @@ void ass_set_cache_limits(ASS_Renderer *render_priv, int glyph_max,
     render_priv->cache.bitmap_max_size = bitmap_max ? 1048576 * bitmap_max :
                                          BITMAP_CACHE_MAX_SIZE;
 }
+
+ASS_FontProvider *
+ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
+                         void *data)
+{
+    return ass_font_provider_new(priv->fontselect, funcs, data);
+}
