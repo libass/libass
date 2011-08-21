@@ -957,10 +957,9 @@ static void free_render_context(ASS_Renderer *render_priv)
  * Replace the outline of a glyph by a contour which makes up a simple
  * opaque rectangle.
  */
-static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
+static void draw_opaque_box(ASS_Renderer *render_priv, int asc, int desc,
                             FT_Outline *ol, FT_Vector advance, int sx, int sy)
 {
-    int asc = 0, desc = 0;
     int i;
     int adv = advance.x;
     double scale_y = render_priv->state.scale_y;
@@ -969,15 +968,6 @@ static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
     // to avoid gaps
     sx = FFMAX(64, sx);
     sy = FFMAX(64, sy);
-
-    if (ch == -1) {
-        asc = render_priv->state.drawing->asc;
-        desc = render_priv->state.drawing->desc;
-    } else {
-        ass_font_get_asc_desc(render_priv->state.font, ch, &asc, &desc);
-        asc  *= scale_y;
-        desc *= scale_y;
-    }
 
     // Emulate the WTFish behavior of VSFilter, i.e. double-scale
     // the sizes of the opaque box.
@@ -1165,11 +1155,20 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         FT_Outline_Get_CBox(v.outline, &v.bbox_scaled);
 
         if (priv->state.style->BorderStyle == 3 &&
-            (info->border_x > 0|| info->border_y > 0)) {
+                (info->border_x > 0 || info->border_y > 0)) {
+            FT_Vector advance;
+
             outline_copy(priv->ftlibrary, v.outline, &v.border);
-            draw_opaque_box(priv, info->symbol, v.border, v.advance,
-                            double_to_d6(info->border_x * priv->border_scale),
-                            double_to_d6(info->border_y * priv->border_scale));
+
+            if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing)
+                advance = v.advance;
+            else
+                advance = info->advance;
+
+            draw_opaque_box(priv, v.asc, v.desc, v.border, advance,
+                    double_to_d6(info->border_x * priv->border_scale),
+                    double_to_d6(info->border_y * priv->border_scale));
+
         } else if ((info->border_x > 0 || info->border_y > 0)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
 
