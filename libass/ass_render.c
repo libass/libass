@@ -44,10 +44,8 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     }
 
     FT_Library_Version(ft, &vmajor, &vminor, &vpatch);
-    ass_msg(library, MSGL_V, "FreeType library version: %d.%d.%d",
+    ass_msg(library, MSGL_V, "Raster: FreeType %d.%d.%d",
            vmajor, vminor, vpatch);
-    ass_msg(library, MSGL_V, "FreeType headers version: %d.%d.%d",
-           FREETYPE_MAJOR, FREETYPE_MINOR, FREETYPE_PATCH);
 
     priv = calloc(1, sizeof(ASS_Renderer));
     if (!priv) {
@@ -85,9 +83,9 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
   ass_init_exit:
     if (priv)
-        ass_msg(library, MSGL_V, "Init");
+        ass_msg(library, MSGL_V, "Initialized");
     else
-        ass_msg(library, MSGL_ERR, "Init failed");
+        ass_msg(library, MSGL_ERR, "Initialization failed");
 
     return priv;
 }
@@ -957,10 +955,9 @@ static void free_render_context(ASS_Renderer *render_priv)
  * Replace the outline of a glyph by a contour which makes up a simple
  * opaque rectangle.
  */
-static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
+static void draw_opaque_box(ASS_Renderer *render_priv, int asc, int desc,
                             FT_Outline *ol, FT_Vector advance, int sx, int sy)
 {
-    int asc = 0, desc = 0;
     int i;
     int adv = advance.x;
     double scale_y = render_priv->state.scale_y;
@@ -969,15 +966,6 @@ static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
     // to avoid gaps
     sx = FFMAX(64, sx);
     sy = FFMAX(64, sy);
-
-    if (ch == -1) {
-        asc = render_priv->state.drawing->asc;
-        desc = render_priv->state.drawing->desc;
-    } else {
-        ass_font_get_asc_desc(render_priv->state.font, ch, &asc, &desc);
-        asc  *= scale_y;
-        desc *= scale_y;
-    }
 
     // Emulate the WTFish behavior of VSFilter, i.e. double-scale
     // the sizes of the opaque box.
@@ -996,7 +984,6 @@ static void draw_opaque_box(ASS_Renderer *render_priv, uint32_t ch,
         { .x = -sx,         .y = -desc - sy },
     };
 
-    FT_Outline_Done(render_priv->ftlibrary, ol);
     FT_Outline_New(render_priv->ftlibrary, 4, 1, ol);
 
     ol->n_points = ol->n_contours = 0;
@@ -1165,11 +1152,20 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         FT_Outline_Get_CBox(v.outline, &v.bbox_scaled);
 
         if (priv->state.style->BorderStyle == 3 &&
-            (info->border_x > 0|| info->border_y > 0)) {
-            outline_copy(priv->ftlibrary, v.outline, &v.border);
-            draw_opaque_box(priv, info->symbol, v.border, v.advance,
-                            double_to_d6(info->border_x * priv->border_scale),
-                            double_to_d6(info->border_y * priv->border_scale));
+                (info->border_x > 0 || info->border_y > 0)) {
+            FT_Vector advance;
+
+            v.border = calloc(1, sizeof(FT_Outline));
+
+            if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing)
+                advance = v.advance;
+            else
+                advance = info->advance;
+
+            draw_opaque_box(priv, v.asc, v.desc, v.border, advance,
+                    double_to_d6(info->border_x * priv->border_scale),
+                    double_to_d6(info->border_y * priv->border_scale));
+
         } else if ((info->border_x > 0 || info->border_y > 0)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
 
