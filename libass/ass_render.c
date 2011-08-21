@@ -986,7 +986,6 @@ static void draw_opaque_box(ASS_Renderer *render_priv, int asc, int desc,
         { .x = -sx,         .y = -desc - sy },
     };
 
-    FT_Outline_Done(render_priv->ftlibrary, ol);
     FT_Outline_New(render_priv->ftlibrary, 4, 1, ol);
 
     ol->n_points = ol->n_contours = 0;
@@ -1158,7 +1157,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                 (info->border_x > 0 || info->border_y > 0)) {
             FT_Vector advance;
 
-            outline_copy(priv->ftlibrary, v.outline, &v.border);
+            v.border = calloc(1, sizeof(FT_Outline));
 
             if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing)
                 advance = v.advance;
