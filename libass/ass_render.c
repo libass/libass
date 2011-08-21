@@ -44,10 +44,8 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     }
 
     FT_Library_Version(ft, &vmajor, &vminor, &vpatch);
-    ass_msg(library, MSGL_V, "FreeType library version: %d.%d.%d",
+    ass_msg(library, MSGL_V, "Raster: FreeType %d.%d.%d",
            vmajor, vminor, vpatch);
-    ass_msg(library, MSGL_V, "FreeType headers version: %d.%d.%d",
-           FREETYPE_MAJOR, FREETYPE_MINOR, FREETYPE_PATCH);
 
     priv = calloc(1, sizeof(ASS_Renderer));
     if (!priv) {
@@ -85,9 +83,9 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
   ass_init_exit:
     if (priv)
-        ass_msg(library, MSGL_V, "Init");
+        ass_msg(library, MSGL_V, "Initialized");
     else
-        ass_msg(library, MSGL_ERR, "Init failed");
+        ass_msg(library, MSGL_ERR, "Initialization failed");
 
     return priv;
 }
