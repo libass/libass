@@ -484,7 +484,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     if (font_infos[idx].path == NULL) {
         ASS_FontProvider *provider = font_infos[idx].provider;
         face->buf = provider->funcs.get_face(font_infos[idx].priv, &face->len);
-        return strdup("");  // empty string indicates a memory font
+        return strdup(font_infos[idx].family);
     } else
         return strdup(font_infos[idx].path);
 }
@@ -520,7 +520,7 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
         if (res)
             ass_msg(library, MSGL_WARN, "fontselect: Using default "
                     "font family: (%s, %d, %d) -> %s, %d",
-                    family, bold, italic, res[0] ? res : "<memory>", *index);
+                    family, bold, italic, res, *index);
     }
 
     if (!res && priv->path_default) {
@@ -537,13 +537,13 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
         if (res)
             ass_msg(library, MSGL_WARN, "fontselect: Using 'Arial' "
                     "font family: (%s, %d, %d) -> %s, %d", family, bold,
-                    italic, res[0] ? res : "<memory>", *index);
+                    italic, res, *index);
     }
 
     if (res)
         ass_msg(library, MSGL_V,
                 "fontselect: (%s, %d, %d) -> %s, %d", family, bold,
-                italic, res[0] ? res : "<memory>", *index);
+                italic, res, *index);
 
     return res;
 }
