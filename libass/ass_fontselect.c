@@ -114,6 +114,7 @@ struct font_data_ft {
     ASS_Library *lib;
     CoverageMap *coverage;
     char *name;
+    int idx;
 };
 
 static int check_glyph_ft(void *data, uint32_t codepoint)
@@ -165,23 +166,25 @@ static int find_font(ASS_Library *library, char *name)
     return -1;
 }
 
-static void *get_face_embedded(void *data, size_t *len)
+static size_t
+get_data_embedded(void *data, unsigned char *buf, size_t offset, size_t len)
 {
-    int i;
     FontDataFT *ft = (FontDataFT *)data;
     ASS_Fontdata *fd = ft->lib->fontdata;
+    int i = ft->idx;
 
-    i = find_font(ft->lib, ft->name);
+    if (ft->idx < 0)
+        ft->idx = i = find_font(ft->lib, ft->name);
 
-    if (i < 0)
-        return NULL;
+    if (buf == NULL)
+        return fd[i].size;
 
-    *len = fd[i].size;
-    return fd[i].data;
+    memcpy(buf, fd[i].data + offset, len);
+    return len;
 }
 
 static ASS_FontProviderFuncs ft_funcs = {
-    get_face_embedded,
+    get_data_embedded,
     check_glyph_ft,
     destroy_font_ft,
     NULL,
@@ -428,7 +431,8 @@ static int font_info_compare(const void *av, const void *bv)
 
 static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                          const char *family, unsigned bold, unsigned italic,
-                         int *index, int *uid, ASS_Buffer *face, uint32_t code)
+                         int *index, int *uid, ASS_FontStream *stream,
+                         uint32_t code)
 {
     int num_fonts = priv->n_font;
     int idx = 0;
@@ -480,10 +484,11 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     if (idx == priv->n_font)
         return NULL;
 
-    // if there is no valid path, this is a memory font
+    // if there is no valid path, this is a memory stream font
     if (font_infos[idx].path == NULL) {
         ASS_FontProvider *provider = font_infos[idx].provider;
-        face->buf = provider->funcs.get_face(font_infos[idx].priv, &face->len);
+        stream->func = provider->funcs.get_data;
+        stream->priv = font_infos[idx].priv;
         return strdup(font_infos[idx].family);
     } else
         return strdup(font_infos[idx].path);
@@ -502,8 +507,8 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
  * \return font file path
 */
 char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
-                      ASS_Font *font, int *index, int *uid, ASS_Buffer *data,
-                      uint32_t code)
+                      ASS_Font *font, int *index, int *uid,
+                      ASS_FontStream *data, uint32_t code)
 {
     char *res = 0;
     const char *family = font->desc.family;
@@ -710,6 +715,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         ft->lib      = library;
         ft->coverage = get_coverage_map(face);
         ft->name     = strdup(name);
+        ft->idx      = -1;
 
         ass_font_provider_add_font(priv, &info, NULL, face_index, ft);
 

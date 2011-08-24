@@ -46,13 +46,13 @@ typedef struct font_provider ASS_FontProvider;
 
 
 /* Font Provider */
-typedef void *(*GetFaceFunc)(void *, size_t *);
-typedef int  (*CheckGlyphFunc)(void *, uint32_t);
-typedef void (*DestroyFontFunc)(void *);
-typedef void (*DestroyProviderFunc)(void *);
+typedef size_t  (*GetDataFunc)(void *, unsigned char*, size_t, size_t);
+typedef int     (*CheckGlyphFunc)(void *, uint32_t);
+typedef void    (*DestroyFontFunc)(void *);
+typedef void    (*DestroyProviderFunc)(void *);
 
 typedef struct font_provider_funcs {
-    GetFaceFunc     get_face;       // callback for memory fonts
+    GetDataFunc     get_data;       // callback for memory fonts
     CheckGlyphFunc  check_glyph;    // test codepoint for coverage
     DestroyFontFunc destroy_font;   // destroy a single font
     DestroyProviderFunc destroy_provider;   // destroy provider only
