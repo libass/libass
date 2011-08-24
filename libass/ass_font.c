@@ -111,6 +111,23 @@ static void buggy_font_workaround(FT_Face face)
     }
 }
 
+static unsigned long
+read_stream_font(FT_Stream stream, unsigned long offset, unsigned char *buffer,
+                 unsigned long count)
+{
+    ASS_FontStream *font = (ASS_FontStream *)stream->descriptor.pointer;
+
+    font->func(font->priv, buffer, offset, count);
+    return count;
+}
+
+static void
+close_stream_font(FT_Stream stream)
+{
+    free(stream->descriptor.pointer);
+    free(stream);
+}
+
 /**
  * \brief Select a face with the given charcode and add it to ASS_Font
  * \return index of the new face in font->faces, -1 if failed
@@ -119,14 +136,14 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 {
     char *path;
     int i, index, uid, error;
-    ASS_Buffer mem_font = { NULL, 0 };
+    ASS_FontStream stream = { NULL, NULL };
     FT_Face face;
 
     if (font->n_faces == ASS_FONT_MAX_FACES)
         return -1;
 
     path = ass_font_select(fontsel, font->library, font , &index, &uid,
-            &mem_font, ch);
+            &stream, ch);
 
     if (!path)
         return -1;
@@ -140,15 +157,32 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
         }
     }
 
-    if (mem_font.buf) {
-        error = FT_New_Memory_Face(font->ftlibrary, mem_font.buf, mem_font.len,
-                    index, &face);
+    if (stream.func) {
+        FT_Open_Args args;
+        FT_Stream ftstream = calloc(1, sizeof(FT_StreamRec));
+        ASS_FontStream *fs  = calloc(1, sizeof(ASS_FontStream));
+
+        *fs = stream;
+        ftstream->size  = stream.func(stream.priv, NULL, 0, 0);
+        ftstream->read  = read_stream_font;
+        ftstream->close = close_stream_font;
+        ftstream->descriptor.pointer = (void *)fs;
+
+        memset(&args, 0, sizeof(FT_Open_Args));
+        args.flags  = FT_OPEN_STREAM;
+        args.stream = ftstream;
+
+        error = FT_Open_Face(font->ftlibrary, &args, index, &face);
+
         if (error) {
             ass_msg(font->library, MSGL_WARN,
-                    "Error opening memory font: '%s' (size %d)", path, mem_font.len);
+                    "Error opening memory font: '%s'", path);
             free(path);
+            free(ftstream);
+            free(fs);
             return -1;
         }
+
     } else {
         error = FT_New_Face(font->ftlibrary, path, index, &face);
         if (error) {
