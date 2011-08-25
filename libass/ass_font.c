@@ -34,8 +34,6 @@
 #include "ass_utils.h"
 #include "ass_shaper.h"
 
-#define VERTICAL_LOWER_BOUND 0x02f1
-
 /**
  * Select a good charmap, prefer Microsoft Unicode charmaps.
  * Otherwise, let FreeType decide.
@@ -572,10 +570,16 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
     // Rotate glyph, if needed
     if (vertical && ch >= VERTICAL_LOWER_BOUND) {
         FT_Matrix m = { 0, double_to_d16(-1.0), double_to_d16(1.0), 0 };
+        TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
+        int desc = 0;
+
+        if (os2)
+            desc = FT_MulFix(os2->sTypoDescender, face->size->metrics.y_scale);
+
+        FT_Outline_Translate(&((FT_OutlineGlyph) glyph)->outline, 0, -desc);
         FT_Outline_Transform(&((FT_OutlineGlyph) glyph)->outline, &m);
         FT_Outline_Translate(&((FT_OutlineGlyph) glyph)->outline,
-                             face->glyph->metrics.vertAdvance,
-                             0);
+                             face->glyph->metrics.vertAdvance, desc);
         glyph->advance.x = face->glyph->linearVertAdvance;
     }
 
