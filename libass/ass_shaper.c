@@ -64,6 +64,7 @@ struct ass_shaper {
 struct ass_shaper_metrics_data {
     Cache *metrics_cache;
     GlyphMetricsHashKey hash_key;
+    int vertical;
 };
 
 struct ass_shaper_font_data {
@@ -233,6 +234,9 @@ cached_h_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
     if (!metrics)
         return 0;
 
+    if (metrics_priv->vertical && glyph > VERTICAL_LOWER_BOUND)
+        return metrics->metrics.vertAdvance;
+
     return metrics->metrics.horiAdvance;
 }
 
@@ -361,6 +365,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
         struct ass_shaper_metrics_data *metrics =
             font->shaper_priv->metrics_data[info->face_index];
         metrics->metrics_cache = shaper->metrics_cache;
+        metrics->vertical = info->font->desc.vertical;
 
         hb_font_funcs_t *funcs = hb_font_funcs_create();
         font->shaper_priv->font_funcs[info->face_index] = funcs;

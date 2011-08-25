@@ -34,8 +34,6 @@
 #include "ass_utils.h"
 #include "ass_shaper.h"
 
-#define VERTICAL_LOWER_BOUND 0x02f1
-
 /**
  * Select a good charmap, prefer Microsoft Unicode charmaps.
  * Otherwise, let FreeType decide.
