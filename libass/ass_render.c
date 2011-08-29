@@ -2129,7 +2129,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     }
 
     // convert glyphs to bitmaps
-    device_x *= render_priv->font_scale_x;
+    int left = render_priv->settings.left_margin;
+    device_x = (device_x - left) * render_priv->font_scale_x + left;
     for (i = 0; i < text_info->length; ++i) {
         GlyphInfo *info = glyphs + i;
         while (info) {
