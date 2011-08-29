@@ -432,9 +432,10 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
             i++;
         runs[run].offset = k;
         runs[run].end    = i;
-        runs[run].buf    = hb_buffer_create(i - k + 1);
+        runs[run].buf    = hb_buffer_create();
         runs[run].font   = get_hb_font(shaper, glyphs + k);
         set_run_features(shaper, glyphs + k);
+        hb_buffer_pre_allocate(runs[run].buf, i - k + 1);
         hb_buffer_set_direction(runs[run].buf, direction ? HB_DIRECTION_RTL :
                 HB_DIRECTION_LTR);
         hb_buffer_set_language(runs[run].buf, shaper->language);
