@@ -554,7 +554,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     // Try to get mask from cache
     memset(&key, 0, sizeof(key));
     key.type = BITMAP_CLIP;
-    key.u.clip.text = strdup(drawing->text);
+    key.u.clip.text = drawing->text;
     val = ass_cache_get(render_priv->cache.bitmap_cache, &key);
 
     if (val) {
@@ -593,6 +593,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
 
         // Add to cache
         memset(&v, 0, sizeof(v));
+        key.u.clip.text = strdup(drawing->text);
         v.bm = clip_bm;
         ass_cache_put(render_priv->cache.bitmap_cache, &key, &v);
     }
@@ -1066,7 +1067,7 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
         key->outline.y = double_to_d16(info->border_y);
         key->border_style = priv->state.style->BorderStyle;
         key->hash = info->drawing->hash;
-        key->text = strdup(info->drawing->text);
+        key->text = info->drawing->text;
         key->pbo = info->drawing->pbo;
         key->scale = info->drawing->scale;
     } else {
@@ -1121,7 +1122,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             v.advance.y = drawing->advance.y;
             v.asc = drawing->asc;
             v.desc = drawing->desc;
-            ass_drawing_free(drawing);
+            key.u.drawing.text = strdup(drawing->text);
         } else {
             ass_face_set_size(info->font->faces[info->face_index],
                     info->font_size);
@@ -1189,6 +1190,8 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
     }
     info->asc = val->asc;
     info->desc = val->desc;
+
+    ass_drawing_free(info->drawing);
 }
 
 /**
@@ -2126,7 +2129,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     }
 
     // convert glyphs to bitmaps
-    device_x *= render_priv->font_scale_x;
+    int left = render_priv->settings.left_margin;
+    device_x = (device_x - left) * render_priv->font_scale_x + left;
     for (i = 0; i < text_info->length; ++i) {
         GlyphInfo *info = glyphs + i;
         while (info) {
