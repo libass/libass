@@ -35,6 +35,9 @@
 #define FONT_SLANT_NONE    0
 #define FONT_SLANT_ITALIC  100
 #define FONT_SLANT_OBLIQUE 110
+#define FONT_WIDTH_CONDENSED 75
+#define FONT_WIDTH_NORMAL    100
+#define FONT_WIDTH_EXPANDED  125
 
 
 /* Opaque objects internally used by libass.  Contents are private. */
@@ -68,6 +71,7 @@ typedef struct font_provider_meta_data {
     int n_fullname;     // number of localized full names
     int slant;          // uses the above scale (NONE/ITALIC/OBLIQUE)
     int weight;         // TrueType scale, 100-900
+    int width;          // in percent, normally 100
 } ASS_FontProviderMetaData;
 
 
