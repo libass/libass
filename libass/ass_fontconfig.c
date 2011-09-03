@@ -82,6 +82,7 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
 
         // simple types
         result  = FcPatternGetInteger(pat, FC_SLANT, 0, &meta.slant);
+        result |= FcPatternGetInteger(pat, FC_WIDTH, 0, &meta.width);
         result |= FcPatternGetInteger(pat, FC_WEIGHT, 0, &weight);
         result |= FcPatternGetInteger(pat, FC_INDEX, 0, &index);
         if (result != FcResultMatch)
@@ -98,12 +99,10 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
             meta.weight = FONT_WEIGHT_BOLD;
 
         // family name
-        // HACK: get the last family name. that fixes fonts
-        // like Arial Narrow in some versions
-        int n_family = 0;
-        while (FcPatternGetString(pat, FC_FAMILY, n_family,
-                    (FcChar8 **)&meta.family) == FcResultMatch)
-            n_family++;
+        result = FcPatternGetString(pat, FC_FAMILY, 0,
+                (FcChar8 **)&meta.family);
+        if (result != FcResultMatch)
+            continue;
 
         // path
         result = FcPatternGetString(pat, FC_FILE, 0, (FcChar8 **)&path);

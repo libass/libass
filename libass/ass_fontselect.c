@@ -63,6 +63,7 @@ struct font_info {
 
     int slant;
     int weight;         // TrueType scale, 100-900
+    int width;
 
     // how to access this face
     char *path;         // absolute path
@@ -225,18 +226,21 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
                            unsigned int index, void *data)
 {
     int i;
-    int weight, slant;
+    int weight, slant, width;
     ASS_FontSelector *selector = provider->parent;
     ASS_FontInfo *info;
 
     weight = meta->weight;
     slant  = meta->slant;
+    width  = meta->width;
 
     // check slant/weight for validity, use defaults if they're invalid
     if (weight < 100 || weight > 900)
         weight = 400;
     if (slant < 0 || slant > 110)
         slant = 0;
+    if (width < 50 || width > 200)
+        width = 100;
 
     // check size
     if (selector->n_font >= selector->alloc_font) {
@@ -254,6 +258,7 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
 
     info->slant       = slant;
     info->weight      = weight;
+    info->width       = width;
     info->family      = strdup(meta->family);
     info->n_fullname  = meta->n_fullname;
     info->fullnames   = calloc(meta->n_fullname, sizeof(char *));
@@ -384,6 +389,9 @@ static unsigned font_info_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
     // compare weight
     similarity += ABS(a->weight - req->weight);
 
+    // compare width
+    similarity += ABS(a->width - req->width);
+
     return similarity;
 }
 
@@ -448,6 +456,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     memset(&req, 0, sizeof(ASS_FontInfo));
     req.slant   = italic;
     req.weight  = bold;
+    req.width   = 100;
     req.n_fullname   = 1;
     req.fullnames    = &req_fullname;
     req.fullnames[0] = trim_space(strdup(family));
