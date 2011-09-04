@@ -421,6 +421,7 @@ static void font_info_dump(ASS_FontInfo *font_infos, size_t len)
         printf("\n");
         printf("  slant: %d\n", font_infos[i].slant);
         printf("  weight: %d\n", font_infos[i].weight);
+        printf("  width: %d\n", font_infos[i].width);
         printf("  path: %s\n", font_infos[i].path);
         printf("  index: %d\n", font_infos[i].index);
         printf("  score: %d\n", font_infos[i].score);
