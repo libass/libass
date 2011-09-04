@@ -57,8 +57,9 @@ static const char *fallback_fonts[] = {
 struct font_info {
     int uid;            // unique font face id
 
-    char *family;       // family name
+    char **families;    // family name
     char **fullnames;   // list of localized fullnames (e.g. Arial Bold Italic)
+    int n_family;
     int n_fullname;
 
     int slant;
@@ -259,9 +260,13 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     info->slant       = slant;
     info->weight      = weight;
     info->width       = width;
-    info->family      = strdup(meta->family);
     info->n_fullname  = meta->n_fullname;
+    info->n_family    = meta->n_family;
     info->fullnames   = calloc(meta->n_fullname, sizeof(char *));
+    info->families    = calloc(meta->n_family, sizeof(char *));
+
+    for (i = 0; i < info->n_family; i++)
+        info->families[i] = strdup(meta->families[i]);
 
     for (i = 0; i < info->n_fullname; i++)
         info->fullnames[i] = strdup(meta->fullnames[i]);
@@ -316,9 +321,11 @@ void ass_font_provider_free(ASS_FontProvider *provider)
         if (info->provider == provider) {
             for (j = 0; j < info->n_fullname; j++)
                 free(info->fullnames[j]);
+            for (j = 0; j < info->n_family; j++)
+                free(info->families[j]);
 
             free(info->fullnames);
-            free(info->family);
+            free(info->families);
 
             if (info->path)
                 free(info->path);
@@ -368,20 +375,21 @@ static unsigned font_info_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
     // if we don't have any match, compare fullnames against family
     // sometimes the family name is used similarly
     if (similarity > 0) {
-        for (i = 0; i < req->n_fullname; i++) {
-            if (strcasecmp(a->family, req->fullnames[i]) == 0)
-                similarity = 0;
-        }
+        for (i = 0; i < a->n_family; i++)
+            for (j = 0; j < req->n_fullname; j++) {
+                if (strcasecmp(a->families[i], req->fullnames[j]) == 0)
+                    similarity = 0;
+            }
     }
 
-    // compare shortened family, if no fullname matches
-    if (similarity > 0 && strcasecmp(a->family, req->family) == 0)
-        similarity = 2000;
-
     // nothing found? Try fallback fonts
-    while (similarity > 2000 && *fallback)
-        if (strcmp(a->family, *fallback++) == 0)
-            similarity = 5000;
+    while (similarity > 0 && *fallback) {
+        for (i = 0; i < a->n_family; i++) {
+            if (strcmp(a->families[i], *fallback) == 0)
+                similarity = 5000;
+        }
+        fallback++;
+    }
 
     // compare slant
     similarity += ABS(a->slant - req->slant);
@@ -414,7 +422,9 @@ static void font_info_dump(ASS_FontInfo *font_infos, size_t len)
     // dump font infos
     for (i = 0; i < len; i++) {
         printf("font %d\n", i);
-        printf("  family: '%s'\n", font_infos[i].family);
+        printf("  families: ");
+        for (j = 0; j < font_infos[i].n_family; j++)
+            printf("'%s' ", font_infos[i].families[j]);
         printf("  fullnames: ");
         for (j = 0; j < font_infos[i].n_fullname; j++)
             printf("'%s' ", font_infos[i].fullnames[j]);
@@ -461,9 +471,6 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     req.n_fullname   = 1;
     req.fullnames    = &req_fullname;
     req.fullnames[0] = trim_space(strdup(family));
-    req.family       = trim_space(strdup(family));
-    char *p = strchr(req.family, ' ');
-    if (p) *p = 0;
 
     // calculate similarities
     font_info_req_similarity(font_infos, num_fonts, &req);
@@ -485,7 +492,6 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     }
 
     free(req.fullnames[0]);
-    free(req.family);
 
     *index = font_infos[idx].index;
     *uid   = font_infos[idx].uid;
@@ -499,7 +505,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
         ASS_FontProvider *provider = font_infos[idx].provider;
         stream->func = provider->funcs.get_data;
         stream->priv = font_infos[idx].priv;
-        return strdup(font_infos[idx].family);
+        return strdup(font_infos[idx].families[0]);
     } else
         return strdup(font_infos[idx].path);
 }
@@ -577,10 +583,11 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 {
     int i;
     int num_fullname = 0;
+    int num_family   = 0;
     int num_names = FT_Get_Sfnt_Name_Count(face);
     int slant, weight;
     char *fullnames[MAX_FULLNAME];
-    char *family = NULL;
+    char *families[MAX_FULLNAME];
     iconv_t utf16to8;
 
     // we're only interested in outlines
@@ -589,41 +596,53 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 
     // scan font names
     utf16to8 = iconv_open("UTF-8", "UTF-16BE");
-    for (i = 0; i < num_names && num_fullname < MAX_FULLNAME; i++) {
+    for (i = 0; i < num_names; i++) {
         FT_SfntName name;
+
         FT_Get_Sfnt_Name(face, i, &name);
+
         if (name.platform_id == 3 && (name.name_id == 4 || name.name_id == 1)) {
             char buf[1024];
             char *bufptr = buf;
             size_t inbytes = name.string_len;
             size_t outbytes = 1024;
+
             iconv(utf16to8, (char**)&name.string, &inbytes, &bufptr, &outbytes);
             *bufptr = '\0';
-            // no primary family name yet - just use the first we encounter as a best guess
-            if (family == NULL && name.name_id == 1) {
-                family = strdup(buf);
-                continue;
+
+            if (name.name_id == 4) {
+                fullnames[num_fullname] = strdup(buf);
+                num_fullname++;
             }
-            fullnames[num_fullname] = strdup(buf);
-            num_fullname++;
+
+            if (name.name_id == 1) {
+                families[num_family] = strdup(buf);
+                num_family++;
+            }
         }
+
     }
     iconv_close(utf16to8);
 
     // check if we got a valid family - if not use whatever FreeType gives us
-    if (family == NULL)
-        family = strdup(face->family_name);
+    if (num_family == 0) {
+        families[0] = strdup(face->family_name);
+        num_family++;
+    }
 
     // calculate sensible slant and weight from style attributes
     slant  = 110 * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
     weight = 300 * !!(face->style_flags & FT_STYLE_FLAG_BOLD) + 400;
 
     // fill our struct
-    info->family = family;
     info->slant  = slant;
     info->weight = weight;
+    info->width  = 100;     // FIXME, should probably query the OS/2 table
+    info->families  = calloc(sizeof(char *), num_family);
     info->fullnames = calloc(sizeof(char *), num_fullname);
+    memcpy(info->families, &families, sizeof(char *) * num_family);
     memcpy(info->fullnames, &fullnames, sizeof(char *) * num_fullname);
+    info->n_family   = num_family;
     info->n_fullname = num_fullname;
 
     return 1;
@@ -638,11 +657,13 @@ static void free_font_info(ASS_FontProviderMetaData *meta)
 {
     int i;
 
-    free(meta->family);
+    for (i = 0; i < meta->n_family; i++)
+        free(meta->families[i]);
 
     for (i = 0; i < meta->n_fullname; i++)
         free(meta->fullnames[i]);
 
+    free(meta->families);
     free(meta->fullnames);
 }
 
