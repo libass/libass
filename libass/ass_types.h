@@ -66,8 +66,9 @@ typedef struct font_provider_funcs {
  * At minimum `family' is required.
  */
 typedef struct font_provider_meta_data {
-    char *family;       // English font family, e.g. "Arial"
+    char **families;    // list of family names, e.g. "Arial"
     char **fullnames;   // list of localized full names, e.g. "Arial Bold"
+    int n_family;       // list of family names
     int n_fullname;     // number of localized full names
     int slant;          // uses the above scale (NONE/ITALIC/OBLIQUE)
     int weight;         // TrueType scale, 100-900

@@ -31,7 +31,7 @@
 #include "ass_fontselect.h"
 #include "ass_utils.h"
 
-#define MAX_FULLNAME 100
+#define MAX_NAME 100
 
 static int check_glyph(void *priv, uint32_t code)
 {
@@ -73,7 +73,8 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         FcBool outline;
         int index, weight;
         char *path;
-        char *fullnames[MAX_FULLNAME];
+        char *fullnames[MAX_NAME];
+        char *families[MAX_NAME];
 
         // skip non-outline fonts
         FcResult result = FcPatternGetBool(pat, FC_OUTLINE, 0, &outline);
@@ -98,22 +99,24 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         else
             meta.weight = FONT_WEIGHT_BOLD;
 
-        // family name
-        result = FcPatternGetString(pat, FC_FAMILY, 0,
-                (FcChar8 **)&meta.family);
-        if (result != FcResultMatch)
-            continue;
-
         // path
         result = FcPatternGetString(pat, FC_FILE, 0, (FcChar8 **)&path);
         if (result != FcResultMatch)
             continue;
 
         // read and strdup fullnames
+        meta.n_family = 0;
+        while (FcPatternGetString(pat, FC_FAMILY, meta.n_family,
+                    (FcChar8 **)&families[meta.n_family]) == FcResultMatch
+                    && meta.n_family < MAX_NAME)
+            meta.n_family++;
+        meta.families = families;
+
+        // read and strdup fullnames
         meta.n_fullname = 0;
         while (FcPatternGetString(pat, FC_FULLNAME, meta.n_fullname,
                     (FcChar8 **)&fullnames[meta.n_fullname]) == FcResultMatch
-                    && meta.n_fullname < MAX_FULLNAME)
+                    && meta.n_fullname < MAX_NAME)
             meta.n_fullname++;
         meta.fullnames = fullnames;
 
