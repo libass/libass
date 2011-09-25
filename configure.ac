@@ -93,7 +93,8 @@ fi
 
 AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
 
-# Add dependent libraries to pkg-config for static linking
+# add libraries/packages to pkg-config for static linking
+PKG_LIBS="-lm"
 PKG_REQUIRES="freetype2 >= 9.6.3"
 PKG_REQUIRES="fribidi >= 0.19.0, ${PKG_REQUIRES}"
 if test x$enca = xtrue; then
@@ -105,7 +106,11 @@ fi
 if test x$harfbuzz = xtrue; then
     PKG_REQUIRES="harfbuzz >= 0.7.0, ${PKG_REQUIRES}"
 fi
-AC_SUBST([PKG_REQUIRES])
+
+AC_SUBST([PKG_LIBS_DEFAULT], [$(test x$enable_shared = xno && echo $PKG_LIBS)])
+AC_SUBST([PKG_REQUIRES_DEFAULT], [$(test x$enable_shared = xno && echo $PKG_REQUIRES)])
+AC_SUBST([PKG_LIBS_PRIVATE], [$(test x$enable_shared = xno || echo $PKG_LIBS)])
+AC_SUBST([PKG_REQUIRES_PRIVATE], [$(test x$enable_shared = xno || echo $PKG_REQUIRES)])
 
 # Setup output beautifier.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
