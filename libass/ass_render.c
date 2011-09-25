@@ -836,37 +836,6 @@ static void compute_string_bbox(TextInfo *text, DBBox *bbox)
 }
 
 /**
-  * \brief Compute the size of the target bitmap for a run of outlines.
-  * \param run first outline of the run
-  * \param len run length
-  * \param w returns target width, in pixels
-  * \param h returns target height, in pixels
-  */
-static void compute_run_size(GlyphInfo *run, size_t len, int *w, int *h)
-{
-    int i;
-    FT_BBox bbox;
-    bbox.xMin = bbox.yMin = INT_MAX;
-    bbox.xMax = bbox.yMax = INT_MIN;
-
-    for (i = 0; i < len; i++) {
-        GlyphInfo *info = run + i;
-        if (info->skip || info->symbol == 0 || info->symbol == '\n')
-            continue;
-        bbox.xMin = FFMIN(bbox.xMin, info->pos.x + info->bbox.xMin);
-        bbox.yMin = FFMIN(bbox.yMin, info->pos.y + info->bbox.yMin);
-        bbox.xMax = FFMAX(bbox.xMax, info->pos.x + info->bbox.xMax);
-        bbox.yMax = FFMAX(bbox.yMax, info->pos.y + info->bbox.yMax);
-    }
-    bbox.xMin &= ~63;
-    bbox.yMin &= ~63;
-    bbox.xMax = (bbox.xMax + 63) & ~63;
-    bbox.yMax = (bbox.yMax + 63) & ~63;
-    *w = (bbox.xMax - bbox.xMin) >> 6;
-    *h = (bbox.yMax - bbox.yMin) >> 6;
-}
-
-/**
  * \brief partially reset render_context to style values
  * Works like {\r}: resets some style overrides
  */
@@ -2146,33 +2115,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             info = info->next;
         }
     }
-
-#if 0
-    // Compute runs and their bboxes
-    // XXX: currently does nothing visible/functional
-    for (i = 0; i < text_info->length; i++) {
-        GlyphInfo *g = glyphs + i;
-        OutlineBitmapHashKey *key = &g->hash_key.u.outline;
-        int w, h;
-
-        // skip non-visual glyphs
-        if (g->skip || g->symbol == '\n' || g->symbol == 0)
-            continue;
-
-        // Determine run length and compute run bbox
-        int run_len = 0;
-        int cur_run = g->bm_run_id;
-        while (g->bm_run_id == cur_run && (i + run_len) < text_info->length) {
-            g++;
-            run_len++;
-        }
-        g = glyphs + i;
-        compute_run_size(g, run_len, &w, &h);
-        //printf("run_id %d len %d size %d %d\n", g->bm_run_id, run_len, w, h);
-
-        i += run_len - 1;
-    }
-#endif
 
     memset(event_images, 0, sizeof(*event_images));
     event_images->top = device_y - text_info->lines[0].asc;
