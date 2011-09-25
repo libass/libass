@@ -93,23 +93,23 @@ fi
 AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
 
 # add libraries/packages to pkg-config for static linking
-PKG_LIBS="-lm"
-PKG_REQUIRES="freetype2 >= 9.6.3"
-PKG_REQUIRES="fribidi >= 0.19.0, ${PKG_REQUIRES}"
+pkg_libs="-lm"
+pkg_requires="freetype2 >= 9.6.3"
+pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
 if test x$enca = xtrue; then
-    PKG_REQUIRES="enca, ${PKG_REQUIRES}"
+    pkg_requires="enca, ${pkg_requires}"
 fi
 if test x$fontconfig = xtrue; then
-    PKG_REQUIRES="fontconfig >= 2.2.0, ${PKG_REQUIRES}"
+    pkg_requires="fontconfig >= 2.2.0, ${pkg_requires}"
 fi
 if test x$harfbuzz = xtrue; then
-    PKG_REQUIRES="harfbuzz >= 0.7.0, ${PKG_REQUIRES}"
+    pkg_requires="harfbuzz >= 0.7.0, ${pkg_requires}"
 fi
 
-AC_SUBST([PKG_LIBS_DEFAULT], [$(test x$enable_shared = xno && echo $PKG_LIBS)])
-AC_SUBST([PKG_REQUIRES_DEFAULT], [$(test x$enable_shared = xno && echo $PKG_REQUIRES)])
-AC_SUBST([PKG_LIBS_PRIVATE], [$(test x$enable_shared = xno || echo $PKG_LIBS)])
-AC_SUBST([PKG_REQUIRES_PRIVATE], [$(test x$enable_shared = xno || echo $PKG_REQUIRES)])
+AC_SUBST([PKG_LIBS_DEFAULT], [$(test x$enable_shared = xno && echo ${pkg_libs})])
+AC_SUBST([PKG_REQUIRES_DEFAULT], [$(test x$enable_shared = xno && echo ${pkg_requires})])
+AC_SUBST([PKG_LIBS_PRIVATE], [$(test x$enable_shared = xno || echo ${pkg_libs})])
+AC_SUBST([PKG_REQUIRES_PRIVATE], [$(test x$enable_shared = xno || echo ${pkg_requires})])
 
 # Setup output beautifier.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
