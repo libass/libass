@@ -86,7 +86,6 @@ libpng=false
 if test x$enable_test = xyes; then
 PKG_CHECK_MODULES([LIBPNG], libpng >= 1.2.0, [
     CFLAGS="$CFLAGS $LIBPNG_CFLAGS"
-    LIBS="$LIBS $LIBPNG_LIBS"
     AC_DEFINE(CONFIG_LIBPNG, 1, [found libpng via pkg-config])
     libpng=true])
 fi
