@@ -1770,6 +1770,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         glyphs[text_info->length].scale_y = render_priv->state.scale_y;
         glyphs[text_info->length].border_x= render_priv->state.border_x;
         glyphs[text_info->length].border_y = render_priv->state.border_y;
+        glyphs[text_info->length].hspacing = render_priv->state.hspacing;
         glyphs[text_info->length].bold = render_priv->state.bold;
         glyphs[text_info->length].italic = render_priv->state.italic;
         glyphs[text_info->length].flags = render_priv->state.flags;
@@ -1827,7 +1828,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         }
 
         // add horizontal letter spacing
-        info->cluster_advance.x += double_to_d6(render_priv->state.hspacing *
+        info->cluster_advance.x += double_to_d6(info->hspacing *
                 render_priv->font_scale * info->scale_x);
 
         // add displacement for vertical shearing

@@ -134,6 +134,7 @@ typedef struct glyph_info {
     double fax, fay;            // text shearing
     double scale_x, scale_y;
     double border_x, border_y;
+    double hspacing;
     unsigned italic;
     unsigned bold;
     int flags;
