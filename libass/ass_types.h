@@ -59,6 +59,7 @@ typedef struct font_provider_funcs {
     CheckGlyphFunc  check_glyph;    // test codepoint for coverage
     DestroyFontFunc destroy_font;   // destroy a single font
     DestroyProviderFunc destroy_provider;   // destroy provider only
+    // XXX: add function for alias handling
 } ASS_FontProviderFuncs;
 
 /*
