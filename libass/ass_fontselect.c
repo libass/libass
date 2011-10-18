@@ -505,6 +505,8 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
         ASS_FontProvider *provider = font_infos[idx].provider;
         stream->func = provider->funcs.get_data;
         stream->priv = font_infos[idx].priv;
+        // FIXME: we should define a default family name in some way,
+        // possibly the first (or last) English name
         return strdup(font_infos[idx].families[0]);
     } else
         return strdup(font_infos[idx].path);
@@ -552,6 +554,8 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
                 res, *index);
     }
 
+    // FIXME: not sure if that is needed, we cannot reach this path at the
+    // moment, either select_font returns or a font or the default one is used
     if (!res) {
         res = select_font(priv, library, "Arial", bold, italic,
                            index, uid, data, code);
