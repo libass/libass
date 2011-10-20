@@ -577,7 +577,7 @@ void ass_shaper_set_base_direction(ASS_Shaper *shaper, FriBidiParType dir)
 void ass_shaper_set_language(ASS_Shaper *shaper, const char *code)
 {
 #ifdef CONFIG_HARFBUZZ
-    shaper->language = hb_language_from_string(code);
+    shaper->language = hb_language_from_string(code, -1);
 #endif
 }
 
