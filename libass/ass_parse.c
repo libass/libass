@@ -730,7 +730,18 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         ass_msg(render_priv->library, MSGL_DBG2, "single c/a at %f: %c%c = %X",
                pwr, n, cmd, render_priv->state.c[cidx]);
     } else if (mystrcmp(&p, "r")) {
-        reset_render_context(render_priv);
+        char *start = p;
+        char *style;
+        skip_to('\\');
+        if (p > start) {
+            style = malloc(p - start + 1);
+            strncpy(style, start, p - start);
+            style[p - start] = '\0';
+            reset_render_context(render_priv,
+                    render_priv->track->styles + lookup_style(render_priv->track, style));
+            free(style);
+        } else
+            reset_render_context(render_priv, NULL);
     } else if (mystrcmp(&p, "be")) {
         int val;
         if (mystrtoi(&p, &val)) {

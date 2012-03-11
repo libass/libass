@@ -839,39 +839,42 @@ static void compute_string_bbox(TextInfo *text, DBBox *bbox)
  * \brief partially reset render_context to style values
  * Works like {\r}: resets some style overrides
  */
-void reset_render_context(ASS_Renderer *render_priv)
+void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
 {
-    render_priv->state.c[0] = render_priv->state.style->PrimaryColour;
-    render_priv->state.c[1] = render_priv->state.style->SecondaryColour;
-    render_priv->state.c[2] = render_priv->state.style->OutlineColour;
-    render_priv->state.c[3] = render_priv->state.style->BackColour;
+    if (!style)
+        style = render_priv->state.style;
+
+    render_priv->state.c[0] = style->PrimaryColour;
+    render_priv->state.c[1] = style->SecondaryColour;
+    render_priv->state.c[2] = style->OutlineColour;
+    render_priv->state.c[3] = style->BackColour;
     render_priv->state.flags =
-        (render_priv->state.style->Underline ? DECO_UNDERLINE : 0) |
-        (render_priv->state.style->StrikeOut ? DECO_STRIKETHROUGH : 0);
-    render_priv->state.font_size = render_priv->state.style->FontSize;
+        (style->Underline ? DECO_UNDERLINE : 0) |
+        (style->StrikeOut ? DECO_STRIKETHROUGH : 0);
+    render_priv->state.font_size = style->FontSize;
 
     free(render_priv->state.family);
     render_priv->state.family = NULL;
-    render_priv->state.family = strdup(render_priv->state.style->FontName);
+    render_priv->state.family = strdup(style->FontName);
     render_priv->state.treat_family_as_pattern =
-        render_priv->state.style->treat_fontname_as_pattern;
-    render_priv->state.bold = render_priv->state.style->Bold;
-    render_priv->state.italic = render_priv->state.style->Italic;
+        style->treat_fontname_as_pattern;
+    render_priv->state.bold = style->Bold;
+    render_priv->state.italic = style->Italic;
     update_font(render_priv);
 
     change_border(render_priv, -1., -1.);
-    render_priv->state.scale_x = render_priv->state.style->ScaleX;
-    render_priv->state.scale_y = render_priv->state.style->ScaleY;
-    render_priv->state.hspacing = render_priv->state.style->Spacing;
+    render_priv->state.scale_x = style->ScaleX;
+    render_priv->state.scale_y = style->ScaleY;
+    render_priv->state.hspacing = style->Spacing;
     render_priv->state.be = 0;
     render_priv->state.blur = 0.0;
-    render_priv->state.shadow_x = render_priv->state.style->Shadow;
-    render_priv->state.shadow_y = render_priv->state.style->Shadow;
+    render_priv->state.shadow_x = style->Shadow;
+    render_priv->state.shadow_y = style->Shadow;
     render_priv->state.frx = render_priv->state.fry = 0.;
-    render_priv->state.frz = M_PI * render_priv->state.style->Angle / 180.;
+    render_priv->state.frz = M_PI * style->Angle / 180.;
     render_priv->state.fax = render_priv->state.fay = 0.;
     render_priv->state.wrap_style = render_priv->track->WrapStyle;
-    render_priv->state.font_encoding = render_priv->state.style->Encoding;
+    render_priv->state.font_encoding = style->Encoding;
 }
 
 /**
@@ -884,7 +887,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.style = render_priv->track->styles + event->Style;
     render_priv->state.parsed_tags = 0;
 
-    reset_render_context(render_priv);
+    reset_render_context(render_priv, render_priv->state.style);
 
     render_priv->state.evt_type = EVENT_NORMAL;
     render_priv->state.alignment = render_priv->state.style->Alignment;

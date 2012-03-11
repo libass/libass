@@ -191,30 +191,6 @@ static void set_default_style(ASS_Style *style)
     style->MarginL = style->MarginR = style->MarginV = 20;
 }
 
-/**
- * \brief find style by name
- * \param track track
- * \param name style name
- * \return index in track->styles
- * Returnes 0 if no styles found => expects at least 1 style.
- * Parsing code always adds "Default" style in the end.
- */
-static int lookup_style(ASS_Track *track, char *name)
-{
-    int i;
-    if (*name == '*')
-        ++name;                 // FIXME: what does '*' really mean ?
-    for (i = track->n_styles - 1; i >= 0; --i) {
-        if (strcmp(track->styles[i].Name, name) == 0)
-            return i;
-    }
-    i = track->default_style;
-    ass_msg(track->library, MSGL_WARN,
-            "[%p]: Warning: no style named '%s' found, using '%s'",
-            track, name, track->styles[i].Name);
-    return i;                   // use the first style
-}
-
 static uint32_t string2color(ASS_Library *library, char *p)
 {
     uint32_t tmp;
