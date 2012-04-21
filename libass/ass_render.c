@@ -862,7 +862,8 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
     render_priv->state.italic = style->Italic;
     update_font(render_priv);
 
-    change_border(render_priv, -1., -1.);
+    calc_border(render_priv, style->Outline, style->Outline);
+    change_border(render_priv, render_priv->state.border_x, render_priv->state.border_y);
     render_priv->state.scale_x = style->ScaleX;
     render_priv->state.scale_y = style->ScaleY;
     render_priv->state.hspacing = style->Spacing;
@@ -1142,6 +1143,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         } else if ((info->border_x > 0 || info->border_y > 0)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
 
+            change_border(priv, info->border_x, info->border_y);
             outline_copy(priv->ftlibrary, v.outline, &v.border);
             stroke_outline(priv, v.border,
                     double_to_d6(info->border_x * priv->border_scale),

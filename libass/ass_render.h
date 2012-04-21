@@ -175,6 +175,7 @@ typedef struct {
     int flags;                  // decoration flags (underline/strike-through)
 
     FT_Stroker stroker;
+    int stroker_radius;         // last stroker radius, for caching stroker objects
     int alignment;              // alignment overrides go here; if zero, style value will be used
     double frx, fry, frz;
     double fax, fay;            // text shearing

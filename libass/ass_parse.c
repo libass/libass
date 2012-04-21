@@ -105,28 +105,36 @@ void update_font(ASS_Renderer *render_priv)
 }
 
 /**
- * \brief Change border width
- * negative value resets border to style value
+ * \brief Calculate valid border size. Makes sure the border sizes make sense.
+ *
+ * \param priv renderer state object
+ * \param border_x requested x border size
+ * \param border_y requested y border size
  */
-void change_border(ASS_Renderer *render_priv, double border_x,
-                   double border_y)
+void calc_border(ASS_Renderer *priv, double border_x, double border_y)
 {
-    int bord;
-    if (!render_priv->state.font)
-        return;
-
     if (border_x < 0 && border_y < 0) {
-        if (render_priv->state.style->BorderStyle == 1 ||
-            render_priv->state.style->BorderStyle == 3)
-            border_x = border_y = render_priv->state.style->Outline;
+        if (priv->state.style->BorderStyle == 1 ||
+            priv->state.style->BorderStyle == 3)
+            border_x = border_y = priv->state.style->Outline;
         else
             border_x = border_y = 1.;
     }
 
-    render_priv->state.border_x = border_x;
-    render_priv->state.border_y = border_y;
+    priv->state.border_x = border_x;
+    priv->state.border_y = border_y;
+}
 
-    bord = 64 * border_x * render_priv->border_scale;
+/**
+ * \brief Change border width
+ *
+ * \param render_priv renderer state object
+ * \param info glyph state object
+ */
+void change_border(ASS_Renderer *render_priv, double border_x, double border_y)
+{
+    int bord = 64 * border_x * render_priv->border_scale;
+
     if (bord > 0 && border_x == border_y) {
         if (!render_priv->state.stroker) {
             int error;
@@ -138,11 +146,14 @@ void change_border(ASS_Renderer *render_priv, double border_x,
                         "failed to get stroker");
                 render_priv->state.stroker = 0;
             }
+            render_priv->state.stroker_radius = -1.0;
         }
-        if (render_priv->state.stroker)
+        if (render_priv->state.stroker && render_priv->state.stroker_radius != bord) {
             FT_Stroker_Set(render_priv->state.stroker, bord,
                            FT_STROKER_LINECAP_ROUND,
                            FT_STROKER_LINEJOIN_ROUND, 0);
+            render_priv->state.stroker_radius = bord;
+        }
     } else {
         FT_Stroker_Done(render_priv->state.stroker);
         render_priv->state.stroker = 0;
@@ -256,7 +267,7 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             val = render_priv->state.border_x * (1 - pwr) + val * pwr;
         else
             val = -1.;
-        change_border(render_priv, val, render_priv->state.border_y);
+        calc_border(render_priv, val, render_priv->state.border_y);
         render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "ybord")) {
         double val;
@@ -264,7 +275,8 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             val = render_priv->state.border_y * (1 - pwr) + val * pwr;
         else
             val = -1.;
-        change_border(render_priv, render_priv->state.border_x, val);
+        calc_border(render_priv, render_priv->state.border_x, val);
+        render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "xshad")) {
         double val;
         if (mystrtod(&p, &val))
@@ -388,11 +400,10 @@ static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
     } else if (mystrcmp(&p, "bord")) {
         double val;
         if (mystrtod(&p, &val)) {
-            if (render_priv->state.border_x == render_priv->state.border_y)
                 val = render_priv->state.border_x * (1 - pwr) + val * pwr;
         } else
             val = -1.;          // reset to default
-        change_border(render_priv, val, val);
+        calc_border(render_priv, val, val);
         render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "move")) {
         double x1, x2, y1, y2;
