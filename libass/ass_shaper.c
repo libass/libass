@@ -640,7 +640,8 @@ void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         // Skip direction override control characters
         // NOTE: Behdad said HarfBuzz is supposed to remove these, but this hasn't
         // been implemented yet
-        if (glyphs[i].symbol <= 0x202F && glyphs[i].symbol >= 0x202a) {
+        if ((glyphs[i].symbol <= 0x202e && glyphs[i].symbol >= 0x202a)
+                || (glyphs[i].symbol <= 0x200f && glyphs[i].symbol >= 0x200c)) {
             glyphs[i].symbol = 0;
             glyphs[i].skip++;
         }
