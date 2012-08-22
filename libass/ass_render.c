@@ -1308,7 +1308,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                 outline, border,
                 &hash_val.bm, &hash_val.bm_o,
                 &hash_val.bm_s, info->be,
-                info->blur * render_priv->border_scale,
+                info->blur * render_priv->blur_scale,
                 key->shadow_offset,
                 info->border_style,
                 info->border_x || info->border_y);
@@ -2242,12 +2242,17 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
 
     render_priv->font_scale = settings_priv->font_size_coeff *
         render_priv->orig_height / render_priv->track->PlayResY;
+    if (render_priv->storage_height)
+        render_priv->blur_scale = ((double) render_priv->orig_height) /
+            render_priv->storage_height;
+    else
+        render_priv->blur_scale = 1.;
     if (render_priv->track->ScaledBorderAndShadow)
         render_priv->border_scale =
             ((double) render_priv->orig_height) /
             render_priv->track->PlayResY;
     else
-        render_priv->border_scale = 1.;
+        render_priv->border_scale = render_priv->blur_scale;
     render_priv->border_scale *= settings_priv->font_size_coeff;
 
     ass_shaper_set_kerning(render_priv->shaper, track->Kerning);

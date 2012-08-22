@@ -160,6 +160,15 @@ void ass_renderer_done(ASS_Renderer *priv);
 void ass_set_frame_size(ASS_Renderer *priv, int w, int h);
 
 /**
+ * \brief Set the source image size in pixels. The source aspect ratio
+ * is automatically reset to the value corresponding to this image size.
+ * \param priv renderer handle
+ * \param w width
+ * \param h height
+ */
+void ass_set_storage_size(ASS_Renderer *priv, int w, int h);
+
+/**
  * \brief Set shaping level. This is merely a hint, the renderer will use
  * whatever is available if the request cannot be fulfilled.
  * \param level shaping level

@@ -65,6 +65,8 @@ typedef struct free_list {
 typedef struct {
     int frame_width;
     int frame_height;
+    int storage_width;          // width of the source image
+    int storage_height;         // height of the source image
     double font_size_coeff;     // font size multiplier
     double line_spacing;        // additional line spacing (in frame pixels)
     double line_position;       // vertical position for subtitles, 0-100 (0 = no change)
@@ -264,11 +266,14 @@ struct ass_renderer {
     int orig_width;             // frame width ( = screen width - margins )
     int orig_height_nocrop;     // frame height ( = screen height - margins + cropheight)
     int orig_width_nocrop;      // frame width ( = screen width - margins + cropwidth)
+    int storage_height;         // video height before any rescaling
+    int storage_width;          // video width before any rescaling
     ASS_Track *track;
     long long time;             // frame's timestamp, ms
     double font_scale;
     double font_scale_x;        // x scale applied to all glyphs to preserve text aspect ratio
     double border_scale;
+    double blur_scale;
 
     RenderContext state;
     TextInfo text_info;

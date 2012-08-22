@@ -43,6 +43,13 @@ static void ass_reconfigure(ASS_Renderer *priv)
     priv->orig_height_nocrop =
         settings->frame_height - FFMAX(settings->top_margin, 0) -
         FFMAX(settings->bottom_margin, 0);
+    if (settings->storage_height) {
+        priv->storage_width = settings->storage_width;
+        priv->storage_height = settings->storage_height;
+    } else {
+        priv->storage_width = priv->orig_width;
+        priv->storage_height = priv->orig_height;
+    }
 }
 
 void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
@@ -50,10 +57,26 @@ void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
     if (priv->settings.frame_width != w || priv->settings.frame_height != h) {
         priv->settings.frame_width = w;
         priv->settings.frame_height = h;
-        if (priv->settings.aspect == 0.) {
+        if (priv->settings.aspect == 0.)
             priv->settings.aspect = ((double) w) / h;
+        if (priv->settings.storage_aspect == 0.)
             priv->settings.storage_aspect = ((double) w) / h;
-        }
+        ass_reconfigure(priv);
+    }
+}
+
+void ass_set_storage_size(ASS_Renderer *priv, int w, int h)
+{
+    if (!w || !h) {
+        ass_msg(priv->library, MSGL_WARN,
+               "ass_set_storage_size: ignoring zero storage dimensions");
+        return;
+    }
+    if (priv->settings.storage_width != w ||
+        priv->settings.storage_height != h) {
+        priv->settings.storage_width = w;
+        priv->settings.storage_height = h;
+        priv->settings.storage_aspect = ((double) w) / h;
         ass_reconfigure(priv);
     }
 }
