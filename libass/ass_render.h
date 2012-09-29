@@ -133,6 +133,7 @@ typedef struct glyph_info {
     double frx, fry, frz;       // rotation
     double fax, fay;            // text shearing
     double scale_x, scale_y;
+    int border_style;
     double border_x, border_y;
     double hspacing;
     unsigned italic;
@@ -190,6 +191,7 @@ typedef struct {
     char have_origin;           // origin is explicitly defined; if 0, get_base_point() is used
     double scale_x, scale_y;
     double hspacing;            // distance between letters, in pixels
+    int border_style;
     double border_x;            // outline width
     double border_y;
     uint32_t c[4];              // colors(Primary, Secondary, so on) in RGBA

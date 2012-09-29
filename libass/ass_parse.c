@@ -114,8 +114,8 @@ void update_font(ASS_Renderer *render_priv)
 void calc_border(ASS_Renderer *priv, double border_x, double border_y)
 {
     if (border_x < 0 && border_y < 0) {
-        if (priv->state.style->BorderStyle == 1 ||
-            priv->state.style->BorderStyle == 3)
+        if (priv->state.border_style == 1 ||
+            priv->state.border_style == 3)
             border_x = border_y = priv->state.style->Outline;
         else
             border_x = border_y = 1.;

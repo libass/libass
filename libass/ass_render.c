@@ -862,6 +862,7 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
     render_priv->state.italic = style->Italic;
     update_font(render_priv);
 
+    render_priv->state.border_style = style->BorderStyle;
     calc_border(render_priv, style->Outline, style->Outline);
     change_border(render_priv, render_priv->state.border_x, render_priv->state.border_y);
     render_priv->state.scale_x = style->ScaleX;
@@ -1038,7 +1039,7 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
         key->scale_y = double_to_d16(info->scale_y);
         key->outline.x = double_to_d16(info->border_x);
         key->outline.y = double_to_d16(info->border_y);
-        key->border_style = priv->state.style->BorderStyle;
+        key->border_style = info->border_style;
         key->hash = info->drawing->hash;
         key->text = info->drawing->text;
         key->pbo = info->drawing->pbo;
@@ -1057,7 +1058,7 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
         key->outline.x = double_to_d16(info->border_x);
         key->outline.y = double_to_d16(info->border_y);
         key->flags = info->flags;
-        key->border_style = priv->state.style->BorderStyle;
+        key->border_style = info->border_style;
     }
 }
 
@@ -1125,7 +1126,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 
         FT_Outline_Get_CBox(v.outline, &v.bbox_scaled);
 
-        if (priv->state.style->BorderStyle == 3 &&
+        if (info->border_style == 3 &&
                 (info->border_x > 0 || info->border_y > 0)) {
             FT_Vector advance;
 
@@ -1311,7 +1312,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                 &hash_val.bm_s, info->be,
                 info->blur * render_priv->border_scale,
                 key->shadow_offset,
-                render_priv->state.style->BorderStyle);
+                info->border_style);
         if (error)
             info->symbol = 0;
 
@@ -1773,6 +1774,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         glyphs[text_info->length].shadow_y = render_priv->state.shadow_y;
         glyphs[text_info->length].scale_x= render_priv->state.scale_x;
         glyphs[text_info->length].scale_y = render_priv->state.scale_y;
+        glyphs[text_info->length].border_style = render_priv->state.border_style;
         glyphs[text_info->length].border_x= render_priv->state.border_x;
         glyphs[text_info->length].border_y = render_priv->state.border_y;
         glyphs[text_info->length].hspacing = render_priv->state.hspacing;
