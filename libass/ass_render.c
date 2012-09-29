@@ -1942,6 +1942,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     for (i = 0; i < text_info->length; i++) {
         GlyphInfo *info = glyphs + cmap[i];
         if (glyphs[i].linebreak) {
+            pen.y -= (info->fay / info->scale_x * info->scale_y) * pen.x;
             pen.x = 0;
             pen.y += double_to_d6(text_info->lines[lineno-1].desc);
             pen.y += double_to_d6(text_info->lines[lineno].asc);
