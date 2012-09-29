@@ -116,6 +116,14 @@ void ass_set_line_spacing(ASS_Renderer *priv, double line_spacing)
     priv->settings.line_spacing = line_spacing;
 }
 
+void ass_set_line_position(ASS_Renderer *priv, double line_position)
+{
+    if (priv->settings.line_position != line_position) {
+        priv->settings.line_position = line_position;
+        ass_reconfigure(priv);
+    }
+}
+
 void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
                    const char *default_family, int fc, const char *config,
                    int update)

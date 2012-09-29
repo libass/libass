@@ -67,6 +67,7 @@ typedef struct {
     int frame_height;
     double font_size_coeff;     // font size multiplier
     double line_spacing;        // additional line spacing (in frame pixels)
+    double line_position;       // vertical position for subtitles, 0-100 (0 = no change)
     int top_margin;             // height of top margin. Everything except toptitles is shifted down by top_margin.
     int bottom_margin;          // height of bottom margin. (frame_height - top_margin - bottom_margin) is original video height.
     int left_margin;

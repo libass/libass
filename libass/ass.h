@@ -23,7 +23,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01000000
+#define LIBASS_VERSION 0x01010000
 
 /*
  * A linked list of images produced by an ass renderer.
@@ -212,6 +212,14 @@ void ass_set_hinting(ASS_Renderer *priv, ASS_Hinting ht);
  * \param line_spacing line spacing in pixels
  */
 void ass_set_line_spacing(ASS_Renderer *priv, double line_spacing);
+
+/**
+ * \brief Set vertical line position.
+ * \param priv renderer handle
+ * \param line_position vertical line position of subtitles in percent
+ * (0-100: 0 = on the bottom (default), 100 = on top)
+ */
+void ass_set_line_position(ASS_Renderer *priv, double line_position);
 
 /**
  * \brief Set font lookup defaults.
