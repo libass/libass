@@ -1711,15 +1711,43 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     num_glyphs = 0;
     p = event->Text;
 
+    int in_tag = 0;
+
     // Event parsing.
     while (1) {
         // get next char, executing style override
         // this affects render_context
         do {
-            code = get_next_char(render_priv, &p);
-            if (render_priv->state.drawing_mode && code)
-                ass_drawing_add_char(drawing, (char) code);
-        } while (code && render_priv->state.drawing_mode);      // skip everything in drawing mode
+            code = 0;
+            if (!in_tag && *p == '{') {            // '\0' goes here
+                p++;
+                in_tag = 1;
+            }
+            if (in_tag) {
+                int prev_drawing_mode = render_priv->state.drawing_mode;
+                p = parse_tag(render_priv, p, 1.);
+                if (*p == '}') {    // end of tag
+                    p++;
+                    in_tag = 0;
+                } else if (*p != '\\') {
+                    ass_msg(render_priv->library, MSGL_V,
+                            "Unable to parse: '%.30s'", p);
+                }
+                if (prev_drawing_mode && !render_priv->state.drawing_mode) {
+                    // Drawing mode was just disabled. We must exit and draw it
+                    // immediately, instead of letting further tags affect it.
+                    // See bug #47.
+                    break;
+                }
+            } else {
+                code = get_next_char(render_priv, &p);
+                if (code && render_priv->state.drawing_mode) {
+                    ass_drawing_add_char(drawing, (char) code);
+                    continue;   // skip everything in drawing mode
+                }
+                break;
+            }
+        } while (*p);
 
         if (text_info->length >= text_info->max_glyphs) {
             // Raise maximum number of glyphs
@@ -1738,7 +1766,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                                      render_priv->font_scale;
             drawing->scale_y = render_priv->state.scale_y *
                                      render_priv->font_scale;
-            p--;
             code = 0xfffc; // object replacement character
             glyphs[text_info->length].drawing = drawing;
         }

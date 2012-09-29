@@ -253,7 +253,7 @@ static char *parse_vector_clip(ASS_Renderer *render_priv, char *p)
  * \param p string to parse
  * \param pwr multiplier for some tag effects (comes from \t tags)
  */
-static char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
+char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
 {
     skip_to('\\');
     skip('\\');
@@ -999,7 +999,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
 
 
 /**
- * \brief Get next ucs4 char from string, parsing and executing style overrides
+ * \brief Get next ucs4 char from string, parsing UTF-8 and escapes
  * \param str string pointer
  * \return ucs4 code of the next char
  * On return str points to the unparsed part of the string
@@ -1008,24 +1008,6 @@ unsigned get_next_char(ASS_Renderer *render_priv, char **str)
 {
     char *p = *str;
     unsigned chr;
-    if (*p == '{') {            // '\0' goes here
-        p++;
-        while (1) {
-            p = parse_tag(render_priv, p, 1.);
-            if (*p == '}') {    // end of tag
-                p++;
-                if (*p == '{') {
-                    p++;
-                    continue;
-                } else
-                    break;
-            } else if (*p != '\\')
-                ass_msg(render_priv->library, MSGL_V,
-                        "Unable to parse: '%.30s'", p);
-            if (*p == 0)
-                break;
-        }
-    }
     if (*p == '\t') {
         ++p;
         *str = p;
