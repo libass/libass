@@ -2204,12 +2204,14 @@ static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
         ass_cache_empty(cache->composite_cache, 0);
         ass_free_images(priv->prev_images_root);
         priv->prev_images_root = 0;
+        priv->cache_cleared = 1;
     }
     if (ass_cache_empty(cache->outline_cache, cache->glyph_max)) {
         ass_cache_empty(cache->bitmap_cache, 0);
         ass_cache_empty(cache->composite_cache, 0);
         ass_free_images(priv->prev_images_root);
         priv->prev_images_root = 0;
+        priv->cache_cleared = 1;
     }
 }
 
@@ -2475,6 +2477,9 @@ static int ass_detect_change(ASS_Renderer *priv)
     ASS_Image *img, *img2;
     int diff;
 
+    if (priv->cache_cleared)
+        return 2;
+
     img = priv->prev_images_root;
     img2 = priv->images_root;
     diff = 0;
@@ -2571,6 +2576,7 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
     // free the previous image list
     ass_free_images(priv->prev_images_root);
     priv->prev_images_root = 0;
+    priv->cache_cleared = 0;
 
     return priv->images_root;
 }
