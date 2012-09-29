@@ -1098,10 +1098,13 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             v.desc = drawing->desc;
             key.u.drawing.text = strdup(drawing->text);
         } else {
-            ass_face_set_size(info->font->faces[info->face_index],
-                    info->font_size);
-            ass_font_set_transform(info->font, info->scale_x,
-                    info->scale_y, NULL);
+            // arbitrary, not too small to prevent grid fitting rounding effects
+            double ft_size = 256.0;
+            ass_face_set_size(info->font->faces[info->face_index], ft_size);
+            ass_font_set_transform(info->font,
+                info->scale_x * info->font_size / ft_size,
+                info->scale_y * info->font_size / ft_size,
+                NULL);
             FT_Glyph glyph =
                 ass_font_get_glyph(priv->fontconfig_priv, info->font,
                         info->symbol, info->face_index, info->glyph_index,
@@ -1116,8 +1119,8 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                 FT_Done_Glyph(glyph);
                 ass_font_get_asc_desc(info->font, info->symbol,
                         &v.asc, &v.desc);
-                v.asc  *= info->scale_y;
-                v.desc *= info->scale_y;
+                v.asc  *= info->scale_y * info->font_size / ft_size;
+                v.desc *= info->scale_y * info->font_size / ft_size;
             }
         }
 
@@ -1279,8 +1282,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         // calculating rotation shift vector (from rotation origin to the glyph basepoint)
         shift.x = key->shift_x;
         shift.y = key->shift_y;
-        fax_scaled = info->fax * render_priv->state.scale_x;
-        fay_scaled = info->fay * render_priv->state.scale_y;
+        fax_scaled = info->fax / info->scale_y * info->scale_x;
+        fay_scaled = info->fay / info->scale_x * info->scale_y;
 
         // apply rotation
         transform_3d(shift, outline, border,
@@ -1793,8 +1796,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             render_priv->state.effect_timing;
         glyphs[text_info->length].effect_skip_timing =
             render_priv->state.effect_skip_timing;
-        glyphs[text_info->length].font_size = ensure_font_size(render_priv,
-                    render_priv->state.font_size * render_priv->font_scale);
+        glyphs[text_info->length].font_size =
+                    render_priv->state.font_size * render_priv->font_scale;
         glyphs[text_info->length].be = render_priv->state.be;
         glyphs[text_info->length].blur = render_priv->state.blur;
         glyphs[text_info->length].shadow_x = render_priv->state.shadow_x;
@@ -1866,7 +1869,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 render_priv->font_scale * info->scale_x);
 
         // add displacement for vertical shearing
-        info->cluster_advance.y += (info->fay * info->scale_y) * info->cluster_advance.x;
+        info->cluster_advance.y += (info->fay / info->scale_x * info->scale_y) * info->cluster_advance.x;
 
     }
 
