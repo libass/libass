@@ -716,15 +716,13 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
 /**
  * \brief Resolve a Windows font encoding number to a suitable
  * base direction. 177 and 178 are Hebrew and Arabic respectively, and
- * they map to RTL. 1 is autodetection and is mapped to just that.
- * Everything else is mapped to LTR.
+ * they map to RTL. Everything else maps to LTR for compatibility
+ * reasons.
  * \param enc Windows font encoding
  */
 FriBidiParType resolve_base_direction(int enc)
 {
     switch (enc) {
-        case 1:
-            return FRIBIDI_PAR_ON;
         case 177:
         case 178:
             return FRIBIDI_PAR_RTL;
