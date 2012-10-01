@@ -1,3 +1,14 @@
+libass (0.10.1)
+ * Fix letter spacing
+ * Add \rSTYLENAME syntax support (GC #43)
+ * Fix border generation and border style reset (GC #56)
+ * Fix various issues with bug-for-bug compatibility of
+   transformations (\fax, \fay, etc.) to VSFilter (GC #46, GC #42)
+ * Fix drawing parsing (GC #47)
+ * Various fixes to shaper (GC #54, GC #55, GC#59)
+ * Fix change detection
+ * Add ass_set_line_position API to set a vertical subtitle offset
+
 libass (0.10.0)
  * Bidirectional layout and Arabic shaping via FriBidi (GC #13)
  * OpenType shaping via HarfBuzz-ng (GC #13)
