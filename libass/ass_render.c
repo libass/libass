@@ -2525,8 +2525,12 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
 
     // init frame
     rc = ass_start_frame(priv, track, now);
-    if (rc != 0)
+    if (rc != 0) {
+        if (detect_change) {
+            *detect_change = 2;
+        }
         return 0;
+    }
 
     // render events separately
     cnt = 0;
