@@ -600,6 +600,29 @@ void ass_shaper_set_level(ASS_Shaper *shaper, ASS_ShapingLevel level)
 }
 
 /**
+  * \brief Remove all zero-width invisible characters from the text.
+  * \param text_info text
+  */
+static void ass_shaper_skip_characters(TextInfo *text_info)
+{
+    int i;
+    GlyphInfo *glyphs = text_info->glyphs;
+
+    for (i = 0; i < text_info->length; i++) {
+        // Skip direction override control characters
+        if ((glyphs[i].symbol <= 0x202e && glyphs[i].symbol >= 0x202a)
+                || (glyphs[i].symbol <= 0x200f && glyphs[i].symbol >= 0x200b)
+                || (glyphs[i].symbol <= 0x2063 && glyphs[i].symbol >= 0x2060)
+                || glyphs[i].symbol == 0xfeff
+                || glyphs[i].symbol == 0x00ad
+                || glyphs[i].symbol == 0x034f) {
+            glyphs[i].symbol = 0;
+            glyphs[i].skip++;
+        }
+    }
+}
+
+/**
  * \brief Shape an event's text. Calculates directional runs and shapes them.
  * \param text_info event's text
  */
@@ -635,6 +658,7 @@ void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     switch (shaper->shaping_level) {
     case ASS_SHAPING_SIMPLE:
         shape_fribidi(shaper, glyphs, text_info->length);
+        ass_shaper_skip_characters(text_info);
         break;
     case ASS_SHAPING_COMPLEX:
         shape_harfbuzz(shaper, glyphs, text_info->length);
@@ -642,20 +666,8 @@ void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     }
 #else
         shape_fribidi(shaper, glyphs, text_info->length);
+        ass_shaper_skip_characters(text_info);
 #endif
-
-
-    // clean up
-    for (i = 0; i < text_info->length; i++) {
-        // Skip direction override control characters
-        // NOTE: Behdad said HarfBuzz is supposed to remove these, but this hasn't
-        // been implemented yet
-        if ((glyphs[i].symbol <= 0x202e && glyphs[i].symbol >= 0x202a)
-                || (glyphs[i].symbol <= 0x200f && glyphs[i].symbol >= 0x200c)) {
-            glyphs[i].symbol = 0;
-            glyphs[i].skip++;
-        }
-    }
 }
 
 /**
