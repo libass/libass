@@ -29,6 +29,9 @@
 #define MAX_RUNS 50
 
 #ifdef CONFIG_HARFBUZZ
+#ifdef CONFIG_UCDN
+#include "hb-ucdn.h"
+#endif
 #include <hb-ft.h>
 enum {
     VERT = 0,
@@ -57,6 +60,7 @@ struct ass_shaper {
 
     // Glyph metrics cache, to speed up shaping
     Cache *metrics_cache;
+    hb_unicode_funcs_t *unicode_funcs;
 #endif
 };
 
@@ -108,6 +112,9 @@ void ass_shaper_free(ASS_Shaper *shaper)
 {
 #ifdef CONFIG_HARFBUZZ
     ass_cache_done(shaper->metrics_cache);
+#ifdef CONFIG_UCDN
+    hb_unicode_funcs_destroy(shaper->unicode_funcs);
+#endif
     free(shaper->features);
 #endif
     free(shaper->event_text);
@@ -435,6 +442,9 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         runs[run].buf    = hb_buffer_create();
         runs[run].font   = get_hb_font(shaper, glyphs + k);
         set_run_features(shaper, glyphs + k);
+#ifdef CONFIG_UCDN
+        hb_buffer_set_unicode_funcs(runs[run].buf, shaper->unicode_funcs);
+#endif
         hb_buffer_pre_allocate(runs[run].buf, i - k + 1);
         hb_buffer_set_direction(runs[run].buf, direction ? HB_DIRECTION_RTL :
                 HB_DIRECTION_LTR);
@@ -662,6 +672,9 @@ ASS_Shaper *ass_shaper_new(size_t prealloc)
 #ifdef CONFIG_HARFBUZZ
     init_features(shaper);
     shaper->metrics_cache = ass_glyph_metrics_cache_create();
+#ifdef CONFIG_UCDN
+    shaper->unicode_funcs = hb_ucdn_make_unicode_funcs();
+#endif
 #endif
 
     return shaper;
