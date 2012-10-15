@@ -8,6 +8,9 @@ libass (0.10.1)
  * Various fixes to shaper (GC #54, GC #55, GC#59)
  * Fix change detection
  * Add ass_set_line_position API to set a vertical subtitle offset
+ * Fix scaling of drawing baseline offset (\pbo) values
+ * Fix skipping of zero-width characters for FriBiDi shaper
+ * Use LTR text base direction by default, similar to VSFilter
 
 libass (0.10.0)
  * Bidirectional layout and Arabic shaping via FriBidi (GC #13)
