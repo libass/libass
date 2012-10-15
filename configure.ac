@@ -73,10 +73,6 @@ PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.7.0, [
     ], [harfbuzz=false])
 fi
 
-if test x$harfbuzz = xtrue; then
-    AC_SEARCH_LIBS([ucdn_get_unicode_version], [ucdn], AC_DEFINE(CONFIG_UCDN, 1, [use ucdn]))
-fi
-
 if test x$enable_enca != xno; then
 PKG_CHECK_MODULES([ENCA], enca, [
     CFLAGS="$CFLAGS $ENCA_CFLAGS"
