@@ -94,13 +94,13 @@ AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
 
 # add libraries/packages to pkg-config for static linking
 pkg_libs="-lm"
-pkg_requires="freetype2 >= 9.6.3"
+pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
 if test x$enca = xtrue; then
     pkg_requires="enca, ${pkg_requires}"
 fi
 if test x$fontconfig = xtrue; then
-    pkg_requires="fontconfig >= 2.2.0, ${pkg_requires}"
+    pkg_requires="fontconfig >= 2.4.2, ${pkg_requires}"
 fi
 if test x$harfbuzz = xtrue; then
     pkg_requires="harfbuzz >= 0.9.5, ${pkg_requires}"
