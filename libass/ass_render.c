@@ -1099,7 +1099,8 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             key.u.drawing.text = strdup(drawing->text);
         } else {
             // arbitrary, not too small to prevent grid fitting rounding effects
-            double ft_size = 256.0;
+            // XXX: this is a rather crude hack
+            const double ft_size = 256.0;
             ass_face_set_size(info->font->faces[info->face_index], ft_size);
             ass_font_set_transform(info->font,
                 info->scale_x * info->font_size / ft_size,

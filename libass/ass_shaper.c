@@ -391,7 +391,9 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
                 font->faces[info->face_index], NULL);
     }
 
-    ass_face_set_size(font->faces[info->face_index], info->font_size);
+    // XXX: this is a rather crude hack
+    const double ft_size = 256.0;
+    ass_face_set_size(font->faces[info->face_index], ft_size);
     update_hb_size(hb_fonts[info->face_index], font->faces[info->face_index]);
 
     // update hash key for cached metrics
@@ -421,7 +423,7 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         hb_buffer_t *buf;
         hb_font_t *font;
     } runs[MAX_RUNS];
-
+    const double ft_size = 256.0;
 
     for (i = 0; i < len && run < MAX_RUNS; i++, run++) {
         // get length and level of the current run
@@ -474,10 +476,10 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
             // set position and advance
             info->skip = 0;
             info->glyph_index = glyph_info[j].codepoint;
-            info->offset.x    = pos[j].x_offset * info->scale_x;
-            info->offset.y    = -pos[j].y_offset * info->scale_y;
-            info->advance.x   = pos[j].x_advance * info->scale_x;
-            info->advance.y   = -pos[j].y_advance * info->scale_y;
+            info->offset.x    = pos[j].x_offset * info->scale_x * (info->font_size / ft_size);
+            info->offset.y    = -pos[j].y_offset * info->scale_y * (info->font_size / ft_size);
+            info->advance.x   = pos[j].x_advance * info->scale_x * (info->font_size / ft_size);
+            info->advance.y   = -pos[j].y_advance * info->scale_y * (info->font_size / ft_size);
 
             // accumulate advance in the root glyph
             root->cluster_advance.x += info->advance.x;
