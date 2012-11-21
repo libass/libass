@@ -546,7 +546,6 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     ASS_Drawing *drawing = render_priv->state.clip_drawing;
     BitmapHashKey key;
     BitmapHashValue *val;
-    int error;
 
     if (!drawing)
         return;
@@ -586,10 +585,6 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
 
         clip_bm = outline_to_bitmap(render_priv->library,
                 render_priv->ftlibrary, outline, 0);
-        if (clip_bm == NULL) {
-            ass_msg(render_priv->library, MSGL_WARN,
-                "Clip vector rasterization failed: %d. Skipping.", error);
-        }
 
         // Add to cache
         memset(&v, 0, sizeof(v));
