@@ -241,7 +241,7 @@ static char *parse_vector_clip(ASS_Renderer *render_priv, char *p)
     drawing->scale = scale;
     drawing->scale_x = render_priv->font_scale_x * render_priv->font_scale;
     drawing->scale_y = render_priv->font_scale;
-    while (*p != ')' && *p != '}' && p != 0)
+    while (*p != ')' && *p != '}' && *p != 0)
         ass_drawing_add_char(drawing, *p++);
     skipopt(')');
 
