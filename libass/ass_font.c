@@ -711,12 +711,12 @@ void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
             /* "inside" contour but we can't find anything it could be
              * inside of - assume the font is buggy and it should be
              * an "outside" contour, and reverse it */
-            for (j = 0; j < (end + 1 - start) / 2; j++) {
-                FT_Vector temp = outline->points[start + j];
-                char temp2 = outline->tags[start + j];
-                outline->points[start + j] = outline->points[end - j];
+            for (j = 0; j < (end - start) / 2; j++) {
+                FT_Vector temp = outline->points[start + 1 + j];
+                char temp2 = outline->tags[start + 1 + j];
+                outline->points[start + 1 + j] = outline->points[end - j];
                 outline->points[end - j] = temp;
-                outline->tags[start + j] = outline->tags[end - j];
+                outline->tags[start + 1 + j] = outline->tags[end - j];
                 outline->tags[end - j] = temp2;
             }
             dir ^= 1;
