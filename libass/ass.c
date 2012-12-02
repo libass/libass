@@ -988,7 +988,9 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
                     oleft += size;
                 } else {
                     ass_msg(library, MSGL_WARN, "Error recoding file");
-                    return NULL;
+                    free(outbuf);
+                    outbuf = NULL;
+                    goto out;
                 }
             } else if (clear)
                 break;
@@ -996,6 +998,7 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
         outbuf[osize - oleft - 1] = 0;
     }
 
+out:
     if (icdsc != (iconv_t) (-1)) {
         (void) iconv_close(icdsc);
         icdsc = (iconv_t) (-1);
