@@ -1125,8 +1125,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 
         FT_Outline_Get_CBox(v.outline, &v.bbox_scaled);
 
-        if (info->border_style == 3 &&
-                (info->border_x > 0 || info->border_y > 0)) {
+        if (info->border_style == 3) {
             FT_Vector advance;
 
             v.border = calloc(1, sizeof(FT_Outline));
@@ -1311,7 +1310,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                 &hash_val.bm_s, info->be,
                 info->blur * render_priv->border_scale,
                 key->shadow_offset,
-                info->border_style);
+                info->border_style,
+                info->border_x || info->border_y);
         if (error)
             info->symbol = 0;
 

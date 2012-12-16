@@ -456,7 +456,7 @@ int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
                        FT_Library ftlib, FT_Outline *outline, FT_Outline *border,
                        Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
                        int be, double blur_radius, FT_Vector shadow_offset,
-                       int border_style)
+                       int border_style, int border_visible)
 {
     blur_radius *= 2;
     int bbord = be > 0 ? sqrt(2 * be) : 0;
@@ -512,8 +512,11 @@ int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
     if (*bm_o && border_style != 3) {
         *bm_s = copy_bitmap(*bm_o);
         fix_outline(*bm_g, *bm_o);
-    } else if (*bm_o) {
+    } else if (*bm_o && border_visible) {
         *bm_s = copy_bitmap(*bm_o);
+    } else if (*bm_o) {
+        *bm_s = *bm_o;
+        *bm_o = 0;
     } else
         *bm_s = copy_bitmap(*bm_g);
 
