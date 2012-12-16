@@ -925,13 +925,14 @@ static void free_render_context(ASS_Renderer *render_priv)
  * Replace the outline of a glyph by a contour which makes up a simple
  * opaque rectangle.
  */
-static void draw_opaque_box(ASS_Renderer *render_priv, int asc, int desc,
-                            FT_Outline *ol, FT_Vector advance, int sx, int sy)
+static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
+                            int asc, int desc, FT_Outline *ol,
+                            FT_Vector advance, int sx, int sy)
 {
     int i;
     int adv = advance.x;
-    double scale_y = render_priv->state.scale_y;
-    double scale_x = render_priv->state.scale_x;
+    double scale_y = info->scale_y;
+    double scale_x = info->scale_x;
 
     // to avoid gaps
     sx = FFMAX(64, sx);
@@ -939,8 +940,7 @@ static void draw_opaque_box(ASS_Renderer *render_priv, int asc, int desc,
 
     // Emulate the WTFish behavior of VSFilter, i.e. double-scale
     // the sizes of the opaque box.
-    adv += double_to_d6(render_priv->state.hspacing * render_priv->font_scale
-                        * scale_x);
+    adv += double_to_d6(info->hspacing * render_priv->font_scale * scale_x);
     adv *= scale_x;
     sx *= scale_x;
     sy *= scale_y;
@@ -1135,7 +1135,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             else
                 advance = info->advance;
 
-            draw_opaque_box(priv, v.asc, v.desc, v.border, advance,
+            draw_opaque_box(priv, info, v.asc, v.desc, v.border, advance,
                     double_to_d6(info->border_x * priv->border_scale),
                     double_to_d6(info->border_y * priv->border_scale));
 
