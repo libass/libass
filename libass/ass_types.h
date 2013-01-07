@@ -50,7 +50,7 @@ typedef struct ass_style {
     double ScaleX;
     double ScaleY;
     double Spacing;
-    int Angle;
+    double Angle;
     int BorderStyle;
     double Outline;
     double Shadow;
