@@ -60,6 +60,7 @@ typedef struct ass_style {
     int MarginV;
     int Encoding;
     int treat_fontname_as_pattern;
+    double Blur;
 } ASS_Style;
 
 /*

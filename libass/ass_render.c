@@ -864,7 +864,7 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
     render_priv->state.scale_y = style->ScaleY;
     render_priv->state.hspacing = style->Spacing;
     render_priv->state.be = 0;
-    render_priv->state.blur = 0.0;
+    render_priv->state.blur = style->Blur;
     render_priv->state.shadow_x = style->Shadow;
     render_priv->state.shadow_y = style->Shadow;
     render_priv->state.frx = render_priv->state.fry = 0.;

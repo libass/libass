@@ -424,6 +424,7 @@ void ass_process_force_style(ASS_Track *track)
                     FPVAL(ScaleY)
                     FPVAL(Outline)
                     FPVAL(Shadow)
+                    FPVAL(Blur)
                 }
             }
         }
