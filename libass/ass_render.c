@@ -2248,6 +2248,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
             render_priv->track->PlayResY;
     else
         render_priv->border_scale = 1.;
+    render_priv->border_scale *= settings_priv->font_size_coeff;
 
     ass_shaper_set_kerning(render_priv->shaper, track->Kerning);
     if (track->Language)
