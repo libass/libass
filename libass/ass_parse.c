@@ -433,7 +433,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             ass_msg(render_priv->library, MSGL_DBG2,
                    "movement: (%f, %f) -> (%f, %f)", x1, y1, x2, y2);
         }
-        skip(')');
+        skipopt(')');
         delta_t = t2 - t1;
         t = render_priv->time - render_priv->state.event->Start;
         if (t < t1)
@@ -542,7 +542,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         mystrtod(&p, &v1);
         skip(',');
         mystrtod(&p, &v2);
-        skip(')');
+        skipopt(')');
         ass_msg(render_priv->library, MSGL_DBG2, "pos(%f, %f)", v1, v2);
         if (render_priv->state.evt_type == EVENT_POSITIONED) {
             ass_msg(render_priv->library, MSGL_V, "Subtitle has a new \\pos "
@@ -586,7 +586,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             skip(',');
             mystrtoll(&p, &t4);
         }
-        skip(')');
+        skipopt(')');
         if ((render_priv->state.parsed_tags & PARSED_FADE) == 0) {
             render_priv->state.fade =
                 interpolate_alpha(render_priv->time -
@@ -600,7 +600,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         mystrtoi(&p, &v1);
         skip(',');
         mystrtoi(&p, &v2);
-        skip(')');
+        skipopt(')');
         ass_msg(render_priv->library, MSGL_DBG2, "org(%d, %d)", v1, v2);
         if (!render_priv->state.have_origin) {
             render_priv->state.org_x = v1;
@@ -657,7 +657,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         while (*p == '\\')
             p = parse_tag(render_priv, p, k);   // maybe k*pwr ? no, specs forbid nested \t's
         skip_to(')');           // in case there is some unknown tag or a comment
-        skip(')');
+        skipopt(')');
     } else if (mystrcmp(&p, "clip")) {
         char *start = p;
         int x0, y0, x1, y1;
