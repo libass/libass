@@ -114,6 +114,19 @@ typedef struct ass_track {
     int ScaledBorderAndShadow;
     int Kerning;
     char *Language;
+    enum {
+        YCBCR_DEFAULT = 0,  // TV.601 on YCbCr video, None on RGB video
+        YCBCR_UNKNOWN,
+        YCBCR_NONE,         // untouched RGB values
+        YCBCR_BT601_TV,
+        YCBCR_BT601_PC,
+        YCBCR_BT709_TV,
+        YCBCR_BT709_PC,
+        YCBCR_SMPTE240M_TV,
+        YCBCR_SMPTE240M_PC,
+        YCBCR_FCC_TV,
+        YCBCR_FCC_PC
+    } YCbCrMatrix;
 
     int default_style;      // index of default style
     char *name;             // file name in case of external subs, 0 for streams

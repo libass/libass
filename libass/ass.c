@@ -387,6 +387,8 @@ void ass_process_force_style(ASS_Track *track)
             track->ScaledBorderAndShadow = parse_bool(token);
         else if (!strcasecmp(*fs, "Kerning"))
             track->Kerning = parse_bool(token);
+        else if (!strcasecmp(*fs, "YCbCr Matrix"))
+            track->YCbCrMatrix = parse_ycbcr_matrix(token);
 
         dt = strrchr(*fs, '.');
         if (dt) {
@@ -574,6 +576,8 @@ static int process_info_line(ASS_Track *track, char *str)
         track->ScaledBorderAndShadow = parse_bool(str + 22);
     } else if (!strncmp(str, "Kerning:", 8)) {
         track->Kerning = parse_bool(str + 8);
+    } else if (!strncmp(str, "YCbCr Matrix:", 13)) {
+        track->YCbCrMatrix = parse_ycbcr_matrix(str + 13);
     } else if (!strncmp(str, "Language:", 9)) {
         char *p = str + 9;
         while (*p && isspace(*p)) p++;

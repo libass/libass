@@ -122,6 +122,46 @@ char parse_bool(char *str)
     return 0;
 }
 
+int parse_ycbcr_matrix(char *str)
+{
+    while (*str == ' ' || *str == '\t')
+        str++;
+    if (*str == '\0')
+        return YCBCR_DEFAULT;
+
+    char *end = str + strlen(str);
+    while (end[-1] == ' ' || end[-1] == '\t')
+        end--;
+
+    // Trim a local copy of the input that we know is safe to
+    // modify. The buffer is larger than any valid string + NUL,
+    // so we can simply chop off the rest of the input.
+    char buffer[16];
+    size_t n = FFMIN(end - str, sizeof buffer - 1);
+    strncpy(buffer, str, n);
+    buffer[n] = '\0';
+
+    if (!strcasecmp(buffer, "none"))
+        return YCBCR_NONE;
+    if (!strcasecmp(buffer, "tv.601"))
+        return YCBCR_BT601_TV;
+    if (!strcasecmp(buffer, "pc.601"))
+        return YCBCR_BT601_PC;
+    if (!strcasecmp(buffer, "tv.709"))
+        return YCBCR_BT709_TV;
+    if (!strcasecmp(buffer, "pc.709"))
+        return YCBCR_BT709_PC;
+    if (!strcasecmp(buffer, "tv.240m"))
+        return YCBCR_SMPTE240M_TV;
+    if (!strcasecmp(buffer, "pc.240m"))
+        return YCBCR_SMPTE240M_PC;
+    if (!strcasecmp(buffer, "tv.fcc"))
+        return YCBCR_FCC_TV;
+    if (!strcasecmp(buffer, "pc.fcc"))
+        return YCBCR_FCC_PC;
+    return YCBCR_UNKNOWN;
+}
+
 void ass_msg(ASS_Library *priv, int lvl, char *fmt, ...)
 {
     va_list va;
