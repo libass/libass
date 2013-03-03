@@ -203,6 +203,12 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics, FT_Face face,
             return NULL;
 
         memcpy(&new_val.metrics, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
+
+        // if @font rendering is enabled and the glyph should be rotated,
+        // make cached_h_advance pick up the right advance later
+        if (metrics->vertical && glyph >= VERTICAL_LOWER_BOUND)
+            new_val.metrics.horiAdvance = new_val.metrics.vertAdvance;
+
         val = ass_cache_put(metrics->metrics_cache, &metrics->hash_key, &new_val);
     }
 
@@ -233,9 +239,6 @@ cached_h_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
 
     if (!metrics)
         return 0;
-
-    if (metrics_priv->vertical && glyph > VERTICAL_LOWER_BOUND)
-        return metrics->metrics.vertAdvance;
 
     return metrics->metrics.horiAdvance;
 }
