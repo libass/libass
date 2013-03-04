@@ -26,6 +26,9 @@
 #include FT_STROKER_H
 #include FT_GLYPH_H
 #include FT_SYNTHESIS_H
+#ifdef CONFIG_HARFBUZZ
+#include "hb.h"
+#endif
 
 // XXX: fix the inclusion mess so we can avoid doing this here
 typedef struct ass_shaper ASS_Shaper;
@@ -109,6 +112,11 @@ typedef struct glyph_info {
     ASS_Font *font;
     int face_index;
     int glyph_index;
+#ifdef CONFIG_HARFBUZZ
+    hb_script_t script;
+#else
+    int script;
+#endif
     double font_size;
     ASS_Drawing *drawing;
     FT_Outline *outline;

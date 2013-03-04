@@ -2256,8 +2256,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     render_priv->border_scale *= settings_priv->font_size_coeff;
 
     ass_shaper_set_kerning(render_priv->shaper, track->Kerning);
-    if (track->Language)
-        ass_shaper_set_language(render_priv->shaper, track->Language);
+    ass_shaper_set_language(render_priv->shaper, track->Language);
     ass_shaper_set_level(render_priv->shaper, render_priv->settings.shaper);
 
     // PAR correction
