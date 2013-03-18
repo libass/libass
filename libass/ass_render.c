@@ -2264,8 +2264,19 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     ass_shaper_set_level(render_priv->shaper, render_priv->settings.shaper);
 
     // PAR correction
-    render_priv->font_scale_x = render_priv->settings.aspect /
-                                render_priv->settings.storage_aspect;
+    double par = render_priv->settings.par;
+    if (par == 0.) {
+        if (settings_priv->frame_width && settings_priv->frame_height &&
+            settings_priv->storage_width && settings_priv->storage_height) {
+            double dar = ((double) settings_priv->frame_width) /
+                         settings_priv->frame_height;
+            double sar = ((double) settings_priv->storage_width) /
+                         settings_priv->storage_height;
+            par = sar / dar;
+        } else
+            par = 1.0;
+    }
+    render_priv->font_scale_x = par;
 
     render_priv->prev_images_root = render_priv->images_root;
     render_priv->images_root = 0;

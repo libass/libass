@@ -167,8 +167,11 @@ void ass_renderer_done(ASS_Renderer *priv);
 void ass_set_frame_size(ASS_Renderer *priv, int w, int h);
 
 /**
- * \brief Set the source image size in pixels. The source aspect ratio
- * is automatically reset to the value corresponding to this image size.
+ * \brief Set the source image size in pixels.
+ * This is used to calculate the source aspect ratio and the blur scale. If
+ * a custom pixel aspect ratio is set with ass_set_aspect_ratio(), the source
+ * image size has no influence on the aspect ratio.
+ * The source image size can be reset to default by setting w and h to 0.
  * \param priv renderer handle
  * \param w width
  * \param h height
@@ -202,6 +205,12 @@ void ass_set_use_margins(ASS_Renderer *priv, int use);
 
 /**
  * \brief Set aspect ratio parameters.
+ * You can also pass a pixel aspect ratio as dar, and set sar to 1.0. libass
+ * uses dar/sar as final pixel aspect ratio, and doesn't use dar or sar for
+ * anything else. If the pixel aspect ratio is 0 (setting dar=0 and sar=1), or
+ * if the aspect ratio has never been set by calling this function, libass will
+ * calculate a fallback value out of frame size and storage size. If the
+ * storage size has not been set, a pixel aspect ratio of 1 is assumed.
  * \param priv renderer handle
  * \param dar display aspect ratio (DAR), prescaled for output PAR
  * \param sar storage aspect ratio (SAR)

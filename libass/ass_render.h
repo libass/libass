@@ -79,8 +79,7 @@ typedef struct {
     int right_margin;
     int use_margins;            // 0 - place all subtitles inside original frame
     // 1 - use margins for placing toptitles and subtitles
-    double aspect;              // frame aspect ratio, d_width / d_height.
-    double storage_aspect;      // pixel ratio of the source image
+    double par;                 // user defined pixel aspect ratio (0 = unset)
     ASS_Hinting hinting;
     ASS_ShapingLevel shaper;
 

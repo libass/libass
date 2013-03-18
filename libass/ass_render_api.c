@@ -57,26 +57,16 @@ void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
     if (priv->settings.frame_width != w || priv->settings.frame_height != h) {
         priv->settings.frame_width = w;
         priv->settings.frame_height = h;
-        if (priv->settings.aspect == 0.)
-            priv->settings.aspect = ((double) w) / h;
-        if (priv->settings.storage_aspect == 0.)
-            priv->settings.storage_aspect = ((double) w) / h;
         ass_reconfigure(priv);
     }
 }
 
 void ass_set_storage_size(ASS_Renderer *priv, int w, int h)
 {
-    if (!w || !h) {
-        ass_msg(priv->library, MSGL_WARN,
-               "ass_set_storage_size: ignoring zero storage dimensions");
-        return;
-    }
     if (priv->settings.storage_width != w ||
         priv->settings.storage_height != h) {
         priv->settings.storage_width = w;
         priv->settings.storage_height = h;
-        priv->settings.storage_aspect = ((double) w) / h;
         ass_reconfigure(priv);
     }
 }
@@ -111,9 +101,9 @@ void ass_set_use_margins(ASS_Renderer *priv, int use)
 
 void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar)
 {
-    if (priv->settings.aspect != dar || priv->settings.storage_aspect != sar) {
-        priv->settings.aspect = dar;
-        priv->settings.storage_aspect = sar;
+    double par = dar / sar;
+    if (priv->settings.par != par) {
+        priv->settings.par = par;
         ass_reconfigure(priv);
     }
 }
