@@ -240,7 +240,7 @@ static double y2scr_sub(ASS_Renderer *render_priv, double y)
 static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
                                   Bitmap *bm, int dst_x, int dst_y,
                                   uint32_t color, uint32_t color2, int brk,
-                                  ASS_Image **tail)
+                                  ASS_Image **tail, unsigned int type)
 {
     int i, j, x0, y0, x1, y1, cx0, cy0, cx1, cy1, sx, sy, zx, zy;
     Rect r[4];
@@ -308,6 +308,7 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
                 lbrk - r[j].x0, r[j].y1 - r[j].y0,
                 bm->stride, dst_x + r[j].x0, dst_y + r[j].y0, color);
             if (!img) break;
+            img->type = type;
             *tail = img;
             tail = &img->next;
         }
@@ -317,6 +318,7 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
                 r[j].x1 - lbrk, r[j].y1 - r[j].y0,
                 bm->stride, dst_x + lbrk, dst_y + r[j].y0, color2);
             if (!img) break;
+            img->type = type;
             *tail = img;
             tail = &img->next;
         }
@@ -339,12 +341,12 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
  */
 static ASS_Image **
 render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
-             uint32_t color, uint32_t color2, int brk, ASS_Image **tail)
+             uint32_t color, uint32_t color2, int brk, ASS_Image **tail, unsigned int type)
 {
     // Inverse clipping in use?
     if (render_priv->state.clip_mode)
         return render_glyph_i(render_priv, bm, dst_x, dst_y, color, color2,
-                              brk, tail);
+                              brk, tail, type);
 
     // brk is relative to dst_x
     // color = color left of brk
@@ -399,6 +401,7 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
                              brk - b_x0, b_y1 - b_y0, bm->stride,
                              dst_x + b_x0, dst_y + b_y0, color);
         if (!img) return tail;
+        img->type = type;
         *tail = img;
         tail = &img->next;
     }
@@ -409,6 +412,7 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
                              b_x1 - brk, b_y1 - b_y0, bm->stride,
                              dst_x + brk, dst_y + b_y0, color2);
         if (!img) return tail;
+        img->type = type;
         *tail = img;
         tail = &img->next;
     }
@@ -716,7 +720,7 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
             here_tail = tail;
             tail =
                 render_glyph(render_priv, bm, pen_x, pen_y, info->c[3], 0,
-                        1000000, tail);
+                        1000000, tail, IMAGE_TYPE_SHADOW);
 
             if (last_tail && tail != here_tail && ((info->c[3] & 0xff) > 0))
                 render_overlap(render_priv, last_tail, here_tail);
@@ -750,7 +754,7 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
                 here_tail = tail;
                 tail =
                     render_glyph(render_priv, bm, pen_x, pen_y, info->c[2],
-                            0, 1000000, tail);
+                            0, 1000000, tail, IMAGE_TYPE_OUTLINE);
                 if (last_tail && tail != here_tail && ((info->c[2] & 0xff) > 0))
                     render_overlap(render_priv, last_tail, here_tail);
 
@@ -781,19 +785,19 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
                 if (info->effect_timing > (info->bbox.xMax >> 6))
                     tail =
                         render_glyph(render_priv, bm, pen_x, pen_y,
-                                info->c[0], 0, 1000000, tail);
+                                info->c[0], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
                 else
                     tail =
                         render_glyph(render_priv, bm, pen_x, pen_y,
-                                info->c[1], 0, 1000000, tail);
+                                info->c[1], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
             } else if (info->effect_type == EF_KARAOKE_KF) {
                 tail =
                     render_glyph(render_priv, bm, pen_x, pen_y, info->c[0],
-                            info->c[1], info->effect_timing, tail);
+                            info->c[1], info->effect_timing, tail, IMAGE_TYPE_CHARACTER);
             } else
                 tail =
                     render_glyph(render_priv, bm, pen_x, pen_y, info->c[0],
-                            0, 1000000, tail);
+                            0, 1000000, tail, IMAGE_TYPE_CHARACTER);
             info = info->next;
         }
     }

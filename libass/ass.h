@@ -44,6 +44,13 @@ typedef struct ass_image {
     int dst_x, dst_y;           // Bitmap placement inside the video frame
 
     struct ass_image *next;   // Next image, or NULL
+
+    enum {
+        IMAGE_TYPE_CHARACTER,
+        IMAGE_TYPE_OUTLINE,
+        IMAGE_TYPE_SHADOW
+    } type;
+
 } ASS_Image;
 
 /*
