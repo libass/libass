@@ -160,6 +160,12 @@ void ass_renderer_done(ASS_Renderer *priv);
 
 /**
  * \brief Set the frame size in pixels, including margins.
+ * The renderer will never return images that are outside of the frame area.
+ * The value set with this function can influence the pixel aspect ratio used
+ * for rendering. If the frame size doesn't equal to the video size, you may
+ * have to use ass_set_pixel_aspect().
+ * @see ass_set_pixel_aspect()
+ * @see ass_set_margins()
  * \param priv renderer handle
  * \param w width
  * \param h height
@@ -168,10 +174,11 @@ void ass_set_frame_size(ASS_Renderer *priv, int w, int h);
 
 /**
  * \brief Set the source image size in pixels.
- * This is used to calculate the source aspect ratio and the blur scale. If
- * a custom pixel aspect ratio is set with ass_set_aspect_ratio(), the source
- * image size has no influence on the aspect ratio.
+ * This is used to calculate the source aspect ratio and the blur scale.
  * The source image size can be reset to default by setting w and h to 0.
+ * The value set with this function can influence the pixel aspect ratio used
+ * for rendering.
+ * @see ass_set_pixel_aspect()
  * \param priv renderer handle
  * \param w width
  * \param h height
@@ -187,7 +194,26 @@ void ass_set_shaper(ASS_Renderer *priv, ASS_ShapingLevel level);
 
 /**
  * \brief Set frame margins.  These values may be negative if pan-and-scan
- * is used.
+ * is used. The margins are in pixels. Each value specifies the distance from
+ * the video rectangle to the renderer frame. If a given margin value is
+ * positive, there will be free space between renderer frame and video area.
+ * If a given margin value is negative, the frame is inside the video, i.e.
+ * the video has been cropped.
+ *
+ * The renderer will try to keep subtitles inside the frame area. If possible,
+ * text is layout so that it is inside the cropped area. Subtitle events
+ * that can't be moved are cropped against the frame area.
+ *
+ * ass_set_use_margins() can be used to allow libass to render subtitles into
+ * the empty areas if margins are positive, i.e. the video area is smaller than
+ * the frame. (Traditionally, this has been used to show subtitles in
+ * the bottom "black bar" between video bottom screen border when playing 16:9
+ * video on a 4:3 screen.)
+ *
+ * When using this function, it is recommended to calculate and set your own
+ * aspect ratio with ass_set_pixel_aspect(), as the defaults won't make any
+ * sense.
+ * @see ass_set_pixel_aspect()
  * \param priv renderer handle
  * \param t top margin
  * \param b bottom margin
@@ -204,13 +230,29 @@ void ass_set_margins(ASS_Renderer *priv, int t, int b, int l, int r);
 void ass_set_use_margins(ASS_Renderer *priv, int use);
 
 /**
+ * \brief Set pixel aspect ratio correction.
+ * This is the ratio of pixel width to pixel height.
+ *
+ * Generally, this is (s_w / s_h) / (d_w / d_h), where s_w and s_h is the
+ * video storage size, and d_w and d_h is the video display size. (Display
+ * and storage size can be different for anamorphic video, such as DVDs.)
+ *
+ * If the pixel aspect ratio is 0, or if the aspect ratio has never been set
+ * by calling this function, libass will calculate a default pixel aspect ratio
+ * out of values set with ass_set_frame_size() and ass_set_storage_size(). Note
+ * that this is useful only if the frame size corresponds to the video display
+ * size. Keep in mind that the margins set with ass_set_margins() are ignored
+ * for aspect ratio calculations as well.
+ * If the storage size has not been set, a pixel aspect ratio of 1 is assumed.
+ * \param priv renderer handle
+ * \param par pixel aspect ratio (1.0 means square pixels, 0 means default)
+ */
+void ass_set_pixel_aspect(ASS_Renderer *priv, double par);
+
+/**
  * \brief Set aspect ratio parameters.
- * You can also pass a pixel aspect ratio as dar, and set sar to 1.0. libass
- * uses dar/sar as final pixel aspect ratio, and doesn't use dar or sar for
- * anything else. If the pixel aspect ratio is 0 (setting dar=0 and sar=1), or
- * if the aspect ratio has never been set by calling this function, libass will
- * calculate a fallback value out of frame size and storage size. If the
- * storage size has not been set, a pixel aspect ratio of 1 is assumed.
+ * This calls ass_set_pixel_aspect(priv, dar / sar).
+ * @deprecated New code should use ass_set_pixel_aspect().
  * \param priv renderer handle
  * \param dar display aspect ratio (DAR), prescaled for output PAR
  * \param sar storage aspect ratio (SAR)

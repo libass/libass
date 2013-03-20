@@ -101,7 +101,11 @@ void ass_set_use_margins(ASS_Renderer *priv, int use)
 
 void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar)
 {
-    double par = dar / sar;
+    ass_set_pixel_aspect(priv, dar / sar);
+}
+
+void ass_set_pixel_aspect(ASS_Renderer *priv, double par)
+{
     if (priv->settings.par != par) {
         priv->settings.par = par;
         ass_reconfigure(priv);
