@@ -418,6 +418,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         mystrtod(&p, &x2);
         skip(',');
         mystrtod(&p, &y2);
+        t1 = t2 = 0;
         if (*p == ',') {
             skip(',');
             mystrtoll(&p, &t1);
@@ -427,7 +428,14 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
                    "movement6: (%f, %f) -> (%f, %f), (%" PRId64 " .. %"
                    PRId64 ")\n", x1, y1, x2, y2, (int64_t) t1,
                    (int64_t) t2);
-        } else {
+            // VSFilter
+            if (t1 > t2) {
+                double tmp = t2;
+                t2 = t1;
+                t1 = tmp;
+            }
+        }
+        if (t1 <= 0 && t2 <= 0) {
             t1 = 0;
             t2 = render_priv->state.event->Duration;
             ass_msg(render_priv->library, MSGL_DBG2,
