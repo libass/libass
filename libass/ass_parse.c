@@ -625,9 +625,8 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         double k;
         skip('(');
         for (cnt = 0; cnt < 3; ++cnt) {
-            if (*p == '\\')
+            if (!mystrtod(&p, &v[cnt]))
                 break;
-            mystrtod(&p, &v[cnt]);
             skip(',');
         }
         if (cnt == 3) {
@@ -662,7 +661,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             assert(delta_t != 0.);
             k = pow(((double) (t - t1)) / delta_t, v3);
         }
-        while (*p == '\\')
+        while (*p != ')' && *p != '}' && *p != '\0')
             p = parse_tag(render_priv, p, k);   // maybe k*pwr ? no, specs forbid nested \t's
         skip_to(')');           // in case there is some unknown tag or a comment
         skipopt(')');
