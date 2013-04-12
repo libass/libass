@@ -311,7 +311,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         int x0, y0, x1, y1;
         int res = 1;
         char *start = p;
-        skipopt('(');
+        skip('(');
         res &= mystrtoi(&p, &x0);
         skipopt(',');
         res &= mystrtoi(&p, &y0);
@@ -669,7 +669,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         char *start = p;
         int x0, y0, x1, y1;
         int res = 1;
-        skipopt('(');
+        skip('(');
         res &= mystrtoi(&p, &x0);
         skipopt(',');
         res &= mystrtoi(&p, &y0);
