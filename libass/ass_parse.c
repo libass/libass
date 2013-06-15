@@ -756,7 +756,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             strncpy(style, start, p - start);
             style[p - start] = '\0';
             reset_render_context(render_priv,
-                    render_priv->track->styles + lookup_style(render_priv->track, style));
+                    lookup_style_strict(render_priv->track, style));
             free(style);
         } else
             reset_render_context(render_priv, NULL);

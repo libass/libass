@@ -224,6 +224,26 @@ int lookup_style(ASS_Track *track, char *name)
     return i;                   // use the first style
 }
 
+/**
+ * \brief find style by name as in \r
+ * \param track track
+ * \param name style name
+ * \return style in track->styles
+ * Returns NULL if no style has the given name.
+ */
+ASS_Style *lookup_style_strict(ASS_Track *track, char *name)
+{
+    int i;
+    for (i = track->n_styles - 1; i >= 0; --i) {
+        if (strcmp(track->styles[i].Name, name) == 0)
+            return track->styles + i;
+    }
+    ass_msg(track->library, MSGL_WARN,
+            "[%p]: Warning: no style named '%s' found",
+            track, name);
+    return NULL;
+}
+
 #ifdef CONFIG_ENCA
 void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
                           int buflen, char *preferred_language,
