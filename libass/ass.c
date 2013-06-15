@@ -240,6 +240,13 @@ static int numpad2align(int val)
 		target->name = strdup(token); \
 		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
 
+#define STARREDSTRVAL(name) \
+    } else if (strcasecmp(tname, #name) == 0) { \
+        if (target->name != NULL) free(target->name); \
+        while (*token == '*') ++token; \
+        target->name = strdup(token); \
+        ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
+
 #define COLORVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
 		target->name = string2color(track->library, token); \
@@ -498,10 +505,9 @@ static int process_style(ASS_Track *track, char *str)
         NEXT(p, token);
 
         if (0) {                // cool ;)
-            STRVAL(Name)
-            if ((strcmp(target->Name, "Default") == 0)
-                || (strcmp(target->Name, "*Default") == 0))
-            track->default_style = sid;
+            STARREDSTRVAL(Name)
+            if (strcmp(target->Name, "Default") == 0)
+                track->default_style = sid;
             STRVAL(FontName)
             COLORVAL(PrimaryColour)
             COLORVAL(SecondaryColour)
