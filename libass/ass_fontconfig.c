@@ -257,11 +257,18 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
 
     if (!treat_family_as_pattern &&
         !(r_family && strcasecmp((const char *) r_family, family) == 0) &&
-        !(r_fullname && strcasecmp((const char *) r_fullname, family) == 0))
-        ass_msg(library, MSGL_WARN,
-               "fontconfig: Selected font is not the requested one: "
-               "'%s' != '%s'",
-               (const char *) (r_fullname ? r_fullname : r_family), family);
+        !(r_fullname && strcasecmp((const char *) r_fullname, family) == 0)) {
+        char *fallback = (char *) (r_fullname ? r_fullname : r_family);
+        if (code) {
+            ass_msg(library, MSGL_WARN,
+                    "fontconfig: cannot find glyph U+%04X in font '%s', falling back to '%s'",
+                    (unsigned int)code, family, fallback);
+        } else {
+            ass_msg(library, MSGL_WARN,
+                    "fontconfig: cannot find font '%s', falling back to '%s'",
+                    family, fallback);
+        }
+    }
 
     result = FcPatternGetString(rpat, FC_STYLE, 0, &r_style);
     if (result != FcResultMatch)
