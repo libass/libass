@@ -1683,8 +1683,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                  EventImages *event_images)
 {
     char *p;
-    FT_UInt previous;
-    FT_UInt num_glyphs;
     FT_Vector pen;
     unsigned code;
     DBBox bbox;
@@ -1711,7 +1709,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     drawing = render_priv->state.drawing;
     text_info->length = 0;
-    num_glyphs = 0;
     p = event->Text;
 
     int in_tag = 0;
@@ -1874,7 +1871,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     }
 
     // Preliminary layout (for line wrapping)
-    previous = 0;
     pen.x = 0;
     pen.y = 0;
     for (i = 0; i < text_info->length; i++) {
@@ -1896,7 +1892,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         info = glyphs + i;
         pen.x += info->cluster_advance.x;
         pen.y += info->cluster_advance.y;
-        previous = info->symbol;
     }
 
 
