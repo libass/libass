@@ -1117,7 +1117,7 @@ ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
                            size_t bufsize, char *codepage)
 {
     ASS_Track *track;
-    int need_free = 0;
+    int copied = 0;
 
     if (!buf)
         return 0;
@@ -1128,12 +1128,19 @@ ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
         if (!buf)
             return 0;
         else
-            need_free = 1;
+            copied = 1;
     }
 #endif
+    if (!copied) {
+        char *newbuf = malloc(bufsize + 1);
+        if (!newbuf)
+            return 0;
+        memcpy(newbuf, buf, bufsize);
+        newbuf[bufsize] = '\0';
+        buf = newbuf;
+    }
     track = parse_memory(library, buf);
-    if (need_free)
-        free(buf);
+    free(buf);
     if (!track)
         return 0;
 
