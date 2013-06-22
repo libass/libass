@@ -2228,9 +2228,6 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
         && !render_priv->settings.frame_height)
         return 1;               // library not initialized
 
-    if (render_priv->library != track->library)
-        return 1;
-
     if (!render_priv->fontconfig_priv)
         return 1;
 
