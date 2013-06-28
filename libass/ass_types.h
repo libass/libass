@@ -84,6 +84,72 @@ typedef struct ass_event {
     ASS_RenderPriv *render_priv;
 } ASS_Event;
 
+/**
+ * Support for (xy-)vsfilter mangled colors
+ *
+ * Generally, xy-vsfilter emulates the classic vsfilter behavior of
+ * rendering directly into the (usually YCbCr) video. vsfilter is
+ * hardcoded to use BT.601(TV) as target colorspace when converting
+ * the subtitle RGB color to the video colorspace. This led to major
+ * breakage when HDTV video was introduced: HDTV typically uses
+ * BT.709(TV), but vsfilter still used BT.601(TV) for conversion.
+ *
+ * This means classic vsfilter will mangle colors as follows:
+ *
+ *    screen_rgb = bt_709tv_to_rgb(rgb_to_bt601tv(ass_rgb))
+ *
+ * Or in general:
+ *
+ *    screen_rgb = video_csp_to_rgb(rgb_to_bt601tv(ass_rgb))
+ *
+ * where video_csp is the colorspace of the video with which the
+ * subtitle was muxed.
+ *
+ * xy-vsfilter did not fix this, but instead introduced explicit
+ * rules how colors were mangled by adding a "YCbCr Matrix" header.
+ * If this header specifies a real colorspace (like BT.601(TV) etc.),
+ * xy-vsfilter behaves exactly like vsfilter, but using the specified
+ * colorspace for conversion of ASS input RGB to screen RGB:
+ *
+ *    screen_rgb = video_csp_to_rgb(rgb_to_ycbcr_header_csp(ass_rgb))
+ *
+ * Further, xy-vsfilter behaves like vsfilter with no changes if the header
+ * is missing.
+ *
+ * The special value "None" means untouched RGB values. Keep in mind that
+ * some version of xy-vsfilter are buggy and don't interpret this correctly.
+ * It appears some people are advocating that this header value is
+ * intended for situations where exact colors do not matter.
+ *
+ * Note that newer Aegisub versions (the main application to produce ASS
+ * subtitle scripts) have an option that tries not to mangle the colors. It
+ * is said that if the header is not set to BT.601(TV), the colors are
+ * supposed not to be mangled, even if the "YCbCr Matrix" header is not
+ * set to "None". In other words, the video colorspace as detected by
+ * Aegisub is the same as identified in the file header.
+ *
+ * In general, misinterpreting this header or not using it will lead to
+ * slightly different subtitle colors, which can matter if the subtitle
+ * attempts to match solid colored areas in the video.
+ *
+ * Note that libass doesn't change colors based on this header. It
+ * absolutely can't do that, because the video colorspace is required
+ * in order to handle this as intended by xy-vsfilter.
+ */
+typedef enum ASS_YCbCrMatrix {
+    YCBCR_DEFAULT = 0,  // Header missing
+    YCBCR_UNKNOWN,      // Header could not be parsed correctly
+    YCBCR_NONE,         // "None" special value
+    YCBCR_BT601_TV,
+    YCBCR_BT601_PC,
+    YCBCR_BT709_TV,
+    YCBCR_BT709_PC,
+    YCBCR_SMPTE240M_TV,
+    YCBCR_SMPTE240M_PC,
+    YCBCR_FCC_TV,
+    YCBCR_FCC_PC
+} ASS_YCbCrMatrix;
+
 /*
  * ass track represent either an external script or a matroska subtitle stream
  * (no real difference between them); it can be used in rendering after the
@@ -114,19 +180,7 @@ typedef struct ass_track {
     int ScaledBorderAndShadow;
     int Kerning;
     char *Language;
-    enum {
-        YCBCR_DEFAULT = 0,  // TV.601 on YCbCr video, None on RGB video
-        YCBCR_UNKNOWN,
-        YCBCR_NONE,         // untouched RGB values
-        YCBCR_BT601_TV,
-        YCBCR_BT601_PC,
-        YCBCR_BT709_TV,
-        YCBCR_BT709_PC,
-        YCBCR_SMPTE240M_TV,
-        YCBCR_SMPTE240M_PC,
-        YCBCR_FCC_TV,
-        YCBCR_FCC_PC
-    } YCbCrMatrix;
+    ASS_YCbCrMatrix YCbCrMatrix;
 
     int default_style;      // index of default style
     char *name;             // file name in case of external subs, 0 for streams
