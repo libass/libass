@@ -223,7 +223,8 @@ void ass_face_set_size(FT_Face face, double size)
     // The idea was borrowed from asa (http://asa.diac24.net)
     if (hori && os2) {
         int hori_height = hori->Ascender - hori->Descender;
-        int os2_height = os2->usWinAscent + os2->usWinDescent;
+        /* sometimes used for signed values despite unsigned in spec */
+        int os2_height = (short)os2->usWinAscent + (short)os2->usWinDescent;
         if (hori_height && os2_height)
             mscale = (double) hori_height / os2_height;
     }
@@ -266,8 +267,8 @@ void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
         if (FT_Get_Char_Index(face, ch)) {
             int y_scale = face->size->metrics.y_scale;
             if (os2) {
-                *asc = FT_MulFix(os2->usWinAscent, y_scale);
-                *desc = FT_MulFix(os2->usWinDescent, y_scale);
+                *asc = FT_MulFix((short)os2->usWinAscent, y_scale);
+                *desc = FT_MulFix((short)os2->usWinDescent, y_scale);
             } else {
                 *asc = FT_MulFix(face->ascender, y_scale);
                 *desc = FT_MulFix(-face->descender, y_scale);
