@@ -18,8 +18,6 @@
 
 #include "config.h"
 
-#include <fribidi/fribidi.h>
-
 #include "ass_shaper.h"
 #include "ass_render.h"
 #include "ass_font.h"
