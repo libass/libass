@@ -968,6 +968,11 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
             ass_msg(library, MSGL_V, "Opened iconv descriptor");
         } else
             ass_msg(library, MSGL_ERR, "Error opening iconv descriptor");
+#ifdef CONFIG_ENCA
+        if (cp_tmp != codepage) {
+            free((void*)cp_tmp);
+        }
+#endif
     }
 
     {
