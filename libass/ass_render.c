@@ -1097,9 +1097,16 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             v.desc = drawing->desc;
             key.u.drawing.text = strdup(drawing->text);
         } else {
-            // arbitrary, not too small to prevent grid fitting rounding effects
-            // XXX: this is a rather crude hack
-            const double ft_size = 256.0;
+            double ft_size;
+            if (priv->settings.hinting == ASS_HINTING_NONE) {
+                // arbitrary, not too small to prevent grid fitting rounding effects
+                // XXX: this is a rather crude hack
+                ft_size = 256.0;
+            } else {
+                // If hinting is enabled, we want to pass the real font size
+                // to freetype. Normalize scale_y to 1.0.
+                ft_size = info->scale_y * info->font_size;
+            }
             ass_face_set_size(info->font->faces[info->face_index], ft_size);
             ass_font_set_transform(info->font,
                 info->scale_x * info->font_size / ft_size,

@@ -56,6 +56,13 @@ typedef struct ass_image {
 /*
  * Hinting type. (see ass_set_hinting below)
  *
+ * Setting hinting to anything but ASS_HINTING_NONE will put libass in a mode
+ * that reduces compatibility with vsfilter and many ASS scripts. The main
+ * problem is that hinting conflicts with smooth scaling, which precludes
+ * animations and precise positioning.
+ *
+ * In other words, enabling hinting might break some scripts severely.
+ *
  * FreeType's native hinter is still buggy sometimes and it is recommended
  * to use the light autohinter, ASS_HINTING_LIGHT, instead.  For best
  * compatibility with problematic fonts, disable hinting.
