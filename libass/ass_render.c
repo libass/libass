@@ -1782,8 +1782,10 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                         sizeof(GlyphInfo) * text_info->max_glyphs);
         }
 
+        GlyphInfo *info = &glyphs[text_info->length];
+
         // Clear current GlyphInfo
-        memset(&glyphs[text_info->length], 0, sizeof(GlyphInfo));
+        memset(info, 0, sizeof(GlyphInfo));
 
         // Parse drawing
         if (drawing->i) {
@@ -1792,7 +1794,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             drawing->scale_y = render_priv->state.scale_y *
                                      render_priv->font_scale;
             code = 0xfffc; // object replacement character
-            glyphs[text_info->length].drawing = drawing;
+            info->drawing = drawing;
         }
 
         // face could have been changed in get_next_char
@@ -1805,50 +1807,45 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             break;
 
         // Fill glyph information
-        glyphs[text_info->length].symbol = code;
-        glyphs[text_info->length].font = render_priv->state.font;
+        info->symbol = code;
+        info->font = render_priv->state.font;
         for (i = 0; i < 4; ++i) {
             uint32_t clr = render_priv->state.c[i];
             change_alpha(&clr,
                          mult_alpha(_a(clr), render_priv->state.fade), 1.);
-            glyphs[text_info->length].c[i] = clr;
+            info->c[i] = clr;
         }
-        glyphs[text_info->length].effect_type = render_priv->state.effect_type;
-        glyphs[text_info->length].effect_timing =
-            render_priv->state.effect_timing;
-        glyphs[text_info->length].effect_skip_timing =
-            render_priv->state.effect_skip_timing;
-        glyphs[text_info->length].font_size =
-                    render_priv->state.font_size * render_priv->font_scale;
-        glyphs[text_info->length].be = render_priv->state.be;
-        glyphs[text_info->length].blur = render_priv->state.blur;
-        glyphs[text_info->length].shadow_x = render_priv->state.shadow_x;
-        glyphs[text_info->length].shadow_y = render_priv->state.shadow_y;
-        glyphs[text_info->length].orig_scale_x
-            = glyphs[text_info->length].scale_x
-            = render_priv->state.scale_x;
-        glyphs[text_info->length].orig_scale_y
-            = glyphs[text_info->length].scale_y
-            = render_priv->state.scale_y;
-        glyphs[text_info->length].border_style = render_priv->state.border_style;
-        glyphs[text_info->length].border_x= render_priv->state.border_x;
-        glyphs[text_info->length].border_y = render_priv->state.border_y;
-        glyphs[text_info->length].hspacing = render_priv->state.hspacing;
-        glyphs[text_info->length].bold = render_priv->state.bold;
-        glyphs[text_info->length].italic = render_priv->state.italic;
-        glyphs[text_info->length].flags = render_priv->state.flags;
-        glyphs[text_info->length].frx = render_priv->state.frx;
-        glyphs[text_info->length].fry = render_priv->state.fry;
-        glyphs[text_info->length].frz = render_priv->state.frz;
-        glyphs[text_info->length].fax = render_priv->state.fax;
-        glyphs[text_info->length].fay = render_priv->state.fay;
-        glyphs[text_info->length].bm_run_id = render_priv->state.bm_run_id;
 
-        if (glyphs[text_info->length].drawing) {
+        info->effect_type = render_priv->state.effect_type;
+        info->effect_timing = render_priv->state.effect_timing;
+        info->effect_skip_timing = render_priv->state.effect_skip_timing;
+        info->font_size =
+            render_priv->state.font_size * render_priv->font_scale;
+        info->be = render_priv->state.be;
+        info->blur = render_priv->state.blur;
+        info->shadow_x = render_priv->state.shadow_x;
+        info->shadow_y = render_priv->state.shadow_y;
+        info->scale_x = info->orig_scale_x = render_priv->state.scale_x;
+        info->scale_y = info->orig_scale_y = render_priv->state.scale_y;
+        info->border_style = render_priv->state.border_style;
+        info->border_x= render_priv->state.border_x;
+        info->border_y = render_priv->state.border_y;
+        info->hspacing = render_priv->state.hspacing;
+        info->bold = render_priv->state.bold;
+        info->italic = render_priv->state.italic;
+        info->flags = render_priv->state.flags;
+        info->frx = render_priv->state.frx;
+        info->fry = render_priv->state.fry;
+        info->frz = render_priv->state.frz;
+        info->fax = render_priv->state.fax;
+        info->fay = render_priv->state.fay;
+        info->bm_run_id = render_priv->state.bm_run_id;
+
+        if (info->drawing) {
             drawing = render_priv->state.drawing =
                 ass_drawing_new(render_priv->library, render_priv->ftlibrary);
         } else {
-            fix_glyph_scaling(render_priv, &glyphs[text_info->length]);
+            fix_glyph_scaling(render_priv, info);
         }
 
         text_info->length++;
