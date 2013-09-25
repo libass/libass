@@ -712,6 +712,8 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
         // shape runs share the same font face and size
         if (i > 0 && (last->font != info->font ||
                     last->font_size != info->font_size ||
+                    last->scale_x != info->scale_x ||
+                    last->scale_y != info->scale_y ||
                     last->face_index != info->face_index ||
                     last->script != info->script))
             shape_run++;
