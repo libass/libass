@@ -143,6 +143,7 @@ typedef struct glyph_info {
     double frx, fry, frz;       // rotation
     double fax, fay;            // text shearing
     double scale_x, scale_y;
+    double orig_scale_x, orig_scale_y; // scale_x,y before fix_glyph_scaling
     int border_style;
     double border_x, border_y;
     double hspacing;

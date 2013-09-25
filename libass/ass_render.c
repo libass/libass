@@ -937,8 +937,8 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
 {
     int i;
     int adv = advance.x;
-    double scale_y = info->scale_y;
-    double scale_x = info->scale_x;
+    double scale_y = info->orig_scale_y;
+    double scale_x = info->orig_scale_x;
 
     // to avoid gaps
     sx = FFMAX(64, sx);
@@ -1099,21 +1099,10 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             v.desc = drawing->desc;
             key.u.drawing.text = strdup(drawing->text);
         } else {
-            double ft_size;
-            if (priv->settings.hinting == ASS_HINTING_NONE) {
-                // arbitrary, not too small to prevent grid fitting rounding effects
-                // XXX: this is a rather crude hack
-                ft_size = 256.0;
-            } else {
-                // If hinting is enabled, we want to pass the real font size
-                // to freetype. Normalize scale_y to 1.0.
-                ft_size = info->scale_y * info->font_size;
-            }
-            ass_face_set_size(info->font->faces[info->face_index], ft_size);
-            ass_font_set_transform(info->font,
-                info->scale_x * info->font_size / ft_size,
-                info->scale_y * info->font_size / ft_size,
-                NULL);
+            ass_face_set_size(info->font->faces[info->face_index],
+                              info->font_size);
+            ass_font_set_transform(info->font, info->scale_x,
+                                   info->scale_y, NULL);
             FT_Glyph glyph =
                 ass_font_get_glyph(priv->fontconfig_priv, info->font,
                         info->symbol, info->face_index, info->glyph_index,
@@ -1128,8 +1117,8 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                 FT_Done_Glyph(glyph);
                 ass_font_get_asc_desc(info->font, info->symbol,
                         &v.asc, &v.desc);
-                v.asc  *= info->scale_y * info->font_size / ft_size;
-                v.desc *= info->scale_y * info->font_size / ft_size;
+                v.asc  *= info->scale_y;
+                v.desc *= info->scale_y;
             }
         }
 
@@ -1682,6 +1671,33 @@ fill_bitmap_hash(ASS_Renderer *priv, GlyphInfo *info,
 }
 
 /**
+ * \brief Adjust the glyph's font size and scale factors to ensure smooth
+ *  scaling and handle pathological font sizes. The main problem here is
+ *  freetype's grid fitting, which destroys animations by font size, or will
+ *  result in incorrect final text size if font sizes are very small and
+ *  scale factors very large. See Google Code issue #46.
+ * \param priv guess what
+ * \param glyph the glyph to be modified
+ */
+static void
+fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
+{
+    double ft_size;
+    if (priv->settings.hinting == ASS_HINTING_NONE) {
+        // arbitrary, not too small to prevent grid fitting rounding effects
+        // XXX: this is a rather crude hack
+        ft_size = 256.0;
+    } else {
+        // If hinting is enabled, we want to pass the real font size
+        // to freetype. Normalize scale_y to 1.0.
+        ft_size = glyph->scale_y * glyph->font_size;
+    }
+    glyph->scale_x = glyph->scale_x * glyph->font_size / ft_size;
+    glyph->scale_y = glyph->scale_y * glyph->font_size / ft_size;
+    glyph->font_size = ft_size;
+}
+
+/**
  * \brief Main ass rendering function, glues everything together
  * \param event event to render
  * \param event_images struct containing resulting images, will also be initialized
@@ -1808,8 +1824,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         glyphs[text_info->length].blur = render_priv->state.blur;
         glyphs[text_info->length].shadow_x = render_priv->state.shadow_x;
         glyphs[text_info->length].shadow_y = render_priv->state.shadow_y;
-        glyphs[text_info->length].scale_x= render_priv->state.scale_x;
-        glyphs[text_info->length].scale_y = render_priv->state.scale_y;
+        glyphs[text_info->length].orig_scale_x
+            = glyphs[text_info->length].scale_x
+            = render_priv->state.scale_x;
+        glyphs[text_info->length].orig_scale_y
+            = glyphs[text_info->length].scale_y
+            = render_priv->state.scale_y;
         glyphs[text_info->length].border_style = render_priv->state.border_style;
         glyphs[text_info->length].border_x= render_priv->state.border_x;
         glyphs[text_info->length].border_y = render_priv->state.border_y;
@@ -1827,6 +1847,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         if (glyphs[text_info->length].drawing) {
             drawing = render_priv->state.drawing =
                 ass_drawing_new(render_priv->library, render_priv->ftlibrary);
+        } else {
+            fix_glyph_scaling(render_priv, &glyphs[text_info->length]);
         }
 
         text_info->length++;
