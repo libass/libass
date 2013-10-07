@@ -1242,33 +1242,45 @@ int ass_read_styles(ASS_Track *track, char *fname, char *codepage)
 long long ass_step_sub(ASS_Track *track, long long now, int movement)
 {
     int i;
+    ASS_Event *best = NULL;
+    long long target = now;
+    int direction = movement > 0 ? 1 : -1;
 
     if (movement == 0)
         return 0;
     if (track->n_events == 0)
         return 0;
 
-    if (movement < 0)
-        for (i = 0;
-             (i < track->n_events)
-             &&
-             ((long long) (track->events[i].Start +
-                           track->events[i].Duration) <= now); ++i) {
-    } else
-        for (i = track->n_events - 1;
-             (i >= 0) && ((long long) (track->events[i].Start) > now);
-             --i) {
+    while (movement) {
+        ASS_Event *closest = NULL;
+        long long closest_time = now;
+        for (i = 0; i < track->n_events; i++) {
+            if (direction < 0) {
+                long long end =
+                    track->events[i].Start + track->events[i].Duration;
+                if (end < target) {
+                    if (!closest || end > closest_time) {
+                        closest = &track->events[i];
+                        closest_time = end;
+                    }
+                }
+            } else {
+                long long start = track->events[i].Start;
+                if (start > target) {
+                    if (!closest || start < closest_time) {
+                        closest = &track->events[i];
+                        closest_time = start;
+                    }
+                }
+            }
         }
+        target = closest_time + direction;
+        movement -= direction;
+        if (closest)
+            best = closest;
+    }
 
-    // -1 and n_events are ok
-    assert(i >= -1);
-    assert(i <= track->n_events);
-    i += movement;
-    if (i < 0)
-        i = 0;
-    if (i >= track->n_events)
-        i = track->n_events - 1;
-    return ((long long) track->events[i].Start) - now;
+    return best ? best->Start - now : 0;
 }
 
 ASS_Track *ass_new_track(ASS_Library *library)
