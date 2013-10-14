@@ -2,7 +2,7 @@ AM_CFLAGS = -Wall
 
 LIBASS_LT_CURRENT = 5
 LIBASS_LT_REVISION = 0
-LIBASS_LT_AGE = 1
+LIBASS_LT_AGE = 0
 
 lib_LTLIBRARIES = libass.la
 libass_la_SOURCES = ass.c ass_cache.c ass_font.c ass_fontconfig.c ass_render.c \
