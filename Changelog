@@ -1,3 +1,30 @@
+libass (0.10.2)
+ * API additions and some ABI changes, bumped SONAME
+ * Expose header field for VSFilter color mangling (GC #87)
+ * Add functions for explicit scaling hints (GC #6)
+ * Add 'type' field to ASS_Image (GC #31)
+ * Workaround Freetype's font size grid-fitting where appropriate
+ * Apply blur to both glyph and border when using opaque box
+ * Parser bugfixes
+   * Parse angles in style as number
+   * Fix fallback event formats
+   * Make closing ')' optional for some tags
+   * Fix crazy VSFilter behaviour for \move (GC #90)
+   * Make \r fall back to line style (GC #104)
+   * Parse style name like VSFilter
+   * Ignore junk in nested \t tags
+   * Make \clip tag arguments mandatory
+ * Properly handle script and language in the HarfBuzz shaper
+ * Allow ASS_Track and ASS_Renderer to have different ASS_Library
+ * Fix stroking in some rare cases
+ * Correctly handle @font advance (GC #94)
+ * Fix ascent/descent for some fonts (GC #106)
+ * Fix ass_step_sub to not require sorted events
+ * Fix blur scaling
+ * Don't mutate input strings (GC #88)
+ * Remove/change some error messages
+ * Fix various small memory leaks
+
 libass (0.10.1)
  * Fix letter spacing
  * Add \rSTYLENAME syntax support (GC #43)
