@@ -1962,16 +1962,23 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     pen.x = 0;
     pen.y = 0;
     int lineno = 1;
+    double last_pen_x = 0;
+    double last_fay = 0;
     for (i = 0; i < text_info->length; i++) {
         GlyphInfo *info = glyphs + cmap[i];
         if (glyphs[i].linebreak) {
-            pen.y -= (info->fay / info->scale_x * info->scale_y) * pen.x;
-            pen.x = 0;
+            pen.y -= (last_fay / info->scale_x * info->scale_y) * (pen.x - last_pen_x);
+            last_pen_x = pen.x = 0;
             pen.y += double_to_d6(text_info->lines[lineno-1].desc);
             pen.y += double_to_d6(text_info->lines[lineno].asc);
             pen.y += double_to_d6(render_priv->settings.line_spacing);
             lineno++;
         }
+        else if (last_fay != info->fay) {
+            pen.y -= (last_fay / info->scale_x * info->scale_y) * (pen.x - last_pen_x);
+            last_pen_x = pen.x;
+        }
+        last_fay = info->fay;
         if (info->skip) continue;
         FT_Vector cluster_pen = pen;
         while (info) {
