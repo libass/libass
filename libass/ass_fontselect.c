@@ -37,6 +37,7 @@
 #include "ass_library.h"
 #include "ass_fontselect.h"
 #include "ass_fontconfig.h"
+#include "ass_coretext.h"
 #include "ass_font.h"
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
@@ -802,6 +803,13 @@ ass_fontselect_init(ASS_Library *library,
 
     priv->embedded_provider = ass_embedded_fonts_add_provider(library, priv,
             ftlibrary);
+
+#ifdef CONFIG_CORETEXT
+    if (fc != 0) {
+        priv->default_provider = ass_coretext_add_provider(library, priv);
+        return priv;
+    }
+#endif
 
 #ifdef CONFIG_FONTCONFIG
     if (fc != 0)
