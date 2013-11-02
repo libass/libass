@@ -25,6 +25,9 @@
 
 #include "ass_coretext.h"
 
+#define CT_FONTS_EAGER_LOAD 0
+#define CT_FONTS_LAZY_LOAD  !CT_FONTS_EAGER_LOAD
+
 static char *cfstr2buf(CFStringRef string)
 {
     const char *buf_ptr = CFStringGetCStringPtr(string, kCFStringEncodingUTF8);
@@ -149,15 +152,15 @@ static void get_font_traits(CTFontDescriptorRef fontd,
 #endif
 }
 
-static void scan_fonts(ASS_Library *lib, ASS_FontProvider *provider)
+static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
 {
     ASS_FontProviderMetaData meta;
     char *families[1];
     char *identifiers[1];
     char *fullnames[1];
 
-    CTFontCollectionRef coll = CTFontCollectionCreateFromAvailableFonts(NULL);
-    CFArrayRef fontsd = CTFontCollectionCreateMatchingFontDescriptors(coll);
+    if (!fontsd)
+        return;
 
     for (int i = 0; i < CFArrayGetCount(fontsd); i++) {
         CTFontDescriptorRef fontd = CFArrayGetValueAtIndex(fontsd, i);
@@ -196,16 +199,66 @@ static void scan_fonts(ASS_Library *lib, ASS_FontProvider *provider)
 
         free(path);
     }
+}
+
+#if CT_FONTS_EAGER_LOAD
+static void scan_fonts(ASS_Library *lib, ASS_FontProvider *provider)
+{
+
+    CTFontCollectionRef coll = CTFontCollectionCreateFromAvailableFonts(NULL);
+    CFArrayRef fontsd = CTFontCollectionCreateMatchingFontDescriptors(coll);
+
+    process_descriptors(provider, fontsd);
 
     CFRelease(fontsd);
     CFRelease(coll);
 }
+#endif
+
+#if CT_FONTS_LAZY_LOAD
+static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
+                        char *name)
+{
+    void *descr_ary[1];
+
+    CFStringRef cfname =
+        CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8);
+    CFMutableDictionaryRef cfattrs = CFDictionaryCreateMutable(NULL, 0, 0, 0);
+    CFDictionaryAddValue(cfattrs, kCTFontDisplayNameAttribute, cfname);
+    CTFontDescriptorRef ctdescr = CTFontDescriptorCreateWithAttributes(cfattrs);
+
+    descr_ary[0] = (void *)ctdescr;
+    CFArrayRef descriptors =
+        CFArrayCreate(NULL, (const void **)&descr_ary, 1, NULL);
+
+    CTFontCollectionRef ctcoll =
+        CTFontCollectionCreateWithFontDescriptors(descriptors, 0);
+
+    CFArrayRef fontsd =
+        CTFontCollectionCreateMatchingFontDescriptors(ctcoll);
+
+    process_descriptors(provider, fontsd);
+
+    if (fontsd)
+        CFRelease(fontsd);
+    CFRelease(ctcoll);
+    CFRelease(cfattrs);
+    CFRelease(ctdescr);
+    CFRelease(descriptors);
+    CFRelease(cfname);
+}
+#endif
 
 static ASS_FontProviderFuncs coretext_callbacks = {
     NULL,
     check_glyph,
     destroy_font,
+    NULL,
+#if CT_FONTS_EAGER_LOAD
     NULL
+#else
+    match_fonts
+#endif
 };
 
 ASS_FontProvider *
@@ -214,7 +267,9 @@ ass_coretext_add_provider(ASS_Library *lib, ASS_FontSelector *selector)
     ASS_FontProvider *provider =
         ass_font_provider_new(selector, &coretext_callbacks, NULL);
 
+#if CT_FONTS_EAGER_LOAD
     scan_fonts(lib, provider);
+#endif
 
     return provider;
 }

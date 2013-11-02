@@ -465,9 +465,15 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
 {
     int num_fonts = priv->n_font;
     int idx = 0;
-    ASS_FontInfo *font_infos = priv->font_infos;
     ASS_FontInfo req;
     char *req_fullname;
+    char *tfamily = trim_space(strdup(family));
+
+    ASS_FontProvider *default_provider = priv->default_provider;
+    if (default_provider && default_provider->funcs.match_fonts)
+        default_provider->funcs.match_fonts(library, default_provider, tfamily);
+
+    ASS_FontInfo *font_infos = priv->font_infos;
 
     // do we actually have any fonts?
     if (!priv->n_font)
@@ -480,7 +486,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     req.width   = 100;
     req.n_fullname   = 1;
     req.fullnames    = &req_fullname;
-    req.fullnames[0] = trim_space(strdup(family));
+    req.fullnames[0] = tfamily;
 
     // calculate similarities
     font_info_req_similarity(font_infos, num_fonts, &req);

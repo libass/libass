@@ -53,12 +53,16 @@ typedef size_t  (*GetDataFunc)(void *, unsigned char*, size_t, size_t);
 typedef int     (*CheckGlyphFunc)(void *, uint32_t);
 typedef void    (*DestroyFontFunc)(void *);
 typedef void    (*DestroyProviderFunc)(void *);
+typedef void    (*MatchFontsFunc)(ASS_Library *lib,
+                                  ASS_FontProvider *provider,
+                                  char *name);
 
 typedef struct font_provider_funcs {
     GetDataFunc     get_data;       // callback for memory fonts
     CheckGlyphFunc  check_glyph;    // test codepoint for coverage
     DestroyFontFunc destroy_font;   // destroy a single font
     DestroyProviderFunc destroy_provider;   // destroy provider only
+    MatchFontsFunc  match_fonts;    // match fonts against some name
     // XXX: add function for alias handling
 } ASS_FontProviderFuncs;
 
