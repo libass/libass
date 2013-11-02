@@ -135,6 +135,7 @@ close_stream_font(FT_Stream stream)
 static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 {
     char *path;
+    char *postscript_name;
     int i, index, uid, error;
     ASS_FontStream stream = { NULL, NULL };
     FT_Face face;
@@ -142,8 +143,8 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     if (font->n_faces == ASS_FONT_MAX_FACES)
         return -1;
 
-    path = ass_font_select(fontsel, font->library, font , &index, &uid,
-            &stream, ch);
+    path = ass_font_select(fontsel, font->library, font , &index,
+            &postscript_name, &uid, &stream, ch);
 
     if (!path)
         return -1;
@@ -190,6 +191,25 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
                     "Error opening font: '%s', %d", path, index);
             free(path);
             return -1;
+        }
+
+        if (postscript_name && index < 0 && face->num_faces > 0) {
+            // The font provider gave us a post_script name and is not sure
+            // about the face index.. so use the postscript name to find the
+            // correct face_index in the collection!
+            for (int i = 0; face->num_faces; i++) {
+                FT_Done_Face(face);
+                error = FT_New_Face(font->ftlibrary, path, i, &face);
+                if (error) {
+                    ass_msg(font->library, MSGL_WARN,
+                            "Error opening font: '%s', %d", path, i);
+                    free(path);
+                    return -1;
+                }
+
+                if (strcmp(FT_Get_Postscript_Name(face), postscript_name) == 0)
+                    break;
+            }
         }
     }
 

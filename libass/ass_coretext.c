@@ -32,7 +32,7 @@ static char *cfstr2buf(CFStringRef string)
         return strdup(buf_ptr);
     } else {
         size_t buf_len = CFStringGetLength(string) + 1;
-        char *buf = calloc(buf_len, sizeof(char));
+        char *buf = malloc(buf_len);
         CFStringGetCString(string, buf, buf_len, kCFStringEncodingUTF8);
         return buf;
     }
@@ -153,14 +153,15 @@ static void scan_fonts(ASS_Library *lib, ASS_FontProvider *provider)
 {
     ASS_FontProviderMetaData meta;
     char *families[1];
-    char *fullnames[2];
+    char *identifiers[1];
+    char *fullnames[1];
 
     CTFontCollectionRef coll = CTFontCollectionCreateFromAvailableFonts(NULL);
     CFArrayRef fontsd = CTFontCollectionCreateMatchingFontDescriptors(coll);
 
     for (int i = 0; i < CFArrayGetCount(fontsd); i++) {
         CTFontDescriptorRef fontd = CFArrayGetValueAtIndex(fontsd, i);
-        int index = 0;
+        int index = -1;
 
         char *path = get_font_file(fontd);
         if (strcmp("", path) == 0) {
@@ -175,19 +176,23 @@ static void scan_fonts(ASS_Library *lib, ASS_FontProvider *provider)
         get_name(fontd, kCTFontFamilyNameAttribute, families, &meta.n_family);
         meta.families = families;
 
+        int zero = 0;
+        get_name(fontd, kCTFontNameAttribute, identifiers, &zero);
         get_name(fontd, kCTFontDisplayNameAttribute, fullnames, &meta.n_fullname);
-        get_name(fontd, kCTFontNameAttribute, fullnames, &meta.n_fullname);
         meta.fullnames = fullnames;
 
         CFCharacterSetRef chset =
             CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
-        ass_font_provider_add_font(provider, &meta, path, index, (void*)chset);
+        ass_font_provider_add_font(provider, &meta, path, index,
+                                   identifiers[0], (void*)chset);
 
         for (int j = 0; j < meta.n_family; j++)
             free(meta.families[j]);
 
         for (int j = 0; j < meta.n_fullname; j++)
             free(meta.fullnames[j]);
+
+        free(identifiers[0]);
 
         free(path);
     }
