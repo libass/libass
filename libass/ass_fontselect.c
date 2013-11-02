@@ -68,8 +68,10 @@ struct font_info {
     int width;
 
     // how to access this face
-    char *path;         // absolute path
-    int index;          // font index inside font collections
+    char *path;            // absolute path
+    int index;             // font index inside font collections
+    char *postscript_name; // can be used as an alternative to index to
+                           // identify a font inside a collection
 
     // similarity score
     unsigned score;
@@ -219,13 +221,14 @@ ass_font_provider_new(ASS_FontSelector *selector, ASS_FontProviderFuncs *funcs,
  * \param meta basic metadata of the font
  * \param path path to the font file, or NULL
  * \param index face index inside the file
+ * \param psname PostScript name of the face (overrides index if present)
  * \param data private data for the font
  * \return success
  */
 int
 ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
-                           unsigned int index, void *data)
+                           unsigned int index, const char *psname, void *data)
 {
     int i;
     int weight, slant, width;
@@ -274,6 +277,9 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
 
     if (path)
         info->path = strdup(path);
+
+    if (psname)
+        info->postscript_name = strdup(psname);
 
     info->index = index;
     info->priv  = data;
@@ -330,6 +336,9 @@ void ass_font_provider_free(ASS_FontProvider *provider)
 
             if (info->path)
                 free(info->path);
+
+            if (info->postscript_name)
+                free(info->postscript_name);
 
             if (info->provider->funcs.destroy_font)
                 info->provider->funcs.destroy_font(info->priv);
@@ -451,8 +460,8 @@ static int font_info_compare(const void *av, const void *bv)
 
 static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                          const char *family, unsigned bold, unsigned italic,
-                         int *index, int *uid, ASS_FontStream *stream,
-                         uint32_t code)
+                         int *index, char **postscript_name, int *uid,
+                         ASS_FontStream *stream, uint32_t code)
 {
     int num_fonts = priv->n_font;
     int idx = 0;
@@ -494,6 +503,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
 
     free(req.fullnames[0]);
 
+    *postscript_name = font_infos[idx].postscript_name;
     *index = font_infos[idx].index;
     *uid   = font_infos[idx].uid;
 
@@ -526,8 +536,8 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
  * \return font file path
 */
 char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
-                      ASS_Font *font, int *index, int *uid,
-                      ASS_FontStream *data, uint32_t code)
+                      ASS_Font *font, int *index, char **postscript_name,
+                      int *uid, ASS_FontStream *data, uint32_t code)
 {
     char *res = 0;
     const char *family = font->desc.family;
@@ -535,41 +545,41 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
     unsigned italic = font->desc.italic;
 
     if (family && *family)
-        res = select_font(priv, library, family, bold, italic, index, uid,
-                data, code);
+        res = select_font(priv, library, family, bold, italic, index,
+                postscript_name, uid, data, code);
 
     if (!res && priv->family_default) {
         res = select_font(priv, library, priv->family_default, bold,
-                italic, index, uid, data, code);
+                italic, index, postscript_name, uid, data, code);
         if (res)
             ass_msg(library, MSGL_WARN, "fontselect: Using default "
-                    "font family: (%s, %d, %d) -> %s, %d",
-                    family, bold, italic, res, *index);
+                    "font family: (%s, %d, %d) -> %s, %d, %s",
+                    family, bold, italic, res, *index, *postscript_name);
     }
 
     if (!res && priv->path_default) {
         res = strdup(priv->path_default);
         *index = priv->index_default;
         ass_msg(library, MSGL_WARN, "fontselect: Using default font: "
-                "(%s, %d, %d) -> %s, %d", family, bold, italic,
-                res, *index);
+                "(%s, %d, %d) -> %s, %d, %s", family, bold, italic,
+                res, *index, *postscript_name);
     }
 
     // FIXME: not sure if that is needed, we cannot reach this path at the
     // moment, either select_font returns or a font or the default one is used
     if (!res) {
         res = select_font(priv, library, "Arial", bold, italic,
-                           index, uid, data, code);
+                           index, postscript_name, uid, data, code);
         if (res)
             ass_msg(library, MSGL_WARN, "fontselect: Using 'Arial' "
-                    "font family: (%s, %d, %d) -> %s, %d", family, bold,
-                    italic, res, *index);
+                    "font family: (%s, %d, %d) -> %s, %d, %s", family, bold,
+                    italic, res, *index, *postscript_name);
     }
 
     if (res)
         ass_msg(library, MSGL_V,
-                "fontselect: (%s, %d, %d) -> %s, %d", family, bold,
-                italic, res, *index);
+                "fontselect: (%s, %d, %d) -> %s, %d, %s", family, bold,
+                italic, res, *index, *postscript_name);
 
     return res;
 }
@@ -753,7 +763,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         ft->name     = strdup(name);
         ft->idx      = -1;
 
-        ass_font_provider_add_font(priv, &info, NULL, face_index, ft);
+        ass_font_provider_add_font(priv, &info, NULL, face_index, NULL, ft);
 
         free_font_info(&info);
         FT_Done_Face(face);
