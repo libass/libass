@@ -35,6 +35,7 @@ struct ass_synth_priv {
     int g_r;
     int g_w;
 
+    double *g0;
     unsigned *g;
     unsigned *gt2;
 
@@ -59,6 +60,7 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
     priv->g_w = 2 * priv->g_r + 1;
 
     if (priv->g_r) {
+        priv->g0 = realloc(priv->g0, priv->g_w * sizeof(double));
         priv->g = realloc(priv->g, priv->g_w * sizeof(unsigned));
         priv->gt2 = realloc(priv->gt2, 256 * priv->g_w * sizeof(unsigned));
         if (priv->g == NULL || priv->gt2 == NULL) {
@@ -67,15 +69,18 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
     }
 
     if (priv->g_r) {
-        // gaussian curve with volume = 65536
+        // exact gaussian curve
+        for (i = 0; i < priv->g_w; ++i) {
+            priv->g0[i] = exp(A * (i - priv->g_r) * (i - priv->g_r));
+        }
+
+        // integer gaussian curve with volume = 65536
         for (volume_diff = 10000000; volume_diff > 0.0000001;
              volume_diff *= 0.5) {
             volume_factor += volume_diff;
             volume = 0;
             for (i = 0; i < priv->g_w; ++i) {
-                priv->g[i] =
-                    (unsigned) (exp(A * (i - priv->g_r) * (i - priv->g_r)) *
-                                volume_factor + .5);
+                priv->g[i] = (unsigned) (priv->g0[i] * volume_factor + .5);
                 volume += priv->g[i];
             }
             if (volume > 65536)
@@ -83,9 +88,7 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
         }
         volume = 0;
         for (i = 0; i < priv->g_w; ++i) {
-            priv->g[i] =
-                (unsigned) (exp(A * (i - priv->g_r) * (i - priv->g_r)) *
-                            volume_factor + .5);
+            priv->g[i] = (unsigned) (priv->g0[i] * volume_factor + .5);
             volume += priv->g[i];
         }
 
@@ -126,6 +129,7 @@ ASS_SynthPriv *ass_synth_init(double radius)
 void ass_synth_done(ASS_SynthPriv *priv)
 {
     free(priv->tmp);
+    free(priv->g0);
     free(priv->g);
     free(priv->gt2);
     free(priv);
