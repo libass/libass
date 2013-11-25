@@ -23,7 +23,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01020000
+#define LIBASS_VERSION 0x01030000
 
 /*
  * A linked list of images produced by an ass renderer.
@@ -86,6 +86,13 @@ typedef enum {
     ASS_SHAPING_SIMPLE = 0,
     ASS_SHAPING_COMPLEX
 } ASS_ShapingLevel;
+
+/**
+ * \brief Return the version of library. This returns the value LIBASS_VERSION
+ * was set to when the library was compiled.
+ * \return library version
+ */
+int ass_library_version(void);
 
 /**
  * \brief Initialize the library.

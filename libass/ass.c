@@ -59,6 +59,11 @@ struct parser_priv {
 #define ASS_STYLES_ALLOC 20
 #define ASS_EVENTS_ALLOC 200
 
+int ass_library_version(void)
+{
+    return LIBASS_VERSION;
+}
+
 void ass_free_track(ASS_Track *track)
 {
     int i;
