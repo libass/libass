@@ -234,6 +234,23 @@ static int numpad2align(int val)
 	token = next_token(&str); \
 	if (!token) break;
 
+
+#define ALIAS(alias,name) \
+        if (strcasecmp(tname, #alias) == 0) {tname = #name;}
+
+/* One section started with PARSE_START and PARSE_END parses a single token
+ * (contained in the variable named token) for the header indicated by the
+ * variable tname. It does so by chaining a number of else-if statements, each
+ * of which checks if the tname variable indicates that this header should be
+ * parsed. The first parameter of the macro gives the name of the header.
+ *
+ * The string that is passed is in str. str is advanced to the next token if
+ * a header could be parsed. The parsed results are stored in the variable
+ * target, which has the type ASS_Style* or ASS_Event*.
+ */
+#define PARSE_START if (0) {
+#define PARSE_END   }
+
 #define ANYVAL(name,func) \
 	} else if (strcasecmp(tname, #name) == 0) { \
 		target->name = func(token); \
@@ -268,9 +285,6 @@ static int numpad2align(int val)
 	} else if (strcasecmp(tname, #name) == 0) { \
 		target->name = lookup_style(track, token); \
 		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
-
-#define ALIAS(alias,name) \
-	if (strcasecmp(tname, #alias) == 0) {tname = #name;}
 
 static char *next_token(char **str)
 {
@@ -349,7 +363,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
         NEXT(p, token);
 
         ALIAS(End, Duration)    // temporarily store end timecode in event->Duration
-        if (0) {            // cool ;)
+        PARSE_START
             INTVAL(Layer)
             STYLEVAL(Style)
             STRVAL(Name)
@@ -359,7 +373,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
             INTVAL(MarginV)
             TIMEVAL(Start)
             TIMEVAL(Duration)
-        }
+        PARSE_END
     }
     free(format);
     return 1;
@@ -415,7 +429,7 @@ void ass_process_force_style(ASS_Track *track)
             if (style == NULL
                 || strcasecmp(track->styles[sid].Name, style) == 0) {
                 target = track->styles + sid;
-                if (0) {
+                PARSE_START
                     STRVAL(FontName)
                     COLORVAL(PrimaryColour)
                     COLORVAL(SecondaryColour)
@@ -439,7 +453,7 @@ void ass_process_force_style(ASS_Track *track)
                     FPVAL(Outline)
                     FPVAL(Shadow)
                     FPVAL(Blur)
-                }
+                PARSE_END
             }
         }
         *eq = '=';
@@ -509,7 +523,7 @@ static int process_style(ASS_Track *track, char *str)
         NEXT(q, tname);
         NEXT(p, token);
 
-        if (0) {                // cool ;)
+        PARSE_START
             STARREDSTRVAL(Name)
             if (strcmp(target->Name, "Default") == 0)
                 track->default_style = sid;
@@ -541,7 +555,7 @@ static int process_style(ASS_Track *track, char *str)
             FPVAL(ScaleY)
             FPVAL(Outline)
             FPVAL(Shadow)
-        }
+        PARSE_END
     }
     style->ScaleX /= 100.;
     style->ScaleY /= 100.;
