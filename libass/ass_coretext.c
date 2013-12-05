@@ -219,17 +219,26 @@ static void scan_fonts(ASS_Library *lib, ASS_FontProvider *provider)
 static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
                         char *name)
 {
-    void *descr_ary[1];
+    const size_t attributes_n = 3;
+    CTFontDescriptorRef ctdescrs[attributes_n];
+    CFMutableDictionaryRef cfattrs[attributes_n];
+    CFStringRef attributes[attributes_n] = {
+        kCTFontFamilyNameAttribute,
+        kCTFontDisplayNameAttribute,
+        kCTFontNameAttribute,
+    };
 
     CFStringRef cfname =
         CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8);
-    CFMutableDictionaryRef cfattrs = CFDictionaryCreateMutable(NULL, 0, 0, 0);
-    CFDictionaryAddValue(cfattrs, kCTFontDisplayNameAttribute, cfname);
-    CTFontDescriptorRef ctdescr = CTFontDescriptorCreateWithAttributes(cfattrs);
 
-    descr_ary[0] = (void *)ctdescr;
+    for (int i = 0; i < attributes_n; i++) {
+        cfattrs[i] = CFDictionaryCreateMutable(NULL, 0, 0, 0);
+        CFDictionaryAddValue(cfattrs[i], attributes[i], cfname);
+        ctdescrs[i] = CTFontDescriptorCreateWithAttributes(cfattrs[i]);
+    }
+
     CFArrayRef descriptors =
-        CFArrayCreate(NULL, (const void **)&descr_ary, 1, NULL);
+        CFArrayCreate(NULL, (const void **)&ctdescrs, attributes_n, NULL);
 
     CTFontCollectionRef ctcoll =
         CTFontCollectionCreateWithFontDescriptors(descriptors, 0);
@@ -242,8 +251,12 @@ static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
     if (fontsd)
         CFRelease(fontsd);
     CFRelease(ctcoll);
-    CFRelease(cfattrs);
-    CFRelease(ctdescr);
+
+    for (int i = 0; i < attributes_n; i++) {
+        CFRelease(cfattrs[i]);
+        CFRelease(ctdescrs[i]);
+    }
+
     CFRelease(descriptors);
     CFRelease(cfname);
 }
