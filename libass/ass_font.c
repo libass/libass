@@ -77,6 +77,21 @@ static void charmap_magic(ASS_Library *library, FT_Face face)
 }
 
 /**
+ * Adjust char index if the charmap is weird
+ * (currently just MS Symbol)
+ */
+
+uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol)
+{
+    switch(face->charmap->encoding){
+    case FT_ENCODING_MS_SYMBOL:
+        return 0xF000 | symbol;
+    default:
+        return symbol;
+    }
+}
+
+/**
  * \brief find a memory font by name
  */
 static int find_font(ASS_Library *library, char *name)
@@ -264,7 +279,7 @@ void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
     for (i = 0; i < font->n_faces; ++i) {
         FT_Face face = font->faces[i];
         TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
-        if (FT_Get_Char_Index(face, ch)) {
+        if (FT_Get_Char_Index(face, ass_font_index_magic(face, ch))) {
             int y_scale = face->size->metrics.y_scale;
             if (os2) {
                 *asc = FT_MulFix((short)os2->usWinAscent, y_scale);
@@ -446,13 +461,13 @@ int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
     // try with the requested face
     if (*face_index < font->n_faces) {
         face = font->faces[*face_index];
-        index = FT_Get_Char_Index(face, symbol);
+        index = FT_Get_Char_Index(face, ass_font_index_magic(face, symbol));
     }
 
     // not found in requested face, try all others
     for (i = 0; i < font->n_faces && index == 0; ++i) {
         face = font->faces[i];
-        index = FT_Get_Char_Index(face, symbol);
+        index = FT_Get_Char_Index(face, ass_font_index_magic(face, symbol));
         if (index)
             *face_index = i;
     }
@@ -467,14 +482,14 @@ int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
         face_idx = *face_index = add_face(fcpriv, font, symbol);
         if (face_idx >= 0) {
             face = font->faces[face_idx];
-            index = FT_Get_Char_Index(face, symbol);
+            index = FT_Get_Char_Index(face, ass_font_index_magic(face, symbol));
             if (index == 0 && face->num_charmaps > 0) {
                 int i;
                 ass_msg(font->library, MSGL_WARN,
                     "Glyph 0x%X not found, broken font? Trying all charmaps", symbol);
                 for (i = 0; i < face->num_charmaps; i++) {
                     FT_Set_Charmap(face, face->charmaps[i]);
-                    if ((index = FT_Get_Char_Index(face, symbol)) != 0) break;
+                    if ((index = FT_Get_Char_Index(face, ass_font_index_magic(face, symbol))) != 0) break;
                 }
             }
             if (index == 0) {
@@ -588,8 +603,8 @@ FT_Vector ass_font_get_kerning(ASS_Font *font, uint32_t c1, uint32_t c2)
 
     for (i = 0; i < font->n_faces; ++i) {
         FT_Face face = font->faces[i];
-        int i1 = FT_Get_Char_Index(face, c1);
-        int i2 = FT_Get_Char_Index(face, c2);
+        int i1 = FT_Get_Char_Index(face, ass_font_index_magic(face, c1));
+        int i2 = FT_Get_Char_Index(face, ass_font_index_magic(face, c2));
         if (i1 && i2) {
             if (FT_HAS_KERNING(face))
                 FT_Get_Kerning(face, i1, i2, FT_KERNING_DEFAULT, &v);

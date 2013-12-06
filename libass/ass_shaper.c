@@ -220,9 +220,9 @@ get_glyph(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
     FT_Face face = font_data;
 
     if (variation)
-        *glyph = FT_Face_GetCharVariantIndex(face, unicode, variation);
+        *glyph = FT_Face_GetCharVariantIndex(face, ass_font_index_magic(face, unicode), variation);
     else
-        *glyph = FT_Get_Char_Index(face, unicode);
+        *glyph = FT_Get_Char_Index(face, ass_font_index_magic(face, unicode));
 
     return *glyph != 0;
 }
@@ -668,7 +668,7 @@ static void shape_fribidi(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         GlyphInfo *info = glyphs + i;
         FT_Face face = info->font->faces[info->face_index];
         info->symbol = shaper->event_text[i];
-        info->glyph_index = FT_Get_Char_Index(face, shaper->event_text[i]);
+        info->glyph_index = FT_Get_Char_Index(face, ass_font_index_magic(face, shaper->event_text[i]));
     }
 
     free(joins);
