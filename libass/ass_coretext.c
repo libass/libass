@@ -30,13 +30,15 @@
 
 static char *cfstr2buf(CFStringRef string)
 {
-    const char *buf_ptr = CFStringGetCStringPtr(string, kCFStringEncodingUTF8);
+    const int encoding = kCFStringEncodingUTF8;
+    const char *buf_ptr = CFStringGetCStringPtr(string, encoding);
     if (buf_ptr) {
         return strdup(buf_ptr);
     } else {
-        size_t buf_len = CFStringGetLength(string) + 1;
+        size_t len = CFStringGetLength(string);
+        CFIndex buf_len = CFStringGetMaximumSizeForEncoding(len, encoding);
         char *buf = malloc(buf_len);
-        CFStringGetCString(string, buf, buf_len, kCFStringEncodingUTF8);
+        CFStringGetCString(string, buf, buf_len, encoding);
         return buf;
     }
 }
