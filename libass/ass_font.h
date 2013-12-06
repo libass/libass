@@ -68,6 +68,7 @@ void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
                            int *desc);
 int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
                        int *face_index, int *glyph_index);
+uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol);
 FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
                             uint32_t ch, int face_index, int index,
                             ASS_Hinting hinting, int deco);
