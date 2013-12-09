@@ -371,7 +371,6 @@ static unsigned font_info_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
 {
     int i, j;
     unsigned similarity = 0;
-    const char **fallback = fallback_fonts;
 
     // compare fullnames
     // a matching fullname is very nice and instantly drops the score to zero
@@ -390,15 +389,6 @@ static unsigned font_info_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
                 if (strcasecmp(a->families[i], req->fullnames[j]) == 0)
                     similarity = 0;
             }
-    }
-
-    // nothing found? Try fallback fonts
-    while (similarity > 0 && *fallback) {
-        for (i = 0; i < a->n_family; i++) {
-            if (strcmp(a->families[i], *fallback) == 0)
-                similarity = 5000;
-        }
-        fallback++;
     }
 
     // compare slant
@@ -571,15 +561,18 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
                 res, *index, *postscript_name);
     }
 
-    // FIXME: not sure if that is needed, we cannot reach this path at the
-    // moment, either select_font returns or a font or the default one is used
     if (!res) {
-        res = select_font(priv, library, "Arial", bold, italic,
-                           index, postscript_name, uid, data, code);
-        if (res)
-            ass_msg(library, MSGL_WARN, "fontselect: Using 'Arial' "
-                    "font family: (%s, %d, %d) -> %s, %d, %s", family, bold,
-                    italic, res, *index, *postscript_name);
+        // This code path is reached when the script uses glyphs not
+        // available in the previous fonts (or no font is matched), and
+        // the ASS_FontProvider used provides only the MatchFontsFunc callback
+        for (int i = 0; fallback_fonts[i] && !res; i++) {
+            res = select_font(priv, library, fallback_fonts[i], bold,
+                    italic, index, postscript_name, uid, data, code);
+            if (res)
+                ass_msg(library, MSGL_WARN, "fontselect: Using fallback "
+                        "font family: (%s, %d, %d) -> %s, %d, %s",
+                        family, bold, italic, res, *index, *postscript_name);
+        }
     }
 
     if (res)
