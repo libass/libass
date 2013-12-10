@@ -790,6 +790,22 @@ ass_embedded_fonts_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
     return priv;
 }
 
+struct font_constructors {
+    ASS_DefaultFontProvider id;
+    ASS_FontProvider *(*constructor)(ASS_Library *, ASS_FontSelector *,
+                                     const char *);
+};
+
+struct font_constructors font_constructors[] = {
+#ifdef CONFIG_CORETEXT
+    { ASS_FONTPROVIDER_CORETEXT,   &ass_coretext_add_provider },
+#endif
+#ifdef CONFIG_FONTCONFIG
+    { ASS_FONTPROVIDER_FONTCONFIG, &ass_fontconfig_add_provider },
+#endif
+    { ASS_FONTPROVIDER_NONE, NULL },
+};
+
 /**
  * \brief Init font selector.
  * \param library libass library object
@@ -801,7 +817,8 @@ ass_embedded_fonts_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
 ASS_FontSelector *
 ass_fontselect_init(ASS_Library *library,
                     FT_Library ftlibrary, const char *family,
-                    const char *path, const char *config, int fc)
+                    const char *path, const char *config,
+                    ASS_DefaultFontProvider dfp)
 {
     ASS_FontSelector *priv = calloc(1, sizeof(ASS_FontSelector));
 
@@ -813,18 +830,20 @@ ass_fontselect_init(ASS_Library *library,
     priv->embedded_provider = ass_embedded_fonts_add_provider(library, priv,
             ftlibrary);
 
-#ifdef CONFIG_CORETEXT
-    if (fc != 0) {
-        priv->default_provider = ass_coretext_add_provider(library, priv);
-        return priv;
-    }
-#endif
+    if (dfp >= ASS_FONTPROVIDER_AUTODETECT) {
+        int found = 0;
+        for (int i = 0; !found && font_constructors[i].constructor; i++ )
+            if (dfp == font_constructors[i].id ||
+                dfp == ASS_FONTPROVIDER_AUTODETECT) {
+                priv->default_provider =
+                    font_constructors[i].constructor(library, priv, config);
+                found = 1;
+            }
 
-#ifdef CONFIG_FONTCONFIG
-    if (fc != 0)
-        priv->default_provider = ass_fontconfig_add_provider(library,
-                priv, config);
-#endif
+        if (!found)
+            ass_msg(library, MSGL_WARN, "can't find selected font provider");
+
+    }
 
     return priv;
 }

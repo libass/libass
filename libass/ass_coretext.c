@@ -277,7 +277,8 @@ static ASS_FontProviderFuncs coretext_callbacks = {
 };
 
 ASS_FontProvider *
-ass_coretext_add_provider(ASS_Library *lib, ASS_FontSelector *selector)
+ass_coretext_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
+                          const char *config)
 {
     ASS_FontProvider *provider =
         ass_font_provider_new(selector, &coretext_callbacks, NULL);

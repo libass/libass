@@ -34,7 +34,8 @@ typedef struct font_info ASS_FontInfo;
 ASS_FontSelector *
 ass_fontselect_init(ASS_Library *library,
                     FT_Library ftlibrary, const char *family,
-                    const char *path, const char *config, int fc);
+                    const char *path, const char *config,
+                    ASS_DefaultFontProvider dfp);
 char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
                       ASS_Font *font, int *index, char **postscript_name,
                       int *uid, ASS_FontStream *data, uint32_t code);
