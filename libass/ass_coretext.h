@@ -27,7 +27,8 @@
 #ifdef CONFIG_CORETEXT
 
 ASS_FontProvider *
-ass_coretext_add_provider(ASS_Library *lib, ASS_FontSelector *selector);
+ass_coretext_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
+                          const char *config);
 
 #endif
 

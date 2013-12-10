@@ -107,7 +107,8 @@ static void init(int frame_w, int frame_h)
     }
 
     ass_set_frame_size(ass_renderer, frame_w, frame_h);
-    ass_set_fonts(ass_renderer, NULL, "Sans", 1, NULL, 1);
+    ass_set_fonts(ass_renderer, NULL, "Sans",
+                  ASS_FONTPROVIDER_AUTODETECT, NULL, 1);
 }
 
 static image_t *gen_image(int width, int height)

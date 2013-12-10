@@ -135,8 +135,8 @@ void ass_set_line_position(ASS_Renderer *priv, double line_position)
 }
 
 void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
-                   const char *default_family, int fc, const char *config,
-                   int update)
+                   const char *default_family, ASS_DefaultFontProvider dfp,
+                   const char *config, int update)
 {
     free(priv->settings.default_font);
     free(priv->settings.default_family);
@@ -147,7 +147,7 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
     if (priv->fontselect)
         ass_fontselect_free(priv->fontselect);
     priv->fontselect = ass_fontselect_init(priv->library, priv->ftlibrary,
-            default_family, default_font, config, fc);
+            default_family, default_font, config, dfp);
 }
 
 void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits)

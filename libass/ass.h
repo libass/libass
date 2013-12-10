@@ -176,6 +176,23 @@ typedef enum {
 int ass_library_version(void);
 
 /**
+ * \brief Default Font provider to load fonts in libass' database
+ *
+ * NONE don't use any default font provider for font lookup
+ * AUTODETECT use the first available font provider
+ * CORETEXT force a CoreText based font provider (OS X only)
+ * FONTCONFIG force a Fontconfig based font provider
+ *
+ * libass uses the best shaper available by default.
+ */
+typedef enum {
+    ASS_FONTPROVIDER_NONE       = 0,
+    ASS_FONTPROVIDER_AUTODETECT = 1,
+    ASS_FONTPROVIDER_CORETEXT,
+    ASS_FONTPROVIDER_FONTCONFIG,
+} ASS_DefaultFontProvider;
+
+/**
  * \brief Initialize the library.
  * \return library handle or NULL if failed
  */
@@ -397,8 +414,8 @@ void ass_set_line_position(ASS_Renderer *priv, double line_position);
  * NOTE: font lookup must be configured before an ASS_Renderer can be used.
  */
 void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
-                   const char *default_family, int fc, const char *config,
-                   int update);
+                   const char *default_family, ASS_DefaultFontProvider dfp,
+                   const char *config, int update);
 
 /**
  * \brief Set selective style override mode.
