@@ -295,6 +295,31 @@ void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
     *asc = *desc = 0;
 }
 
+static void add_line(FT_Outline *ol, int bear, int advance, int dir, int pos, int size) {
+    FT_Vector points[4] = {
+        {.x = bear,      .y = pos + size},
+        {.x = advance,   .y = pos + size},
+        {.x = advance,   .y = pos - size},
+        {.x = bear,      .y = pos - size},
+    };
+
+    if (dir == FT_ORIENTATION_TRUETYPE) {
+        int i;
+        for (i = 0; i < 4; i++) {
+            ol->points[ol->n_points] = points[i];
+            ol->tags[ol->n_points++] = 1;
+        }
+    } else {
+        int i;
+        for (i = 3; i >= 0; i--) {
+            ol->points[ol->n_points] = points[i];
+            ol->tags[ol->n_points++] = 1;
+        }
+    }
+
+    ol->contours[ol->n_contours++] = ol->n_points - 1;
+}
+
 /*
  * Strike a glyph with a horizontal line; it's possible to underline it
  * and/or strike through it.  For the line's position and size, truetype
@@ -334,64 +359,24 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
 
     // Add points to the outline
     if (under && ps) {
-        int pos, size;
-        pos = FT_MulFix(ps->underlinePosition, y_scale * font->scale_y);
-        size = FT_MulFix(ps->underlineThickness,
-                         y_scale * font->scale_y / 2);
+        int pos = FT_MulFix(ps->underlinePosition, y_scale * font->scale_y);
+        int size = FT_MulFix(ps->underlineThickness,
+                             y_scale * font->scale_y / 2);
 
         if (pos > 0 || size <= 0)
             return 1;
 
-        FT_Vector points[4] = {
-            {.x = bear,      .y = pos + size},
-            {.x = advance,   .y = pos + size},
-            {.x = advance,   .y = pos - size},
-            {.x = bear,      .y = pos - size},
-        };
-
-        if (dir == FT_ORIENTATION_TRUETYPE) {
-            for (i = 0; i < 4; i++) {
-                ol->points[ol->n_points] = points[i];
-                ol->tags[ol->n_points++] = 1;
-            }
-        } else {
-            for (i = 3; i >= 0; i--) {
-                ol->points[ol->n_points] = points[i];
-                ol->tags[ol->n_points++] = 1;
-            }
-        }
-
-        ol->contours[ol->n_contours++] = ol->n_points - 1;
+        add_line(ol, bear, advance, dir, pos, size);
     }
 
     if (through && os2) {
-        int pos, size;
-        pos = FT_MulFix(os2->yStrikeoutPosition, y_scale * font->scale_y);
-        size = FT_MulFix(os2->yStrikeoutSize, y_scale * font->scale_y / 2);
+        int pos = FT_MulFix(os2->yStrikeoutPosition, y_scale * font->scale_y);
+        int size = FT_MulFix(os2->yStrikeoutSize, y_scale * font->scale_y / 2);
 
         if (pos < 0 || size <= 0)
             return 1;
 
-        FT_Vector points[4] = {
-            {.x = bear,      .y = pos + size},
-            {.x = advance,   .y = pos + size},
-            {.x = advance,   .y = pos - size},
-            {.x = bear,      .y = pos - size},
-        };
-
-        if (dir == FT_ORIENTATION_TRUETYPE) {
-            for (i = 0; i < 4; i++) {
-                ol->points[ol->n_points] = points[i];
-                ol->tags[ol->n_points++] = 1;
-            }
-        } else {
-            for (i = 3; i >= 0; i--) {
-                ol->points[ol->n_points] = points[i];
-                ol->tags[ol->n_points++] = 1;
-            }
-        }
-
-        ol->contours[ol->n_contours++] = ol->n_points - 1;
+        add_line(ol, bear, advance, dir, pos, size);
     }
 
     return 0;
