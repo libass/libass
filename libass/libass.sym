@@ -14,6 +14,7 @@ ass_set_aspect_ratio
 ass_set_font_scale
 ass_set_hinting
 ass_set_line_spacing
+ass_get_available_font_providers
 ass_set_fonts
 ass_render_frame
 ass_new_track

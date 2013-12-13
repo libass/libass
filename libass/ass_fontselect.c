@@ -848,6 +848,21 @@ ass_fontselect_init(ASS_Library *library,
     return priv;
 }
 
+void ass_get_available_font_providers(ASS_Library *priv,
+                                      ASS_DefaultFontProvider **providers,
+                                      size_t *size)
+{
+    size_t offset = 2;
+    *size = offset;
+    for (int i = 0; font_constructors[i].constructor; i++)
+        (*size)++;
+    *providers = calloc(*size, sizeof(ASS_DefaultFontProvider));
+    (*providers)[0] = ASS_FONTPROVIDER_NONE;
+    (*providers)[1] = ASS_FONTPROVIDER_AUTODETECT;
+    for (int i = offset; i < *size; i++)
+        (*providers)[i] = font_constructors[i-offset].id;
+}
+
 /**
  * \brief Free font selector and release associated data
  * \param the font selector

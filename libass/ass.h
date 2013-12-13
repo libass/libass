@@ -401,6 +401,14 @@ void ass_set_line_spacing(ASS_Renderer *priv, double line_spacing);
 void ass_set_line_position(ASS_Renderer *priv, double line_position);
 
 /**
+ * \brief Get the list of available font providers.
+ * \return list of available font providers (user owns the returned array)
+ */
+void ass_get_available_font_providers(ASS_Library *priv,
+                                      ASS_DefaultFontProvider **providers,
+                                      size_t *size);
+
+/**
  * \brief Set font lookup defaults.
  * \param default_font path to default font to use. Must be supplied if
  * fontconfig is disabled or unavailable.

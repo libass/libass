@@ -166,6 +166,26 @@ static void blend(image_t * frame, ASS_Image *img)
     printf("%d images blended\n", cnt);
 }
 
+char *font_provider_labels[] = {
+    [ASS_FONTPROVIDER_NONE]       = "None",
+    [ASS_FONTPROVIDER_AUTODETECT] = "Autodetect",
+    [ASS_FONTPROVIDER_CORETEXT]   = "CoreText",
+    [ASS_FONTPROVIDER_FONTCONFIG] = "Fontconfig",
+};
+
+static void print_font_providers(ASS_Library *ass_library)
+{
+    ASS_DefaultFontProvider *providers;
+    size_t providers_size = 0;
+    ass_get_available_font_providers(ass_library, &providers, &providers_size);
+    printf("test.c: Available font providers (%zu): ", providers_size);
+    for (int i = 0; i < providers_size; i++) {
+        const char *separator = i > 0 ? ", ": "";
+        printf("%s'%s'", separator,  font_provider_labels[providers[i]]);
+    }
+    printf(".\n");
+}
+
 int main(int argc, char *argv[])
 {
     const int frame_w = 1280;
@@ -178,6 +198,8 @@ int main(int argc, char *argv[])
     char *imgfile = argv[1];
     char *subfile = argv[2];
     double tm = strtod(argv[3], 0);
+
+    print_font_providers(ass_library);
 
     init(frame_w, frame_h);
     ASS_Track *track = ass_read_file(ass_library, subfile, NULL);
