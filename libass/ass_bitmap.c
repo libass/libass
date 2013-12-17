@@ -365,13 +365,13 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
             unsigned *srcp = t + y * (width + 1) + 1;
             int src = *srcp;
             if (src) {
-                register unsigned *dstp = srcp - 1 + width + 1;
+                register unsigned *dstp = srcp - 1 - y * (width + 1);
                 const int src2 = (src + 32768) >> 16;
                 unsigned *m3 = m2 + src2 * mwidth;
 
                 int mx;
                 *srcp = 32768;
-                for (mx = r - 1; mx < mwidth; mx++) {
+                for (mx = r - y; mx < mwidth; mx++) {
                     *dstp += m3[mx];
                     dstp += width + 1;
                 }
