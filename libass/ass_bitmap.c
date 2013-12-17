@@ -444,6 +444,8 @@ static void be_blur(Bitmap *bm)
             buf[y * s + x] = (old_sum + new_sum) >> 2;
             old_sum = new_sum;
         }
+        new_sum = 2 * buf[y * s + w - 1];
+        buf[y * s + w - 1] = (old_sum + new_sum) >> 2;
     }
 
     for (x = 0; x < w; x++) {
@@ -453,6 +455,8 @@ static void be_blur(Bitmap *bm)
             buf[y * s + x] = (old_sum + new_sum) >> 2;
             old_sum = new_sum;
         }
+        new_sum = 2 * buf[(h - 1) * s + x];
+        buf[(h - 1) * s + x] = (old_sum + new_sum) >> 2;
     }
 }
 
