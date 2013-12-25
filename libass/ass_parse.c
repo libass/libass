@@ -775,20 +775,16 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.be = 0;
         render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "b")) {
-        int b;
-        if (mystrtoi(&p, &b)) {
-            if (pwr >= .5)
-                render_priv->state.bold = b;
-        } else
-            render_priv->state.bold = render_priv->state.style->Bold;
+        int val;
+        if (!mystrtoi(&p, &val))
+            val = render_priv->state.style->Bold;
+        render_priv->state.bold = val;
         update_font(render_priv);
     } else if (mystrcmp(&p, "i")) {
-        int i;
-        if (mystrtoi(&p, &i)) {
-            if (pwr >= .5)
-                render_priv->state.italic = i;
-        } else
-            render_priv->state.italic = render_priv->state.style->Italic;
+        int val;
+        if (!mystrtoi(&p, &val))
+            val = render_priv->state.style->Italic;
+        render_priv->state.italic = val;
         update_font(render_priv);
     } else if (mystrcmp(&p, "kf") || mystrcmp(&p, "K")) {
         int val = 0;
