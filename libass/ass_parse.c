@@ -365,6 +365,10 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             } else
                 render_priv->state.scale_y =
                     render_priv->state.style->ScaleY;
+        } else {
+            --p;
+            render_priv->state.scale_x = render_priv->state.style->ScaleX;
+            render_priv->state.scale_y = render_priv->state.style->ScaleY;
         }
     } else if (mystrcmp(&p, "fsp")) {
         double val;
