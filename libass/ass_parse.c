@@ -603,13 +603,13 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.parsed_tags |= PARSED_FADE;
         }
     } else if (mystrcmp(&p, "org")) {
-        int v1, v2;
+        double v1, v2;
         skip('(');
-        mystrtoi(&p, &v1);
+        mystrtod(&p, &v1);
         skip(',');
-        mystrtoi(&p, &v2);
+        mystrtod(&p, &v2);
         skipopt(')');
-        ass_msg(render_priv->library, MSGL_DBG2, "org(%d, %d)", v1, v2);
+        ass_msg(render_priv->library, MSGL_DBG2, "org(%f, %f)", v1, v2);
         if (!render_priv->state.have_origin) {
             render_priv->state.org_x = v1;
             render_priv->state.org_y = v2;
