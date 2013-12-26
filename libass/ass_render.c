@@ -864,7 +864,8 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
     update_font(render_priv);
 
     render_priv->state.border_style = style->BorderStyle;
-    calc_border(render_priv, style->Outline, style->Outline);
+    render_priv->state.border_x = style->Outline;
+    render_priv->state.border_y = style->Outline;
     change_border(render_priv, render_priv->state.border_x, render_priv->state.border_y);
     render_priv->state.scale_x = style->ScaleX;
     render_priv->state.scale_y = style->ScaleY;

@@ -547,6 +547,11 @@ static int process_style(ASS_Track *track, char *str)
             INTVAL(Alignment)
             if (track->track_type == TRACK_TYPE_ASS)
                 target->Alignment = numpad2align(target->Alignment);
+            // VSFilter compatibility
+            else if (target->Alignment == 8)
+                target->Alignment = 3;
+            else if (target->Alignment == 4)
+                target->Alignment = 11;
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
@@ -557,11 +562,15 @@ static int process_style(ASS_Track *track, char *str)
             FPVAL(Shadow)
         PARSE_END
     }
-    style->ScaleX /= 100.;
-    style->ScaleY /= 100.;
+    style->ScaleX = FFMAX(style->ScaleX, 0.) / 100.;
+    style->ScaleY = FFMAX(style->ScaleY, 0.) / 100.;
+    style->Spacing = FFMAX(style->Spacing, 0.);
+    style->Outline = FFMAX(style->Outline, 0.);
+    style->Shadow = FFMAX(style->Shadow, 0.);
     style->Bold = !!style->Bold;
     style->Italic = !!style->Italic;
     style->Underline = !!style->Underline;
+    style->StrikeOut = !!style->StrikeOut;
     if (!style->Name)
         style->Name = strdup("Default");
     if (!style->FontName)
