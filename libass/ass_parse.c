@@ -380,7 +380,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
     } else if (mystrcmp(&p, "fs+")) {
         double val;
         if (mystrtod(&p, &val)) {
-            val = render_priv->state.font_size + pwr * val;
+            val = render_priv->state.font_size * (1 + pwr * val / 10);
         } else
             val = render_priv->state.style->FontSize;
         if (render_priv->state.font)
@@ -388,7 +388,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
     } else if (mystrcmp(&p, "fs-")) {
         double val;
         if (mystrtod(&p, &val))
-            val = render_priv->state.font_size - pwr * val;
+            val = render_priv->state.font_size * (1 - pwr * val / 10);
         else
             val = render_priv->state.style->FontSize;
         if (render_priv->state.font)
