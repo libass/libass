@@ -1284,9 +1284,10 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         fay_scaled = info->fay / info->scale_x * info->scale_y;
 
         // apply rotation
+        // use blur_scale because, like blurs, VSFilter forgets to scale this
         transform_3d(shift, outline, border,
                 info->frx, info->fry, info->frz, fax_scaled,
-                fay_scaled, render_priv->font_scale, info->asc);
+                fay_scaled, render_priv->blur_scale, info->asc);
 
         // PAR correction scaling
         FT_Matrix m = { double_to_d16(scale_x), 0,
