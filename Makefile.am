@@ -9,5 +9,9 @@ if HAVE_LIBPNG
     test = test
 endif
 
-SUBDIRS = libass $(test)
+if ENABLE_PROFILE
+    profile = profile
+endif
+
+SUBDIRS = libass $(test) $(profile)
 
