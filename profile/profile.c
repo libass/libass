@@ -10,7 +10,7 @@
  * copyright notice and this permission notice appear in all copies.
  *
  * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * WITH REGARD TtO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
  * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
@@ -117,13 +117,13 @@ int main(int argc, char *argv[])
     const int frame_h = 720;
 
     if (argc < 5) {
-        printf("usage: %s <subtitle file> <start time> <fps> <time to render>\n", argv[0]);
+        printf("usage: %s <subtitle file> <start time> <fps> <end time>\n", argv[0]);
         exit(1);
     }
     char *subfile = argv[1];
     double tm = strtod(argv[2], 0);
     double fps = strtod(argv[3], 0);
-    double time = strtod(argv[4], 0);
+    double end_time = strtod(argv[4], 0);
     
     if(fps == 0){
         printf("fps cannot equal 0\n");
@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
     
     image_t *frame = gen_image(frame_w, frame_h);
 
-    while(tm < time){
+    while(tm < end_time){
         ASS_Image *img =
             ass_render_frame(ass_renderer, track, (int) (tm * 1000), NULL);
         blend(frame, img);
