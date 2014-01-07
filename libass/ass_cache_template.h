@@ -96,6 +96,7 @@ START(glyph, glyph_hash_key)
     FTVECTOR(outline) // border width, 16.16
     GENERIC(unsigned, flags)    // glyph decoration flags
     GENERIC(unsigned, border_style)
+    GENERIC(int, hspacing) // 16.16
 END(GlyphHashKey)
 
 START(glyph_metrics, glyph_metrics_hash_key)
@@ -114,6 +115,7 @@ START(drawing, drawing_hash_key)
     GENERIC(int, pbo)
     FTVECTOR(outline)
     GENERIC(unsigned, border_style)
+    GENERIC(int, hspacing)
     GENERIC(int, scale)
     GENERIC(unsigned, hash)
     STRING(text)

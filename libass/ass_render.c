@@ -1042,6 +1042,10 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
         key->outline.x = double_to_d16(info->border_x);
         key->outline.y = double_to_d16(info->border_y);
         key->border_style = info->border_style;
+        // hpacing only matters for opaque box borders (see draw_opaque_box),
+        // so for normal borders, maximize cache utility by ignoring it
+        key->hspacing =
+            info->border_style == 3 ? double_to_d16(info->hspacing) : 0;
         key->hash = info->drawing->hash;
         key->text = info->drawing->text;
         key->pbo = info->drawing->pbo;
@@ -1061,6 +1065,8 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
         key->outline.y = double_to_d16(info->border_y);
         key->flags = info->flags;
         key->border_style = info->border_style;
+        key->hspacing =
+            info->border_style == 3 ? double_to_d16(info->hspacing) : 0;
     }
 }
 
