@@ -104,7 +104,7 @@ static void drawing_finish(ASS_Drawing *drawing, int raw_mode)
 
     drawing->advance.x = bbox.xMax - bbox.xMin;
 
-    pbo = drawing->pbo / (64.0 / (1 << (drawing->scale - 1)));
+    pbo = drawing->pbo * (1 << (drawing->scale - 1));
     drawing->desc = double_to_d6(-pbo * drawing->scale_y);
     drawing->asc = bbox.yMax - bbox.yMin + drawing->desc;
 
