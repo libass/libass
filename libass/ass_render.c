@@ -2001,10 +2001,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         double width = 0;
         for (i = 0; i <= text_info->length; ++i) {   // (text_info->length + 1) is the end of the last line
             if ((i == text_info->length) || glyphs[i].linebreak) {
-                // remove letter spacing (which is included in cluster_advance)
-                if (i > 0)
-                    width -= render_priv->state.hspacing * render_priv->font_scale *
-                        glyphs[i-1].scale_x;
                 double shift = 0;
                 if (halign == HALIGN_LEFT) {    // left aligned, no action
                     shift = 0;
