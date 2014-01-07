@@ -30,18 +30,18 @@
 
 struct ass_synth_priv {
     int tmp_w, tmp_h;
-    unsigned short *tmp;
+    unsigned *tmp;
 
     int g_r;
     int g_w;
 
+    double *g0;
     unsigned *g;
     unsigned *gt2;
 
     double radius;
 };
 
-static const unsigned int maxcolor = 255;
 static const unsigned base = 256;
 
 static int generate_tables(ASS_SynthPriv *priv, double radius)
@@ -60,6 +60,7 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
     priv->g_w = 2 * priv->g_r + 1;
 
     if (priv->g_r) {
+        priv->g0 = realloc(priv->g0, priv->g_w * sizeof(double));
         priv->g = realloc(priv->g, priv->g_w * sizeof(unsigned));
         priv->gt2 = realloc(priv->gt2, 256 * priv->g_w * sizeof(unsigned));
         if (priv->g == NULL || priv->gt2 == NULL) {
@@ -68,25 +69,26 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
     }
 
     if (priv->g_r) {
-        // gaussian curve with volume = 256
+        // exact gaussian curve
+        for (i = 0; i < priv->g_w; ++i) {
+            priv->g0[i] = exp(A * (i - priv->g_r) * (i - priv->g_r));
+        }
+
+        // integer gaussian curve with volume = 65536
         for (volume_diff = 10000000; volume_diff > 0.0000001;
              volume_diff *= 0.5) {
             volume_factor += volume_diff;
             volume = 0;
             for (i = 0; i < priv->g_w; ++i) {
-                priv->g[i] =
-                    (unsigned) (exp(A * (i - priv->g_r) * (i - priv->g_r)) *
-                                volume_factor + .5);
+                priv->g[i] = (unsigned) (priv->g0[i] * volume_factor + .5);
                 volume += priv->g[i];
             }
-            if (volume > 256)
+            if (volume > 65536)
                 volume_factor -= volume_diff;
         }
         volume = 0;
         for (i = 0; i < priv->g_w; ++i) {
-            priv->g[i] =
-                (unsigned) (exp(A * (i - priv->g_r) * (i - priv->g_r)) *
-                            volume_factor + .5);
+            priv->g[i] = (unsigned) (priv->g0[i] * volume_factor + .5);
             volume += priv->g[i];
         }
 
@@ -114,7 +116,7 @@ static void resize_tmp(ASS_SynthPriv *priv, int w, int h)
     while (priv->tmp_h < h)
         priv->tmp_h *= 2;
     free(priv->tmp);
-    priv->tmp = malloc((priv->tmp_w + 1) * priv->tmp_h * sizeof(short));
+    priv->tmp = malloc((priv->tmp_w + 1) * priv->tmp_h * sizeof(unsigned));
 }
 
 ASS_SynthPriv *ass_synth_init(double radius)
@@ -127,6 +129,7 @@ ASS_SynthPriv *ass_synth_init(double radius)
 void ass_synth_done(ASS_SynthPriv *priv)
 {
     free(priv->tmp);
+    free(priv->g0);
     free(priv->g);
     free(priv->gt2);
     free(priv);
@@ -302,24 +305,25 @@ static void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 /*
  * Gaussian blur.  An fast pure C implementation from MPlayer.
  */
-static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
-                           int width, int height, int stride, int *m2,
-                           int r, int mwidth)
+static void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
+                           int width, int height, int stride,
+                           unsigned *m2, int r, int mwidth)
 {
 
     int x, y;
 
     unsigned char *s = buffer;
-    unsigned short *t = tmp2 + 1;
+    unsigned *t = tmp2 + 1;
     for (y = 0; y < height; y++) {
-        memset(t - 1, 0, (width + 1) * sizeof(short));
+        memset(t - 1, 0, (width + 1) * sizeof(unsigned));
+        t[-1] = 32768;
 
         for (x = 0; x < r; x++) {
             const int src = s[x];
             if (src) {
-                register unsigned short *dstp = t + x - r;
+                register unsigned *dstp = t + x - r;
                 int mx;
-                unsigned *m3 = (unsigned *) (m2 + src * mwidth);
+                unsigned *m3 = m2 + src * mwidth;
                 for (mx = r - x; mx < mwidth; mx++) {
                     dstp[mx] += m3[mx];
                 }
@@ -329,9 +333,9 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
         for (; x < width - r; x++) {
             const int src = s[x];
             if (src) {
-                register unsigned short *dstp = t + x - r;
+                register unsigned *dstp = t + x - r;
                 int mx;
-                unsigned *m3 = (unsigned *) (m2 + src * mwidth);
+                unsigned *m3 = m2 + src * mwidth;
                 for (mx = 0; mx < mwidth; mx++) {
                     dstp[mx] += m3[mx];
                 }
@@ -341,10 +345,10 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
         for (; x < width; x++) {
             const int src = s[x];
             if (src) {
-                register unsigned short *dstp = t + x - r;
+                register unsigned *dstp = t + x - r;
                 int mx;
                 const int x2 = r + width - x;
-                unsigned *m3 = (unsigned *) (m2 + src * mwidth);
+                unsigned *m3 = m2 + src * mwidth;
                 for (mx = 0; mx < x2; mx++) {
                     dstp[mx] += m3[mx];
                 }
@@ -358,31 +362,31 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
     t = tmp2;
     for (x = 0; x < width; x++) {
         for (y = 0; y < r; y++) {
-            unsigned short *srcp = t + y * (width + 1) + 1;
+            unsigned *srcp = t + y * (width + 1) + 1;
             int src = *srcp;
             if (src) {
-                register unsigned short *dstp = srcp - 1 + width + 1;
-                const int src2 = (src + 128) >> 8;
-                unsigned *m3 = (unsigned *) (m2 + src2 * mwidth);
+                register unsigned *dstp = srcp - 1 - y * (width + 1);
+                const int src2 = (src + 32768) >> 16;
+                unsigned *m3 = m2 + src2 * mwidth;
 
                 int mx;
-                *srcp = 128;
-                for (mx = r - 1; mx < mwidth; mx++) {
+                *srcp = 32768;
+                for (mx = r - y; mx < mwidth; mx++) {
                     *dstp += m3[mx];
                     dstp += width + 1;
                 }
             }
         }
         for (; y < height - r; y++) {
-            unsigned short *srcp = t + y * (width + 1) + 1;
+            unsigned *srcp = t + y * (width + 1) + 1;
             int src = *srcp;
             if (src) {
-                register unsigned short *dstp = srcp - 1 - r * (width + 1);
-                const int src2 = (src + 128) >> 8;
-                unsigned *m3 = (unsigned *) (m2 + src2 * mwidth);
+                register unsigned *dstp = srcp - 1 - r * (width + 1);
+                const int src2 = (src + 32768) >> 16;
+                unsigned *m3 = m2 + src2 * mwidth;
 
                 int mx;
-                *srcp = 128;
+                *srcp = 32768;
                 for (mx = 0; mx < mwidth; mx++) {
                     *dstp += m3[mx];
                     dstp += width + 1;
@@ -390,16 +394,16 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
             }
         }
         for (; y < height; y++) {
-            unsigned short *srcp = t + y * (width + 1) + 1;
+            unsigned *srcp = t + y * (width + 1) + 1;
             int src = *srcp;
             if (src) {
                 const int y2 = r + height - y;
-                register unsigned short *dstp = srcp - 1 - r * (width + 1);
-                const int src2 = (src + 128) >> 8;
-                unsigned *m3 = (unsigned *) (m2 + src2 * mwidth);
+                register unsigned *dstp = srcp - 1 - r * (width + 1);
+                const int src2 = (src + 32768) >> 16;
+                unsigned *m3 = m2 + src2 * mwidth;
 
                 int mx;
-                *srcp = 128;
+                *srcp = 32768;
                 for (mx = 0; mx < y2; mx++) {
                     *dstp += m3[mx];
                     dstp += width + 1;
@@ -413,7 +417,7 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
     s = buffer;
     for (y = 0; y < height; y++) {
         for (x = 0; x < width; x++) {
-            s[x] = t[x] >> 8;
+            s[x] = t[x] >> 16;
         }
         s += stride;
         t += width + 1;
@@ -440,6 +444,8 @@ static void be_blur(Bitmap *bm)
             buf[y * s + x] = (old_sum + new_sum) >> 2;
             old_sum = new_sum;
         }
+        new_sum = 2 * buf[y * s + w - 1];
+        buf[y * s + w - 1] = (old_sum + new_sum) >> 2;
     }
 
     for (x = 0; x < w; x++) {
@@ -449,6 +455,8 @@ static void be_blur(Bitmap *bm)
             buf[y * s + x] = (old_sum + new_sum) >> 2;
             old_sum = new_sum;
         }
+        new_sum = 2 * buf[(h - 1) * s + x];
+        buf[(h - 1) * s + x] = (old_sum + new_sum) >> 2;
     }
 }
 
@@ -499,13 +507,11 @@ int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
         if (*bm_o)
             ass_gauss_blur((*bm_o)->buffer, priv_blur->tmp,
                            (*bm_o)->w, (*bm_o)->h, (*bm_o)->stride,
-                           (int *) priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
+                           priv_blur->gt2, priv_blur->g_r, priv_blur->g_w);
         if (!*bm_o || border_style == 3)
             ass_gauss_blur((*bm_g)->buffer, priv_blur->tmp,
                            (*bm_g)->w, (*bm_g)->h, (*bm_g)->stride,
-                           (int *) priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
+                           priv_blur->gt2, priv_blur->g_r, priv_blur->g_w);
     }
 
     // Create shadow and fix outline as needed
