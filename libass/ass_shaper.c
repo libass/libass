@@ -31,9 +31,11 @@
 enum {
     VERT = 0,
     VKNA,
-    KERN
+    KERN,
+    LIGA,
+    CLIG
 };
-#define NUM_FEATURES 3
+#define NUM_FEATURES 5
 #endif
 
 struct ass_shaper {
@@ -145,6 +147,10 @@ static void init_features(ASS_Shaper *shaper)
     shaper->features[VKNA].end = INT_MAX;
     shaper->features[KERN].tag = HB_TAG('k', 'e', 'r', 'n');
     shaper->features[KERN].end = INT_MAX;
+    shaper->features[LIGA].tag = HB_TAG('l', 'i', 'g', 'a');
+    shaper->features[LIGA].end = INT_MAX;
+    shaper->features[CLIG].tag = HB_TAG('c', 'l', 'i', 'g');
+    shaper->features[CLIG].end = INT_MAX;
 }
 
 /**
@@ -152,11 +158,17 @@ static void init_features(ASS_Shaper *shaper)
  */
 static void set_run_features(ASS_Shaper *shaper, GlyphInfo *info)
 {
-        // enable vertical substitutions for @font runs
-        if (info->font->desc.vertical)
-            shaper->features[VERT].value = shaper->features[VKNA].value = 1;
-        else
-            shaper->features[VERT].value = shaper->features[VKNA].value = 0;
+    // enable vertical substitutions for @font runs
+    if (info->font->desc.vertical)
+        shaper->features[VERT].value = shaper->features[VKNA].value = 1;
+    else
+        shaper->features[VERT].value = shaper->features[VKNA].value = 0;
+
+    // disable ligatures if horizontal spacing is non-standard
+    if (info->hspacing)
+        shaper->features[LIGA].value = shaper->features[CLIG].value = 0;
+    else
+        shaper->features[LIGA].value = shaper->features[CLIG].value = 1;
 }
 
 /**
@@ -719,6 +731,7 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
                     last->font_size != info->font_size ||
                     last->scale_x != info->scale_x ||
                     last->scale_y != info->scale_y ||
+                    last->hspacing != info->hspacing ||
                     last->face_index != info->face_index ||
                     last->script != info->script))
             shape_run++;
