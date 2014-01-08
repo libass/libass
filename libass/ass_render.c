@@ -1755,9 +1755,16 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             if (!in_tag && *p == '{') {            // '\0' goes here
                 p++;
                 in_tag = 1;
+                if (render_priv->state.drawing_mode) {
+                    // A drawing definition has just ended.
+                    // Exit and create the drawing now lest we
+                    // accidentally let it consume later text
+                    // or be affected by later override tags.
+                    // See Google Code issues #47 and #101.
+                    break;
+                }
             }
             if (in_tag) {
-                int prev_drawing_mode = render_priv->state.drawing_mode;
                 p = parse_tag(render_priv, p, 1.);
                 if (*p == '}') {    // end of tag
                     p++;
@@ -1765,12 +1772,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 } else if (*p != '\\') {
                     ass_msg(render_priv->library, MSGL_V,
                             "Unable to parse: '%.30s'", p);
-                }
-                if (prev_drawing_mode && !render_priv->state.drawing_mode) {
-                    // Drawing mode was just disabled. We must exit and draw it
-                    // immediately, instead of letting further tags affect it.
-                    // See bug #47.
-                    break;
                 }
             } else {
                 code = get_next_char(render_priv, &p);
