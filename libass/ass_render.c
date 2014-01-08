@@ -907,7 +907,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.clip_mode = 0;
     render_priv->state.detect_collisions = 1;
     render_priv->state.fade = 0;
-    render_priv->state.drawing_mode = 0;
+    render_priv->state.drawing_scale = 0;
     render_priv->state.effect_type = EF_NONE;
     render_priv->state.effect_timing = 0;
     render_priv->state.effect_skip_timing = 0;
@@ -1755,7 +1755,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             if (!in_tag && *p == '{') {            // '\0' goes here
                 p++;
                 in_tag = 1;
-                if (render_priv->state.drawing_mode) {
+                if (render_priv->state.drawing_scale) {
                     // A drawing definition has just ended.
                     // Exit and create the drawing now lest we
                     // accidentally let it consume later text
@@ -1775,7 +1775,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 }
             } else {
                 code = get_next_char(render_priv, &p);
-                if (code && render_priv->state.drawing_mode) {
+                if (code && render_priv->state.drawing_scale) {
                     ass_drawing_add_char(drawing, (char) code);
                     continue;   // skip everything in drawing mode
                 }
@@ -1802,6 +1802,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                                      render_priv->font_scale;
             drawing->scale_y = render_priv->state.scale_y *
                                      render_priv->font_scale;
+            drawing->scale = render_priv->state.drawing_scale;
+            drawing->pbo = render_priv->state.pbo;
             code = 0xfffc; // object replacement character
             info->drawing = drawing;
         }

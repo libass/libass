@@ -832,13 +832,12 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
     } else if (mystrcmp(&p, "pbo")) {
         double val;
         mystrtod(&p, &val);
-        render_priv->state.drawing->pbo = val;
+        render_priv->state.pbo = val;
     } else if (mystrcmp(&p, "p")) {
         int val;
         mystrtoi(&p, &val);
-        if (val > 0)
-            render_priv->state.drawing->scale = val;
-        render_priv->state.drawing_mode = val > 0;
+        val = (val < 0) ? 0 : val;
+        render_priv->state.drawing_scale = val;
     } else if (mystrcmp(&p, "q")) {
         int val;
         if (!mystrtoi(&p, &val) || !(val >= 0 && val <= 3))
