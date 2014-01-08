@@ -864,7 +864,8 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
     update_font(render_priv);
 
     render_priv->state.border_style = style->BorderStyle;
-    calc_border(render_priv, style->Outline, style->Outline);
+    render_priv->state.border_x = style->Outline;
+    render_priv->state.border_y = style->Outline;
     change_border(render_priv, render_priv->state.border_x, render_priv->state.border_y);
     render_priv->state.scale_x = style->ScaleX;
     render_priv->state.scale_y = style->ScaleY;
@@ -906,7 +907,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.clip_mode = 0;
     render_priv->state.detect_collisions = 1;
     render_priv->state.fade = 0;
-    render_priv->state.drawing_mode = 0;
+    render_priv->state.drawing_scale = 0;
     render_priv->state.effect_type = EF_NONE;
     render_priv->state.effect_timing = 0;
     render_priv->state.effect_skip_timing = 0;
@@ -1041,6 +1042,10 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
         key->outline.x = double_to_d16(info->border_x);
         key->outline.y = double_to_d16(info->border_y);
         key->border_style = info->border_style;
+        // hpacing only matters for opaque box borders (see draw_opaque_box),
+        // so for normal borders, maximize cache utility by ignoring it
+        key->hspacing =
+            info->border_style == 3 ? double_to_d16(info->hspacing) : 0;
         key->hash = info->drawing->hash;
         key->text = info->drawing->text;
         key->pbo = info->drawing->pbo;
@@ -1060,6 +1065,8 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
         key->outline.y = double_to_d16(info->border_y);
         key->flags = info->flags;
         key->border_style = info->border_style;
+        key->hspacing =
+            info->border_style == 3 ? double_to_d16(info->hspacing) : 0;
     }
 }
 
@@ -1283,9 +1290,10 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         fay_scaled = info->fay / info->scale_x * info->scale_y;
 
         // apply rotation
+        // use blur_scale because, like blurs, VSFilter forgets to scale this
         transform_3d(shift, outline, border,
                 info->frx, info->fry, info->frz, fax_scaled,
-                fay_scaled, render_priv->font_scale, info->asc);
+                fay_scaled, render_priv->blur_scale, info->asc);
 
         // PAR correction scaling
         FT_Matrix m = { double_to_d16(scale_x), 0,
@@ -1747,9 +1755,16 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             if (!in_tag && *p == '{') {            // '\0' goes here
                 p++;
                 in_tag = 1;
+                if (render_priv->state.drawing_scale) {
+                    // A drawing definition has just ended.
+                    // Exit and create the drawing now lest we
+                    // accidentally let it consume later text
+                    // or be affected by later override tags.
+                    // See Google Code issues #47 and #101.
+                    break;
+                }
             }
             if (in_tag) {
-                int prev_drawing_mode = render_priv->state.drawing_mode;
                 p = parse_tag(render_priv, p, 1.);
                 if (*p == '}') {    // end of tag
                     p++;
@@ -1758,15 +1773,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                     ass_msg(render_priv->library, MSGL_V,
                             "Unable to parse: '%.30s'", p);
                 }
-                if (prev_drawing_mode && !render_priv->state.drawing_mode) {
-                    // Drawing mode was just disabled. We must exit and draw it
-                    // immediately, instead of letting further tags affect it.
-                    // See bug #47.
-                    break;
-                }
             } else {
                 code = get_next_char(render_priv, &p);
-                if (code && render_priv->state.drawing_mode) {
+                if (code && render_priv->state.drawing_scale) {
                     ass_drawing_add_char(drawing, (char) code);
                     continue;   // skip everything in drawing mode
                 }
@@ -1793,6 +1802,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                                      render_priv->font_scale;
             drawing->scale_y = render_priv->state.scale_y *
                                      render_priv->font_scale;
+            drawing->scale = render_priv->state.drawing_scale;
+            drawing->pbo = render_priv->state.pbo;
             code = 0xfffc; // object replacement character
             info->drawing = drawing;
         }
@@ -1891,7 +1902,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
         // add horizontal letter spacing
         info->cluster_advance.x += double_to_d6(info->hspacing *
-                render_priv->font_scale * info->scale_x);
+                render_priv->font_scale * info->orig_scale_x);
 
         // add displacement for vertical shearing
         info->cluster_advance.y += (info->fay / info->scale_x * info->scale_y) * info->cluster_advance.x;
@@ -1999,10 +2010,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         double width = 0;
         for (i = 0; i <= text_info->length; ++i) {   // (text_info->length + 1) is the end of the last line
             if ((i == text_info->length) || glyphs[i].linebreak) {
-                // remove letter spacing (which is included in cluster_advance)
-                if (i > 0)
-                    width -= render_priv->state.hspacing * render_priv->font_scale *
-                        glyphs[i-1].scale_x;
                 double shift = 0;
                 if (halign == HALIGN_LEFT) {    // left aligned, no action
                     shift = 0;

@@ -31,9 +31,11 @@
 enum {
     VERT = 0,
     VKNA,
-    KERN
+    KERN,
+    LIGA,
+    CLIG
 };
-#define NUM_FEATURES 3
+#define NUM_FEATURES 5
 #endif
 
 struct ass_shaper {
@@ -145,6 +147,10 @@ static void init_features(ASS_Shaper *shaper)
     shaper->features[VKNA].end = INT_MAX;
     shaper->features[KERN].tag = HB_TAG('k', 'e', 'r', 'n');
     shaper->features[KERN].end = INT_MAX;
+    shaper->features[LIGA].tag = HB_TAG('l', 'i', 'g', 'a');
+    shaper->features[LIGA].end = INT_MAX;
+    shaper->features[CLIG].tag = HB_TAG('c', 'l', 'i', 'g');
+    shaper->features[CLIG].end = INT_MAX;
 }
 
 /**
@@ -152,11 +158,17 @@ static void init_features(ASS_Shaper *shaper)
  */
 static void set_run_features(ASS_Shaper *shaper, GlyphInfo *info)
 {
-        // enable vertical substitutions for @font runs
-        if (info->font->desc.vertical)
-            shaper->features[VERT].value = shaper->features[VKNA].value = 1;
-        else
-            shaper->features[VERT].value = shaper->features[VKNA].value = 0;
+    // enable vertical substitutions for @font runs
+    if (info->font->desc.vertical)
+        shaper->features[VERT].value = shaper->features[VKNA].value = 1;
+    else
+        shaper->features[VERT].value = shaper->features[VKNA].value = 0;
+
+    // disable ligatures if horizontal spacing is non-standard
+    if (info->hspacing)
+        shaper->features[LIGA].value = shaper->features[CLIG].value = 0;
+    else
+        shaper->features[LIGA].value = shaper->features[CLIG].value = 1;
 }
 
 /**
@@ -185,7 +197,7 @@ static void update_hb_size(hb_font_t *hb_font, FT_Face face)
 
 GlyphMetricsHashValue *
 get_cached_metrics(struct ass_shaper_metrics_data *metrics, FT_Face face,
-                   hb_codepoint_t glyph)
+                   hb_codepoint_t unicode, hb_codepoint_t glyph)
 {
     GlyphMetricsHashValue *val;
 
@@ -204,7 +216,7 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics, FT_Face face,
 
         // if @font rendering is enabled and the glyph should be rotated,
         // make cached_h_advance pick up the right advance later
-        if (metrics->vertical && glyph >= VERTICAL_LOWER_BOUND)
+        if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
             new_val.metrics.horiAdvance = new_val.metrics.vertAdvance;
 
         val = ass_cache_put(metrics->metrics_cache, &metrics->hash_key, &new_val);
@@ -218,11 +230,16 @@ get_glyph(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
           hb_codepoint_t variation, hb_codepoint_t *glyph, void *user_data)
 {
     FT_Face face = font_data;
+    struct ass_shaper_metrics_data *metrics_priv = user_data;
 
     if (variation)
         *glyph = FT_Face_GetCharVariantIndex(face, ass_font_index_magic(face, unicode), variation);
     else
         *glyph = FT_Get_Char_Index(face, ass_font_index_magic(face, unicode));
+
+    // rotate glyph advances for @fonts while we still know the Unicode codepoints
+    if (*glyph != 0)
+        get_cached_metrics(metrics_priv, face, unicode, glyph);
 
     return *glyph != 0;
 }
@@ -233,7 +250,7 @@ cached_h_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
 {
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
-    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, glyph);
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
 
     if (!metrics)
         return 0;
@@ -247,7 +264,7 @@ cached_v_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
 {
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
-    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, glyph);
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
 
     if (!metrics)
         return 0;
@@ -269,7 +286,7 @@ cached_v_origin(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
 {
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
-    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, glyph);
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
 
     if (!metrics)
         return 0;
@@ -306,7 +323,7 @@ cached_extents(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
 {
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
-    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, glyph);
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
 
     if (!metrics)
         return 0;
@@ -714,6 +731,7 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
                     last->font_size != info->font_size ||
                     last->scale_x != info->scale_x ||
                     last->scale_y != info->scale_y ||
+                    last->hspacing != info->hspacing ||
                     last->face_index != info->face_index ||
                     last->script != info->script))
             shape_run++;

@@ -81,7 +81,8 @@ int strtocolor(ASS_Library *library, char **q, uint32_t *res, int hex)
     int base = hex ? 16 : 10;
 
     if (*p == '&')
-        ++p;
+        while (*p == '&')
+            ++p;
     else
         ass_msg(library, MSGL_DBG2, "suspicious color format: \"%s\"\n", p);
 
@@ -91,6 +92,9 @@ int strtocolor(ASS_Library *library, char **q, uint32_t *res, int hex)
     } else {
         result = mystrtou32(&p, base, &color);
     }
+
+    while (*p == '&' || *p == 'H')
+        ++p;
 
     {
         unsigned char *tmp = (unsigned char *) (&color);
