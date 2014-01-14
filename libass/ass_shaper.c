@@ -239,7 +239,7 @@ get_glyph(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
 
     // rotate glyph advances for @fonts while we still know the Unicode codepoints
     if (*glyph != 0)
-        get_cached_metrics(metrics_priv, face, unicode, glyph);
+        get_cached_metrics(metrics_priv, face, unicode, *glyph);
 
     return *glyph != 0;
 }
