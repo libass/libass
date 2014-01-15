@@ -183,16 +183,16 @@ interpolate_alpha(long long now, long long t1, long long t2, long long t3,
 
     if (now < t1) {
         a = a1;
-    } else if (now >= t4) {
-        a = a3;
-    } else if (now < t2 && t2 > t1) {
+    } else if (now < t2) {
         cf = ((double) (now - t1)) / (t2 - t1);
         a = a1 * (1 - cf) + a2 * cf;
-    } else if (now >= t3 && t4 > t3) {
+    } else if (now < t3) {
+        a = a2;
+    } else if (now < t4) {
         cf = ((double) (now - t3)) / (t4 - t3);
         a = a2 * (1 - cf) + a3 * cf;
-    } else {                    // t2 <= now < t3
-        a = a2;
+    } else {                    // now >= t4
+        a = a3;
     }
 
     return a;
@@ -564,10 +564,10 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         if (*p == ')') {
             // 2-argument version (\fad, according to specs)
             // a1 and a2 are fade-in and fade-out durations
-            t1 = 0;
-            t4 = render_priv->state.event->Duration;
+            t1 = -1;
             t2 = a1;
-            t3 = t4 - a2;
+            t3 = a2;
+            t4 = -1;
             a1 = 0xFF;
             a2 = 0;
             a3 = 0xFF;
@@ -586,6 +586,11 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             mystrtoll(&p, &t4);
         }
         skipopt(')');
+        if (t1 == -1 && t4 == -1) {
+            t1 = 0;
+            t4 = render_priv->state.event->Duration;
+            t3 = t4 - t3;
+        }
         if ((render_priv->state.parsed_tags & PARSED_FADE) == 0) {
             render_priv->state.fade =
                 interpolate_alpha(render_priv->time -
