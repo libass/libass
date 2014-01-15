@@ -609,8 +609,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         }
     } else if (mystrcmp(&p, "t")) {
         double v[3];
-        int v1, v2;
-        double v3;
+        double accel;
         int cnt;
         long long t1, t2, t, delta_t;
         double k;
@@ -621,28 +620,26 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             skip(',');
         }
         if (cnt == 3) {
-            v1 = v[0];
-            v2 = (v[1] < v1) ? render_priv->state.event->Duration : v[1];
-            v3 = v[2];
+            t1 = v[0];
+            t2 = v[1];
+            accel = v[2];
         } else if (cnt == 2) {
-            v1 = v[0];
-            v2 = (v[1] < v1) ? render_priv->state.event->Duration : v[1];
-            v3 = 1.;
+            t1 = v[0];
+            t2 = v[1];
+            accel = 1.;
         } else if (cnt == 1) {
-            v1 = 0;
-            v2 = render_priv->state.event->Duration;
-            v3 = v[0];
+            t1 = 0;
+            t2 = 0;
+            accel = v[0];
         } else {                // cnt == 0
-            v1 = 0;
-            v2 = render_priv->state.event->Duration;
-            v3 = 1.;
+            t1 = 0;
+            t2 = 0;
+            accel = 1.;
         }
         render_priv->state.detect_collisions = 0;
-        t1 = v1;
-        t2 = v2;
-        delta_t = v2 - v1;
-        if (v3 < 0.)
-            v3 = 0.;
+        if (t2 == 0)
+            t2 = render_priv->state.event->Duration;
+        delta_t = t2 - t1;
         t = render_priv->time - render_priv->state.event->Start;        // FIXME: move to render_context
         if (t <= t1)
             k = 0.;
@@ -650,7 +647,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             k = 1.;
         else {
             assert(delta_t != 0.);
-            k = pow(((double) (t - t1)) / delta_t, v3);
+            k = pow(((double) (t - t1)) / delta_t, accel);
         }
         while (*p != ')' && *p != '}' && *p != '\0')
             p = parse_tag(render_priv, p, k);   // maybe k*pwr ? no, specs forbid nested \t's
