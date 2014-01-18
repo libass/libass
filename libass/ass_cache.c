@@ -277,7 +277,7 @@ void *ass_cache_get(Cache *cache, void *key)
 
 int ass_cache_empty(Cache *cache, size_t max_size)
 {
-    int i;
+    unsigned i;
 
     if (cache->cache_size < max_size)
         return 0;

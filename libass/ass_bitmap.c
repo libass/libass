@@ -430,12 +430,10 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
  */
 static void be_blur(Bitmap *bm)
 {
-    int w = bm->w;
-    int h = bm->h;
-    int s = bm->stride;
+    unsigned w = bm->w, h = bm->h, s = bm->stride;
     unsigned char *buf = bm->buffer;
-    unsigned int x, y;
-    unsigned int old_sum, new_sum;
+    unsigned x, y;
+    unsigned old_sum, new_sum;
 
     for (y = 0; y < h; y++) {
         old_sum = 2 * buf[y * s];

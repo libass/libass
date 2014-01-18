@@ -93,7 +93,7 @@ void ass_shaper_info(ASS_Library *lib)
  */
 static void check_allocations(ASS_Shaper *shaper, size_t new_size)
 {
-    if (new_size > shaper->n_glyphs) {
+    if ((long)new_size > shaper->n_glyphs) {
         shaper->event_text = realloc(shaper->event_text, sizeof(FriBidiChar) * new_size);
         shaper->ctypes     = realloc(shaper->ctypes, sizeof(FriBidiCharType) * new_size);
         shaper->emblevels  = realloc(shaper->emblevels, sizeof(FriBidiLevel) * new_size);
@@ -532,8 +532,8 @@ hb_shaper_get_run_language(ASS_Shaper *shaper, hb_script_t script)
  */
 static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 {
-    int i, j;
-    int run = 0;
+    unsigned i, j;
+    unsigned run = 0;
     struct {
         int offset;
         int end;
@@ -572,7 +572,7 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 
     // Update glyph indexes, positions and advances from the shaped runs
     for (i = 0; i < run; i++) {
-        int num_glyphs = hb_buffer_get_length(runs[i].buf);
+        unsigned num_glyphs = hb_buffer_get_length(runs[i].buf);
         hb_glyph_info_t *glyph_info = hb_buffer_get_glyph_infos(runs[i].buf, NULL);
         hb_glyph_position_t *pos    = hb_buffer_get_glyph_positions(runs[i].buf, NULL);
 
@@ -621,13 +621,12 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 void ass_shaper_determine_script(ASS_Shaper *shaper, GlyphInfo *glyphs,
                                   size_t len)
 {
-    int i;
     int backwards_scan = 0;
     hb_unicode_funcs_t *ufuncs = hb_unicode_funcs_get_default();
     hb_script_t last_script = HB_SCRIPT_UNKNOWN;
 
     // determine script (forward scan)
-    for (i = 0; i < len; i++) {
+    for (unsigned i = 0; i < len; i++) {
         GlyphInfo *info = glyphs + i;
         info->script = hb_unicode_script(ufuncs, info->symbol);
 
@@ -648,7 +647,7 @@ void ass_shaper_determine_script(ASS_Shaper *shaper, GlyphInfo *glyphs,
 
     // determine script (backwards scan, if needed)
     last_script = HB_SCRIPT_UNKNOWN;
-    for (i = len - 1; i >= 0 && backwards_scan; i--) {
+    for (int i = len - 1; i >= 0 && backwards_scan; i--) {
         GlyphInfo *info = glyphs + i;
 
         // common/inherit codepoints inherit script from context
@@ -671,7 +670,7 @@ void ass_shaper_determine_script(ASS_Shaper *shaper, GlyphInfo *glyphs,
  */
 static void shape_fribidi(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 {
-    int i;
+    unsigned i;
     FriBidiJoiningType *joins = calloc(sizeof(*joins), len);
 
     // shape on codepoint level
@@ -709,8 +708,8 @@ void ass_shaper_set_kerning(ASS_Shaper *shaper, int kern)
 void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
                           GlyphInfo *glyphs, size_t len)
 {
-    int i;
-    int shape_run = 0;
+    unsigned i;
+    unsigned shape_run = 0;
 
 #ifdef CONFIG_HARFBUZZ
     ass_shaper_determine_script(shaper, glyphs, len);
