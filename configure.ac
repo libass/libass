@@ -36,6 +36,8 @@ AC_CHECK_LIB([m], [fabs])
 # Check for libraries via pkg-config
 AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
     [enable test program (requires libpng) @<:@default=no@:>@]))
+AC_ARG_ENABLE([profile], AS_HELP_STRING([--enable-profile],
+    [enable profiling program @<:@default=no@:>@]))
 AC_ARG_ENABLE([enca], AS_HELP_STRING([--disable-enca],
     [disable enca (charset autodetect) support @<:@default=check@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
@@ -92,6 +94,8 @@ fi
 
 AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
 
+AM_CONDITIONAL([ENABLE_PROFILE], [test x$enable_profile = xyes])
+
 # add libraries/packages to pkg-config for static linking
 pkg_libs="-lm"
 pkg_requires="freetype2 >= 9.10.3"
@@ -114,5 +118,5 @@ AC_SUBST([PKG_REQUIRES_PRIVATE], [$(test x$enable_shared = xno || echo ${pkg_req
 # Setup output beautifier.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile libass.pc])
+AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile profile/Makefile libass.pc])
 AC_OUTPUT
