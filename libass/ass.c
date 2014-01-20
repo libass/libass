@@ -54,10 +54,13 @@ struct parser_priv {
     char *fontdata;
     int fontdata_size;
     int fontdata_used;
+    int uses_standard_ass_event_format;
 };
 
 #define ASS_STYLES_ALLOC 20
 #define ASS_EVENTS_ALLOC 200
+
+#define ASS_EVENT_FORMAT "Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
 
 int ass_library_version(void)
 {
@@ -314,6 +317,26 @@ static char *next_token(char **str)
     return start;
 }
 
+static void ensure_default_style(ASS_Track *track)
+{
+    if (track->n_styles == 0) {
+        // add "Default" style to the end
+        // will be used if track does not contain a default style (or even does not contain styles at all)
+        int sid = ass_alloc_style(track);
+        set_default_style(&track->styles[sid]);
+        track->default_style = sid;
+    }
+}
+
+void strip_trailing_r(char *s)
+{
+    if (s && s[0]) {
+        char *last = s + strlen(s) - 1;
+        if (*last == '\r')
+            *last = 0;
+    }
+}
+
 /**
  * \brief Parse the tail of Dialogue line
  * \param track track
@@ -333,13 +356,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
     char *format = strdup(track->event_format);
     char *q = format;           // format scanning pointer
 
-    if (track->n_styles == 0) {
-        // add "Default" style to the end
-        // will be used if track does not contain a default style (or even does not contain styles at all)
-        int sid = ass_alloc_style(track);
-        set_default_style(&track->styles[sid]);
-        track->default_style = sid;
-    }
+    ensure_default_style(track);
 
     for (i = 0; i < n_ignored; ++i) {
         NEXT(q, tname);
@@ -348,13 +365,8 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
     while (1) {
         NEXT(q, tname);
         if (strcasecmp(tname, "Text") == 0) {
-            char *last;
             event->Text = strdup(p);
-            if (*event->Text != 0) {
-                last = event->Text + strlen(event->Text) - 1;
-                if (last >= event->Text && *last == '\r')
-                    *last = 0;
-            }
+            strip_trailing_r(event->Text);
             ass_msg(track->library, MSGL_DBG2, "Text = %s", event->Text);
             event->Duration -= event->Start;
             free(format);
@@ -629,8 +641,7 @@ static void event_format_fallback(ASS_Track *track)
         track->event_format = strdup("Marked, Start, End, Style, "
             "Name, MarginL, MarginR, MarginV, Effect, Text");
     else
-        track->event_format = strdup("Layer, Start, End, Style, "
-            "Actor, MarginL, MarginR, MarginV, Effect, Text");
+        track->event_format = strdup(ASS_EVENT_FORMAT);
     ass_msg(track->library, MSGL_V,
             "No event format found, using fallback");
 }
@@ -915,6 +926,10 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
         ass_msg(track->library, MSGL_WARN, "Event format header missing");
         return;
     }
+    if (!track->parser_priv->uses_standard_ass_event_format) {
+        if (strcmp(track->event_format, ASS_EVENT_FORMAT) == 0)
+            track->parser_priv->uses_standard_ass_event_format = 1;
+    }
 
     str = malloc(size + 1);
     memcpy(str, data, size);
@@ -926,6 +941,41 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
     event = track->events + eid;
 
     p = str;
+
+    if (track->parser_priv->uses_standard_ass_event_format) {
+        // As an optimization, process the most common ASS event format
+        // directly - this avoids many strcasecmp calls in the parse macros.
+        do {
+            NEXT(p, token);
+            event->ReadOrder = atoi(token);
+            if (check_duplicate_event(track, event->ReadOrder))
+                break;
+            NEXT(p, token);
+            event->Layer = atoi(token);
+            NEXT(p, token);
+            event->Style = lookup_style(track, token);
+            NEXT(p, token);
+            event->Name = strdup(token);
+            NEXT(p, token);
+            event->MarginL = atoi(token);
+            NEXT(p, token);
+            event->MarginR = atoi(token);
+            NEXT(p, token);
+            event->MarginV = atoi(token);
+            NEXT(p, token);
+            event->Effect = strdup(token);
+
+            event->Text = strdup(p);
+            strip_trailing_r(event->Text);
+
+            event->Start = timecode;
+            event->Duration = duration;
+
+            free(str);
+            return;
+        } while(0);
+        goto error;
+    }
 
     do {
         NEXT(p, token);
@@ -945,7 +995,7 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
         return;
 //              dump_events(tid);
     } while (0);
-    // some error
+error:
     ass_free_event(track, eid);
     track->n_events--;
     free(str);
