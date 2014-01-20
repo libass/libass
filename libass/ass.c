@@ -252,38 +252,32 @@ static int numpad2align(int val)
 
 #define ANYVAL(name,func) \
 	} else if (strcasecmp(tname, #name) == 0) { \
-		target->name = func(token); \
-		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
+		target->name = func(token);
 
 #define STRVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
 		if (target->name != NULL) free(target->name); \
-		target->name = strdup(token); \
-		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
+		target->name = strdup(token);
 
 #define STARREDSTRVAL(name) \
     } else if (strcasecmp(tname, #name) == 0) { \
         if (target->name != NULL) free(target->name); \
         while (*token == '*') ++token; \
-        target->name = strdup(token); \
-        ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
+        target->name = strdup(token);
 
 #define COLORVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
-		target->name = string2color(track->library, token); \
-		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
+		target->name = string2color(track->library, token);
 
 #define INTVAL(name) ANYVAL(name,atoi)
 #define FPVAL(name) ANYVAL(name,ass_atof)
 #define TIMEVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
-		target->name = string2timecode(track->library, token); \
-		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
+		target->name = string2timecode(track->library, token);
 
 #define STYLEVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
-		target->name = lookup_style(track, token); \
-		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
+		target->name = lookup_style(track, token);
 
 static char *next_token(char **str)
 {
@@ -354,7 +348,6 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
                 if (last >= event->Text && *last == '\r')
                     *last = 0;
             }
-            ass_msg(track->library, MSGL_DBG2, "Text = %s", event->Text);
             event->Duration -= event->Start;
             free(format);
             return 0;           // "Text" is always the last
