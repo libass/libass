@@ -412,10 +412,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             mystrtoll(&p, &t1);
             skip(',');
             mystrtoll(&p, &t2);
-            ass_msg(render_priv->library, MSGL_DBG2,
-                   "movement6: (%f, %f) -> (%f, %f), (%" PRId64 " .. %"
-                   PRId64 ")\n", x1, y1, x2, y2, (int64_t) t1,
-                   (int64_t) t2);
             // VSFilter
             if (t1 > t2) {
                 double tmp = t2;
@@ -426,8 +422,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         if (t1 <= 0 && t2 <= 0) {
             t1 = 0;
             t2 = render_priv->state.event->Duration;
-            ass_msg(render_priv->library, MSGL_DBG2,
-                   "movement: (%f, %f) -> (%f, %f)", x1, y1, x2, y2);
         }
         skipopt(')');
         delta_t = t2 - t1;
@@ -510,12 +504,10 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         if ((render_priv->state.parsed_tags & PARSED_A) == 0) {
             if (val >= 1 && val <= 9) {
                 int v = (val - 1) / 3;      // 0, 1 or 2 for vertical alignment
-                ass_msg(render_priv->library, MSGL_DBG2, "an %d", val);
                 if (v != 0)
                     v = 3 - v;
                 val = ((val - 1) % 3) + 1;  // horizontal alignment
                 val += v * 4;
-                ass_msg(render_priv->library, MSGL_DBG2, "align %d", val);
                 render_priv->state.alignment = val;
             } else
                 render_priv->state.alignment =
@@ -542,7 +534,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         skip(',');
         mystrtod(&p, &v2);
         skipopt(')');
-        ass_msg(render_priv->library, MSGL_DBG2, "pos(%f, %f)", v1, v2);
         if (render_priv->state.evt_type == EVENT_POSITIONED) {
             ass_msg(render_priv->library, MSGL_V, "Subtitle has a new \\pos "
                    "after \\move or \\pos, ignoring");
@@ -605,7 +596,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         skip(',');
         mystrtod(&p, &v2);
         skipopt(')');
-        ass_msg(render_priv->library, MSGL_DBG2, "org(%f, %f)", v1, v2);
         if (!render_priv->state.have_origin) {
             render_priv->state.org_x = v1;
             render_priv->state.org_y = v2;
@@ -736,8 +726,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
                     n, cmd);
             break;
         }
-        ass_msg(render_priv->library, MSGL_DBG2, "single c/a at %f: %c%c = %X",
-               pwr, n, cmd, render_priv->state.c[cidx]);
     } else if (mystrcmp(&p, "r")) {
         char *start = p;
         char *style;

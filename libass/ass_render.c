@@ -372,22 +372,18 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
 
     tmp = dst_x - clip_x0;
     if (tmp < 0) {
-        ass_msg(render_priv->library, MSGL_DBG2, "clip left");
         b_x0 = -tmp;
     }
     tmp = dst_y - clip_y0;
     if (tmp < 0) {
-        ass_msg(render_priv->library, MSGL_DBG2, "clip top");
         b_y0 = -tmp;
     }
     tmp = clip_x1 - dst_x - bm->w;
     if (tmp < 0) {
-        ass_msg(render_priv->library, MSGL_DBG2, "clip right");
         b_x1 = bm->w + tmp;
     }
     tmp = clip_y1 - dst_y - bm->h;
     if (tmp < 0) {
-        ass_msg(render_priv->library, MSGL_DBG2, "clip bottom");
         b_y1 = bm->h + tmp;
     }
 
@@ -582,10 +578,6 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             };
             FT_Outline_Translate(outline, trans.x, trans.y);
         }
-
-        ass_msg(render_priv->library, MSGL_DBG2,
-                "Parsed vector clip: scales (%f, %f) string [%s]\n",
-                drawing->scale_x, drawing->scale_y, drawing->text);
 
         clip_bm = outline_to_bitmap(render_priv->library,
                 render_priv->ftlibrary, outline, 0);
@@ -1601,9 +1593,6 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
             run_offset++;
             pen_shift_x = d6_to_double(-cur->pos.x);
             pen_shift_y += height + render_priv->settings.line_spacing;
-            ass_msg(render_priv->library, MSGL_DBG2,
-                   "shifting from %d to %d by (%f, %f)", i,
-                   text_info->length - 1, pen_shift_x, pen_shift_y);
         }
         cur->bm_run_id += run_offset;
         cur->pos.x += double_to_d6(pen_shift_x);
@@ -2108,8 +2097,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     if (render_priv->state.evt_type == EVENT_POSITIONED) {
         double base_x = 0;
         double base_y = 0;
-        ass_msg(render_priv->library, MSGL_DBG2, "positioned event at %f, %f",
-               render_priv->state.pos_x, render_priv->state.pos_y);
         get_base_point(&bbox, alignment, &base_x, &base_y);
         device_x =
             x2scr_pos(render_priv, render_priv->state.pos_x) - base_x;
