@@ -23,7 +23,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01030000
+#define LIBASS_VERSION 0x01030001
 
 /*
  * A linked list of images produced by an ass renderer.
@@ -338,6 +338,33 @@ int ass_fonts_update(ASS_Renderer *priv);
  */
 void ass_set_cache_limits(ASS_Renderer *priv, int glyph_max,
                           int bitmap_max_size);
+
+/**
+ * \brief Enable optimized event lookup.  This will create hidden lookup
+ * data structures for the track->events array, and well as possibly reorder
+ * the track->events array itself. The implication is that you must not change
+ * the events array yourself while this mode is enabled, nor can you make any
+ * assumptions about how the track->events array is organized. It's a libass
+ * implementation detail, and might change from version to version.
+ *
+ * The following libass functions which modify the events array are still
+ * allowed: ass_process_chunk, ass_process_data
+ *
+ * Modifying the events array manually while this is enabled will lead to
+ * undefined behavior (possible crashes etc.), except with the functions
+ * mentioned above.
+ *
+ * This is not enabled by default. The reason is that normally, API users
+ * are allowed to mess with the track->events array freely, e.g. to manually
+ * add new events.
+ *
+ * Disabling and then enabling it again might trigger expensive resorting
+ * operations.
+ *
+ * \param track subtitle track
+ * \param enable set to 1 to enable fast lookups, or 0 to disable them
+ */
+void ass_set_fast_event_lookup(ASS_Track *track, int enable);
 
 /**
  * \brief Render a frame, producing a list of ASS_Image.

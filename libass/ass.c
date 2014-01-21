@@ -37,24 +37,9 @@
 #include "ass.h"
 #include "ass_utils.h"
 #include "ass_library.h"
+#include "ass_parse.h"
 
 #define ass_atof(STR) (ass_strtod((STR),NULL))
-
-typedef enum {
-    PST_UNKNOWN = 0,
-    PST_INFO,
-    PST_STYLES,
-    PST_EVENTS,
-    PST_FONTS
-} ParserState;
-
-struct parser_priv {
-    ParserState state;
-    char *fontname;
-    char *fontdata;
-    int fontdata_size;
-    int fontdata_used;
-};
 
 #define ASS_STYLES_ALLOC 20
 #define ASS_EVENTS_ALLOC 200
@@ -69,6 +54,7 @@ void ass_free_track(ASS_Track *track)
     int i;
 
     if (track->parser_priv) {
+        free(track->parser_priv->read_order);
         free(track->parser_priv->fontname);
         free(track->parser_priv->fontdata);
         free(track->parser_priv);
@@ -127,6 +113,11 @@ int ass_alloc_event(ASS_Track *track)
             (ASS_Event *) realloc(track->events,
                                   sizeof(ASS_Event) *
                                   track->max_events);
+        if (track->parser_priv->fast_lookup) {
+            track->parser_priv->read_order =
+                realloc(track->parser_priv->read_order,
+                        sizeof(int) * track->max_events);
+        }
     }
 
     eid = track->n_events++;
@@ -150,6 +141,55 @@ void ass_free_style(ASS_Track *track, int sid)
 
     free(style->Name);
     free(style->FontName);
+}
+
+static int sort_int_cmp(const void *pa, const void *pb)
+{
+    int a = *(int *)pa;
+    int b = *(int *)pb;
+    if (a > b)
+        return 1;
+    if (a < b)
+        return -1;
+    return 0;
+}
+
+static int sort_events_cmp(const void *pa, const void *pb)
+{
+    const ASS_Event *a = pa;
+    const ASS_Event *b = pb;
+    if (a->Start > b->Start)
+        return 1;
+    if (a->Start < b->Start)
+        return -1;
+    // Sorting by earliest end time might help a little bit, but not much
+    // (and is not required).
+    if (a->Duration > b->Duration)
+        return 1;
+    if (a->Duration < b->Duration)
+        return -1;
+    return 0;
+}
+
+void ass_set_fast_event_lookup(ASS_Track *track, int enable)
+{
+    enable = !!enable;
+    if (track->parser_priv->fast_lookup == enable)
+        return;
+    track->parser_priv->fast_lookup = enable;
+    if (enable) {
+        int i;
+        track->parser_priv->read_order =
+            realloc(track->parser_priv->read_order,
+                    sizeof(int) * track->max_events);
+        for (i = 0; i < track->n_events; i++)
+            track->parser_priv->read_order[i] = track->events[i].ReadOrder;
+        qsort(track->parser_priv->read_order, track->n_events, sizeof(int),
+              sort_int_cmp);
+        qsort(track->events, track->n_events, sizeof(ASS_Event),
+              sort_events_cmp);
+        track->parser_priv->last_lookup_index = 0;
+    }
 }
 
 // ==============================================================================================
@@ -858,6 +898,9 @@ void ass_process_data(ASS_Track *track, char *data, int size)
 {
     char *str = malloc(size + 1);
 
+
+    ass_set_fast_event_lookup(track, 0);
+
     memcpy(str, data, size);
     str[size] = '\0';
 
@@ -885,10 +928,66 @@ void ass_process_codec_private(ASS_Track *track, char *data, int size)
     ass_process_force_style(track);
 }
 
+// Move the last event to a sorted position
+static void insert_sorted_event(ASS_Track *track)
+{
+    if (!track->parser_priv->fast_lookup)
+        return;
+
+    ASS_Event event = track->events[track->n_events - 1];
+    long long search = event.Start;
+    int a = 0;      // search interval [a,b)
+    int b = track->n_events - 1;
+    while (b > a) {
+        int mid = (a + b) / 2;
+        long long val = track->events[mid].Start;
+        // Note: same start timestamp -> prefer appending the new event
+        if (val > search) {
+            b = mid;
+        } else {
+            a = mid + 1;
+        }
+    }
+    // Insert it at track->events[a]
+    memmove(track->events + a + 1, track->events + a,
+            (track->n_events - 1 - a) * sizeof(ASS_Event));
+    track->events[a] = event;
+
+    if (a < track->parser_priv->last_lookup_index)
+        track->parser_priv->last_lookup_index = a;
+}
+
+// For insertion case, assume that array has 1 free item
+static int find_or_insert_sorted(int *array, int count, int insert)
+{
+    int a = 0;      // search interval [a,b)
+    int b = count;
+    while (b > a) {
+        int mid = (a + b) / 2;
+        int val = array[mid];
+        if (val == insert)
+            return 1;
+        if (val > insert) {
+            b = mid;
+        } else {
+            a = mid + 1;
+        }
+    }
+    // Not found, but insert it at array[a]
+    memmove(array + a + 1, array + a, (count - a) * sizeof(int));
+    array[a] = insert;
+    return 0;
+}
+
 static int check_duplicate_event(ASS_Track *track, int ReadOrder)
 {
     int i;
-    for (i = 0; i < track->n_events - 1; ++i)   // ignoring last event, it is the one we are comparing with
+    int count = track->n_events - 1; // ignoring last event, it is the one we are comparing with
+    if (track->parser_priv->fast_lookup) {
+        return find_or_insert_sorted(track->parser_priv->read_order,
+                                     count, ReadOrder);
+    }
+    for (i = 0; i < count; ++i)
         if (track->events[i].ReadOrder == ReadOrder)
             return 1;
     return 0;
@@ -940,6 +1039,8 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
 
         event->Start = timecode;
         event->Duration = duration;
+
+        insert_sorted_event(track);
 
         free(str);
         return;

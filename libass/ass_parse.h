@@ -38,5 +38,28 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr);
 extern void change_alpha(uint32_t *var, uint32_t new, double pwr);
 extern uint32_t mult_alpha(uint32_t a, uint32_t b);
 
+typedef enum {
+    PST_UNKNOWN = 0,
+    PST_INFO,
+    PST_STYLES,
+    PST_EVENTS,
+    PST_FONTS
+} ParserState;
+
+struct parser_priv {
+    ParserState state;
+    char *fontname;
+    char *fontdata;
+    int fontdata_size;
+    int fontdata_used;
+
+    int fast_lookup;
+    // contains ReadOrder IDs of all read events - same size as events array
+    int *read_order;
+    // Cached last render position.
+    long long last_lookup_time;
+    int last_lookup_index; // first event needed for rendering a frame with the
+                           // previous video timestamp last_lookup_time
+};
 
 #endif /* LIBASS_PARSE_H */

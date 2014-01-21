@@ -2587,10 +2587,21 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
 
     // render events separately
     cnt = 0;
-    for (i = 0; i < track->n_events; ++i) {
-        ASS_Event *event = track->events + i;
-        if ((event->Start <= now)
-            && (now < (event->Start + event->Duration))) {
+    if (track->parser_priv->fast_lookup &&
+        now >= track->parser_priv->last_lookup_time)
+    {
+        // sorted events, render time is strictly monotonic
+        // last_lookup_index is the lowest index of an event that still had to
+        // be rendered in the previous ass_render_frame() call.
+        int first_event = -1;
+        for (i = track->parser_priv->last_lookup_index; i < track->n_events; ++i) {
+            ASS_Event *event = track->events + i;
+            if (event->Start > now)
+                break;
+            if (now >= event->Start + event->Duration)
+                continue;
+            if (first_event < 0)
+                first_event = i;
             if (cnt >= priv->eimg_size) {
                 priv->eimg_size += 100;
                 priv->eimg =
@@ -2601,7 +2612,26 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
             if (!rc)
                 ++cnt;
         }
+        track->parser_priv->last_lookup_index = FFMAX(0, first_event);
+    } else {
+        track->parser_priv->last_lookup_index = 0;
+        for (i = 0; i < track->n_events; ++i) {
+            ASS_Event *event = track->events + i;
+            if ((event->Start <= now)
+                && (now < (event->Start + event->Duration))) {
+                if (cnt >= priv->eimg_size) {
+                    priv->eimg_size += 100;
+                    priv->eimg =
+                        realloc(priv->eimg,
+                                priv->eimg_size * sizeof(EventImages));
+                }
+                rc = ass_render_event(priv, event, priv->eimg + cnt);
+                if (!rc)
+                    ++cnt;
+            }
+        }
     }
+    track->parser_priv->last_lookup_time = now;
 
     // sort by layer
     qsort(priv->eimg, cnt, sizeof(EventImages), cmp_event_layer);
