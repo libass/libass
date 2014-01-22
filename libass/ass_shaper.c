@@ -560,8 +560,8 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         hb_buffer_set_language(runs[run].buf,
                 hb_shaper_get_run_language(shaper, script));
         hb_buffer_set_script(runs[run].buf, script);
-        hb_buffer_add_utf32(runs[run].buf, shaper->event_text + k, i - k + 1,
-                0, i - k + 1);
+        hb_buffer_add_utf32(runs[run].buf, shaper->event_text, len,
+                k, i - k + 1);
         hb_shape(runs[run].font, runs[run].buf, shaper->features,
                 shaper->n_features);
     }
