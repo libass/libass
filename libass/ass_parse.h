@@ -19,6 +19,8 @@
 #ifndef LIBASS_PARSE_H
 #define LIBASS_PARSE_H
 
+#include <stdint.h>
+
 #define BLUR_MAX_RADIUS 100.0
 
 #define _r(c)   ((c) >> 24)
@@ -54,8 +56,9 @@ struct parser_priv {
     int fontdata_used;
 
     int fast_lookup;
-    // contains ReadOrder IDs of all read events - same size as events array
-    int *read_order;
+    // contains bitmap of ReadOrder IDs of all read events
+    uint32_t *read_order_bitmap;
+    int read_order_elems; // size in uint32_t units of read_order_bitmap
     // Cached last render position.
     long long last_lookup_time;
     int last_lookup_index; // first event needed for rendering a frame with the

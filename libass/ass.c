@@ -54,7 +54,7 @@ void ass_free_track(ASS_Track *track)
     int i;
 
     if (track->parser_priv) {
-        free(track->parser_priv->read_order);
+        free(track->parser_priv->read_order_bitmap);
         free(track->parser_priv->fontname);
         free(track->parser_priv->fontdata);
         free(track->parser_priv);
@@ -113,11 +113,6 @@ int ass_alloc_event(ASS_Track *track)
             (ASS_Event *) realloc(track->events,
                                   sizeof(ASS_Event) *
                                   track->max_events);
-        if (track->parser_priv->fast_lookup) {
-            track->parser_priv->read_order =
-                realloc(track->parser_priv->read_order,
-                        sizeof(int) * track->max_events);
-        }
     }
 
     eid = track->n_events++;
@@ -143,14 +138,37 @@ void ass_free_style(ASS_Track *track, int sid)
     free(style->FontName);
 }
 
-static int sort_int_cmp(const void *pa, const void *pb)
+static int resize_read_order_bitmap(ASS_Track *track, int max_id)
 {
-    int a = *(int *)pa;
-    int b = *(int *)pb;
-    if (a > b)
-        return 1;
-    if (a < b)
+    // Don't allow malicious files to OOM us easily. Also avoids int overflows.
+    if (max_id < 0 || max_id >= 10 * 1024 * 1024 * 8) {
+        free(track->parser_priv->read_order_bitmap);
+        track->parser_priv->read_order_bitmap = NULL;
+        track->parser_priv->read_order_elems = 0;
         return -1;
+    }
+    if (max_id >= track->parser_priv->read_order_elems * 32) {
+        int oldelems = track->parser_priv->read_order_elems;
+        int elems = ((max_id + 31) / 32 + 1) * 2;
+        assert(elems >= oldelems);
+        track->parser_priv->read_order_elems = elems;
+        track->parser_priv->read_order_bitmap =
+            realloc(track->parser_priv->read_order_bitmap, elems * 4);
+        memset(track->parser_priv->read_order_bitmap + oldelems, 0,
+               (elems - oldelems) * 4);
+    }
+    return 0;
+}
+
+static int test_and_set_read_order_bit(ASS_Track *track, int id)
+{
+    if (resize_read_order_bitmap(track, id) < 0)
+        return -1;
+    int index = id / 32;
+    int bit = 1 << (id % 32);
+    if (track->parser_priv->read_order_bitmap[index] & bit)
+        return 1;
+    track->parser_priv->read_order_bitmap[index] |= bit;
     return 0;
 }
 
@@ -179,16 +197,15 @@ void ass_set_fast_event_lookup(ASS_Track *track, int enable)
     track->parser_priv->fast_lookup = enable;
     if (enable) {
         int i;
-        track->parser_priv->read_order =
-            realloc(track->parser_priv->read_order,
-                    sizeof(int) * track->max_events);
         for (i = 0; i < track->n_events; i++)
-            track->parser_priv->read_order[i] = track->events[i].ReadOrder;
-        qsort(track->parser_priv->read_order, track->n_events, sizeof(int),
-              sort_int_cmp);
+            test_and_set_read_order_bit(track, track->events[i].ReadOrder);
         qsort(track->events, track->n_events, sizeof(ASS_Event),
               sort_events_cmp);
         track->parser_priv->last_lookup_index = 0;
+    } else {
+        free(track->parser_priv->read_order_bitmap);
+        track->parser_priv->read_order_bitmap = NULL;
+        track->parser_priv->read_order_elems = 0;
     }
 }
 
@@ -957,35 +974,14 @@ static void insert_sorted_event(ASS_Track *track)
         track->parser_priv->last_lookup_index = a;
 }
 
-// For insertion case, assume that array has 1 free item
-static int find_or_insert_sorted(int *array, int count, int insert)
-{
-    int a = 0;      // search interval [a,b)
-    int b = count;
-    while (b > a) {
-        int mid = (a + b) / 2;
-        int val = array[mid];
-        if (val == insert)
-            return 1;
-        if (val > insert) {
-            b = mid;
-        } else {
-            a = mid + 1;
-        }
-    }
-    // Not found, but insert it at array[a]
-    memmove(array + a + 1, array + a, (count - a) * sizeof(int));
-    array[a] = insert;
-    return 0;
-}
-
 static int check_duplicate_event(ASS_Track *track, int ReadOrder)
 {
     int i;
     int count = track->n_events - 1; // ignoring last event, it is the one we are comparing with
     if (track->parser_priv->fast_lookup) {
-        return find_or_insert_sorted(track->parser_priv->read_order,
-                                     count, ReadOrder);
+        int r = test_and_set_read_order_bit(track, ReadOrder);
+        if (r >= 0)
+            return r;
     }
     for (i = 0; i < count; ++i)
         if (track->events[i].ReadOrder == ReadOrder)
