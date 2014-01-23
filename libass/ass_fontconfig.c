@@ -188,7 +188,7 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
      */
     FcPatternDel(pat, "lang");
 
-    fsorted = FcFontSort(priv->config, pat, FcTrue, NULL, &result);
+    fsorted = FcFontSort(priv->config, pat, FcFalse, NULL, &result);
     ffullname = match_fullname(library, priv, family, bold, italic);
     if (!fsorted || !ffullname)
         goto error;
