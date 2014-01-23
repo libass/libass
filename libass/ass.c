@@ -57,7 +57,6 @@ struct parser_priv {
 };
 
 #define ASS_STYLES_ALLOC 20
-#define ASS_EVENTS_ALLOC 200
 
 int ass_library_version(void)
 {
@@ -122,7 +121,7 @@ int ass_alloc_event(ASS_Track *track)
     assert(track->n_events <= track->max_events);
 
     if (track->n_events == track->max_events) {
-        track->max_events += ASS_EVENTS_ALLOC;
+        track->max_events = track->max_events * 2 + 1;
         track->events =
             (ASS_Event *) realloc(track->events,
                                   sizeof(ASS_Event) *
