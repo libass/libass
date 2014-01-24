@@ -1,4 +1,6 @@
-AM_CFLAGS = -Wall
+AM_CFLAGS = -std=gnu99 -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter \
+            -Werror-implicit-function-declaration -Wstrict-prototypes        \
+            -Wpointer-arith -Wredundant-decls
 
 LIBASS_LT_CURRENT = 5
 LIBASS_LT_REVISION = 0
