@@ -43,13 +43,6 @@ static void ass_reconfigure(ASS_Renderer *priv)
     priv->orig_height_nocrop =
         settings->frame_height - FFMAX(settings->top_margin, 0) -
         FFMAX(settings->bottom_margin, 0);
-    if (settings->storage_height) {
-        priv->storage_width = settings->storage_width;
-        priv->storage_height = settings->storage_height;
-    } else {
-        priv->storage_width = priv->orig_width;
-        priv->storage_height = priv->orig_height;
-    }
 }
 
 void ass_set_frame_size(ASS_Renderer *priv, int w, int h)

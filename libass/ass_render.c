@@ -2589,9 +2589,9 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
 
     render_priv->font_scale = settings_priv->font_size_coeff *
         render_priv->orig_height / render_priv->track->PlayResY;
-    if (render_priv->storage_height)
+    if (settings_priv->storage_height)
         render_priv->blur_scale = ((double) render_priv->orig_height) /
-            render_priv->storage_height;
+            settings_priv->storage_height;
     else
         render_priv->blur_scale = 1.;
     if (render_priv->track->ScaledBorderAndShadow)
