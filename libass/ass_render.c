@@ -504,7 +504,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         if (!outline) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
-            goto blend_vector_error;
+            return;
         }
 
         // We need to translate the clip according to screen borders
@@ -526,9 +526,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         v.bm = clip_bm;
         ass_cache_put(render_priv->cache.bitmap_cache, &key, &v);
     }
-blend_vector_error:
 
-    if (!clip_bm) goto blend_vector_exit;
+    if (!clip_bm) return;
 
     // Iterate through bitmaps and blend/clip them
     for (cur = head; cur; cur = cur->next) {
@@ -572,7 +571,7 @@ blend_vector_error:
 
             // Allocate new buffer and add to free list
             nbuffer = malloc(as * ah + 0x1F);
-            if (!nbuffer) goto blend_vector_exit;
+            if (!nbuffer) return;
             free_list_add(render_priv, nbuffer);
             nbuffer = (unsigned char*)(((uintptr_t)nbuffer + 0x1F) & ~0x1F);
 
@@ -593,7 +592,7 @@ blend_vector_error:
             uintptr_t alignment_offset = (w > 15) ? 15 : ((w > 7) ? 7 : 0);
             unsigned ns = (w + alignment_offset) & ~alignment_offset;
             nbuffer = malloc(ns * h + alignment_offset);
-            if (!nbuffer) goto blend_vector_exit;
+            if (!nbuffer) return;
             free_list_add(render_priv, nbuffer);
             nbuffer = (unsigned char*)
                 (((uintptr_t)nbuffer + alignment_offset) & ~alignment_offset);
@@ -611,10 +610,6 @@ blend_vector_error:
         }
         cur->bitmap = nbuffer;
     }
-
-blend_vector_exit:
-    ass_drawing_free(render_priv->state.clip_drawing);
-    render_priv->state.clip_drawing = 0;
 }
 
 static inline int is_skip_symbol(uint32_t x)
@@ -844,9 +839,11 @@ static void free_render_context(ASS_Renderer *render_priv)
 {
     free(render_priv->state.family);
     ass_drawing_free(render_priv->state.drawing);
+    ass_drawing_free(render_priv->state.clip_drawing);
 
     render_priv->state.family = NULL;
     render_priv->state.drawing = NULL;
+    render_priv->state.clip_drawing = NULL;
 }
 
 /*
