@@ -33,6 +33,12 @@
 #define SUBPIXEL_MASK 63
 #define SUBPIXEL_ACCURACY 7
 
+#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+
+#include "x86/blend_bitmaps.h"
+#include "x86/be_blur.h"
+
+#endif // ASM
 
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
 {
@@ -63,10 +69,29 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->ftlibrary = ft;
     // images_root and related stuff is zero-filled in calloc
 
-    priv->add_bitmaps_func = add_bitmaps_c;
-    priv->sub_bitmaps_func = sub_bitmaps_c;
-    priv->mul_bitmaps_func = mul_bitmaps_c;
-    priv->be_blur_func = be_blur_c;
+    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+        int sse2 = has_sse2();
+        int avx2 = has_avx2();
+        priv->add_bitmaps_func = avx2 ? ass_add_bitmaps_avx2 :
+            (sse2 ? ass_add_bitmaps_sse2 : ass_add_bitmaps_x86);
+        #ifdef __x86_64__
+            priv->be_blur_func = avx2 ? ass_be_blur_avx2 :
+                (sse2 ? ass_be_blur_sse2 : be_blur_c);
+            priv->mul_bitmaps_func = avx2 ? ass_mul_bitmaps_avx2 :
+                (sse2 ? ass_mul_bitmaps_sse2 : mul_bitmaps_c);
+            priv->sub_bitmaps_func = avx2 ? ass_sub_bitmaps_avx2 :
+                (sse2 ? ass_sub_bitmaps_sse2 : ass_sub_bitmaps_x86);
+        #else
+            priv->be_blur_func = be_blur_c;
+            priv->mul_bitmaps_func = mul_bitmaps_c;
+            priv->sub_bitmaps_func = ass_sub_bitmaps_x86;
+        #endif
+    #else
+        priv->add_bitmaps_func = add_bitmaps_c;
+        priv->sub_bitmaps_func = sub_bitmaps_c;
+        priv->mul_bitmaps_func = mul_bitmaps_c;
+        priv->be_blur_func = be_blur_c;
+    #endif
     priv->restride_bitmap_func = restride_bitmap_c;
 
     priv->cache.font_cache = ass_font_cache_create();

@@ -29,6 +29,42 @@
 #include "ass.h"
 #include "ass_utils.h"
 
+#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+
+#include "x86/cpuid.h"
+
+int has_sse2()
+{
+    uint32_t eax = 1, ebx, ecx, edx;
+    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+    return (!!(edx & (1 << 26)));
+}
+
+int has_avx()
+{
+    uint32_t eax = 1, ebx, ecx, edx;
+    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+    if(!(ecx & (1 << 27))){
+        return 0;
+    }
+    uint32_t misc = ecx;
+    eax = 0;
+    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+    if((ecx & (0x2 | 0x4)) != (0x2 | 0x4)){
+        return 0;
+    }
+    return (!!(misc & (1 << 28)));
+}
+
+int has_avx2()
+{
+    uint32_t eax = 7, ebx, ecx, edx;
+    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+    return (!!(ebx & (1 << 5))) && has_avx();
+}
+
+#endif // ASM
+
 int mystrtoi(char **p, int *res)
 {
     double temp_res;
