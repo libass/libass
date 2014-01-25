@@ -966,7 +966,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                 dt = (tm_current - tm_start);
                 if ((s1->effect_type == EF_KARAOKE)
                     || (s1->effect_type == EF_KARAOKE_KO)) {
-                    if (dt > 0)
+                    if (dt >= 0)
                         x = x_end + 1;
                     else
                         x = x_start;
