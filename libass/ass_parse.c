@@ -248,7 +248,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         } else
             val = render_priv->state.style->Outline;
         render_priv->state.border_x = val;
-        render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "ybord")) {
         double val;
         if (mystrtod(&p, &val)) {
@@ -257,7 +256,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         } else
             val = render_priv->state.style->Outline;
         render_priv->state.border_y = val;
-        render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "xshad")) {
         double val;
         if (mystrtod(&p, &val))
@@ -265,7 +263,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         else
             val = render_priv->state.style->Shadow;
         render_priv->state.shadow_x = val;
-        render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "yshad")) {
         double val;
         if (mystrtod(&p, &val))
@@ -273,7 +270,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         else
             val = render_priv->state.style->Shadow;
         render_priv->state.shadow_y = val;
-        render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "fax")) {
         double val;
         if (mystrtod(&p, &val))
@@ -324,7 +320,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.blur = val;
         } else
             render_priv->state.blur = 0.0;
-        render_priv->state.bm_run_id++;
         // ASS standard tags
     } else if (mystrcmp(&p, "fsc")) {
         char tp = *p++;
@@ -392,7 +387,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             xval = yval = render_priv->state.style->Outline;
         render_priv->state.border_x = xval;
         render_priv->state.border_y = yval;
-        render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "move")) {
         double x1, x2, y1, y2;
         long long t1, t2, delta_t, t;
@@ -496,7 +490,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             change_alpha(&render_priv->state.c[3],
                          render_priv->state.style->BackColour, 1);
         }
-        render_priv->state.bm_run_id++;
         // FIXME: simplify
     } else if (mystrcmp(&p, "an")) {
         int val;
@@ -683,7 +676,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         else
             change_color(&render_priv->state.c[0],
                          render_priv->state.style->PrimaryColour, 1);
-        render_priv->state.bm_run_id++;
     } else if ((*p >= '1') && (*p <= '4') && (++p)
                && (mystrcmp(&p, "c") || mystrcmp(&p, "a"))) {
         char n = *(p - 2);
@@ -715,11 +707,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         switch (cmd) {
         case 'c':
             change_color(render_priv->state.c + cidx, val, pwr);
-            render_priv->state.bm_run_id++;
             break;
         case 'a':
             change_alpha(render_priv->state.c + cidx, val >> 24, pwr);
-            render_priv->state.bm_run_id++;
             break;
         default:
             ass_msg(render_priv->library, MSGL_WARN, "Bad command: %c%c",
@@ -748,7 +738,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.be = val;
         } else
             render_priv->state.be = 0;
-        render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "b")) {
         int val;
         if (!mystrtoi(&p, &val) || !(val == 0 || val == 1 || val >= 100))
@@ -800,7 +789,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             xval = yval = render_priv->state.style->Shadow;
         render_priv->state.shadow_x = xval;
         render_priv->state.shadow_y = yval;
-        render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "s")) {
         int val;
         if (!mystrtoi(&p, &val) || !(val == 0 || val == 1))
@@ -809,7 +797,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.flags |= DECO_STRIKETHROUGH;
         else
             render_priv->state.flags &= ~DECO_STRIKETHROUGH;
-        render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "u")) {
         int val;
         if (!mystrtoi(&p, &val) || !(val == 0 || val == 1))
@@ -818,7 +805,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.flags |= DECO_UNDERLINE;
         else
             render_priv->state.flags &= ~DECO_UNDERLINE;
-        render_priv->state.bm_run_id++;
     } else if (mystrcmp(&p, "pbo")) {
         double val;
         mystrtod(&p, &val);

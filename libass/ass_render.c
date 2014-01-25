@@ -1839,7 +1839,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         info->frz = render_priv->state.frz;
         info->fax = render_priv->state.fax;
         info->fay = render_priv->state.fay;
-        info->bm_run_id = render_priv->state.bm_run_id;
 
         if (info->drawing) {
             drawing = render_priv->state.drawing =
