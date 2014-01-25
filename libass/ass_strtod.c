@@ -16,15 +16,15 @@
 #include <ctype.h>
 #include <errno.h>
 
-const
-static int maxExponent = 511;   /* Largest possible base 10 exponent.  Any
+static
+const int maxExponent = 511;    /* Largest possible base 10 exponent.  Any
                                  * exponent larger than this will already
                                  * produce underflow or overflow, so there's
                                  * no need to worry about additional digits.
                                  */
 
-const
-static double powersOf10[] = {  /* Table giving binary powers of 10.  Entry */
+static
+const double powersOf10[] = {   /* Table giving binary powers of 10.  Entry */
     10.,                        /* is 10^2^i.  Used to convert decimal */
     100.,                       /* exponents into floating-point numbers. */
     1.0e4,
@@ -58,8 +58,8 @@ static double powersOf10[] = {  /* Table giving binary powers of 10.  Entry */
  */
 
 double
-ass_strtod(string, endPtr)
-    const char *string;     /* A decimal ASCII floating-point number,
+ass_strtod(
+    const char *string,     /* A decimal ASCII floating-point number,
                              * optionally preceded by white space.
                              * Must have form "-I.FE-X", where I is the
                              * integer part of the mantissa, F is the
@@ -71,8 +71,9 @@ ass_strtod(string, endPtr)
                              * The "E" may actually be an "e".  E and X
                              * may both be omitted (but not just one).
                              */
-    char **endPtr;          /* If non-NULL, store terminating character's
+    char **endPtr           /* If non-NULL, store terminating character's
                              * address here. */
+    )
 {
     int sign, expSign = 0;
     double fraction, dblExp, *d;
