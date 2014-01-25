@@ -65,9 +65,8 @@ Bitmap *alloc_bitmap(int w, int h);
  */
 int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
                        FT_Library ftlib, FT_Outline *outline, FT_Outline *border,
-                       Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
-                       int be, double blur_radius, FT_Vector shadow_offset,
-                       int border_style, int border_visible);
+                       Bitmap **bm_g, Bitmap **bm_o,
+                       int be, double blur_radius, FT_Vector shadow_offset);
 
 void ass_free_bitmap(Bitmap *bm);
 void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,

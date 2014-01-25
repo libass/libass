@@ -177,7 +177,7 @@ int parse_ycbcr_matrix(char *str)
     // modify. The buffer is larger than any valid string + NUL,
     // so we can simply chop off the rest of the input.
     char buffer[16];
-    size_t n = FFMIN(end - str, sizeof buffer - 1);
+    size_t n = FFMIN((unsigned long)(end - str), sizeof(buffer) - 1);
     strncpy(buffer, str, n);
     buffer[n] = '\0';
 
@@ -332,7 +332,7 @@ void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
     EncaAnalyser analyser;
     EncaEncoding encoding;
     char *detected_sub_cp = NULL;
-    int i;
+    unsigned i;
 
     languages = enca_get_languages(&langcnt);
     ass_msg(library, MSGL_V, "ENCA supported languages");

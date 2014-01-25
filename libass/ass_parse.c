@@ -920,7 +920,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
     GlyphInfo *cur, *cur2;
     GlyphInfo *s1, *e1;      // start and end of the current word
     GlyphInfo *s2;           // start of the next word
-    int i;
+    unsigned i;
     int timing;                 // current timing
     int tm_start, tm_end;       // timings at start and end of the current word
     int tm_current;
