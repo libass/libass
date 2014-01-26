@@ -24,8 +24,6 @@
 #include "ass_parse.h"
 #include "ass_cache.h"
 
-#define MAX_RUNS 50
-
 #ifdef CONFIG_HARFBUZZ
 #include <hb-ft.h>
 enum {
@@ -526,91 +524,92 @@ hb_shaper_get_run_language(ASS_Shaper *shaper, hb_script_t script)
 }
 
 /**
+ * \brief Feed a run of shaped characters into the GlyphInfo array.
+ *
+ * \param glyphs GlyphInfo array
+ * \param buf buffer of shaped run
+ * \param offset offset into GlyphInfo array
+ */
+static void
+shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
+{
+    int j;
+    int num_glyphs = hb_buffer_get_length(buf);
+    hb_glyph_info_t *glyph_info = hb_buffer_get_glyph_infos(buf, NULL);
+    hb_glyph_position_t *pos    = hb_buffer_get_glyph_positions(buf, NULL);
+
+    for (j = 0; j < num_glyphs; j++) {
+        unsigned idx = glyph_info[j].cluster + offset;
+        GlyphInfo *info = glyphs + idx;
+        GlyphInfo *root = info;
+
+        // if we have more than one glyph per cluster, allocate a new one
+        // and attach to the root glyph
+        if (info->skip == 0) {
+            while (info->next)
+                info = info->next;
+            info->next = malloc(sizeof(GlyphInfo));
+            memcpy(info->next, info, sizeof(GlyphInfo));
+            info = info->next;
+            info->next = NULL;
+        }
+
+        // set position and advance
+        info->skip = 0;
+        info->glyph_index = glyph_info[j].codepoint;
+        info->offset.x    = pos[j].x_offset * info->scale_x;
+        info->offset.y    = -pos[j].y_offset * info->scale_y;
+        info->advance.x   = pos[j].x_advance * info->scale_x;
+        info->advance.y   = -pos[j].y_advance * info->scale_y;
+
+        // accumulate advance in the root glyph
+        root->cluster_advance.x += info->advance.x;
+        root->cluster_advance.y += info->advance.y;
+    }
+}
+
+/**
  * \brief Shape event text with HarfBuzz. Full OpenType shaping.
  * \param glyphs glyph clusters
  * \param len number of clusters
  */
 static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 {
-    int i, j;
-    int run = 0;
-    struct {
-        int offset;
-        int end;
-        hb_buffer_t *buf;
-        hb_font_t *font;
-    } runs[MAX_RUNS];
-
-    for (i = 0; i < len && run < MAX_RUNS; i++, run++) {
-        // get length and level of the current run
-        int k = i;
-        int level = glyphs[i].shape_run_id;
-        int direction = shaper->emblevels[k] % 2;
-        hb_script_t script = glyphs[i].script;
-        while (i < (len - 1) && level == glyphs[i+1].shape_run_id)
-            i++;
-        runs[run].offset = k;
-        runs[run].end    = i;
-        runs[run].buf    = hb_buffer_create();
-        runs[run].font   = get_hb_font(shaper, glyphs + k);
-        set_run_features(shaper, glyphs + k);
-        hb_buffer_pre_allocate(runs[run].buf, i - k + 1);
-        hb_buffer_set_direction(runs[run].buf, direction ? HB_DIRECTION_RTL :
-                HB_DIRECTION_LTR);
-        hb_buffer_set_language(runs[run].buf,
-                hb_shaper_get_run_language(shaper, script));
-        hb_buffer_set_script(runs[run].buf, script);
-        hb_buffer_add_utf32(runs[run].buf, shaper->event_text, len,
-                k, i - k + 1);
-        hb_shape(runs[run].font, runs[run].buf, shaper->features,
-                shaper->n_features);
-    }
+    int i;
+    hb_buffer_t *buf = hb_buffer_create();
+    hb_segment_properties_t props = HB_SEGMENT_PROPERTIES_DEFAULT;
 
     // Initialize: skip all glyphs, this is undone later as needed
     for (i = 0; i < len; i++)
         glyphs[i].skip = 1;
 
-    // Update glyph indexes, positions and advances from the shaped runs
-    for (i = 0; i < run; i++) {
-        int num_glyphs = hb_buffer_get_length(runs[i].buf);
-        hb_glyph_info_t *glyph_info = hb_buffer_get_glyph_infos(runs[i].buf, NULL);
-        hb_glyph_position_t *pos    = hb_buffer_get_glyph_positions(runs[i].buf, NULL);
+    for (i = 0; i < len; i++) {
+        int offset = i;
+        hb_font_t *font = get_hb_font(shaper, glyphs + offset);
+        int level = glyphs[offset].shape_run_id;
+        int direction = shaper->emblevels[offset] % 2;
 
-        for (j = 0; j < num_glyphs; j++) {
-            int idx = glyph_info[j].cluster + runs[i].offset;
-            GlyphInfo *info = glyphs + idx;
-            GlyphInfo *root = info;
+        // advance in text until end of run
+        while (i < (len - 1) && level == glyphs[i+1].shape_run_id)
+            i++;
 
-            // if we have more than one glyph per cluster, allocate a new one
-            // and attach to the root glyph
-            if (info->skip == 0) {
-                while (info->next)
-                    info = info->next;
-                info->next = malloc(sizeof(GlyphInfo));
-                memcpy(info->next, info, sizeof(GlyphInfo));
-                info = info->next;
-                info->next = NULL;
-            }
+        hb_buffer_pre_allocate(buf, i - offset + 1);
+        hb_buffer_add_utf32(buf, shaper->event_text, len,
+                offset, i - offset + 1);
 
-            // set position and advance
-            info->skip = 0;
-            info->glyph_index = glyph_info[j].codepoint;
-            info->offset.x    = pos[j].x_offset * info->scale_x;
-            info->offset.y    = -pos[j].y_offset * info->scale_y;
-            info->advance.x   = pos[j].x_advance * info->scale_x;
-            info->advance.y   = -pos[j].y_advance * info->scale_y;
+        props.direction = direction ? HB_DIRECTION_RTL : HB_DIRECTION_LTR;
+        props.script = glyphs[offset].script;
+        props.language  = hb_shaper_get_run_language(shaper, props.script);
+        hb_buffer_set_segment_properties(buf, &props);
 
-            // accumulate advance in the root glyph
-            root->cluster_advance.x += info->advance.x;
-            root->cluster_advance.y += info->advance.y;
-        }
+        set_run_features(shaper, glyphs + offset);
+        hb_shape(font, buf, shaper->features, shaper->n_features);
+
+        shape_harfbuzz_process_run(glyphs, buf, offset);
+        hb_buffer_reset(buf);
     }
 
-    // Free runs and associated data
-    for (i = 0; i < run; i++) {
-        hb_buffer_destroy(runs[i].buf);
-    }
-
+    hb_buffer_destroy(buf);
 }
 
 /**
