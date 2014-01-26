@@ -14,7 +14,6 @@ LIBASS_LT_AGE = 0
 
 SRC_INTEL = x86/blend_bitmaps.asm x86/cpuid.asm
 SRC_INTEL64 = x86/be_blur.asm
-SRC_ARM = arm/blend_bitmaps.S
 
 lib_LTLIBRARIES = libass.la
 libass_la_SOURCES = ass.c ass_cache.c ass_font.c ass_fontconfig.c ass_render.c \
@@ -57,9 +56,6 @@ if WIN32
 ASFLAGS += -f win64
 endif
 endif
-endif
-if ARM
-libass_la_SOURCES += $(SRC_ARM)
 endif
 endif
 
