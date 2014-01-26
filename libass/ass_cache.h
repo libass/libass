@@ -35,8 +35,10 @@ typedef struct {
 } BitmapHashValue;
 
 typedef struct {
-    unsigned char *a;
-    unsigned char *b;
+    Bitmap *bm;
+    Bitmap *bm_o;
+    Bitmap *bm_s;
+    FT_Vector pos;
 } CompositeHashValue;
 
 typedef struct {

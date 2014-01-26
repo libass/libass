@@ -205,6 +205,38 @@ unsigned ass_utf8_get_char(char **str)
 }
 
 /**
+ * Original version from http://www.cprogramming.com/tutorial/utf8.c
+ * \brief Converts a single UTF-32 code point to UTF-8
+ * \param dest Buffer to write to. Writes a NULL terminator.
+ * \param ch 32-bit character code to convert
+ * \return number of bytes written
+ * converts a single character and ASSUMES YOU HAVE ENOUGH SPACE
+ */
+unsigned ass_utf8_put_char(char *dest, uint32_t ch)
+{
+    char *orig_dest = dest;
+
+    if (ch < 0x80) {
+        *dest++ = (char)ch;
+    } else if (ch < 0x800) {
+        *dest++ = (ch >> 6) | 0xC0;
+        *dest++ = (ch & 0x3F) | 0x80;
+    } else if (ch < 0x10000) {
+        *dest++ = (ch >> 12) | 0xE0;
+        *dest++ = ((ch >> 6) & 0x3F) | 0x80;
+        *dest++ = (ch & 0x3F) | 0x80;
+    } else if (ch < 0x110000) {
+        *dest++ = (ch >> 18) | 0xF0;
+        *dest++ = ((ch >> 12) & 0x3F) | 0x80;
+        *dest++ = ((ch >> 6) & 0x3F) | 0x80;
+        *dest++ = (ch & 0x3F) | 0x80;
+    }
+
+    *dest = '\0';
+    return dest - orig_dest;
+}
+
+/**
  * \brief find style by name
  * \param track track
  * \param name style name

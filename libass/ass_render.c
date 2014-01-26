@@ -20,6 +20,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <string.h>
 
 #include "ass_render.h"
 #include "ass_parse.h"
@@ -27,8 +28,11 @@
 
 #define MAX_GLYPHS_INITIAL 1024
 #define MAX_LINES_INITIAL 64
+#define MAX_BITMAPS_INITIAL 16
+#define MAX_STR_LENGTH_INITIAL 64
 #define SUBPIXEL_MASK 63
 #define SUBPIXEL_ACCURACY 7
+
 
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
 {
@@ -59,15 +63,25 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->ftlibrary = ft;
     // images_root and related stuff is zero-filled in calloc
 
+    priv->add_bitmaps_func = add_bitmaps_c;
+    priv->sub_bitmaps_func = sub_bitmaps_c;
+    priv->mul_bitmaps_func = mul_bitmaps_c;
+    priv->be_blur_func = be_blur_c;
+    priv->restride_bitmap_func = restride_bitmap_c;
+
     priv->cache.font_cache = ass_font_cache_create();
     priv->cache.bitmap_cache = ass_bitmap_cache_create();
     priv->cache.composite_cache = ass_composite_cache_create();
     priv->cache.outline_cache = ass_outline_cache_create();
     priv->cache.glyph_max = GLYPH_CACHE_MAX;
     priv->cache.bitmap_max_size = BITMAP_CACHE_MAX_SIZE;
+    priv->cache.composite_max_size = COMPOSITE_CACHE_MAX_SIZE;
 
+    priv->text_info.max_bitmaps = MAX_BITMAPS_INITIAL;
     priv->text_info.max_glyphs = MAX_GLYPHS_INITIAL;
     priv->text_info.max_lines = MAX_LINES_INITIAL;
+    priv->text_info.n_bitmaps = 0;
+    priv->text_info.combined_bitmaps = calloc(MAX_BITMAPS_INITIAL, sizeof(CombinedBitmapInfo));
     priv->text_info.glyphs = calloc(MAX_GLYPHS_INITIAL, sizeof(GlyphInfo));
     priv->text_info.lines = calloc(MAX_LINES_INITIAL, sizeof(LineInfo));
 
@@ -128,6 +142,8 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     free(render_priv->eimg);
     free(render_priv->text_info.glyphs);
     free(render_priv->text_info.lines);
+
+    free(render_priv->text_info.combined_bitmaps);
 
     free(render_priv->settings.default_font);
     free(render_priv->settings.default_family);
@@ -415,109 +431,6 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
     return tail;
 }
 
-/**
- * \brief Replace the bitmap buffer in ASS_Image with a copy
- * \param img ASS_Image to operate on
- * \return pointer to old bitmap buffer
- */
-static unsigned char *clone_bitmap_buffer(ASS_Image *img)
-{
-    unsigned char *old_bitmap = img->bitmap;
-    int size = img->stride * (img->h - 1) + img->w;
-    img->bitmap = malloc(size);
-    memcpy(img->bitmap, old_bitmap, size);
-    return old_bitmap;
-}
-
-/**
- * \brief Calculate overlapping area of two consecutive bitmaps and in case they
- * overlap, blend them together
- * Mainly useful for translucent glyphs and especially borders, to avoid the
- * luminance adding up where they overlap (which looks ugly)
- */
-static void
-render_overlap(ASS_Renderer *render_priv, ASS_Image **last_tail,
-               ASS_Image **tail)
-{
-    int left, top, bottom, right;
-    int old_left, old_top, w, h, cur_left, cur_top;
-    int x, y, opos, cpos;
-    char m;
-    CompositeHashKey hk;
-    CompositeHashValue *hv;
-    CompositeHashValue chv;
-    int ax = (*last_tail)->dst_x;
-    int ay = (*last_tail)->dst_y;
-    int aw = (*last_tail)->w;
-    int as = (*last_tail)->stride;
-    int ah = (*last_tail)->h;
-    int bx = (*tail)->dst_x;
-    int by = (*tail)->dst_y;
-    int bw = (*tail)->w;
-    int bs = (*tail)->stride;
-    int bh = (*tail)->h;
-    unsigned char *a;
-    unsigned char *b;
-
-    if ((*last_tail)->bitmap == (*tail)->bitmap)
-        return;
-
-    if ((*last_tail)->color != (*tail)->color)
-        return;
-
-    // Calculate overlap coordinates
-    left = (ax > bx) ? ax : bx;
-    top = (ay > by) ? ay : by;
-    right = ((ax + aw) < (bx + bw)) ? (ax + aw) : (bx + bw);
-    bottom = ((ay + ah) < (by + bh)) ? (ay + ah) : (by + bh);
-    if ((right <= left) || (bottom <= top))
-        return;
-    old_left = left - ax;
-    old_top = top - ay;
-    w = right - left;
-    h = bottom - top;
-    cur_left = left - bx;
-    cur_top = top - by;
-
-    // Query cache
-    hk.a = (*last_tail)->bitmap;
-    hk.b = (*tail)->bitmap;
-    hk.aw = aw;
-    hk.ah = ah;
-    hk.bw = bw;
-    hk.bh = bh;
-    hk.ax = ax;
-    hk.ay = ay;
-    hk.bx = bx;
-    hk.by = by;
-    hk.as = as;
-    hk.bs = bs;
-    hv = ass_cache_get(render_priv->cache.composite_cache, &hk);
-    if (hv) {
-        (*last_tail)->bitmap = hv->a;
-        (*tail)->bitmap = hv->b;
-        return;
-    }
-    // Allocate new bitmaps and copy over data
-    a = clone_bitmap_buffer(*last_tail);
-    b = clone_bitmap_buffer(*tail);
-
-    // Blend overlapping area
-    for (y = 0; y < h; y++)
-        for (x = 0; x < w; x++) {
-            opos = (old_top + y) * (as) + (old_left + x);
-            cpos = (cur_top + y) * (bs) + (cur_left + x);
-            m = FFMIN(a[opos] + b[cpos], 0xff);
-            (*last_tail)->bitmap[opos] = 0;
-            (*tail)->bitmap[cpos] = m;
-        }
-
-    // Insert bitmaps into the cache
-    chv.a = (*last_tail)->bitmap;
-    chv.b = (*tail)->bitmap;
-    ass_cache_put(render_priv->cache.composite_cache, &hk, &chv);
-}
-
 static void free_list_add(ASS_Renderer *render_priv, void *object)
 {
     if (!render_priv->free_head) {
@@ -594,7 +507,7 @@ blend_vector_error:
 
     // Iterate through bitmaps and blend/clip them
     for (cur = head; cur; cur = cur->next) {
-        int left, top, right, bottom, apos, bpos, y, x, w, h;
+        int left, top, right, bottom, w, h;
         int ax, ay, aw, ah, as;
         int bx, by, bw, bh, bs;
         int aleft, atop, bleft, btop;
@@ -628,43 +541,48 @@ blend_vector_error:
         if (render_priv->state.clip_drawing_mode) {
             // Inverse clip
             if (ax + aw < bx || ay + ah < by || ax > bx + bw ||
-                ay > by + bh) {
+                ay > by + bh || !h || !w) {
                 continue;
             }
 
             // Allocate new buffer and add to free list
-            nbuffer = malloc(as * ah);
+            nbuffer = malloc(as * ah + 0x1F);
             if (!nbuffer) goto blend_vector_exit;
             free_list_add(render_priv, nbuffer);
+            nbuffer = (unsigned char*)(((uintptr_t)nbuffer + 0x1F) & ~0x1F);
 
             // Blend together
-            memcpy(nbuffer, abuffer, as * (ah - 1) + aw);
-            for (y = 0; y < h; y++)
-                for (x = 0; x < w; x++) {
-                    apos = (atop + y) * as + aleft + x;
-                    bpos = (btop + y) * bs + bleft + x;
-                    nbuffer[apos] = FFMAX(0, abuffer[apos] - bbuffer[bpos]);
-                }
+            memcpy(nbuffer, abuffer, ((ah - 1) * as) + aw);
+            render_priv->sub_bitmaps_func(nbuffer + atop * as + aleft, as,
+                                          bbuffer + btop * bs + bleft, bs,
+                                          h, w);
         } else {
             // Regular clip
             if (ax + aw < bx || ay + ah < by || ax > bx + bw ||
-                ay > by + bh) {
-                cur->w = cur->h = 0;
+                ay > by + bh || !h || !w) {
+                cur->w = cur->h = cur->stride = 0;
                 continue;
             }
 
             // Allocate new buffer and add to free list
-            nbuffer = calloc(as, ah);
+            uintptr_t alignment_offset = (w > 15) ? 15 : ((w > 7) ? 7 : 0);
+            unsigned ns = (w + alignment_offset) & ~alignment_offset;
+            nbuffer = malloc(ns * h + alignment_offset);
             if (!nbuffer) goto blend_vector_exit;
             free_list_add(render_priv, nbuffer);
+            nbuffer = (unsigned char*)
+                (((uintptr_t)nbuffer + alignment_offset) & ~alignment_offset);
 
             // Blend together
-            for (y = 0; y < h; y++)
-                for (x = 0; x < w; x++) {
-                    apos = (atop + y) * as + aleft + x;
-                    bpos = (btop + y) * bs + bleft + x;
-                    nbuffer[apos] = (abuffer[apos] * bbuffer[bpos] + 255) >> 8;
-                }
+            render_priv->mul_bitmaps_func(nbuffer, ns,
+                                          abuffer + atop * as + aleft, as,
+                                          bbuffer + btop * bs + bleft, bs,
+                                          w, h);
+            cur->dst_x += aleft;
+            cur->dst_y += atop;
+            cur->w = w;
+            cur->h = h;
+            cur->stride = ns;
         }
         cur->bitmap = nbuffer;
     }
@@ -674,8 +592,10 @@ blend_vector_exit:
     render_priv->state.clip_drawing = 0;
 }
 
-#define IS_SKIP_SYMBOL(x) ((x) == 0 || (x) == '\n' || (x) == '\r')
-
+static inline int is_skip_symbol(uint32_t x)
+{
+    return (x == 0 || x == '\n' || x == '\r');
+}
 /**
  * \brief Convert TextInfo struct to ASS_Image list
  * Splits glyphs in halves when needed (for \kf karaoke).
@@ -687,117 +607,101 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
     Bitmap *bm;
     ASS_Image *head;
     ASS_Image **tail = &head;
-    ASS_Image **last_tail = 0;
-    ASS_Image **here_tail = 0;
     TextInfo *text_info = &render_priv->text_info;
 
-    for (i = 0; i < text_info->length; ++i) {
-        GlyphInfo *info = text_info->glyphs + i;
-        if (IS_SKIP_SYMBOL(info->symbol) || !info->bm_s
-            || (info->shadow_x == 0 && info->shadow_y == 0) || info->skip)
+    for (i = 0; i < text_info->n_bitmaps; ++i) {
+        CombinedBitmapInfo *info = &text_info->combined_bitmaps[i];
+        if (!info->bm_s || (info->shadow_x == 0 && info->shadow_y == 0))
             continue;
 
-        while (info) {
-            if (!info->bm_s) {
-                info = info->next;
-                continue;
-            }
+        pen_x =
+            dst_x + info->pos.x +
+            (int) (info->shadow_x * render_priv->border_scale);
+        pen_y =
+            dst_y + info->pos.y +
+            (int) (info->shadow_y * render_priv->border_scale);
+        bm = info->bm_s;
 
-            pen_x =
-                dst_x + (info->pos.x >> 6) +
-                (int) (info->shadow_x * render_priv->border_scale);
-            pen_y =
-                dst_y + (info->pos.y >> 6) +
-                (int) (info->shadow_y * render_priv->border_scale);
-            bm = info->bm_s;
+        tail =
+            render_glyph(render_priv, bm, pen_x, pen_y, info->c[3], 0,
+                    1000000, tail, IMAGE_TYPE_SHADOW);
+    }
 
-            here_tail = tail;
+    for (i = 0; i < text_info->n_bitmaps; ++i) {
+        CombinedBitmapInfo *info = &text_info->combined_bitmaps[i];
+        if (!info->bm_o)
+            continue;
+
+        pen_x = dst_x + info->pos.x;
+        pen_y = dst_y + info->pos.y;
+        bm = info->bm_o;
+
+        if ((info->effect_type == EF_KARAOKE_KO)
+                && (info->effect_timing <= info->first_pos_x)) {
+            // do nothing
+        } else {
             tail =
-                render_glyph(render_priv, bm, pen_x, pen_y, info->c[3], 0,
-                        1000000, tail, IMAGE_TYPE_SHADOW);
-
-            if (last_tail && tail != here_tail && ((info->c[3] & 0xff) > 0))
-                render_overlap(render_priv, last_tail, here_tail);
-            last_tail = here_tail;
-
-            info = info->next;
+                render_glyph(render_priv, bm, pen_x, pen_y, info->c[2],
+                        0, 1000000, tail, IMAGE_TYPE_OUTLINE);
         }
     }
 
-    last_tail = 0;
-    for (i = 0; i < text_info->length; ++i) {
-        GlyphInfo *info = text_info->glyphs + i;
-        if (IS_SKIP_SYMBOL(info->symbol) || !info->bm_o
-            || info->skip)
+    for (i = 0; i < text_info->n_bitmaps; ++i) {
+        CombinedBitmapInfo *info = &text_info->combined_bitmaps[i];
+        if (!info->bm)
             continue;
 
-        while (info) {
-            if (!info->bm_o) {
-                info = info->next;
-                continue;
-            }
+        pen_x = dst_x + info->pos.x;
+        pen_y = dst_y + info->pos.y;
+        bm = info->bm;
 
-            pen_x = dst_x + (info->pos.x >> 6);
-            pen_y = dst_y + (info->pos.y >> 6);
-            bm = info->bm_o;
-
-            if ((info->effect_type == EF_KARAOKE_KO)
-                    && (info->effect_timing <= (info->bbox.xMax >> 6))) {
-                // do nothing
-            } else {
-                here_tail = tail;
+        if ((info->effect_type == EF_KARAOKE)
+                || (info->effect_type == EF_KARAOKE_KO)) {
+            if (info->effect_timing > info->first_pos_x)
                 tail =
-                    render_glyph(render_priv, bm, pen_x, pen_y, info->c[2],
-                            0, 1000000, tail, IMAGE_TYPE_OUTLINE);
-                if (last_tail && tail != here_tail && ((info->c[2] & 0xff) > 0))
-                    render_overlap(render_priv, last_tail, here_tail);
-
-                last_tail = here_tail;
-            }
-            info = info->next;
-        }
-    }
-
-    for (i = 0; i < text_info->length; ++i) {
-        GlyphInfo *info = text_info->glyphs + i;
-        if (IS_SKIP_SYMBOL(info->symbol) || !info->bm
-            || info->skip)
-            continue;
-
-        while (info) {
-            if (!info->bm) {
-                info = info->next;
-                continue;
-            }
-
-            pen_x = dst_x + (info->pos.x >> 6);
-            pen_y = dst_y + (info->pos.y >> 6);
-            bm = info->bm;
-
-            if ((info->effect_type == EF_KARAOKE)
-                    || (info->effect_type == EF_KARAOKE_KO)) {
-                if (info->effect_timing > (info->bbox.xMax >> 6))
-                    tail =
-                        render_glyph(render_priv, bm, pen_x, pen_y,
-                                info->c[0], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
-                else
-                    tail =
-                        render_glyph(render_priv, bm, pen_x, pen_y,
-                                info->c[1], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
-            } else if (info->effect_type == EF_KARAOKE_KF) {
+                    render_glyph(render_priv, bm, pen_x, pen_y,
+                            info->c[0], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
+            else
                 tail =
-                    render_glyph(render_priv, bm, pen_x, pen_y, info->c[0],
-                            info->c[1], info->effect_timing, tail, IMAGE_TYPE_CHARACTER);
-            } else
-                tail =
-                    render_glyph(render_priv, bm, pen_x, pen_y, info->c[0],
-                            0, 1000000, tail, IMAGE_TYPE_CHARACTER);
-            info = info->next;
-        }
+                    render_glyph(render_priv, bm, pen_x, pen_y,
+                            info->c[1], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
+        } else if (info->effect_type == EF_KARAOKE_KF) {
+            tail =
+                render_glyph(render_priv, bm, pen_x, pen_y, info->c[0],
+                        info->c[1], info->effect_timing, tail, IMAGE_TYPE_CHARACTER);
+        } else
+            tail =
+                render_glyph(render_priv, bm, pen_x, pen_y, info->c[0],
+                        0, 1000000, tail, IMAGE_TYPE_CHARACTER);
     }
 
     *tail = 0;
     blend_vector_clip(render_priv, head);
+
+    for (ASS_Image* cur = head; cur; cur = cur->next) {
+        unsigned w = cur->w,
+                 h = cur->h,
+                 s = cur->stride;
+        if(w + 31 < (unsigned)cur->stride){ // Larger value? Play with this.
+            // Allocate new buffer and add to free list
+            uintptr_t alignment_offset = (w > 31) ? 31 : ((w > 15) ? 15 : 0);
+            unsigned ns = (w + alignment_offset) & ~alignment_offset;
+            uint8_t* nbuffer = malloc(ns * cur->h + alignment_offset);
+            if (!nbuffer) continue;
+            free_list_add(render_priv, nbuffer);
+            nbuffer = (unsigned char*)
+                (((uintptr_t)nbuffer + alignment_offset) & ~alignment_offset);
+
+            // Copy
+            render_priv->restride_bitmap_func(nbuffer, ns,
+                                              cur->bitmap, s,
+                                              w, h);
+            cur->w = w;
+            cur->h = h;
+            cur->stride = ns;
+            cur->bitmap = nbuffer;
+        }
+    }
 
     return head;
 }
@@ -1063,6 +967,41 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
 }
 
 /**
+ * \brief Prepare combined-bitmap hash
+ */
+static void fill_composite_hash(CompositeHashKey *hk, CombinedBitmapInfo *info)
+{
+    hk->w = info->w;
+    hk->h = info->h;
+    hk->o_w = info->o_w;
+    hk->o_h = info->o_h;
+    hk->be = info->be;
+    hk->blur = info->blur;
+    hk->border_style = info->border_style;
+    hk->has_outline = info->has_outline;
+    hk->is_drawing = info->is_drawing;
+    hk->str = info->str;
+    hk->chars = info->chars;
+    hk->shadow_x = info->shadow_x;
+    hk->shadow_y = info->shadow_y;
+    hk->flags = info->flags;
+    hk->bold = info->bold;
+    hk->italic = info->italic;
+    hk->hspacing = info->hspacing;
+    hk->scale_x = info->scale_x;
+    hk->scale_y = info->scale_y;
+    hk->has_border = info->has_border;
+    hk->border_x = info->border_x;
+    hk->border_y = info->border_y;
+    hk->frx = info->frx;
+    hk->fry = info->fry;
+    hk->frz = info->frz;
+    hk->fax = info->fax;
+    hk->fay = info->fay;
+    hk->advance = info->advance;
+}
+
+/**
  * \brief Get normal and outline (border) glyphs
  * \param info out: struct filled with extracted data
  * Tries to get both glyphs from cache.
@@ -1164,8 +1103,6 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
     }
     info->asc = val->asc;
     info->desc = val->desc;
-
-    ass_drawing_free(info->drawing);
 }
 
 /**
@@ -1326,12 +1263,6 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 
     info->bm = val->bm;
     info->bm_o = val->bm_o;
-    info->bm_s = val->bm_s;
-
-    // VSFilter compatibility: invisible fill and no border?
-    // In this case no shadow is supposed to be rendered.
-    if (!info->border && (info->c[0] & 0xFF) == 0xFF)
-        info->bm_s = 0;
 }
 
 /**
@@ -1594,7 +1525,6 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
             pen_shift_x = d6_to_double(-cur->pos.x);
             pen_shift_y += height + render_priv->settings.line_spacing;
         }
-        cur->bm_run_id += run_offset;
         cur->pos.x += double_to_d6(pen_shift_x);
         cur->pos.y += double_to_d6(pen_shift_y);
     }
@@ -1693,6 +1623,50 @@ fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
     glyph->scale_x = glyph->scale_x * glyph->font_size / ft_size;
     glyph->scale_y = glyph->scale_y * glyph->font_size / ft_size;
     glyph->font_size = ft_size;
+}
+
+ /**
+  * \brief Checks whether a glyph should start a new bitmap run
+  * \param info Pointer to new GlyphInfo to check
+  * \param current_info Pointer to CombinedBitmapInfo for current run (may be NULL)
+  * \return 1 if a new run should be started
+  */
+static int is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
+{
+    if (!last || info->linebreak || info->effect ||
+        info->drawing || last->drawing) {
+        return 1;
+    }
+    // FIXME: Don't break on glyph substitutions
+    if (strcmp(last->font->desc.family, info->font->desc.family) ||
+        last->font->desc.vertical != info->font->desc.vertical ||
+        last->face_index != info->face_index ||
+        last->font_size != info->font_size ||
+        last->c[0] != info->c[0] ||
+        last->c[1] != info->c[1] ||
+        last->c[2] != info->c[2] ||
+        last->c[3] != info->c[3] ||
+        last->be != info->be ||
+        last->blur != info->blur ||
+        last->shadow_x != info->shadow_x ||
+        last->shadow_y != info->shadow_y ||
+        last->frx != info->frx ||
+        last->fry != info->fry ||
+        last->frz != info->frz ||
+        last->fax != info->fax ||
+        last->fay != info->fay ||
+        last->scale_x != info->scale_x ||
+        last->scale_y != info->scale_y ||
+        last->border_style != info->border_style ||
+        last->border_x != info->border_x ||
+        last->border_y != info->border_y ||
+        last->hspacing != info->hspacing ||
+        last->italic != info->italic ||
+        last->bold != info->bold ||
+        last->flags != info->flags){
+        return 1;
+    }
+    return 0;
 }
 
 /**
@@ -2173,6 +2147,10 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     // convert glyphs to bitmaps
     int left = render_priv->settings.left_margin;
     device_x = (device_x - left) * render_priv->font_scale_x + left;
+    unsigned nb_bitmaps = 0;
+    CombinedBitmapInfo *combined_info = text_info->combined_bitmaps;
+    CombinedBitmapInfo *current_info = NULL;
+    GlyphInfo *last_info = NULL;
     for (i = 0; i < text_info->length; ++i) {
         GlyphInfo *info = glyphs + i;
         while (info) {
@@ -2185,9 +2163,231 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 double_to_d6(device_y - (int) device_y +
                         d6_to_double(info->pos.y & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
             get_bitmap_glyph(render_priv, info);
+
+            int bm_x = info->pos.x >> 6,
+                bm_y = info->pos.y >> 6,
+                bm_o_x = bm_x, bm_o_y = bm_y, min_bm_x = bm_x, min_bm_y = bm_y;
+
+            if(info->bm){
+                bm_x += info->bm->left;
+                bm_y += info->bm->top;
+                min_bm_x = bm_x;
+                min_bm_y = bm_y;
+            }
+
+            if(info->bm_o){
+                bm_o_x += info->bm_o->left;
+                bm_o_y += info->bm_o->top;
+                min_bm_x = FFMIN(min_bm_x, bm_o_x);
+                min_bm_y = FFMIN(min_bm_y, bm_o_y);
+            }
+
+            if(is_new_bm_run(info, last_info)){
+                ++nb_bitmaps;
+                if (nb_bitmaps >= text_info->max_bitmaps) {
+                    // Raise maximum number of bitmaps
+                    text_info->max_bitmaps *= 2;
+                    text_info->combined_bitmaps = combined_info =
+                        realloc(combined_info,
+                                sizeof(CombinedBitmapInfo) * text_info->max_bitmaps);
+                }
+
+                current_info = &combined_info[nb_bitmaps - 1];
+
+                current_info->pos.x = min_bm_x;
+                current_info->pos.y = min_bm_y;
+
+                current_info->first_pos_x = info->bbox.xMax >> 6;
+
+                memcpy(&current_info->c, &info->c, sizeof(info->c));
+                current_info->effect_type = info->effect_type;
+                current_info->effect_timing = info->effect_timing;
+                current_info->be = info->be;
+                current_info->blur = info->blur;
+                current_info->shadow_x = info->shadow_x;
+                current_info->shadow_y = info->shadow_y;
+                current_info->frx = info->frx;
+                current_info->fry = info->fry;
+                current_info->frz = info->frz;
+                current_info->fax = info->fax;
+                current_info->fay = info->fay;
+                current_info->scale_x = info->scale_x;
+                current_info->scale_y = info->scale_y;
+                current_info->border_style = info->border_style;
+                current_info->border_x = info->border_x;
+                current_info->border_y = info->border_y;
+                current_info->hspacing = info->hspacing;
+                current_info->italic = info->italic;
+                current_info->bold = info->bold;
+                current_info->flags = info->flags;
+
+                current_info->advance = info->hash_key.u.outline.advance;
+
+                current_info->has_border = !!info->border;
+
+                current_info->has_outline = 0;
+                current_info->cached = 0;
+                current_info->is_drawing = 0;
+
+                current_info->bm = current_info->bm_o = current_info->bm_s = NULL;
+
+                current_info->max_str_length = MAX_STR_LENGTH_INITIAL;
+                current_info->str_length = 0;
+                current_info->str = malloc(MAX_STR_LENGTH_INITIAL);
+                current_info->chars = 0;
+
+                current_info->w = current_info->h = current_info->o_w = current_info->o_h = 0;
+
+            }
+
+            if(info->drawing){
+                free(current_info->str);
+                current_info->str = strdup(info->drawing->text);
+                current_info->is_drawing = 1;
+                ass_drawing_free(info->drawing);
+            }else{
+                current_info->str_length +=
+                    ass_utf8_put_char(
+                        current_info->str + current_info->str_length,
+                        info->symbol);
+                current_info->chars++;
+                if(current_info->str_length > current_info->max_str_length - 5){
+                    current_info->max_str_length *= 2;
+                    current_info->str = realloc(current_info->str,
+                                                current_info->max_str_length);
+                }
+            }
+
+            current_info->has_outline = current_info->has_outline || !!info->bm_o;
+
+            if(min_bm_y < current_info->pos.y){
+                current_info->h += current_info->pos.y - min_bm_y;
+                current_info->o_h += current_info->pos.y - min_bm_y;
+                current_info->pos.y = min_bm_y;
+            }
+
+            if(min_bm_x < current_info->pos.x){
+                current_info->w += current_info->pos.x - min_bm_x;
+                current_info->o_w += current_info->pos.x - min_bm_x;
+                current_info->pos.x = min_bm_x;
+            }
+
+            if(info->bm){
+                current_info->w =
+                    FFMAX(current_info->w, info->bm->w + bm_x - current_info->pos.x);
+                current_info->h =
+                    FFMAX(current_info->h, info->bm->h + bm_y - current_info->pos.y);
+            }
+
+            if(info->bm_o){
+                current_info->o_w =
+                    FFMAX(current_info->o_w, info->bm_o->w + bm_o_x - current_info->pos.x);
+                current_info->o_h =
+                    FFMAX(current_info->o_h, info->bm_o->h + bm_o_y - current_info->pos.y);
+            }
+
+            info->bm_run_id = nb_bitmaps - 1;
+
+            last_info = info;
             info = info->next;
         }
     }
+
+    CompositeHashKey hk;
+    CompositeHashValue *hv;
+    for (i = 0; i < nb_bitmaps; ++i) {
+        CombinedBitmapInfo *info = &combined_info[i];
+
+        fill_composite_hash(&hk, info);
+
+        hv = ass_cache_get(render_priv->cache.composite_cache, &hk);
+
+        if(hv){
+            info->bm = hv->bm;
+            info->bm_o = hv->bm_o;
+            info->bm_s = hv->bm_s;
+            info->cached = 1;
+            free(info->str);
+        }else{
+            if(info->chars != 1 && !info->is_drawing){
+                info->bm = alloc_bitmap(info->w, info->h);
+                if(info->has_outline){
+                    info->bm_o = alloc_bitmap(info->o_w, info->o_h);
+                }
+            }
+        }
+    }
+
+    for (i = 0; i < text_info->length; ++i) {
+        GlyphInfo *info = glyphs + i;
+        while (info) {
+            current_info = &combined_info[info->bm_run_id];
+            if(!current_info->cached && !is_skip_symbol(info->symbol)){
+                if(current_info->chars == 1 || current_info->is_drawing){
+                    int offset_x = (info->pos.x >> 6) - current_info->pos.x;
+                    int offset_y = (info->pos.y >> 6) - current_info->pos.y;
+                    if(info->bm){
+                        current_info->bm = copy_bitmap(info->bm);
+                        current_info->bm->left += offset_x;
+                        current_info->bm->top += offset_y;
+                    }
+                    if(info->bm_o){
+                        current_info->bm_o = copy_bitmap(info->bm_o);
+                        current_info->bm_o->left += offset_x;
+                        current_info->bm_o->top += offset_y;
+                    }
+                }else{
+                    unsigned offset_x, offset_y;
+                    if(info->bm && info->bm->w && info->bm->h){
+                        offset_x = (info->pos.x >> 6) - current_info->pos.x + info->bm->left;
+                        offset_y = (info->pos.y >> 6) - current_info->pos.y + info->bm->top;
+                        render_priv->add_bitmaps_func(
+                            &current_info->bm->buffer[offset_y * current_info->bm->stride + offset_x],
+                            current_info->bm->stride,
+                            info->bm->buffer,
+                            info->bm->stride,
+                            info->bm->h,
+                            info->bm->w
+                        );
+                    }
+                    if(info->bm_o && info->bm_o->w && info->bm_o->h){
+                        offset_x = (info->pos.x >> 6) - current_info->pos.x + info->bm_o->left;
+                        offset_y = (info->pos.y >> 6) - current_info->pos.y + info->bm_o->top;
+                        render_priv->add_bitmaps_func(
+                            &current_info->bm_o->buffer[offset_y * current_info->bm_o->stride + offset_x],
+                            current_info->bm_o->stride,
+                            info->bm_o->buffer,
+                            info->bm_o->stride,
+                            info->bm_o->h,
+                            info->bm_o->w
+                        );
+                    }
+                }
+            }
+            info = info->next;
+        }
+    }
+
+    for (i = 0; i < nb_bitmaps; ++i) {
+        if(!combined_info[i].cached){
+            CompositeHashValue chv;
+            CombinedBitmapInfo *info = &combined_info[i];
+            if(info->bm || info->bm_o){
+                apply_blur(info, render_priv);
+                make_shadow_bitmap(info);
+            }
+
+            fill_composite_hash(&hk, info);
+
+            chv.bm = info->bm;
+            chv.bm_o = info->bm_o;
+            chv.bm_s = info->bm_s;
+
+            ass_cache_put(render_priv->cache.composite_cache, &hk, &chv);
+        }
+    }
+
+    text_info->n_bitmaps = nb_bitmaps;
 
     memset(event_images, 0, sizeof(*event_images));
     event_images->top = device_y - text_info->lines[0].asc;
@@ -2226,18 +2426,115 @@ void ass_free_images(ASS_Image *img)
 static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
 {
     if (ass_cache_empty(cache->bitmap_cache, cache->bitmap_max_size)) {
-        ass_cache_empty(cache->composite_cache, 0);
         ass_free_images(priv->prev_images_root);
         priv->prev_images_root = 0;
         priv->cache_cleared = 1;
     }
     if (ass_cache_empty(cache->outline_cache, cache->glyph_max)) {
         ass_cache_empty(cache->bitmap_cache, 0);
-        ass_cache_empty(cache->composite_cache, 0);
         ass_free_images(priv->prev_images_root);
         priv->prev_images_root = 0;
         priv->cache_cleared = 1;
     }
+    if (ass_cache_empty(cache->composite_cache, cache->composite_max_size)) {
+        ass_free_images(priv->prev_images_root);
+        priv->prev_images_root = 0;
+        priv->cache_cleared = 1;
+    }
+}
+
+void apply_blur(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
+{
+    int be = info->be;
+    double blur_radius = info->blur * render_priv->blur_scale * 2;
+    ASS_SynthPriv *priv_blur = render_priv->synth_priv;
+    Bitmap *bm_g = info->bm;
+    Bitmap *bm_o = info->bm_o;
+    int border_style = info->border_style;
+
+    if(blur_radius > 0.0 || be){
+        if (bm_o)
+            resize_tmp(priv_blur, bm_o->w, bm_o->h);
+        if (!bm_o || border_style == 3)
+            resize_tmp(priv_blur, bm_g->w, bm_g->h);
+    }
+
+    // Apply box blur (multiple passes, if requested)
+    if (be) {
+        uint16_t* tmp = (uint16_t*)(((uintptr_t)priv_blur->tmp + 0x0F) & ~0x0F);
+        if (bm_o) {
+            unsigned passes = be;
+            unsigned w = bm_o->w;
+            unsigned h = bm_o->h;
+            unsigned stride = bm_o->stride;
+            unsigned char *buf = bm_o->buffer;
+            if(w && h){
+                while(passes--){
+                    memset(tmp, 0, stride * 2);
+                    if(w < 16){
+                        be_blur_c(buf, w, h, stride, tmp);
+                    }else{
+                        render_priv->be_blur_func(buf, w, h, stride, tmp);
+                    }
+                }
+            }
+        }
+        if (!bm_o || border_style == 3) {
+            unsigned passes = be;
+            unsigned w = bm_g->w;
+            unsigned h = bm_g->h;
+            unsigned stride = bm_g->stride;
+            unsigned char *buf = bm_g->buffer;
+            if(w && h){
+                while(passes--){
+                    memset(tmp, 0, stride * 2);
+                    render_priv->be_blur_func(buf, w, h, stride, tmp);
+                }
+            }
+        }
+    }
+
+    // Apply gaussian blur
+    if (blur_radius > 0.0) {
+        generate_tables(priv_blur, blur_radius);
+        if (bm_o)
+            ass_gauss_blur(bm_o->buffer, priv_blur->tmp,
+                           bm_o->w, bm_o->h, bm_o->stride,
+                           priv_blur->gt2, priv_blur->g_r,
+                           priv_blur->g_w);
+        if (!bm_o || border_style == 3)
+            ass_gauss_blur(bm_g->buffer, priv_blur->tmp,
+                           bm_g->w, bm_g->h, bm_g->stride,
+                           priv_blur->gt2, priv_blur->g_r,
+                           priv_blur->g_w);
+    }
+}
+
+void make_shadow_bitmap(CombinedBitmapInfo *info)
+{
+
+    // VSFilter compatibility: invisible fill and no border?
+    // In this case no shadow is supposed to be rendered.
+    if (!info->has_border && (info->c[0] & 0xFF) == 0xFF) {
+        return;
+    }
+
+    int border_style = info->border_style;
+    // Create shadow and fix outline as needed
+    if (info->bm_o && border_style != 3) {
+        info->bm_s = copy_bitmap(info->bm_o);
+        fix_outline(info->bm, info->bm_o);
+    } else if (info->bm_o && (info->border_x || info->border_y)) {
+        info->bm_s = copy_bitmap(info->bm_o);
+    } else if (info->bm_o) {
+        info->bm_s = info->bm_o;
+        info->bm_o = 0;
+    } else
+        info->bm_s = copy_bitmap(info->bm);
+
+    assert(info->bm_s);
+
+    shift_bitmap(info->bm_s, info->shadow_x, info->shadow_y);
 }
 
 /**

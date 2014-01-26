@@ -27,24 +27,11 @@
 
 #include "ass_utils.h"
 #include "ass_bitmap.h"
-
-struct ass_synth_priv {
-    int tmp_w, tmp_h;
-    unsigned *tmp;
-
-    int g_r;
-    int g_w;
-
-    double *g0;
-    unsigned *g;
-    unsigned *gt2;
-
-    double radius;
-};
+#include "ass_render.h"
 
 static const unsigned base = 256;
 
-static int generate_tables(ASS_SynthPriv *priv, double radius)
+int generate_tables(ASS_SynthPriv *priv, double radius)
 {
     double A = log(1.0 / base) / (radius * radius * 2);
     int mx, i;
@@ -103,7 +90,7 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
     return 0;
 }
 
-static void resize_tmp(ASS_SynthPriv *priv, int w, int h)
+void resize_tmp(ASS_SynthPriv *priv, int w, int h)
 {
     if (priv->tmp_w >= w && priv->tmp_h >= h)
         return;
@@ -135,12 +122,17 @@ void ass_synth_done(ASS_SynthPriv *priv)
     free(priv);
 }
 
-static Bitmap *alloc_bitmap(int w, int h)
+Bitmap *alloc_bitmap(int w, int h)
 {
     Bitmap *bm;
-    unsigned s = w; // XXX: alignment
+
+    uintptr_t alignment_offset = (w > 31) ? 31 : ((w > 15) ? 15 : 0);
+    unsigned s = (w + alignment_offset) & ~alignment_offset;
     bm = malloc(sizeof(Bitmap));
-    bm->buffer = calloc(s, h);
+    bm->buffer_ptr = malloc(s * h + alignment_offset + 32);
+    bm->buffer = (unsigned char*)
+        (((uintptr_t)bm->buffer_ptr + alignment_offset) & ~alignment_offset);
+    memset(bm->buffer, 0, s * h + 32);
     bm->w = w;
     bm->h = h;
     bm->stride = s;
@@ -151,11 +143,11 @@ static Bitmap *alloc_bitmap(int w, int h)
 void ass_free_bitmap(Bitmap *bm)
 {
     if (bm)
-        free(bm->buffer);
+        free(bm->buffer_ptr);
     free(bm);
 }
 
-static Bitmap *copy_bitmap(const Bitmap *src)
+Bitmap *copy_bitmap(const Bitmap *src)
 {
     Bitmap *dst = alloc_bitmap(src->w, src->h);
     dst->left = src->left;
@@ -220,7 +212,7 @@ Bitmap *outline_to_bitmap(ASS_Library *library, FT_Library ftlib,
  * The glyph bitmap is subtracted from outline bitmap. This way looks much
  * better in some cases.
  */
-static void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
+void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
 {
     int x, y;
     const int l = bm_o->left > bm_g->left ? bm_o->left : bm_g->left;
@@ -253,7 +245,7 @@ static void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
  * \brief Shift a bitmap by the fraction of a pixel in x and y direction
  * expressed in 26.6 fixed point
  */
-static void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
+void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 {
     int x, y, b;
     int w = bm->w;
@@ -305,9 +297,9 @@ static void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 /*
  * Gaussian blur.  An fast pure C implementation from MPlayer.
  */
-static void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
-                           int width, int height, int stride,
-                           unsigned *m2, int r, int mwidth)
+void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
+                    int width, int height, int stride,
+                    unsigned *m2, int r, int mwidth)
 {
 
     int x, y;
@@ -427,36 +419,72 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
 /**
  * \brief Blur with [[1,2,1]. [2,4,2], [1,2,1]] kernel
  * This blur is the same as the one employed by vsfilter.
+ * Pure C implementation.
  */
-static void be_blur(Bitmap *bm)
+void be_blur_c(uint8_t *buf, intptr_t w,
+               intptr_t h, intptr_t stride,
+               uint16_t *tmp)
 {
-    int w = bm->w;
-    int h = bm->h;
-    int s = bm->stride;
-    unsigned char *buf = bm->buffer;
-    unsigned int x, y;
-    unsigned int old_sum, new_sum;
+    unsigned short *col_pix_buf = tmp;
+    unsigned short *col_sum_buf = tmp + w * sizeof(unsigned short);
+    unsigned x, y, old_pix, old_sum, new_sum, temp1, temp2;
+    unsigned char *src, *dst;
+    memset(col_pix_buf, 0, w * sizeof(unsigned short));
+    memset(col_sum_buf, 0, w * sizeof(unsigned short));
+    {
+        y = 0;
+        src=buf+y*stride;
 
-    for (y = 0; y < h; y++) {
-        old_sum = 2 * buf[y * s];
-        for (x = 0; x < w - 1; x++) {
-            new_sum = buf[y * s + x] + buf[y * s + x + 1];
-            buf[y * s + x] = (old_sum + new_sum) >> 2;
-            old_sum = new_sum;
+        x = 2;
+        old_pix = src[x-1];
+        old_sum = old_pix + src[x-2];
+        for ( ; x < w; x++) {
+            temp1 = src[x];
+            temp2 = old_pix + temp1;
+            old_pix = temp1;
+            temp1 = old_sum + temp2;
+            old_sum = temp2;
+            col_pix_buf[x] = temp1;
         }
-        new_sum = 2 * buf[y * s + w - 1];
-        buf[y * s + w - 1] = (old_sum + new_sum) >> 2;
+    }
+    new_sum = 2 * buf[y * stride + w - 1];
+    buf[y * stride + w - 1] = (old_sum + new_sum) >> 2;
+    {
+        x = 2;
+        old_pix = src[x-1];
+        old_sum = old_pix + src[x-2];
+        for ( ; x < w; x++) {
+            temp1 = src[x];
+            temp2 = old_pix + temp1;
+            old_pix = temp1;
+            temp1 = old_sum + temp2;
+            old_sum = temp2;
+
+            temp2 = col_pix_buf[x] + temp1;
+            col_pix_buf[x] = temp1;
+            col_sum_buf[x] = temp2;
+        }
     }
 
-    for (x = 0; x < w; x++) {
-        old_sum = 2 * buf[x];
-        for (y = 0; y < h - 1; y++) {
-            new_sum = buf[y * s + x] + buf[(y + 1) * s + x];
-            buf[y * s + x] = (old_sum + new_sum) >> 2;
-            old_sum = new_sum;
+    for (y = 2; y < h; y++) {
+        src=buf+y*stride;
+        dst=buf+(y-1)*stride;
+
+        x = 2;
+        old_pix = src[x-1];
+        old_sum = old_pix + src[x-2];
+        for ( ; x < w; x++) {
+            temp1 = src[x];
+            temp2 = old_pix + temp1;
+            old_pix = temp1;
+            temp1 = old_sum + temp2;
+            old_sum = temp2;
+
+            temp2 = col_pix_buf[x] + temp1;
+            col_pix_buf[x] = temp1;
+            dst[x-1] = (col_sum_buf[x] + temp2) >> 4;
+            col_sum_buf[x] = temp2;
         }
-        new_sum = 2 * buf[(h - 1) * s + x];
-        buf[(h - 1) * s + x] = (old_sum + new_sum) >> 2;
     }
 }
 
@@ -489,46 +517,69 @@ int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
         }
     }
 
-    // Apply box blur (multiple passes, if requested)
-    while (be--) {
-        if (*bm_o)
-            be_blur(*bm_o);
-        if (!*bm_o || border_style == 3)
-            be_blur(*bm_g);
-    }
-
-    // Apply gaussian blur
-    if (blur_radius > 0.0) {
-        if (*bm_o)
-            resize_tmp(priv_blur, (*bm_o)->w, (*bm_o)->h);
-        if (!*bm_o || border_style == 3)
-            resize_tmp(priv_blur, (*bm_g)->w, (*bm_g)->h);
-        generate_tables(priv_blur, blur_radius);
-        if (*bm_o)
-            ass_gauss_blur((*bm_o)->buffer, priv_blur->tmp,
-                           (*bm_o)->w, (*bm_o)->h, (*bm_o)->stride,
-                           priv_blur->gt2, priv_blur->g_r, priv_blur->g_w);
-        if (!*bm_o || border_style == 3)
-            ass_gauss_blur((*bm_g)->buffer, priv_blur->tmp,
-                           (*bm_g)->w, (*bm_g)->h, (*bm_g)->stride,
-                           priv_blur->gt2, priv_blur->g_r, priv_blur->g_w);
-    }
-
-    // Create shadow and fix outline as needed
-    if (*bm_o && border_style != 3) {
-        *bm_s = copy_bitmap(*bm_o);
-        fix_outline(*bm_g, *bm_o);
-    } else if (*bm_o && border_visible) {
-        *bm_s = copy_bitmap(*bm_o);
-    } else if (*bm_o) {
-        *bm_s = *bm_o;
-        *bm_o = 0;
-    } else
-        *bm_s = copy_bitmap(*bm_g);
-
-    assert(bm_s);
-
-    shift_bitmap(*bm_s, shadow_offset.x, shadow_offset.y);
-
     return 0;
+}
+
+/**
+ * \brief Add two bitmaps together at a given position
+ * Uses additive blending, clipped to [0,255]. Pure C implementation.
+ */
+void add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                   uint8_t *src, intptr_t src_stride,
+                   intptr_t height, intptr_t width)
+{
+    unsigned out;
+    uint8_t* end = dst + dst_stride * height;
+    while (dst < end) {
+        for (unsigned j = 0; j < width; ++j) {
+            out = dst[j] + src[j];
+            dst[j] = FFMIN(out, 255);
+        }
+        dst += dst_stride;
+        src += src_stride;
+    }
+}
+
+void sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                   uint8_t *src, intptr_t src_stride,
+                   intptr_t height, intptr_t width)
+{
+    unsigned out;
+    uint8_t* end = dst + dst_stride * height;
+    while (dst < end) {
+        for (unsigned j = 0; j < width; ++j) {
+            out = dst[j] - src[j];
+            dst[j] = FFMAX(out, 0);
+        }
+        dst += dst_stride;
+        src += src_stride;
+    }
+}
+
+void restride_bitmap_c(uint8_t *dst, intptr_t dst_stride,
+                       uint8_t *src, intptr_t src_stride,
+                       intptr_t width, intptr_t height)
+{
+    uint8_t* end = dst + dst_stride * height;
+    while (dst < end) {
+        memcpy(dst, src, width);
+        dst += dst_stride;
+        src += src_stride;
+    }
+}
+
+void mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                   uint8_t *src1, intptr_t src1_stride,
+                   uint8_t *src2, intptr_t src2_stride,
+                   intptr_t w, intptr_t h)
+{
+    uint8_t* end = src1 + src1_stride * h;
+    while (src1 < end) {
+        for (unsigned x = 0; x < w; ++x) {
+            dst[x] = (src1[x] * src2[x] + 255) >> 8;
+        }
+        dst  += dst_stride;
+        src1 += src1_stride;
+        src2 += src2_stride;
+    }
 }

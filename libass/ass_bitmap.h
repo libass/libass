@@ -24,7 +24,19 @@
 
 #include "ass.h"
 
-typedef struct ass_synth_priv ASS_SynthPriv;
+typedef struct ass_synth_priv {
+    int tmp_w, tmp_h;
+    unsigned *tmp;
+
+    int g_r;
+    int g_w;
+
+    double *g0;
+    unsigned *g;
+    unsigned *gt2;
+
+    double radius;
+} ASS_SynthPriv;
 
 ASS_SynthPriv *ass_synth_init(double);
 void ass_synth_done(ASS_SynthPriv *priv);
@@ -33,11 +45,14 @@ typedef struct {
     int left, top;
     int w, h;                   // width, height
     int stride;
-    unsigned char *buffer;      // w x h buffer
+    unsigned char *buffer;      // h * stride buffer
+    unsigned char *buffer_ptr;  // unaligned pointer (for free())
 } Bitmap;
 
 Bitmap *outline_to_bitmap(ASS_Library *library, FT_Library ftlib,
                           FT_Outline *outline, int bord);
+
+Bitmap *alloc_bitmap(int w, int h);
 /**
  * \brief perform glyph rendering
  * \param glyph original glyph
@@ -55,5 +70,29 @@ int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
                        int border_style, int border_visible);
 
 void ass_free_bitmap(Bitmap *bm);
+void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
+                    int width, int height, int stride,
+                    unsigned *m2, int r, int mwidth);
+void be_blur_c(uint8_t *buf, intptr_t w,
+               intptr_t h, intptr_t stride,
+               uint16_t *tmp);
+void add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                   uint8_t *src, intptr_t src_stride,
+                   intptr_t height, intptr_t width);
+void sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                   uint8_t *src, intptr_t src_stride,
+                   intptr_t height, intptr_t width);
+void restride_bitmap_c(uint8_t *dst, intptr_t dst_stride,
+                       uint8_t *src, intptr_t src_stride,
+                       intptr_t width, intptr_t height);
+void mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                   uint8_t *src1, intptr_t src1_stride,
+                   uint8_t *src2, intptr_t src2_stride,
+                   intptr_t w, intptr_t h);
+void shift_bitmap(Bitmap *bm, int shift_x, int shift_y);
+void fix_outline(Bitmap *bm_g, Bitmap *bm_o);
+void resize_tmp(ASS_SynthPriv *priv, int w, int h);
+int generate_tables(ASS_SynthPriv *priv, double radius);
+Bitmap *copy_bitmap(const Bitmap *src);
 
 #endif                          /* LIBASS_BITMAP_H */
