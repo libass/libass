@@ -379,8 +379,6 @@ typedef struct {
 
 void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style);
 void ass_free_images(ASS_Image *img);
-void make_shadow_bitmap(CombinedBitmapInfo* info);
-void apply_blur(CombinedBitmapInfo* info, ASS_Renderer *render_priv);
 
 // XXX: this is actually in ass.c, includes should be fixed later on
 void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track);

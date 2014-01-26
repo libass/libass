@@ -1691,6 +1691,98 @@ static int is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
     return 0;
 }
 
+static void apply_blur(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
+{
+    int be = info->be;
+    double blur_radius = info->blur * render_priv->blur_scale * 2;
+    ASS_SynthPriv *priv_blur = render_priv->synth_priv;
+    Bitmap *bm_g = info->bm;
+    Bitmap *bm_o = info->bm_o;
+    int border_style = info->border_style;
+
+    if(blur_radius > 0.0 || be){
+        if (bm_o)
+            resize_tmp(priv_blur, bm_o->w, bm_o->h);
+        if (!bm_o || border_style == 3)
+            resize_tmp(priv_blur, bm_g->w, bm_g->h);
+    }
+
+    // Apply box blur (multiple passes, if requested)
+    if (be) {
+        uint16_t* tmp = (uint16_t*)(((uintptr_t)priv_blur->tmp + 0x0F) & ~0x0F);
+        if (bm_o) {
+            unsigned passes = be;
+            unsigned w = bm_o->w;
+            unsigned h = bm_o->h;
+            unsigned stride = bm_o->stride;
+            unsigned char *buf = bm_o->buffer;
+            if(w && h){
+                while(passes--){
+                    memset(tmp, 0, stride * 2);
+                    if(w < 16){
+                        be_blur_c(buf, w, h, stride, tmp);
+                    }else{
+                        render_priv->be_blur_func(buf, w, h, stride, tmp);
+                    }
+                }
+            }
+        }
+        if (!bm_o || border_style == 3) {
+            unsigned passes = be;
+            unsigned w = bm_g->w;
+            unsigned h = bm_g->h;
+            unsigned stride = bm_g->stride;
+            unsigned char *buf = bm_g->buffer;
+            if(w && h){
+                while(passes--){
+                    memset(tmp, 0, stride * 2);
+                    render_priv->be_blur_func(buf, w, h, stride, tmp);
+                }
+            }
+        }
+    }
+
+    // Apply gaussian blur
+    if (blur_radius > 0.0) {
+        generate_tables(priv_blur, blur_radius);
+        if (bm_o)
+            ass_gauss_blur(bm_o->buffer, priv_blur->tmp,
+                           bm_o->w, bm_o->h, bm_o->stride,
+                           priv_blur->gt2, priv_blur->g_r,
+                           priv_blur->g_w);
+        if (!bm_o || border_style == 3)
+            ass_gauss_blur(bm_g->buffer, priv_blur->tmp,
+                           bm_g->w, bm_g->h, bm_g->stride,
+                           priv_blur->gt2, priv_blur->g_r,
+                           priv_blur->g_w);
+    }
+}
+
+static void make_shadow_bitmap(CombinedBitmapInfo *info)
+{
+    // VSFilter compatibility: invisible fill and no border?
+    // In this case no shadow is supposed to be rendered.
+    if (!info->has_border && (info->c[0] & 0xFF) == 0xFF) {
+        return;
+    }
+
+    // Create shadow and fix outline as needed
+    if (info->bm_o && info->border_style != 3) {
+        info->bm_s = copy_bitmap(info->bm_o);
+        fix_outline(info->bm, info->bm_o);
+    } else if (info->bm_o && (info->border_x || info->border_y)) {
+        info->bm_s = copy_bitmap(info->bm_o);
+    } else if (info->bm_o) {
+        info->bm_s = info->bm_o;
+        info->bm_o = 0;
+    } else
+        info->bm_s = copy_bitmap(info->bm);
+
+    assert(info->bm_s);
+
+    shift_bitmap(info->bm_s, info->shadow_x, info->shadow_y);
+}
+
 /**
  * \brief Main ass rendering function, glues everything together
  * \param event event to render
@@ -2462,100 +2554,6 @@ static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
         priv->prev_images_root = 0;
         priv->cache_cleared = 1;
     }
-}
-
-void apply_blur(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
-{
-    int be = info->be;
-    double blur_radius = info->blur * render_priv->blur_scale * 2;
-    ASS_SynthPriv *priv_blur = render_priv->synth_priv;
-    Bitmap *bm_g = info->bm;
-    Bitmap *bm_o = info->bm_o;
-    int border_style = info->border_style;
-
-    if(blur_radius > 0.0 || be){
-        if (bm_o)
-            resize_tmp(priv_blur, bm_o->w, bm_o->h);
-        if (!bm_o || border_style == 3)
-            resize_tmp(priv_blur, bm_g->w, bm_g->h);
-    }
-
-    // Apply box blur (multiple passes, if requested)
-    if (be) {
-        uint16_t* tmp = (uint16_t*)(((uintptr_t)priv_blur->tmp + 0x0F) & ~0x0F);
-        if (bm_o) {
-            unsigned passes = be;
-            unsigned w = bm_o->w;
-            unsigned h = bm_o->h;
-            unsigned stride = bm_o->stride;
-            unsigned char *buf = bm_o->buffer;
-            if(w && h){
-                while(passes--){
-                    memset(tmp, 0, stride * 2);
-                    if(w < 16){
-                        be_blur_c(buf, w, h, stride, tmp);
-                    }else{
-                        render_priv->be_blur_func(buf, w, h, stride, tmp);
-                    }
-                }
-            }
-        }
-        if (!bm_o || border_style == 3) {
-            unsigned passes = be;
-            unsigned w = bm_g->w;
-            unsigned h = bm_g->h;
-            unsigned stride = bm_g->stride;
-            unsigned char *buf = bm_g->buffer;
-            if(w && h){
-                while(passes--){
-                    memset(tmp, 0, stride * 2);
-                    render_priv->be_blur_func(buf, w, h, stride, tmp);
-                }
-            }
-        }
-    }
-
-    // Apply gaussian blur
-    if (blur_radius > 0.0) {
-        generate_tables(priv_blur, blur_radius);
-        if (bm_o)
-            ass_gauss_blur(bm_o->buffer, priv_blur->tmp,
-                           bm_o->w, bm_o->h, bm_o->stride,
-                           priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
-        if (!bm_o || border_style == 3)
-            ass_gauss_blur(bm_g->buffer, priv_blur->tmp,
-                           bm_g->w, bm_g->h, bm_g->stride,
-                           priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
-    }
-}
-
-void make_shadow_bitmap(CombinedBitmapInfo *info)
-{
-
-    // VSFilter compatibility: invisible fill and no border?
-    // In this case no shadow is supposed to be rendered.
-    if (!info->has_border && (info->c[0] & 0xFF) == 0xFF) {
-        return;
-    }
-
-    int border_style = info->border_style;
-    // Create shadow and fix outline as needed
-    if (info->bm_o && border_style != 3) {
-        info->bm_s = copy_bitmap(info->bm_o);
-        fix_outline(info->bm, info->bm_o);
-    } else if (info->bm_o && (info->border_x || info->border_y)) {
-        info->bm_s = copy_bitmap(info->bm_o);
-    } else if (info->bm_o) {
-        info->bm_s = info->bm_o;
-        info->bm_o = 0;
-    } else
-        info->bm_s = copy_bitmap(info->bm);
-
-    assert(info->bm_s);
-
-    shift_bitmap(info->bm_s, info->shadow_x, info->shadow_y);
 }
 
 /**
