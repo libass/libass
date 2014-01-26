@@ -213,14 +213,14 @@ typedef struct {
 
 typedef struct {
     GlyphInfo *glyphs;
-    int length;
+    unsigned length;
     LineInfo *lines;
-    int n_lines;
+    unsigned n_lines;
     CombinedBitmapInfo *combined_bitmaps;
     unsigned n_bitmaps;
     double height;
-    int max_glyphs;
-    int max_lines;
+    unsigned max_glyphs;
+    unsigned max_lines;
     unsigned max_bitmaps;
 } TextInfo;
 

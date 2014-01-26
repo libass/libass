@@ -89,10 +89,10 @@ match_fullname(ASS_Library *lib, FCInstance *priv, const char *family,
                     || ol != FcTrue)
                     continue;
                 if (FcPatternGetInteger(pat, FC_SLANT, 0, &at) != FcResultMatch
-                    || at < italic)
+                    || at < (int)italic)
                     continue;
                 if (FcPatternGetInteger(pat, FC_WEIGHT, 0, &at) != FcResultMatch
-                    || at < bold)
+                    || at < (int)bold)
                     continue;
                 if (strcasecmp(fullname, family) == 0) {
                     FcFontSetAdd(result, FcPatternDuplicate(pat));

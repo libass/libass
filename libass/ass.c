@@ -495,7 +495,7 @@ static int process_style(ASS_Track *track, char *str)
     // Add default style first
     if (track->n_styles == 0) {
         // will be used if track does not contain a default style (or even does not contain styles at all)
-        int sid = ass_alloc_style(track);
+        sid = ass_alloc_style(track);
         set_default_style(&track->styles[sid]);
         track->default_style = sid;
     }

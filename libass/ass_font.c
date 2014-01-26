@@ -469,7 +469,6 @@ int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
             face = font->faces[face_idx];
             index = FT_Get_Char_Index(face, ass_font_index_magic(face, symbol));
             if (index == 0 && face->num_charmaps > 0) {
-                int i;
                 ass_msg(font->library, MSGL_WARN,
                     "Glyph 0x%X not found, broken font? Trying all charmaps", symbol);
                 for (i = 0; i < face->num_charmaps; i++) {

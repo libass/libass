@@ -623,7 +623,7 @@ static inline int is_skip_symbol(uint32_t x)
 static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
 {
     int pen_x, pen_y;
-    int i;
+    unsigned i;
     Bitmap *bm;
     ASS_Image *head;
     ASS_Image **tail = &head;
@@ -728,8 +728,6 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
 
 static void compute_string_bbox(TextInfo *text, DBBox *bbox)
 {
-    int i;
-
     if (text->length > 0) {
         bbox->xMin = 32000;
         bbox->xMax = -32000;
@@ -737,7 +735,7 @@ static void compute_string_bbox(TextInfo *text, DBBox *bbox)
         bbox->yMax = text->height - text->lines[0].asc +
                      d6_to_double(text->glyphs[0].pos.y);
 
-        for (i = 0; i < text->length; ++i) {
+        for (unsigned i = 0; i < text->length; ++i) {
             GlyphInfo *info = text->glyphs + i;
             if (info->skip) continue;
             while (info) {
@@ -949,8 +947,7 @@ static void stroke_outline(ASS_Renderer *render_priv, FT_Outline *outline,
  * \brief Prepare glyph hash
  */
 static void
-fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
-                GlyphInfo *info)
+fill_glyph_hash(OutlineHashKey *outline_key, GlyphInfo *info)
 {
     if (info->drawing) {
         DrawingHashKey *key = &outline_key->u.drawing;
@@ -1031,15 +1028,14 @@ static void fill_composite_hash(CompositeHashKey *hk, CombinedBitmapInfo *info)
  * and add them to cache.
  * The glyphs are returned in info->glyph and info->outline_glyph
  */
-static void
-get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
+static void get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 {
     OutlineHashValue *val;
     OutlineHashKey key;
 
     memset(&info->hash_key, 0, sizeof(key));
 
-    fill_glyph_hash(priv, &key, info);
+    fill_glyph_hash(&key, info);
     val = ass_cache_get(priv->cache.outline_cache, &key);
 
     if (!val) {
@@ -1268,11 +1264,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                 render_priv->ftlibrary,
                 outline, border,
                 &hash_val.bm, &hash_val.bm_o,
-                &hash_val.bm_s, info->be,
-                info->blur * render_priv->blur_scale,
-                key->shadow_offset,
-                info->border_style,
-                info->border_x || info->border_y);
+                info->be, info->blur * render_priv->blur_scale,
+                key->shadow_offset);
         if (error)
             info->symbol = 0;
 
@@ -1301,10 +1294,9 @@ static void measure_text(ASS_Renderer *render_priv)
     int cur_line = 0;
     double max_asc = 0., max_desc = 0.;
     GlyphInfo *last = NULL;
-    int i;
     int empty_line = 1;
     text_info->height = 0.;
-    for (i = 0; i < text_info->length + 1; ++i) {
+    for (unsigned i = 0; i < text_info->length + 1; ++i) {
         if ((i == text_info->length) || text_info->glyphs[i].linebreak) {
             if (empty_line && cur_line > 0 && last) {
                 max_asc = d6_to_double(last->asc) / 2.0;
@@ -1341,7 +1333,7 @@ static void measure_text(ASS_Renderer *render_priv)
                           && !x->linebreak)
 static void trim_whitespace(ASS_Renderer *render_priv)
 {
-    int i, j;
+    unsigned i, j;
     GlyphInfo *cur;
     TextInfo *ti = &render_priv->text_info;
 
@@ -1404,7 +1396,7 @@ static void trim_whitespace(ASS_Renderer *render_priv)
 static void
 wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
 {
-    int i;
+    unsigned i;
     GlyphInfo *cur, *s1, *e1, *s2, *s3, *w;
     int last_space;
     int break_type;
@@ -1445,7 +1437,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
         if (break_at != -1) {
             // need to use one more line
             // marking break_at+1 as start of a new line
-            int lead = break_at + 1;    // the first symbol of the new line
+            unsigned lead = break_at + 1;    // the first symbol of the new line
             if (text_info->n_lines >= text_info->max_lines) {
                 // Raise maximum number of lines
                 text_info->max_lines *= 2;
@@ -1705,7 +1697,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     FT_Vector pen;
     unsigned code;
     DBBox bbox;
-    int i, j;
+    unsigned i, j;
     int MarginL, MarginR, MarginV;
     int last_break;
     int alignment, halign, valign;
