@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
  * Copyright (C) 2011 Grigori Goronzy <greg@chown.ath.cx>
+ * Copyright (c) 2011-2014, Yu Zhouhuang <yuzhuohuang@qq.com>
  *
  * This file is part of libass.
  *
