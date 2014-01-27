@@ -31,14 +31,14 @@
 
 #include "x86/cpuid.h"
 
-int has_sse2()
+int has_sse2(void)
 {
     uint32_t eax = 1, ebx, ecx, edx;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
     return (!!(edx & (1 << 26)));
 }
 
-int has_avx()
+int has_avx(void)
 {
     uint32_t eax = 1, ebx, ecx, edx;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
@@ -54,7 +54,7 @@ int has_avx()
     return (!!(misc & (1 << 28)));
 }
 
-int has_avx2()
+int has_avx2(void)
 {
     uint32_t eax = 7, ebx, ecx, edx;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
