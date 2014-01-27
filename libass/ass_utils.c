@@ -21,8 +21,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
-#include <ft2build.h>
-#include FT_GLYPH_H
 #include <strings.h>
 
 #include "ass_library.h"
