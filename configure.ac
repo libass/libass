@@ -46,16 +46,9 @@ AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
 AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
     [disable HarfBuzz support @<:@default=check@:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
-    [disable compiling with ASM @<:@default=enabled@:>@]),
+    [disable compiling with ASM @<:@default=check@:>@]),
     [asm=false],
     [asm=true])
-
-AM_CONDITIONAL([ASM], [test x$asm = xtrue])
-
-AM_COND_IF([ASM],
-    [AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])],
-    [AC_DEFINE(CONFIG_ASM, 0, [ASM disabled])]
-    )
 
 test "${ASFLAGS+set}" = set || ASFLAGS=""
 
@@ -82,6 +75,24 @@ case $host in
     *mingw*)
         WIN32=true ;;
 esac
+
+if test x$INTEL = xtrue ; then
+    if test x$asm = xtrue ; then
+        AC_CHECK_PROG(YASM_CHECK,yasm,yes)
+        if test x$YASM_CHECK != xyes ; then
+            AC_MSG_WARN(YASM was not found; ASM functions are disabled.)
+            AC_MSG_WARN(Install yasm for a significantly faster libass build.)
+            asm=false
+        fi
+    fi
+fi
+
+AM_CONDITIONAL([ASM], [test x$asm = xtrue])
+
+AM_COND_IF([ASM],
+    [AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])],
+    [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])]
+    )
 
 AM_CONDITIONAL([INTEL], [test x$INTEL = xtrue])
 AM_CONDITIONAL([X86], [test x$X86 = xtrue])
