@@ -135,7 +135,7 @@ static void free_list_clear(ASS_Renderer *render_priv)
         FreeList *item = render_priv->free_head;
         while(item) {
             FreeList *oi = item;
-            free(item->object);
+            ass_aligned_free(item->object);
             item = item->next;
             free(oi);
         }
@@ -570,10 +570,9 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             }
 
             // Allocate new buffer and add to free list
-            nbuffer = malloc(as * ah + 0x1F);
+            nbuffer = ass_aligned_alloc(32, as * ah);
             if (!nbuffer) return;
             free_list_add(render_priv, nbuffer);
-            nbuffer = (unsigned char*)(((uintptr_t)nbuffer + 0x1F) & ~0x1F);
 
             // Blend together
             memcpy(nbuffer, abuffer, ((ah - 1) * as) + aw);
@@ -589,13 +588,11 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             }
 
             // Allocate new buffer and add to free list
-            uintptr_t alignment_offset = (w > 15) ? 15 : ((w > 7) ? 7 : 0);
-            unsigned ns = (w + alignment_offset) & ~alignment_offset;
-            nbuffer = malloc(ns * h + alignment_offset);
+            unsigned align = (w >= 16) ? 16 : ((w >= 8) ? 8 : 1);
+            unsigned ns = ass_align(align, w);
+            nbuffer = ass_aligned_alloc(align, ns * h);
             if (!nbuffer) return;
             free_list_add(render_priv, nbuffer);
-            nbuffer = (unsigned char*)
-                (((uintptr_t)nbuffer + alignment_offset) & ~alignment_offset);
 
             // Blend together
             render_priv->mul_bitmaps_func(nbuffer, ns,
@@ -704,13 +701,11 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
                  s = cur->stride;
         if(w + 31 < (unsigned)cur->stride){ // Larger value? Play with this.
             // Allocate new buffer and add to free list
-            uintptr_t alignment_offset = (w > 31) ? 31 : ((w > 15) ? 15 : 0);
-            unsigned ns = (w + alignment_offset) & ~alignment_offset;
-            uint8_t* nbuffer = malloc(ns * cur->h + alignment_offset);
+            unsigned align = (w >= 32) ? 32 : ((w >= 16) ? 16 : 1);
+            unsigned ns = ass_align(align, w);
+            uint8_t* nbuffer = ass_aligned_alloc(align, ns * cur->h);
             if (!nbuffer) continue;
             free_list_add(render_priv, nbuffer);
-            nbuffer = (unsigned char*)
-                (((uintptr_t)nbuffer + alignment_offset) & ~alignment_offset);
 
             // Copy
             render_priv->restride_bitmap_func(nbuffer, ns,
@@ -1711,7 +1706,7 @@ static void apply_blur(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
 
     // Apply box blur (multiple passes, if requested)
     if (be) {
-        uint16_t* tmp = (uint16_t*)(((uintptr_t)priv_blur->tmp + 0x0F) & ~0x0F);
+        uint16_t* tmp = priv_blur->tmp;
         if (bm_o) {
             unsigned passes = be;
             unsigned w = bm_o->w;
