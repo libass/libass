@@ -140,15 +140,15 @@ static void init_features(ASS_Shaper *shaper)
 
     shaper->n_features = NUM_FEATURES;
     shaper->features[VERT].tag = HB_TAG('v', 'e', 'r', 't');
-    shaper->features[VERT].end = INT_MAX;
+    shaper->features[VERT].end = UINT_MAX;
     shaper->features[VKNA].tag = HB_TAG('v', 'k', 'n', 'a');
-    shaper->features[VKNA].end = INT_MAX;
+    shaper->features[VKNA].end = UINT_MAX;
     shaper->features[KERN].tag = HB_TAG('k', 'e', 'r', 'n');
-    shaper->features[KERN].end = INT_MAX;
+    shaper->features[KERN].end = UINT_MAX;
     shaper->features[LIGA].tag = HB_TAG('l', 'i', 'g', 'a');
-    shaper->features[LIGA].end = INT_MAX;
+    shaper->features[LIGA].end = UINT_MAX;
     shaper->features[CLIG].tag = HB_TAG('c', 'l', 'i', 'g');
-    shaper->features[CLIG].end = INT_MAX;
+    shaper->features[CLIG].end = UINT_MAX;
 }
 
 /**

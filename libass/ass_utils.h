@@ -132,11 +132,16 @@ static inline int rot_key(double a)
 static inline unsigned fnv_32a_buf(void *buf, size_t len, unsigned hval)
 {
     unsigned char *bp = buf;
-    unsigned char *be = bp + len;
-    while (bp < be) {
-        hval ^= (unsigned) *bp++;
-        hval *= FNV1_32A_PRIME;
+    size_t n = (len + 3) / 4;
+
+    switch (len % 4) {
+    case 0: do { hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
+    case 3:      hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
+    case 2:      hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
+    case 1:      hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
+               } while (--n > 0);
     }
+
     return hval;
 }
 static inline unsigned fnv_32a_str(char *str, unsigned hval)
