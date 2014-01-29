@@ -135,6 +135,7 @@ typedef struct {
     unsigned italic;
     unsigned bold;
     int flags;
+    int shift_x, shift_y;
 
     unsigned has_outline;
     unsigned is_drawing;

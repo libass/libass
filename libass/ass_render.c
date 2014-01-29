@@ -1020,6 +1020,8 @@ static void fill_composite_hash(CompositeHashKey *hk, CombinedBitmapInfo *info)
     hk->frz = info->frz;
     hk->fax = info->fax;
     hk->fay = info->fay;
+    hk->shift_x = info->shift_x;
+    hk->shift_y = info->shift_y;
     hk->advance = info->advance;
 }
 
@@ -2334,7 +2336,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 current_info->bold = info->bold;
                 current_info->flags = info->flags;
 
-                current_info->advance = info->hash_key.u.outline.advance;
+                current_info->shift_x = key->shift_x;
+                current_info->shift_y = key->shift_y;
+                current_info->advance = key->advance;
 
                 current_info->has_border = !!info->border;
 
