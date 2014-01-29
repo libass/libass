@@ -103,8 +103,9 @@ void resize_tmp(ASS_SynthPriv *priv, int w, int h)
         priv->tmp_w *= 2;
     while (priv->tmp_h < h)
         priv->tmp_h *= 2;
-    free(priv->tmp);
-    priv->tmp = malloc((priv->tmp_w + 1) * priv->tmp_h * sizeof(unsigned));
+    ass_aligned_free(priv->tmp);
+    priv->tmp =
+        ass_aligned_alloc(32, (priv->tmp_w + 1) * priv->tmp_h * sizeof(unsigned));
 }
 
 ASS_SynthPriv *ass_synth_init(double radius)
@@ -116,7 +117,7 @@ ASS_SynthPriv *ass_synth_init(double radius)
 
 void ass_synth_done(ASS_SynthPriv *priv)
 {
-    free(priv->tmp);
+    ass_aligned_free(priv->tmp);
     free(priv->g0);
     free(priv->g);
     free(priv->gt2);
@@ -127,12 +128,10 @@ Bitmap *alloc_bitmap(int w, int h)
 {
     Bitmap *bm;
 
-    uintptr_t alignment_offset = (w > 31) ? 31 : ((w > 15) ? 15 : 0);
-    unsigned s = (w + alignment_offset) & ~alignment_offset;
+    unsigned align = (w >= 32) ? 32 : ((w >= 16) ? 16 : 1);
+    unsigned s = ass_align(align, w);
     bm = malloc(sizeof(Bitmap));
-    bm->buffer_ptr = malloc(s * h + alignment_offset + 32);
-    bm->buffer = (unsigned char*)
-        (((uintptr_t)bm->buffer_ptr + alignment_offset) & ~alignment_offset);
+    bm->buffer = ass_aligned_alloc(align, s * h + 32);
     memset(bm->buffer, 0, s * h + 32);
     bm->w = w;
     bm->h = h;
@@ -144,7 +143,7 @@ Bitmap *alloc_bitmap(int w, int h)
 void ass_free_bitmap(Bitmap *bm)
 {
     if (bm)
-        free(bm->buffer_ptr);
+        ass_aligned_free(bm->buffer);
     free(bm);
 }
 

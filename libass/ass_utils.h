@@ -49,6 +49,9 @@ int has_avx(void);
 int has_avx2(void);
 #endif
 
+void *ass_aligned_alloc(size_t alignment, size_t size);
+void ass_aligned_free(void *ptr);
+
 int mystrtoi(char **p, int *res);
 int mystrtoll(char **p, long long *res);
 int mystrtou32(char **p, int base, uint32_t *res);
@@ -69,6 +72,11 @@ void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
 
 /* defined in ass_strtod.c */
 double ass_strtod(const char *string, char **endPtr);
+
+static inline size_t ass_align(size_t alignment, size_t s)
+{
+    return (s + (alignment - 1)) & ~(alignment - 1);
+}
 
 static inline int d6_to_int(int x)
 {

@@ -26,7 +26,7 @@
 
 typedef struct ass_synth_priv {
     int tmp_w, tmp_h;
-    unsigned *tmp;
+    void *tmp;
 
     int g_r;
     int g_w;
@@ -46,7 +46,6 @@ typedef struct {
     int w, h;                   // width, height
     int stride;
     unsigned char *buffer;      // h * stride buffer
-    unsigned char *buffer_ptr;  // unaligned pointer (for free())
 } Bitmap;
 
 Bitmap *outline_to_bitmap(ASS_Library *library, FT_Library ftlib,
