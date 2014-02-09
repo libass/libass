@@ -735,13 +735,10 @@ static void compute_string_bbox(TextInfo *text, DBBox *bbox)
         for (i = 0; i < text->length; ++i) {
             GlyphInfo *info = text->glyphs + i;
             if (info->skip) continue;
-            while (info) {
-                double s = d6_to_double(info->pos.x);
-                double e = s + d6_to_double(info->advance.x);
-                bbox->xMin = FFMIN(bbox->xMin, s);
-                bbox->xMax = FFMAX(bbox->xMax, e);
-                info = info->next;
-            }
+            double s = d6_to_double(info->pos.x);
+            double e = s + d6_to_double(info->cluster_advance.x);
+            bbox->xMin = FFMIN(bbox->xMin, s);
+            bbox->xMax = FFMAX(bbox->xMax, e);
         }
     } else
         bbox->xMin = bbox->xMax = bbox->yMin = bbox->yMax = 0.;
