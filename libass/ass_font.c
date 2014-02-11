@@ -236,12 +236,16 @@ void ass_face_set_size(FT_Face face, double size)
     FT_Size_Metrics *m = &face->size->metrics;
     // VSFilter uses metrics from TrueType OS/2 table
     // The idea was borrowed from asa (http://asa.diac24.net)
-    if (hori && os2) {
-        int hori_height = hori->Ascender - hori->Descender;
+    if (os2) {
+        int ft_height = 0;
+        if (hori)
+            ft_height = hori->Ascender - hori->Descender;
+        if (!ft_height)
+            ft_height = os2->sTypoAscender - os2->sTypoDescender;
         /* sometimes used for signed values despite unsigned in spec */
         int os2_height = (short)os2->usWinAscent + (short)os2->usWinDescent;
-        if (hori_height && os2_height)
-            mscale = (double) hori_height / os2_height;
+        if (ft_height && os2_height)
+            mscale = (double) ft_height / os2_height;
     }
     memset(&rq, 0, sizeof(rq));
     rq.type = FT_SIZE_REQUEST_TYPE_REAL_DIM;
