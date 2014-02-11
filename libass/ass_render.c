@@ -785,7 +785,6 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
     render_priv->state.frx = render_priv->state.fry = 0.;
     render_priv->state.frz = M_PI * style->Angle / 180.;
     render_priv->state.fax = render_priv->state.fay = 0.;
-    render_priv->state.wrap_style = render_priv->track->WrapStyle;
     render_priv->state.font_encoding = style->Encoding;
 }
 
@@ -800,6 +799,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.parsed_tags = 0;
 
     reset_render_context(render_priv, render_priv->state.style);
+    render_priv->state.wrap_style = render_priv->track->WrapStyle;
 
     render_priv->state.evt_type = EVENT_NORMAL;
     render_priv->state.alignment = render_priv->state.style->Alignment;
