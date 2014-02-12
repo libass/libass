@@ -349,12 +349,12 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
     while (1) {
         NEXT(q, tname);
         if (ass_strcasecmp(tname, "Text") == 0) {
-            char *last;
             event->Text = strdup(p);
             if (event->Text && *event->Text != 0) {
-                last = event->Text + strlen(event->Text) - 1;
-                if (last >= event->Text && *last == '\r')
-                    *last = 0;
+                char *end = event->Text + strlen(event->Text);
+                while (end > event->Text &&
+                       (end[-1] == '\r' || end[-1] == '\t' || end[-1] == ' '))
+                    *--end = 0;
             }
             event->Duration -= event->Start;
             free(format);
