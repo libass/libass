@@ -1649,8 +1649,7 @@ fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
   */
 static int is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
 {
-    if (!last || info->linebreak || info->effect ||
-        info->drawing || last->drawing) {
+    if (!last || info->effect || info->drawing || last->drawing) {
         return 1;
     }
     // FIXME: Don't break on glyph substitutions
@@ -2255,11 +2254,14 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     int left = render_priv->settings.left_margin;
     device_x = (device_x - left) * render_priv->font_scale_x + left;
     unsigned nb_bitmaps = 0;
+    char linebreak = 0;
     CombinedBitmapInfo *combined_info = text_info->combined_bitmaps;
     CombinedBitmapInfo *current_info = NULL;
     GlyphInfo *last_info = NULL;
     for (i = 0; i < text_info->length; ++i) {
         GlyphInfo *info = glyphs + i;
+        if (info->linebreak) linebreak = 1;
+        if (info->skip) continue;
         while (info) {
             OutlineBitmapHashKey *key = &info->hash_key.u.outline;
             info->pos.x *= render_priv->font_scale_x;
@@ -2289,7 +2291,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 min_bm_y = FFMIN(min_bm_y, bm_o_y);
             }
 
-            if(is_new_bm_run(info, last_info)){
+            if(linebreak || is_new_bm_run(info, last_info)){
+                linebreak = 0;
                 ++nb_bitmaps;
                 if (nb_bitmaps >= text_info->max_bitmaps) {
                     // Raise maximum number of bitmaps
@@ -2429,6 +2432,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     for (i = 0; i < text_info->length; ++i) {
         GlyphInfo *info = glyphs + i;
+        if (info->skip) continue;
         while (info) {
             current_info = &combined_info[info->bm_run_id];
             if(!current_info->cached && !is_skip_symbol(info->symbol)){
