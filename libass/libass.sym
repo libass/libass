@@ -38,3 +38,6 @@ ass_flush_events
 ass_set_shaper
 ass_set_line_position
 ass_set_pixel_aspect
+ass_create_font_provider
+ass_font_provider_add_font
+ass_font_provider_free

@@ -57,6 +57,7 @@ int mystrtoll(char **p, long long *res);
 int mystrtou32(char **p, int base, uint32_t *res);
 int mystrtod(char **p, double *res);
 int strtocolor(ASS_Library *library, char **q, uint32_t *res, int hex);
+char *trim_space(char *str);
 char parse_bool(char *str);
 int parse_ycbcr_matrix(char *str);
 unsigned ass_utf8_get_char(char **str);
