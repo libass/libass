@@ -69,7 +69,6 @@ void update_font(ASS_Renderer *render_priv)
 {
     unsigned val;
     ASS_FontDesc desc;
-    desc.treat_family_as_pattern = render_priv->state.treat_family_as_pattern;
 
     if (render_priv->state.family[0] == '@') {
         desc.vertical = 1;
@@ -81,10 +80,10 @@ void update_font(ASS_Renderer *render_priv)
 
     val = render_priv->state.bold;
     // 0 = normal, 1 = bold, >1 = exact weight
-    if (val == 1)
-        val = 200;              // bold
+    if (val == 1 || val == -1)
+        val = 700;               // bold
     else if (val <= 0)
-        val = 80;               // normal
+        val = 400;               // normal
     desc.bold = val;
 
     val = render_priv->state.italic;
@@ -96,7 +95,7 @@ void update_font(ASS_Renderer *render_priv)
 
     render_priv->state.font =
         ass_font_new(render_priv->cache.font_cache, render_priv->library,
-                     render_priv->ftlibrary, render_priv->fontconfig_priv,
+                     render_priv->ftlibrary, render_priv->fontselect,
                      &desc);
     free(desc.family);
 
