@@ -155,7 +155,7 @@ cglobal be_blur, 5,15
     lea r12, [r4 + r3 * 2] ; unsigned char *col_sum_buf = tmp + stride * 2;
     lea r14, [r1 - 2] ; tmpreg = (stride-2);
     and r14, -16 ; tmpreg &= (~15);
-    vmovdqa ymm8, [low_word_zero wrt rip]
+    vmovdqa ymm7, [low_word_zero wrt rip]
 .first_loop
     movzx r10, byte [r7 + r6] ; int temp1 = src[x];
     lea r11, [r8 + r10] ; int temp2 = old_pix + temp1;
@@ -200,17 +200,17 @@ cglobal be_blur, 5,15
 .width_loop
     vpermq ymm2, [r7 + r6], 0x10
     vpunpcklbw ymm2, ymm2, ymm6 ; new_pix = _mm_unpacklo_epi8(new_pix, temp3);
-    vpermq ymm11, ymm2, 0x4e
-    vpalignr ymm3, ymm2, ymm11, 14
-    vpand ymm3, ymm3, ymm8
+    vpermq ymm8, ymm2, 0x4e
+    vpalignr ymm3, ymm2, ymm8, 14
+    vpand ymm3, ymm3, ymm7
     vpaddw ymm3, ymm0 ; temp = _mm_add_epi16(temp, old_pix_128);
     vpaddw ymm3, ymm2 ; temp = _mm_add_epi16(temp, new_pix);
     vperm2i128 ymm0, ymm2, ymm6, 0x21
     vpsrldq ymm0, ymm0, 14; temp = temp >> 14 * 8;
-    vpermq ymm11, ymm3, 0x4e
-    vpand ymm11, ymm11, ymm8;
-    vpalignr ymm2, ymm3, ymm11, 14
-    vpand ymm2, ymm2, ymm8
+    vpermq ymm8, ymm3, 0x4e
+    vpand ymm8, ymm8, ymm7;
+    vpalignr ymm2, ymm3, ymm8, 14
+    vpand ymm2, ymm2, ymm7
     vpaddw ymm2, ymm1 ; new_pix = _mm_add_epi16(new_pix, old_sum_128);
     vpaddw ymm2, ymm3 ; new_pix = _mm_add_epi16(new_pix, temp);
     vperm2i128 ymm1, ymm3, ymm6, 0x21
