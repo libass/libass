@@ -32,7 +32,7 @@ SECTION .text
 ;------------------------------------------------------------------------------
 
 INIT_XMM sse2
-cglobal be_blur, 5,15
+cglobal be_blur, 5,15,9
 .skip_prologue:
     xor r5, r5 ; int y = 0;
     mov r6, 2 ; int x = 2;
@@ -139,7 +139,7 @@ cglobal be_blur, 5,15
     RET
 
 INIT_YMM avx2
-cglobal be_blur, 5,15
+cglobal be_blur, 5,15,9
     %if mmsize == 32
         vzeroupper
     %endif
