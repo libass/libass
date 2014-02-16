@@ -140,9 +140,6 @@ cglobal be_blur, 5,15,9
 
 INIT_YMM avx2
 cglobal be_blur, 5,15,9
-    %if mmsize == 32
-        vzeroupper
-    %endif
     cmp r1, 32
     jl be_blur_sse2.skip_prologue
     xor r5, r5 ; int y = 0;
