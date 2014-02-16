@@ -20,6 +20,7 @@
 #include FT_OUTLINE_H
 #include FT_BBOX_H
 #include <math.h>
+#include <limits.h>
 
 #include "ass_utils.h"
 #include "ass_drawing.h"

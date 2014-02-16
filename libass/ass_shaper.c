@@ -23,6 +23,7 @@
 #include "ass_font.h"
 #include "ass_parse.h"
 #include "ass_cache.h"
+#include <limits.h>
 
 #ifdef CONFIG_HARFBUZZ
 #include <hb-ft.h>
