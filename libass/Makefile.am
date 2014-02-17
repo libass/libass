@@ -34,26 +34,26 @@ libass_la_SOURCES += $(SRC_INTEL)
 if X86
 ASFLAGS += -DARCH_X86_64=0 -m x86
 if MACHO
-ASFLAGS += -f macho32 -DPREFIX
+ASFLAGS += -f macho32 -DPREFIX -DHAVE_ALIGNED_STACK=1
 endif
 if ELF
-ASFLAGS += -f elf
+ASFLAGS += -f elf -DHAVE_ALIGNED_STACK=1
 endif
 if WIN32
-ASFLAGS += -f win32 -DPREFIX
+ASFLAGS += -f win32 -DPREFIX -DHAVE_ALIGNED_STACK=0
 endif
 endif
 if X64
 libass_la_SOURCES += $(SRC_INTEL64)
 ASFLAGS += -DARCH_X86_64=1 -m amd64
 if MACHO
-ASFLAGS += -f macho64 -DPREFIX
+ASFLAGS += -f macho64 -DPREFIX -DHAVE_ALIGNED_STACK=1
 endif
 if ELF
-ASFLAGS += -f elf
+ASFLAGS += -f elf -DHAVE_ALIGNED_STACK=1
 endif
 if WIN32
-ASFLAGS += -f win64
+ASFLAGS += -f win64 -DHAVE_ALIGNED_STACK=0
 endif
 endif
 endif
