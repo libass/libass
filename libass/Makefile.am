@@ -53,7 +53,7 @@ if ELF
 ASFLAGS += -f elf -DHAVE_ALIGNED_STACK=1
 endif
 if WIN32
-ASFLAGS += -f win64 -DHAVE_ALIGNED_STACK=0
+ASFLAGS += -f win64 -DHAVE_ALIGNED_STACK=1
 endif
 endif
 endif
