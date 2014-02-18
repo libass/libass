@@ -1,3 +1,23 @@
+libass (0.11.0)
+ * Add bitmap run combining/compositing
+ * Add AVX/SSE2 implementations for \be and compositing
+ * Add ass_library_version() API funcion (GC #113)
+ * Add 'profile' program for benchmarks
+ * Improve gaussian blur
+ * Fix compilation with MSVC 2013
+ * Speed up HarfBuzz shaper
+ * Speed up cache
+ * Notable compatibility bugfixes
+   * Reset origin on \fay changes (GC #88)
+   * Tons of parser fixes
+   * Fix ascender/descender metrics (GH #8)
+   * Fix \pbo sign and scaling
+   * Don't reset wrap style on \r (GC #116, GH #45)
+ * Notable bugfixes:
+   * Correctly handle @font advance (GC #94)
+   * Disable ligatures for non-zero \fsp
+   * Make sure to release vector clip (GH #22)
+
 libass (0.10.2)
  * API additions and some ABI changes, bumped SONAME
  * Expose header field for VSFilter color mangling (GC #87)
