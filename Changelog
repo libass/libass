@@ -1,6 +1,9 @@
 libass (0.11.0)
  * Add bitmap run combining/compositing
+   This changes the text rendering model and increases compatibility with
+   VSFilter. It may make rendering faster or slower in certain cases.
  * Add AVX/SSE2 implementations for \be and compositing
+   This adds yasm as (optional) build dependency.
  * Add ass_library_version() API funcion (GC #113)
  * Add 'profile' program for benchmarks
  * Improve gaussian blur
