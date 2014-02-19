@@ -1,3 +1,7 @@
+libass (0.11.1)
+ * Fix distfile generation
+ * No functional changes
+
 libass (0.11.0)
  * Add bitmap run combining/compositing
    This changes the text rendering model and increases compatibility with
