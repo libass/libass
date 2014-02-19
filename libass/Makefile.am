@@ -12,8 +12,8 @@ LIBASS_LT_AGE = 0
 .S.lo:
 	$(LIBTOOL) --quiet --mode=compile $(AS) $(ASFLAGS)-o $@ $< -prefer-non-pic
 
-SRC_INTEL = x86/blend_bitmaps.asm x86/cpuid.asm
-SRC_INTEL64 = x86/be_blur.asm
+SRC_INTEL = x86/blend_bitmaps.asm x86/cpuid.asm x86/blend_bitmaps.h x86/cpuid.h
+SRC_INTEL64 = x86/be_blur.asm x86/be_blur.h
 
 lib_LTLIBRARIES = libass.la
 libass_la_SOURCES = ass.c ass_cache.c ass_font.c ass_fontconfig.c ass_render.c \
@@ -62,4 +62,4 @@ endif
 assheadersdir = $(includedir)/ass
 dist_assheaders_HEADERS = ass.h ass_types.h
 
-EXTRA_DIST = libass.sym
+EXTRA_DIST = libass.sym x86/x86inc.asm
