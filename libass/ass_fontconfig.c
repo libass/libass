@@ -129,7 +129,8 @@ static ASS_FontProviderFuncs fontconfig_callbacks = {
     NULL,
     check_glyph,
     NULL,
-    destroy
+    destroy,
+    NULL,
 };
 
 ASS_FontProvider *

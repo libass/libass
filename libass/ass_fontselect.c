@@ -193,6 +193,7 @@ static ASS_FontProviderFuncs ft_funcs = {
     check_glyph_ft,
     destroy_font_ft,
     NULL,
+    NULL,
 };
 
 /**
@@ -413,7 +414,7 @@ static void font_info_req_similarity(ASS_FontInfo *font_infos, size_t len,
         font_infos[i].score = font_info_similarity(&font_infos[i], req);
 }
 
-#if 1
+#if 0
 // dump font information
 static void font_info_dump(ASS_FontInfo *font_infos, size_t len)
 {
