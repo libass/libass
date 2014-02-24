@@ -6,11 +6,12 @@ LIBASS_LT_CURRENT = 5
 LIBASS_LT_REVISION = 0
 LIBASS_LT_AGE = 0
 
-.asm.lo:
-	$(LIBTOOL) --quiet --mode=compile $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
+yasm_verbose = $(yasm_verbose_$(V))
+yasm_verbose_ = $(yasm_verbose_$(AM_DEFAULT_VERBOSITY))
+yasm_verbose_0 = @echo "  YASM    " $@;
 
-.S.lo:
-	$(LIBTOOL) --quiet --mode=compile $(AS) $(ASFLAGS)-o $@ $< -prefer-non-pic
+.asm.lo:
+	$(yasm_verbose)$(LIBTOOL) $(AM_V_lt) --mode=compile $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
 
 SRC_INTEL = x86/blend_bitmaps.asm x86/cpuid.asm x86/blend_bitmaps.h x86/cpuid.h
 SRC_INTEL64 = x86/be_blur.asm x86/be_blur.h
@@ -29,32 +30,9 @@ libass_la_LDFLAGS += -export-symbols $(srcdir)/libass.sym
 
 if ASM
 if INTEL
-AS = "yasm"
 libass_la_SOURCES += $(SRC_INTEL)
-if X86
-ASFLAGS += -DARCH_X86_64=0 -m x86
-if MACHO
-ASFLAGS += -f macho32 -DPREFIX -DHAVE_ALIGNED_STACK=1
-endif
-if ELF
-ASFLAGS += -f elf -DHAVE_ALIGNED_STACK=1
-endif
-if WIN32
-ASFLAGS += -f win32 -DPREFIX -DHAVE_ALIGNED_STACK=0
-endif
-endif
 if X64
 libass_la_SOURCES += $(SRC_INTEL64)
-ASFLAGS += -DARCH_X86_64=1 -m amd64
-if MACHO
-ASFLAGS += -f macho64 -DPREFIX -DHAVE_ALIGNED_STACK=1
-endif
-if ELF
-ASFLAGS += -f elf -DHAVE_ALIGNED_STACK=1
-endif
-if WIN32
-ASFLAGS += -f win64 -DHAVE_ALIGNED_STACK=1
-endif
 endif
 endif
 endif

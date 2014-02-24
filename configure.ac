@@ -46,61 +46,71 @@ AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
 AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
     [disable HarfBuzz support @<:@default=check@:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
-    [disable compiling with ASM @<:@default=check@:>@]),
-    [asm=false],
-    [asm=true])
+    [disable compiling with ASM @<:@default=check@:>@]))
 
-test "${ASFLAGS+set}" = set || ASFLAGS=""
+AS_IF([test x$enable_asm != xno], [
+    AS_CASE([$host],
+        [i?86-*], [
+            INTEL=true
+            AS=yasm
+            X86=true
+            BITS=32
+            ASFLAGS="$ASFLAGS -DARCH_X86_64=0 -m x86" ],
+        [x86_64-*|amd64-*], [
+            AS=yasm
+            INTEL=true
+            X64=true
+            BITS=64
+            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -m amd64" ],
+        )
+    AS_CASE([$host],
+        [*darwin*], [
+            ASFLAGS="$ASFLAGS -f macho$BITS -DPREFIX -DHAVE_ALIGNED_STACK=1" ],
+        [*linux*|*bsd*], [
+            ASFLAGS="$ASFLAGS -f elf -DHAVE_ALIGNED_STACK=1" ],
+        [*cygwin*|*mingw*], [
+            ASFLAGS="$ASFLAGS -f win$BITS"
+            AS_IF([test x$BITS = x64], [
+                ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=1"
+            ], [
+                ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0 -DPREFIX"
+            ])
+        ])
+    AS_IF([test x$INTEL = xtrue], [
+        AC_CHECK_PROG([yasm_check], [$AS], [yes])
+        AS_IF([test x$yasm_check != xyes], [
+            AC_MSG_WARN(yasm was not found; ASM functions are disabled.)
+            AC_MSG_WARN(Install yasm for a significantly faster libass build.)
+            enable_asm=no
+        ], [
+            AC_MSG_CHECKING([if $AS supports vpmovzxwd])
+            echo "vpmovzxwd ymm0, xmm0" > conftest.asm
+            AS_IF([$AS conftest.asm $ASFLAGS -o conftest.o >conftest.log 2>&1], [
+                AC_MSG_RESULT([yes])
+            ], [
+                AC_MSG_RESULT([no])
+                VER=`($AS --version || echo no assembler) 2>/dev/null | head -n 1`
+                AC_MSG_WARN([yasm is too old (found $VER); ASM functions are disabled.])
+                AC_MSG_WARN([Install yasm-1.2.0 or later for a significantly faster libass build.])
+                enable_asm=no
+            ])
+            rm conftest.asm conftest.o > /dev/null 2>&1
+        ])
+    ])
+])
 
 AC_SUBST([ASFLAGS], ["$ASFLAGS"])
+AC_SUBST([AS], ["$AS"])
 
-case $host in
-    i?86-*)
-        INTEL=true
-        X86=true ;;
-    x86_64-*)
-        INTEL=true
-        X64=true ;;
-    arm-*)
-        ARM=true ;;
-esac
-
-case $host in
-    *darwin*)
-        MACHO=true ;;
-    *linux*)
-        ELF=true ;;
-    *cygwin*)
-        WIN32=true ;;
-    *mingw*)
-        WIN32=true ;;
-esac
-
-if test x$INTEL = xtrue ; then
-    if test x$asm = xtrue ; then
-        AC_CHECK_PROG(YASM_CHECK,yasm,yes)
-        if test x$YASM_CHECK != xyes ; then
-            AC_MSG_WARN(YASM was not found; ASM functions are disabled.)
-            AC_MSG_WARN(Install yasm for a significantly faster libass build.)
-            asm=false
-        fi
-    fi
-fi
-
-AM_CONDITIONAL([ASM], [test x$asm = xtrue])
+AM_CONDITIONAL([ASM], [test x$enable_asm != xno])
+AM_CONDITIONAL([INTEL], [test x$INTEL = xtrue])
+AM_CONDITIONAL([X86], [test x$X86 = xtrue])
+AM_CONDITIONAL([X64], [test x$X64 = xtrue])
 
 AM_COND_IF([ASM],
     [AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])],
     [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])]
     )
-
-AM_CONDITIONAL([INTEL], [test x$INTEL = xtrue])
-AM_CONDITIONAL([X86], [test x$X86 = xtrue])
-AM_CONDITIONAL([X64], [test x$X64 = xtrue])
-AM_CONDITIONAL([ARM], [test x$ARM = xtrue])
-AM_CONDITIONAL([MACHO], [test x$MACHO = xtrue])
-AM_CONDITIONAL([ELF], [test x$ELF = xtrue])
-AM_CONDITIONAL([WIN32], [test x$WIN32 = xtrue])
 
 PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.10.3, [
     CFLAGS="$CFLAGS $FREETYPE_CFLAGS"
