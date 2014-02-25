@@ -175,11 +175,12 @@ char *font_provider_labels[] = {
 
 static void print_font_providers(ASS_Library *ass_library)
 {
+    int i;
     ASS_DefaultFontProvider *providers;
     size_t providers_size = 0;
     ass_get_available_font_providers(ass_library, &providers, &providers_size);
     printf("test.c: Available font providers (%zu): ", providers_size);
-    for (int i = 0; i < providers_size; i++) {
+    for (i = 0; i < providers_size; i++) {
         const char *separator = i > 0 ? ", ": "";
         printf("%s'%s'", separator,  font_provider_labels[providers[i]]);
     }
