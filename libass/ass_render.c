@@ -75,12 +75,9 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         priv->add_bitmaps_func = avx2 ? ass_add_bitmaps_avx2 :
             (sse2 ? ass_add_bitmaps_sse2 : ass_add_bitmaps_x86);
         #ifdef __x86_64__
-            priv->be_blur_func = avx2 ? ass_be_blur_avx2 :
-                (sse2 ? ass_be_blur_sse2 : be_blur_c);
-            priv->mul_bitmaps_func = avx2 ? ass_mul_bitmaps_avx2 :
-                (sse2 ? ass_mul_bitmaps_sse2 : mul_bitmaps_c);
-            priv->sub_bitmaps_func = avx2 ? ass_sub_bitmaps_avx2 :
-                (sse2 ? ass_sub_bitmaps_sse2 : ass_sub_bitmaps_x86);
+            priv->be_blur_func = avx2 ? ass_be_blur_avx2 : ass_be_blur_sse2;
+            priv->mul_bitmaps_func = avx2 ? ass_mul_bitmaps_avx2 : ass_mul_bitmaps_sse2;
+            priv->sub_bitmaps_func = avx2 ? ass_sub_bitmaps_avx2 : ass_sub_bitmaps_sse2;
         #else
             priv->be_blur_func = be_blur_c;
             priv->mul_bitmaps_func = mul_bitmaps_c;
