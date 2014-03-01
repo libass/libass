@@ -544,7 +544,7 @@ void sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
                    uint8_t *src, intptr_t src_stride,
                    intptr_t height, intptr_t width)
 {
-    unsigned out;
+    short out;
     uint8_t* end = dst + dst_stride * height;
     while (dst < end) {
         for (unsigned j = 0; j < width; ++j) {
