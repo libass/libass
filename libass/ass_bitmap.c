@@ -166,6 +166,9 @@ Bitmap *outline_to_bitmap(ASS_Library *library, FT_Library ftlib,
     FT_Bitmap bitmap;
 
     FT_Outline_Get_CBox(outline, &bbox);
+    if (bbox.xMin == bbox.xMax || bbox.yMin == bbox.yMax)
+        return NULL;
+
     // move glyph to origin (0, 0)
     bbox.xMin &= ~63;
     bbox.yMin &= ~63;
