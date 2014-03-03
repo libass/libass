@@ -1,5 +1,6 @@
 ass_library_init
 ass_library_done
+ass_library_version
 ass_set_fonts_dir
 ass_set_extract_fonts
 ass_set_style_overrides
