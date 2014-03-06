@@ -534,6 +534,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         int aleft, atop, bleft, btop;
         unsigned char *abuffer, *bbuffer, *nbuffer;
 
+        render_priv->state.has_vector_clip = 1;
+
         abuffer = cur->bitmap;
         bbuffer = clip_bm->buffer;
         ax = cur->dst_x;
@@ -794,6 +796,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.event = event;
     render_priv->state.style = render_priv->track->styles + event->Style;
     render_priv->state.parsed_tags = 0;
+    render_priv->state.has_vector_clip = 0;
 
     reset_render_context(render_priv, render_priv->state.style);
     render_priv->state.wrap_style = render_priv->track->WrapStyle;
@@ -2830,7 +2833,7 @@ static int ass_detect_change(ASS_Renderer *priv)
     ASS_Image *img, *img2;
     int diff;
 
-    if (priv->cache_cleared)
+    if (priv->cache_cleared || priv->state.has_vector_clip)
         return 2;
 
     img = priv->prev_images_root;

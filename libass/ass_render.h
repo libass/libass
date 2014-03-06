@@ -231,6 +231,7 @@ typedef struct {
     ASS_Event *event;
     ASS_Style *style;
     int parsed_tags;
+    int has_vector_clip;
 
     ASS_Font *font;
     double font_size;
