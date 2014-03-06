@@ -344,8 +344,8 @@ void ass_set_cache_limits(ASS_Renderer *priv, int glyph_max,
  * \param priv renderer handle
  * \param track subtitle track
  * \param now video timestamp in milliseconds
- * \param detect_change will be set to 1 if a change occured compared
- * to the last invocation
+ * \param detect_change compare to the previous call and set to 1
+ * if positions changed, or set to 2 if content changed.
  */
 ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
                             long long now, int *detect_change);
