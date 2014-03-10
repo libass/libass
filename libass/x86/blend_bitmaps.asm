@@ -18,7 +18,6 @@
 ;* OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ;******************************************************************************
 
-%define HAVE_ALIGNED_STACK 1
 %include "x86inc.asm"
 
 SECTION_RODATA 32
