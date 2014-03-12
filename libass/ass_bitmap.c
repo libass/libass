@@ -649,49 +649,35 @@ void be_blur_c(uint8_t *buf, intptr_t w,
     unsigned char *src, *dst;
     memset(col_pix_buf, 0, w * sizeof(unsigned short));
     memset(col_sum_buf, 0, w * sizeof(unsigned short));
+    y = 0;
+
     {
-        y = 0;
         src=buf+y*stride;
 
-        x = 2;
+        x = 1;
         old_pix = src[x-1];
-        old_sum = old_pix + src[x-2];
+        old_sum = old_pix;
         for ( ; x < w; x++) {
             temp1 = src[x];
             temp2 = old_pix + temp1;
             old_pix = temp1;
             temp1 = old_sum + temp2;
             old_sum = temp2;
-            col_pix_buf[x] = temp1;
+            col_pix_buf[x-1] = temp1;
+            col_sum_buf[x-1] = temp1;
         }
-    }
-    {
-        y = 1;
-        src=buf+y*stride;
-
-        x = 2;
-        old_pix = src[x-1];
-        old_sum = old_pix + src[x-2];
-        for ( ; x < w; x++) {
-            temp1 = src[x];
-            temp2 = old_pix + temp1;
-            old_pix = temp1;
-            temp1 = old_sum + temp2;
-            old_sum = temp2;
-
-            temp2 = col_pix_buf[x] + temp1;
-            col_pix_buf[x] = temp1;
-            col_sum_buf[x] = temp2;
-        }
+        temp1 = old_sum + old_pix;
+        col_pix_buf[x-1] = temp1;
+        col_sum_buf[x-1] = temp1;
     }
 
-    for (y = 2; y < h; y++) {
+    for (y++; y < h; y++) {
         src=buf+y*stride;
         dst=buf+(y-1)*stride;
 
-        x = 2;
+        x = 1;
         old_pix = src[x-1];
-        old_sum = old_pix + src[x-2];
+        old_sum = old_pix;
         for ( ; x < w; x++) {
             temp1 = src[x];
             temp2 = old_pix + temp1;
@@ -699,11 +685,22 @@ void be_blur_c(uint8_t *buf, intptr_t w,
             temp1 = old_sum + temp2;
             old_sum = temp2;
 
-            temp2 = col_pix_buf[x] + temp1;
-            col_pix_buf[x] = temp1;
-            dst[x-1] = (col_sum_buf[x] + temp2) >> 4;
-            col_sum_buf[x] = temp2;
+            temp2 = col_pix_buf[x-1] + temp1;
+            col_pix_buf[x-1] = temp1;
+            dst[x-1] = (col_sum_buf[x-1] + temp2) >> 4;
+            col_sum_buf[x-1] = temp2;
         }
+        temp1 = old_sum + old_pix;
+        temp2 = col_pix_buf[x-1] + temp1;
+        col_pix_buf[x-1] = temp1;
+        dst[x-1] = (col_sum_buf[x-1] + temp2) >> 4;
+        col_sum_buf[x-1] = temp2;
+    }
+
+    {
+        dst=buf+(y-1)*stride;
+        for (x = 0; x < w; x++)
+            dst[x] = (col_sum_buf[x] + col_pix_buf[x]) >> 4;
     }
 }
 
