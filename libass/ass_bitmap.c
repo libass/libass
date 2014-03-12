@@ -436,7 +436,7 @@ void be_blur_c(uint8_t *buf, intptr_t w,
 {
     unsigned short *col_pix_buf = tmp;
     unsigned short *col_sum_buf = tmp + w * sizeof(unsigned short);
-    unsigned x, y, old_pix, old_sum, new_sum, temp1, temp2;
+    unsigned x, y, old_pix, old_sum, temp1, temp2;
     unsigned char *src, *dst;
     memset(col_pix_buf, 0, w * sizeof(unsigned short));
     memset(col_sum_buf, 0, w * sizeof(unsigned short));
@@ -456,9 +456,10 @@ void be_blur_c(uint8_t *buf, intptr_t w,
             col_pix_buf[x] = temp1;
         }
     }
-    new_sum = 2 * buf[y * stride + w - 1];
-    buf[y * stride + w - 1] = (old_sum + new_sum) >> 2;
     {
+        y = 1;
+        src=buf+y*stride;
+
         x = 2;
         old_pix = src[x-1];
         old_sum = old_pix + src[x-2];
