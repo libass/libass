@@ -170,13 +170,23 @@ void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
             unsigned stride = bm_o->stride;
             unsigned char *buf = bm_o->buffer;
             if(w && h){
-                while(passes--){
-                    memset(tmp, 0, stride * 2);
-                    if(w < 16){
-                        be_blur_c(buf, w, h, stride, tmp);
-                    }else{
-                        priv_blur->be_blur_func(buf, w, h, stride, tmp);
+                if(passes > 1){
+                    be_blur_pre(buf, w, h, stride);
+                    while(--passes){
+                        memset(tmp, 0, stride * 2);
+                        if(w < 16){
+                            be_blur_c(buf, w, h, stride, tmp);
+                        }else{
+                            priv_blur->be_blur_func(buf, w, h, stride, tmp);
+                        }
                     }
+                    be_blur_post(buf, w, h, stride);
+                }
+                memset(tmp, 0, stride * 2);
+                if(w < 16){
+                    be_blur_c(buf, w, h, stride, tmp);
+                }else{
+                    priv_blur->be_blur_func(buf, w, h, stride, tmp);
                 }
             }
         }
@@ -187,10 +197,16 @@ void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
             unsigned stride = bm_g->stride;
             unsigned char *buf = bm_g->buffer;
             if(w && h){
-                while(passes--){
-                    memset(tmp, 0, stride * 2);
-                    priv_blur->be_blur_func(buf, w, h, stride, tmp);
+                if(passes > 1){
+                    be_blur_pre(buf, w, h, stride);
+                    while(--passes){
+                        memset(tmp, 0, stride * 2);
+                        priv_blur->be_blur_func(buf, w, h, stride, tmp);
+                    }
+                    be_blur_post(buf, w, h, stride);
                 }
+                memset(tmp, 0, stride * 2);
+                priv_blur->be_blur_func(buf, w, h, stride, tmp);
             }
         }
     }
@@ -701,6 +717,35 @@ void be_blur_c(uint8_t *buf, intptr_t w,
         dst=buf+(y-1)*stride;
         for (x = 0; x < w; x++)
             dst[x] = (col_sum_buf[x] + col_pix_buf[x]) >> 4;
+    }
+}
+
+void be_blur_pre(uint8_t *buf, intptr_t w, intptr_t h, intptr_t stride)
+{
+    for (int y = 0; y < h; ++y)
+    {
+        for (int x = 0; x < w; ++x)
+        {
+            // This is equivalent to (value * 64 + 127) / 255 for all
+            // values from 0 to 256 inclusive. Assist vectorizing
+            // compilers by noting that all temporaries fit in 8 bits.
+            buf[y * stride + x] =
+                (uint8_t) ((buf[y * stride + x] >> 1) + 1) >> 1;
+        }
+    }
+}
+
+void be_blur_post(uint8_t *buf, intptr_t w, intptr_t h, intptr_t stride)
+{
+    for (int y = 0; y < h; ++y)
+    {
+        for (int x = 0; x < w; ++x)
+        {
+            // This is equivalent to (value * 255 + 32) / 64 for all values
+            // from 0 to 96 inclusive, and we only care about 0 to 64.
+            uint8_t value = buf[y * stride + x];
+            buf[y * stride + x] = (value << 2) - (value > 32);
+        }
     }
 }
 
