@@ -146,6 +146,20 @@ void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
             return;
     }
 
+    // Apply gaussian blur
+    if (blur_radius > 0.0 && generate_tables(priv_blur, blur_radius)) {
+        if (bm_o)
+            ass_gauss_blur(bm_o->buffer, priv_blur->tmp,
+                           bm_o->w, bm_o->h, bm_o->stride,
+                           priv_blur->gt2, priv_blur->g_r,
+                           priv_blur->g_w);
+        if (!bm_o || opaque_box)
+            ass_gauss_blur(bm_g->buffer, priv_blur->tmp,
+                           bm_g->w, bm_g->h, bm_g->stride,
+                           priv_blur->gt2, priv_blur->g_r,
+                           priv_blur->g_w);
+    }
+
     // Apply box blur (multiple passes, if requested)
     if (be) {
         uint16_t* tmp = priv_blur->tmp;
@@ -179,20 +193,6 @@ void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
                 }
             }
         }
-    }
-
-    // Apply gaussian blur
-    if (blur_radius > 0.0 && generate_tables(priv_blur, blur_radius)) {
-        if (bm_o)
-            ass_gauss_blur(bm_o->buffer, priv_blur->tmp,
-                           bm_o->w, bm_o->h, bm_o->stride,
-                           priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
-        if (!bm_o || opaque_box)
-            ass_gauss_blur(bm_g->buffer, priv_blur->tmp,
-                           bm_g->w, bm_g->h, bm_g->stride,
-                           priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
     }
 }
 
