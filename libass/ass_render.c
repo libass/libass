@@ -1776,43 +1776,17 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info)
     shift_bitmap(info->bm_s, info->shadow_x, info->shadow_y);
 }
 
-/**
- * \brief Main ass rendering function, glues everything together
- * \param event event to render
- * \param event_images struct containing resulting images, will also be initialized
- * Process event, appending resulting ASS_Image's to images_root.
- */
-static int
-ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
-                 EventImages *event_images)
+// Parse event text.
+// Fill render_priv->text_info.
+static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
 {
-    char *p;
-    FT_Vector pen;
-    unsigned code;
-    DBBox bbox;
-    int i, j;
-    int MarginL, MarginR, MarginV;
-    int last_break;
-    int alignment, halign, valign;
-    double device_x = 0;
-    double device_y = 0;
     TextInfo *text_info = &render_priv->text_info;
-    GlyphInfo *glyphs = render_priv->text_info.glyphs;
     ASS_Drawing *drawing;
-
-    if (event->Style >= render_priv->track->n_styles) {
-        ass_msg(render_priv->library, MSGL_WARN, "No style found");
-        return 1;
-    }
-    if (!event->Text) {
-        ass_msg(render_priv->library, MSGL_WARN, "Empty event");
-        return 1;
-    }
-
-    init_render_context(render_priv, event);
+    unsigned code;
+    char *p;
+    int i;
 
     drawing = render_priv->state.drawing;
-    text_info->length = 0;
     p = event->Text;
 
     int in_tag = 0;
@@ -1857,12 +1831,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         if (text_info->length >= text_info->max_glyphs) {
             // Raise maximum number of glyphs
             text_info->max_glyphs *= 2;
-            text_info->glyphs = glyphs =
+            text_info->glyphs =
                 realloc(text_info->glyphs,
                         sizeof(GlyphInfo) * text_info->max_glyphs);
         }
 
-        GlyphInfo *info = &glyphs[text_info->length];
+        GlyphInfo *info = &text_info->glyphs[text_info->length];
 
         // Clear current GlyphInfo
         memset(info, 0, sizeof(GlyphInfo));
@@ -1934,24 +1908,18 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         render_priv->state.effect_type = EF_NONE;
         render_priv->state.effect_timing = 0;
         render_priv->state.effect_skip_timing = 0;
-
     }
 
-    if (text_info->length == 0) {
-        // no valid symbols in the event; this can be smth like {comment}
-        free_render_context(render_priv);
-        return 1;
-    }
+    return 0;
+}
 
-    // Find shape runs and shape text
-    ass_shaper_set_base_direction(render_priv->shaper,
-            resolve_base_direction(render_priv->state.font_encoding));
-    ass_shaper_find_runs(render_priv->shaper, render_priv, glyphs,
-            text_info->length);
-    ass_shaper_shape(render_priv->shaper, text_info);
+// Process render_priv->text_info and load glyph outlines.
+static void retrieve_glyphs(ASS_Renderer *render_priv)
+{
+    GlyphInfo *glyphs = render_priv->text_info.glyphs;
+    int i;
 
-    // Retrieve glyphs
-    for (i = 0; i < text_info->length; i++) {
+    for (i = 0; i < render_priv->text_info.length; i++) {
         GlyphInfo *info = glyphs + i;
         while (info) {
             get_outline_glyph(render_priv, info);
@@ -1976,14 +1944,19 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
         // add displacement for vertical shearing
         info->cluster_advance.y += (info->fay / info->scale_x * info->scale_y) * info->cluster_advance.x;
-
     }
+}
 
-    // Preliminary layout (for line wrapping)
+// Preliminary layout (for line wrapping)
+static void preliminary_layout(ASS_Renderer *render_priv)
+{
+    FT_Vector pen;
+    int i;
+
     pen.x = 0;
     pen.y = 0;
-    for (i = 0; i < text_info->length; i++) {
-        GlyphInfo *info = glyphs + i;
+    for (i = 0; i < render_priv->text_info.length; i++) {
+        GlyphInfo *info = render_priv->text_info.glyphs + i;
         FT_Vector cluster_pen = pen;
         while (info) {
             info->pos.x = cluster_pen.x;
@@ -1998,45 +1971,19 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
             info = info->next;
         }
-        info = glyphs + i;
+        info = render_priv->text_info.glyphs + i;
         pen.x += info->cluster_advance.x;
         pen.y += info->cluster_advance.y;
     }
+}
 
+// Reorder text into visual order
+static void reorder_text(ASS_Renderer *render_priv)
+{
+    TextInfo *text_info = &render_priv->text_info;
+    FT_Vector pen;
+    int i;
 
-    // depends on glyph x coordinates being monotonous, so it should be done before line wrap
-    process_karaoke_effects(render_priv);
-
-    // alignments
-    alignment = render_priv->state.alignment;
-    halign = alignment & 3;
-    valign = alignment & 12;
-
-    MarginL =
-        (event->MarginL) ? event->MarginL : render_priv->state.style->MarginL;
-    MarginR =
-        (event->MarginR) ? event->MarginR : render_priv->state.style->MarginR;
-    MarginV =
-        (event->MarginV) ? event->MarginV : render_priv->state.style->MarginV;
-
-    // calculate max length of a line
-    double max_text_width =
-        x2scr(render_priv, render_priv->track->PlayResX - MarginR) -
-        x2scr(render_priv, MarginL);
-
-    // wrap lines
-    if (render_priv->state.evt_type != EVENT_HSCROLL) {
-        // rearrange text in several lines
-        wrap_lines_smart(render_priv, max_text_width);
-    } else {
-        // no breaking or wrapping, everything in a single line
-        text_info->lines[0].offset = 0;
-        text_info->lines[0].len = text_info->length;
-        text_info->n_lines = 1;
-        measure_text(render_priv);
-    }
-
-    // Reorder text into visual order
     FriBidiStrIndex *cmap = ass_shaper_reorder(render_priv->shaper, text_info);
 
     // Reposition according to the map
@@ -2046,8 +1993,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     double last_pen_x = 0;
     double last_fay = 0;
     for (i = 0; i < text_info->length; i++) {
-        GlyphInfo *info = glyphs + cmap[i];
-        if (glyphs[i].linebreak) {
+        GlyphInfo *info = text_info->glyphs + cmap[i];
+        if (text_info->glyphs[i].linebreak) {
             pen.y -= (last_fay / info->scale_x * info->scale_y) * (pen.x - last_pen_x);
             last_pen_x = pen.x = 0;
             pen.y += double_to_d6(text_info->lines[lineno-1].desc);
@@ -2069,188 +2016,92 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             cluster_pen.y += info->advance.y;
             info = info->next;
         }
-        info = glyphs + cmap[i];
+        info = text_info->glyphs + cmap[i];
         pen.x += info->cluster_advance.x;
         pen.y += info->cluster_advance.y;
     }
+}
 
-    // align lines
-    if (render_priv->state.evt_type != EVENT_HSCROLL) {
-        last_break = -1;
-        double width = 0;
-        for (i = 0; i <= text_info->length; ++i) {   // (text_info->length + 1) is the end of the last line
-            if ((i == text_info->length) || glyphs[i].linebreak) {
-                double shift = 0;
-                if (halign == HALIGN_LEFT) {    // left aligned, no action
-                    shift = 0;
-                } else if (halign == HALIGN_RIGHT) {    // right aligned
-                    shift = max_text_width - width;
-                } else if (halign == HALIGN_CENTER) {   // centered
-                    shift = (max_text_width - width) / 2.0;
+static void align_lines(ASS_Renderer *render_priv, double max_text_width)
+{
+    TextInfo *text_info = &render_priv->text_info;
+    GlyphInfo *glyphs = text_info->glyphs;
+    int i, j;
+    double width = 0;
+    int last_break = -1;
+    int halign = render_priv->state.alignment & 3;
+
+    if (render_priv->state.evt_type == EVENT_HSCROLL)
+        return;
+
+    for (i = 0; i <= text_info->length; ++i) {   // (text_info->length + 1) is the end of the last line
+        if ((i == text_info->length) || glyphs[i].linebreak) {
+            double shift = 0;
+            if (halign == HALIGN_LEFT) {    // left aligned, no action
+                shift = 0;
+            } else if (halign == HALIGN_RIGHT) {    // right aligned
+                shift = max_text_width - width;
+            } else if (halign == HALIGN_CENTER) {   // centered
+                shift = (max_text_width - width) / 2.0;
+            }
+            for (j = last_break + 1; j < i; ++j) {
+                GlyphInfo *info = glyphs + j;
+                while (info) {
+                    info->pos.x += double_to_d6(shift);
+                    info = info->next;
                 }
-                for (j = last_break + 1; j < i; ++j) {
-                    GlyphInfo *info = glyphs + j;
-                    while (info) {
-                        info->pos.x += double_to_d6(shift);
-                        info = info->next;
-                    }
-                }
-                last_break = i - 1;
-                width = 0;
             }
-            if (i < text_info->length && !glyphs[i].skip &&
-                    glyphs[i].symbol != '\n' && glyphs[i].symbol != 0) {
-                width += d6_to_double(glyphs[i].cluster_advance.x);
+            last_break = i - 1;
+            width = 0;
+        }
+        if (i < text_info->length && !glyphs[i].skip &&
+                glyphs[i].symbol != '\n' && glyphs[i].symbol != 0) {
+            width += d6_to_double(glyphs[i].cluster_advance.x);
+        }
+    }
+}
+
+static void calculate_rotation_params(ASS_Renderer *render_priv, DBBox *bbox,
+                                      double device_x, double device_y)
+{
+    TextInfo *text_info = &render_priv->text_info;
+    DVector center;
+    int i;
+
+    if (render_priv->state.have_origin) {
+        center.x = x2scr(render_priv, render_priv->state.org_x);
+        center.y = y2scr(render_priv, render_priv->state.org_y);
+    } else {
+        double bx = 0., by = 0.;
+        get_base_point(bbox, render_priv->state.alignment, &bx, &by);
+        center.x = device_x + bx;
+        center.y = device_y + by;
+    }
+
+    for (i = 0; i < text_info->length; ++i) {
+        GlyphInfo *info = text_info->glyphs + i;
+        while (info) {
+            OutlineBitmapHashKey *key = &info->hash_key.u.outline;
+
+            if (key->frx || key->fry || key->frz || key->fax || key->fay) {
+                key->shift_x = info->pos.x + double_to_d6(device_x - center.x);
+                key->shift_y = -(info->pos.y + double_to_d6(device_y - center.y));
+            } else {
+                key->shift_x = 0;
+                key->shift_y = 0;
             }
+            info = info->next;
         }
     }
+}
 
-    // determing text bounding box
-    compute_string_bbox(text_info, &bbox);
 
-    // determine device coordinates for text
-
-    // x coordinate for everything except positioned events
-    if (render_priv->state.evt_type == EVENT_NORMAL ||
-        render_priv->state.evt_type == EVENT_VSCROLL) {
-        device_x = x2scr(render_priv, MarginL);
-    } else if (render_priv->state.evt_type == EVENT_HSCROLL) {
-        if (render_priv->state.scroll_direction == SCROLL_RL)
-            device_x =
-                x2scr(render_priv,
-                      render_priv->track->PlayResX -
-                      render_priv->state.scroll_shift);
-        else if (render_priv->state.scroll_direction == SCROLL_LR)
-            device_x =
-                x2scr(render_priv,
-                      render_priv->state.scroll_shift) - (bbox.xMax -
-                                                          bbox.xMin);
-    }
-
-    // y coordinate for everything except positioned events
-    if (render_priv->state.evt_type == EVENT_NORMAL ||
-        render_priv->state.evt_type == EVENT_HSCROLL) {
-        if (valign == VALIGN_TOP) {     // toptitle
-            device_y =
-                y2scr_top(render_priv,
-                          MarginV) + text_info->lines[0].asc;
-        } else if (valign == VALIGN_CENTER) {   // midtitle
-            double scr_y =
-                y2scr(render_priv, render_priv->track->PlayResY / 2.0);
-            device_y = scr_y - (bbox.yMax + bbox.yMin) / 2.0;
-        } else {                // subtitle
-            double scr_top, scr_bottom, scr_y0;
-            if (valign != VALIGN_SUB)
-                ass_msg(render_priv->library, MSGL_V,
-                       "Invalid valign, assuming 0 (subtitle)");
-            scr_bottom =
-                y2scr_sub(render_priv,
-                          render_priv->track->PlayResY - MarginV);
-            scr_top = y2scr_top(render_priv, 0); //xxx not always 0?
-            device_y = scr_bottom + (scr_top - scr_bottom) *
-                       render_priv->settings.line_position / 100.0;
-            device_y -= text_info->height;
-            device_y += text_info->lines[0].asc;
-            // clip to top to avoid confusion if line_position is very high,
-            // turning the subtitle into a toptitle
-            // also, don't change behavior if line_position is not used
-            scr_y0 = scr_top + text_info->lines[0].asc;
-            if (device_y < scr_y0 && render_priv->settings.line_position > 0) {
-                device_y = scr_y0;
-            }
-        }
-    } else if (render_priv->state.evt_type == EVENT_VSCROLL) {
-        if (render_priv->state.scroll_direction == SCROLL_TB)
-            device_y =
-                y2scr(render_priv,
-                      render_priv->state.clip_y0 +
-                      render_priv->state.scroll_shift) - (bbox.yMax -
-                                                          bbox.yMin);
-        else if (render_priv->state.scroll_direction == SCROLL_BT)
-            device_y =
-                y2scr(render_priv,
-                      render_priv->state.clip_y1 -
-                      render_priv->state.scroll_shift);
-    }
-
-    // positioned events are totally different
-    if (render_priv->state.evt_type == EVENT_POSITIONED) {
-        double base_x = 0;
-        double base_y = 0;
-        get_base_point(&bbox, alignment, &base_x, &base_y);
-        device_x =
-            x2scr_pos(render_priv, render_priv->state.pos_x) - base_x;
-        device_y =
-            y2scr_pos(render_priv, render_priv->state.pos_y) - base_y;
-    }
-
-    // fix clip coordinates (they depend on alignment)
-    if (render_priv->state.evt_type == EVENT_NORMAL ||
-        render_priv->state.evt_type == EVENT_HSCROLL ||
-        render_priv->state.evt_type == EVENT_VSCROLL) {
-        render_priv->state.clip_x0 =
-            x2scr_scaled(render_priv, render_priv->state.clip_x0);
-        render_priv->state.clip_x1 =
-            x2scr_scaled(render_priv, render_priv->state.clip_x1);
-        if (valign == VALIGN_TOP) {
-            render_priv->state.clip_y0 =
-                y2scr_top(render_priv, render_priv->state.clip_y0);
-            render_priv->state.clip_y1 =
-                y2scr_top(render_priv, render_priv->state.clip_y1);
-        } else if (valign == VALIGN_CENTER) {
-            render_priv->state.clip_y0 =
-                y2scr(render_priv, render_priv->state.clip_y0);
-            render_priv->state.clip_y1 =
-                y2scr(render_priv, render_priv->state.clip_y1);
-        } else if (valign == VALIGN_SUB) {
-            render_priv->state.clip_y0 =
-                y2scr_sub(render_priv, render_priv->state.clip_y0);
-            render_priv->state.clip_y1 =
-                y2scr_sub(render_priv, render_priv->state.clip_y1);
-        }
-    } else if (render_priv->state.evt_type == EVENT_POSITIONED) {
-        render_priv->state.clip_x0 =
-            x2scr_pos_scaled(render_priv, render_priv->state.clip_x0);
-        render_priv->state.clip_x1 =
-            x2scr_pos_scaled(render_priv, render_priv->state.clip_x1);
-        render_priv->state.clip_y0 =
-            y2scr_pos(render_priv, render_priv->state.clip_y0);
-        render_priv->state.clip_y1 =
-            y2scr_pos(render_priv, render_priv->state.clip_y1);
-    }
-
-    // calculate rotation parameters
-    {
-        DVector center;
-
-        if (render_priv->state.have_origin) {
-            center.x = x2scr(render_priv, render_priv->state.org_x);
-            center.y = y2scr(render_priv, render_priv->state.org_y);
-        } else {
-            double bx = 0., by = 0.;
-            get_base_point(&bbox, alignment, &bx, &by);
-            center.x = device_x + bx;
-            center.y = device_y + by;
-        }
-
-        for (i = 0; i < text_info->length; ++i) {
-            GlyphInfo *info = glyphs + i;
-            while (info) {
-                OutlineBitmapHashKey *key = &info->hash_key.u.outline;
-
-                if (key->frx || key->fry || key->frz || key->fax || key->fay) {
-                    key->shift_x = info->pos.x + double_to_d6(device_x - center.x);
-                    key->shift_y = -(info->pos.y + double_to_d6(device_y - center.y));
-                } else {
-                    key->shift_x = 0;
-                    key->shift_y = 0;
-                }
-                info = info->next;
-            }
-        }
-    }
-
-    // convert glyphs to bitmaps
+// Convert glyphs to bitmaps, combine them, apply blur, generate shadows.
+static void render_and_combine_glyphs(ASS_Renderer *render_priv,
+                                      double device_x, double device_y)
+{
+    int i;
+    TextInfo *text_info = &render_priv->text_info;
     int left = render_priv->settings.left_margin;
     device_x = (device_x - left) * render_priv->font_scale_x + left;
     unsigned nb_bitmaps = 0;
@@ -2259,7 +2110,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     CombinedBitmapInfo *current_info = NULL;
     GlyphInfo *last_info = NULL;
     for (i = 0; i < text_info->length; ++i) {
-        GlyphInfo *info = glyphs + i;
+        GlyphInfo *info = text_info->glyphs + i;
         if (info->linebreak) linebreak = 1;
         if (info->skip) continue;
         while (info) {
@@ -2431,7 +2282,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     }
 
     for (i = 0; i < text_info->length; ++i) {
-        GlyphInfo *info = glyphs + i;
+        GlyphInfo *info = text_info->glyphs + i;
         if (info->skip) continue;
         while (info) {
             current_info = &combined_info[info->bm_run_id];
@@ -2501,6 +2352,207 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     }
 
     text_info->n_bitmaps = nb_bitmaps;
+}
+
+/**
+ * \brief Main ass rendering function, glues everything together
+ * \param event event to render
+ * \param event_images struct containing resulting images, will also be initialized
+ * Process event, appending resulting ASS_Image's to images_root.
+ */
+static int
+ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
+                 EventImages *event_images)
+{
+    DBBox bbox;
+    int MarginL, MarginR, MarginV;
+    int valign;
+    double device_x = 0;
+    double device_y = 0;
+    TextInfo *text_info = &render_priv->text_info;
+
+    if (event->Style >= render_priv->track->n_styles) {
+        ass_msg(render_priv->library, MSGL_WARN, "No style found");
+        return 1;
+    }
+    if (!event->Text) {
+        ass_msg(render_priv->library, MSGL_WARN, "Empty event");
+        return 1;
+    }
+
+    init_render_context(render_priv, event);
+    text_info->length = 0;
+
+    if (parse_events(render_priv, event))
+        return 1;
+
+    if (text_info->length == 0) {
+        // no valid symbols in the event; this can be smth like {comment}
+        free_render_context(render_priv);
+        return 1;
+    }
+
+    // Find shape runs and shape text
+    ass_shaper_set_base_direction(render_priv->shaper,
+            resolve_base_direction(render_priv->state.font_encoding));
+    ass_shaper_find_runs(render_priv->shaper, render_priv, text_info->glyphs,
+            text_info->length);
+    ass_shaper_shape(render_priv->shaper, text_info);
+
+    retrieve_glyphs(render_priv);
+
+    preliminary_layout(render_priv);
+
+    // depends on glyph x coordinates being monotonous, so it should be done before line wrap
+    process_karaoke_effects(render_priv);
+
+    valign = render_priv->state.alignment & 12;
+
+    MarginL =
+        (event->MarginL) ? event->MarginL : render_priv->state.style->MarginL;
+    MarginR =
+        (event->MarginR) ? event->MarginR : render_priv->state.style->MarginR;
+    MarginV =
+        (event->MarginV) ? event->MarginV : render_priv->state.style->MarginV;
+
+    // calculate max length of a line
+    double max_text_width =
+        x2scr(render_priv, render_priv->track->PlayResX - MarginR) -
+        x2scr(render_priv, MarginL);
+
+    // wrap lines
+    if (render_priv->state.evt_type != EVENT_HSCROLL) {
+        // rearrange text in several lines
+        wrap_lines_smart(render_priv, max_text_width);
+    } else {
+        // no breaking or wrapping, everything in a single line
+        text_info->lines[0].offset = 0;
+        text_info->lines[0].len = text_info->length;
+        text_info->n_lines = 1;
+        measure_text(render_priv);
+    }
+
+    reorder_text(render_priv);
+
+    align_lines(render_priv, max_text_width);
+
+    // determing text bounding box
+    compute_string_bbox(text_info, &bbox);
+
+    // determine device coordinates for text
+
+    // x coordinate for everything except positioned events
+    if (render_priv->state.evt_type == EVENT_NORMAL ||
+        render_priv->state.evt_type == EVENT_VSCROLL) {
+        device_x = x2scr(render_priv, MarginL);
+    } else if (render_priv->state.evt_type == EVENT_HSCROLL) {
+        if (render_priv->state.scroll_direction == SCROLL_RL)
+            device_x =
+                x2scr(render_priv,
+                      render_priv->track->PlayResX -
+                      render_priv->state.scroll_shift);
+        else if (render_priv->state.scroll_direction == SCROLL_LR)
+            device_x =
+                x2scr(render_priv,
+                      render_priv->state.scroll_shift) - (bbox.xMax -
+                                                          bbox.xMin);
+    }
+
+    // y coordinate for everything except positioned events
+    if (render_priv->state.evt_type == EVENT_NORMAL ||
+        render_priv->state.evt_type == EVENT_HSCROLL) {
+        if (valign == VALIGN_TOP) {     // toptitle
+            device_y =
+                y2scr_top(render_priv,
+                          MarginV) + text_info->lines[0].asc;
+        } else if (valign == VALIGN_CENTER) {   // midtitle
+            double scr_y =
+                y2scr(render_priv, render_priv->track->PlayResY / 2.0);
+            device_y = scr_y - (bbox.yMax + bbox.yMin) / 2.0;
+        } else {                // subtitle
+            double scr_top, scr_bottom, scr_y0;
+            if (valign != VALIGN_SUB)
+                ass_msg(render_priv->library, MSGL_V,
+                       "Invalid valign, assuming 0 (subtitle)");
+            scr_bottom =
+                y2scr_sub(render_priv,
+                          render_priv->track->PlayResY - MarginV);
+            scr_top = y2scr_top(render_priv, 0); //xxx not always 0?
+            device_y = scr_bottom + (scr_top - scr_bottom) *
+                       render_priv->settings.line_position / 100.0;
+            device_y -= text_info->height;
+            device_y += text_info->lines[0].asc;
+            // clip to top to avoid confusion if line_position is very high,
+            // turning the subtitle into a toptitle
+            // also, don't change behavior if line_position is not used
+            scr_y0 = scr_top + text_info->lines[0].asc;
+            if (device_y < scr_y0 && render_priv->settings.line_position > 0) {
+                device_y = scr_y0;
+            }
+        }
+    } else if (render_priv->state.evt_type == EVENT_VSCROLL) {
+        if (render_priv->state.scroll_direction == SCROLL_TB)
+            device_y =
+                y2scr(render_priv,
+                      render_priv->state.clip_y0 +
+                      render_priv->state.scroll_shift) - (bbox.yMax -
+                                                          bbox.yMin);
+        else if (render_priv->state.scroll_direction == SCROLL_BT)
+            device_y =
+                y2scr(render_priv,
+                      render_priv->state.clip_y1 -
+                      render_priv->state.scroll_shift);
+    }
+
+    // positioned events are totally different
+    if (render_priv->state.evt_type == EVENT_POSITIONED) {
+        double base_x = 0;
+        double base_y = 0;
+        get_base_point(&bbox, render_priv->state.alignment, &base_x, &base_y);
+        device_x =
+            x2scr_pos(render_priv, render_priv->state.pos_x) - base_x;
+        device_y =
+            y2scr_pos(render_priv, render_priv->state.pos_y) - base_y;
+    }
+
+    // fix clip coordinates (they depend on alignment)
+    if (render_priv->state.evt_type == EVENT_NORMAL ||
+        render_priv->state.evt_type == EVENT_HSCROLL ||
+        render_priv->state.evt_type == EVENT_VSCROLL) {
+        render_priv->state.clip_x0 =
+            x2scr_scaled(render_priv, render_priv->state.clip_x0);
+        render_priv->state.clip_x1 =
+            x2scr_scaled(render_priv, render_priv->state.clip_x1);
+        if (valign == VALIGN_TOP) {
+            render_priv->state.clip_y0 =
+                y2scr_top(render_priv, render_priv->state.clip_y0);
+            render_priv->state.clip_y1 =
+                y2scr_top(render_priv, render_priv->state.clip_y1);
+        } else if (valign == VALIGN_CENTER) {
+            render_priv->state.clip_y0 =
+                y2scr(render_priv, render_priv->state.clip_y0);
+            render_priv->state.clip_y1 =
+                y2scr(render_priv, render_priv->state.clip_y1);
+        } else if (valign == VALIGN_SUB) {
+            render_priv->state.clip_y0 =
+                y2scr_sub(render_priv, render_priv->state.clip_y0);
+            render_priv->state.clip_y1 =
+                y2scr_sub(render_priv, render_priv->state.clip_y1);
+        }
+    } else if (render_priv->state.evt_type == EVENT_POSITIONED) {
+        render_priv->state.clip_x0 =
+            x2scr_pos_scaled(render_priv, render_priv->state.clip_x0);
+        render_priv->state.clip_x1 =
+            x2scr_pos_scaled(render_priv, render_priv->state.clip_x1);
+        render_priv->state.clip_y0 =
+            y2scr_pos(render_priv, render_priv->state.clip_y0);
+        render_priv->state.clip_y1 =
+            y2scr_pos(render_priv, render_priv->state.clip_y1);
+    }
+
+    calculate_rotation_params(render_priv, &bbox, device_x, device_y);
+
+    render_and_combine_glyphs(render_priv, device_x, device_y);
 
     memset(event_images, 0, sizeof(*event_images));
     event_images->top = device_y - text_info->lines[0].asc;
