@@ -21,6 +21,12 @@
 
 #include <stdint.h>
 
+#if defined(__GNUC__) && __GNUC__ >= 3 && __GNUC_MINOR >= 1
+#define ass_deprecated __attribute__((deprecated))
+#else
+#define ass_deprecated
+#endif
+
 #define VALIGN_SUB 0
 #define VALIGN_CENTER 8
 #define VALIGN_TOP 4
