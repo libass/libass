@@ -45,6 +45,19 @@ ASS_Library *ass_library_init(void)
     return lib;
 }
 
+ASS_Library *ass_library_init_dummy(ass_message_cb cb, void *cb_data)
+{
+    ASS_Library *lib = ass_library_init();
+    if (lib) {
+        if (cb) {
+            lib->msg_callback = cb;
+            lib->msg_callback_data = cb_data;
+        }
+        lib->dummy = 1;
+    }
+    return lib;
+}
+
 void ass_library_done(ASS_Library *priv)
 {
     if (priv) {

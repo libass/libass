@@ -21,6 +21,8 @@
 
 #include <stdarg.h>
 
+#include "ass.h"
+
 typedef struct {
     char *name;
     char *data;
@@ -36,6 +38,12 @@ struct ass_library {
     int num_fontdata;
     void (*msg_callback)(int, const char *, va_list, void *);
     void *msg_callback_data;
+
+    // If it's a compatibility object, that should be deallocated if the
+    // object using it is destroyed.
+    int dummy;
 };
+
+ASS_Library *ass_library_init_dummy(ass_message_cb cb, void *cb_data);
 
 #endif                          /* LIBASS_LIBRARY_H */

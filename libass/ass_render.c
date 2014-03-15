@@ -126,6 +126,14 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     return priv;
 }
 
+ASS_Renderer *ass_renderer_create(ass_message_cb cb, void *cb_data)
+{
+    ASS_Library *lib = ass_library_init_dummy(cb, cb_data);
+    if (!lib)
+        return NULL;
+    return ass_renderer_init(lib);
+}
+
 static void free_list_clear(ASS_Renderer *render_priv)
 {
     if (render_priv->free_head) {
@@ -171,6 +179,8 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     free(render_priv->settings.default_family);
 
     free_list_clear(render_priv);
+    if (render_priv->library->dummy)
+        ass_library_done(render_priv->library);
     free(render_priv);
 }
 

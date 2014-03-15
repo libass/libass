@@ -20,7 +20,6 @@
 #define LIBASS_ASS_H
 
 #include <stdio.h>
-#include <stdarg.h>
 #include "ass_types.h"
 
 #define LIBASS_VERSION 0x01101000
@@ -111,11 +110,22 @@ void ass_library_done(ASS_Library *priv);
  * Optional directory that will be scanned for fonts recursively.  The fonts
  * found are used for font lookup.
  * NOTE: A valid font directory is not needed to support embedded fonts.
- *
+ * @deprecated Use ass_renderer_set_fonts_dir().
  * \param priv library handle
  * \param fonts_dir directory with additional fonts
  */
-void ass_set_fonts_dir(ASS_Library *priv, const char *fonts_dir);
+ass_deprecated void ass_set_fonts_dir(ASS_Library *priv, const char *fonts_dir);
+
+/**
+ * \brief Set additional fonts directory.
+ * Optional directory that will be scanned for fonts recursively.  The fonts
+ * found are used for font lookup.
+ * NOTE: A valid font directory is not needed to support embedded fonts.
+ *
+ * \param priv renderer handle
+ * \param fonts_dir directory with additional fonts
+ */
+void ass_renderer_set_fonts_dir(ASS_Renderer *priv, const char *fonts_dir);
 
 /**
  * \brief Whether fonts should be extracted from track data.
@@ -155,16 +165,23 @@ void ass_process_force_style(ASS_Track *track);
  * \param msg_cb pointer to callback function
  * \param data additional data, will be passed to callback
  */
-void ass_set_message_cb(ASS_Library *priv, void (*msg_cb)
-                        (int level, const char *fmt, va_list args, void *data),
-                        void *data);
+void ass_set_message_cb(ASS_Library *priv, ass_message_cb cb, void *data);
+
+/**
+ * \brief Create the renderer.
+ * \param cb optional message callback for debug messages (can be NULL)
+ * \param cb_data data argument for the message callback
+ * \return renderer handle or NULL if failed
+ */
+ASS_Renderer *ass_renderer_create(ass_message_cb cb, void *cb_data);
 
 /**
  * \brief Initialize the renderer.
+ * @deprecated Use ass_renderer_create().
  * \param priv library handle
  * \return renderer handle or NULL if failed
  */
-ASS_Renderer *ass_renderer_init(ASS_Library *);
+ass_deprecated ASS_Renderer *ass_renderer_init(ASS_Library *);
 
 /**
  * \brief Finalize the renderer.
@@ -271,7 +288,7 @@ void ass_set_pixel_aspect(ASS_Renderer *priv, double par);
  * \param dar display aspect ratio (DAR), prescaled for output PAR
  * \param sar storage aspect ratio (SAR)
  */
-void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar);
+ass_deprecated void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar);
 
 /**
  * \brief Set a fixed font scaling factor.
@@ -464,19 +481,31 @@ int ass_read_styles(ASS_Track *track, char *fname, char *codepage);
 
 /**
  * \brief Add a memory font.
+ * @deprecated Use ass_renderer_add_font().
  * \param library library handle
  * \param name attachment name
  * \param data binary font data
  * \param data_size data size
 */
-void ass_add_font(ASS_Library *library, char *name, char *data,
-                  int data_size);
+ass_deprecated void ass_add_font(ASS_Library *library, char *name, char *data,
+                                 int data_size);
+
+/**
+ * \brief Add a memory font.
+ * \param priv renderer handle
+ * \param name attachment name
+ * \param data binary font data
+ * \param data_size data size
+*/
+void ass_renderer_add_font(ASS_Renderer *priv, char *name, char *data,
+                           int data_size);
 
 /**
  * \brief Remove all fonts stored in an ass_library object.
+ * @deprecated No replacement.
  * \param library library handle
  */
-void ass_clear_fonts(ASS_Library *library);
+ass_deprecated void ass_clear_fonts(ASS_Library *library);
 
 /**
  * \brief Calculates timeshift from now to the start of some other subtitle

@@ -20,12 +20,15 @@
 #define LIBASS_TYPES_H
 
 #include <stdint.h>
+#include <stdarg.h>
 
 #if defined(__GNUC__) && __GNUC__ >= 3 && __GNUC_MINOR >= 1
 #define ass_deprecated __attribute__((deprecated))
 #else
 #define ass_deprecated
 #endif
+
+typedef void (*ass_message_cb)(int level, const char *fmt, va_list args, void *data);
 
 #define VALIGN_SUB 0
 #define VALIGN_CENTER 8
