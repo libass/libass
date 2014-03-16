@@ -75,10 +75,8 @@ static inline void drawing_close_shape(ASS_Drawing *drawing)
 static void drawing_prepare(ASS_Drawing *drawing)
 {
     // Scaling parameters
-    drawing->point_scale_x = drawing->scale_x *
-                             64.0 / (1 << (drawing->scale - 1));
-    drawing->point_scale_y = drawing->scale_y *
-                             64.0 / (1 << (drawing->scale - 1));
+    drawing->point_scale_x = drawing->scale_x / (1 << (drawing->scale - 1));
+    drawing->point_scale_y = drawing->scale_y / (1 << (drawing->scale - 1));
 }
 
 /*
@@ -135,7 +133,8 @@ static int token_check_values(ASS_DrawingToken *token, int i, int type)
 static ASS_DrawingToken *drawing_tokenize(char *str)
 {
     char *p = str;
-    int i, val, type = -1, is_set = 0;
+    int i, type = -1, is_set = 0;
+    double val;
     FT_Vector point = {0, 0};
 
     ASS_DrawingToken *root = NULL, *tail = NULL, *spline_start = NULL;
@@ -155,12 +154,12 @@ static ASS_DrawingToken *drawing_tokenize(char *str)
                 }
                 spline_start = NULL;
             }
-        } else if (!is_set && mystrtoi(&p, &val)) {
-            point.x = val;
+        } else if (!is_set && mystrtod(&p, &val)) {
+            point.x = double_to_d6(val);
             is_set = 1;
             p--;
-        } else if (is_set == 1 && mystrtoi(&p, &val)) {
-            point.y = val;
+        } else if (is_set == 1 && mystrtod(&p, &val)) {
+            point.y = double_to_d6(val);
             is_set = 2;
             p--;
         } else if (*p == 'm')
