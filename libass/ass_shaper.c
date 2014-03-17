@@ -330,7 +330,7 @@ cached_extents(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
     extents->x_bearing = metrics->metrics.horiBearingX;
     extents->y_bearing = metrics->metrics.horiBearingY;
     extents->width     = metrics->metrics.width;
-    extents->height    = metrics->metrics.height;
+    extents->height    = -metrics->metrics.height;
 
     return 1;
 }
