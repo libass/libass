@@ -167,11 +167,8 @@ Bitmap *outline_to_bitmap(ASS_Library *library, FT_Library ftlib,
 
     FT_Outline_Get_CBox(outline, &bbox);
     if (bbox.xMin >= bbox.xMax || bbox.yMin >= bbox.yMax) {
-        Bitmap *bm = malloc(sizeof(Bitmap));
-        bm->buffer = NULL;
-        bm->w = bm->h = 0;
-        bm->stride = 0;
-        bm->left = bm->top = 0;
+        bm = alloc_bitmap(2 * bord, 2 * bord);
+        bm->left = bm->top = -bord;
         return bm;
     }
 
