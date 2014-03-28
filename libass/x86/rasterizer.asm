@@ -20,6 +20,10 @@
 
 %include "x86inc.asm"
 
+%if ARCH_X86_64
+DEFAULT REL
+%endif
+
 SECTION_RODATA 32
 
 words_index: dw 0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F
@@ -530,7 +534,7 @@ endstruc
 ;------------------------------------------------------------------------------
 
 %macro GET_RES_ADDR 1
-%if HAVE_ALIGNED_STACK
+%if mmsize <= 16 && HAVE_ALIGNED_STACK
     mov %1, rstk
 %else
     lea %1, [rstk + mmsize - 1]
@@ -540,7 +544,7 @@ endstruc
 
 %macro CALC_RES_ADDR 3-4 noskip
     shl %2d, 1 + %1
-%if HAVE_ALIGNED_STACK
+%if mmsize <= 16 && HAVE_ALIGNED_STACK
     add %2, rstk
 %else
 %ifidn %4, noskip
@@ -610,7 +614,7 @@ cglobal fill_generic_tile%2, 0,7,8
     %define mm_van   m %+ m_van
 %endif
 
-%if HAVE_ALIGNED_STACK
+%if mmsize <= 16 && HAVE_ALIGNED_STACK
     %assign alloc_size alloc_size + stack_offset + gprsize + (mmsize - 1)
     %assign alloc_size (alloc_size & ~(mmsize - 1)) - stack_offset - gprsize
 %else
