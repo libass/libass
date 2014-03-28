@@ -47,6 +47,10 @@ AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
     [disable HarfBuzz support @<:@default=check@:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
+AC_ARG_ENABLE([rasterizer], AS_HELP_STRING([--disable-rasterizer],
+    [disable internal rasterizer @<:@default=enabled@:>@]))
+AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
+    [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
 
 AS_IF([test x$enable_asm != xno], [
     AS_CASE([$host],
@@ -110,6 +114,20 @@ AM_CONDITIONAL([X64], [test x$X64 = xtrue])
 AM_COND_IF([ASM],
     [AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])],
     [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])]
+    )
+
+AM_CONDITIONAL([RASTERIZER], [test x$enable_rasterizer != xno])
+
+AM_COND_IF([RASTERIZER],
+    [AC_DEFINE(CONFIG_RASTERIZER, 1, [rasterizer enabled])],
+    [AC_DEFINE(CONFIG_RASTERIZER, 0, [rasterizer enabled])]
+    )
+
+AM_CONDITIONAL([ENABLE_LARGE_TILES], [test x$enable_large_tiles = xyes])
+
+AM_COND_IF([ENABLE_LARGE_TILES],
+    [AC_DEFINE(CONFIG_LARGE_TILES, 1, [use large tiles])]
+    [AC_DEFINE(CONFIG_LARGE_TILES, 0, [use small tiles])],
     )
 
 PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.10.3, [

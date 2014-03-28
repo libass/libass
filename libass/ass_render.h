@@ -42,6 +42,7 @@ typedef struct ass_shaper ASS_Shaper;
 #include "ass_library.h"
 #include "ass_drawing.h"
 #include "ass_bitmap.h"
+#include "ass_rasterizer.h"
 
 #define GLYPH_CACHE_MAX 10000
 #define BITMAP_CACHE_MAX_SIZE 500 * 1048576
@@ -352,6 +353,9 @@ struct ass_renderer {
     TextInfo text_info;
     CacheStore cache;
 
+#if CONFIG_RASTERIZER
+    ASS_Rasterizer rasterizer;
+#endif
     BitmapBlendFunc add_bitmaps_func;
     BitmapBlendFunc sub_bitmaps_func;
     BitmapMulFunc mul_bitmaps_func;
