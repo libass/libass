@@ -13,7 +13,8 @@ yasm_verbose_0 = @echo "  YASM    " $@;
 .asm.lo:
 	$(yasm_verbose)$(LIBTOOL) $(AM_V_lt) --mode=compile $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
 
-SRC_INTEL = x86/blend_bitmaps.asm x86/cpuid.asm x86/blend_bitmaps.h x86/cpuid.h
+SRC_INTEL = x86/blend_bitmaps.asm x86/cpuid.asm x86/blend_bitmaps.h x86/cpuid.h \
+			x86/rasterizer.asm x86/rasterizer.h
 SRC_INTEL64 = x86/be_blur.asm x86/be_blur.h
 
 lib_LTLIBRARIES = libass.la
@@ -23,7 +24,8 @@ libass_la_SOURCES = ass.c ass_cache.c ass_font.c ass_fontconfig.c ass_render.c \
                     ass_library.h ass_types.h ass_utils.h ass_drawing.c \
                     ass_drawing.h ass_cache_template.h ass_render.h \
                     ass_parse.c ass_parse.h ass_render_api.c ass_shaper.c \
-                    ass_shaper.h ass_strtod.c
+                    ass_shaper.h ass_strtod.c \
+                    ass_rasterizer.h ass_rasterizer.c ass_rasterizer_c.c
 
 libass_la_LDFLAGS = -no-undefined -version-info $(LIBASS_LT_CURRENT):$(LIBASS_LT_REVISION):$(LIBASS_LT_AGE)
 libass_la_LDFLAGS += -export-symbols $(srcdir)/libass.sym

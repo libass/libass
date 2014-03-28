@@ -47,6 +47,8 @@ AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
     [disable HarfBuzz support @<:@default=check@:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
+AC_ARG_ENABLE([rasterizer], AS_HELP_STRING([--disable-rasterizer],
+    [disable internal rasterizer @<:@default=enabled@:>@]))
 
 AS_IF([test x$enable_asm != xno], [
     AS_CASE([$host],
@@ -110,6 +112,13 @@ AM_CONDITIONAL([X64], [test x$X64 = xtrue])
 AM_COND_IF([ASM],
     [AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])],
     [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])]
+    )
+
+AM_CONDITIONAL([RASTERIZER], [test x$enable_rasterizer != xno])
+
+AM_COND_IF([RASTERIZER],
+    [AC_DEFINE(CONFIG_RASTERIZER, 1, [rasterizer enabled])],
+    [AC_DEFINE(CONFIG_RASTERIZER, 0, [rasterizer enabled])]
     )
 
 PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.10.3, [
