@@ -34,6 +34,7 @@ SECTION .text
 
 ;------------------------------------------------------------------------------
 ; MUL reg, num
+; Multiply by constant
 ;------------------------------------------------------------------------------
 
 %macro MUL 2
@@ -138,6 +139,7 @@ FILL_SOLID_TILE 5,32
 
 ;------------------------------------------------------------------------------
 ; CALC_LINE tile_order, m_dst, m_src, m_delta, m_zero, m_full, m_tmp
+; Calculate line using antialiased halfplane algorithm
 ;------------------------------------------------------------------------------
 
 %macro CALC_LINE 7
@@ -152,6 +154,9 @@ FILL_SOLID_TILE 5,32
 
 ;------------------------------------------------------------------------------
 ; DEF_A_SHIFT tile_order
+; If single mm-register is enough to store the whole line
+; then sets a_shift = 0,
+; else sets a_shift = log2(mmsize / sizeof(int16_t)).
 ;------------------------------------------------------------------------------
 
 %macro DEF_A_SHIFT 1
@@ -312,8 +317,7 @@ FILL_HALFPLANE_TILE 4,16
 FILL_HALFPLANE_TILE 5,32
 
 ;------------------------------------------------------------------------------
-; struct segment
-; {
+; struct segment {
 ;     int64_t c;
 ;     int32_t a, b, scale, flags;
 ;     int32_t x_min, x_max, y_min, y_max;
@@ -357,6 +361,9 @@ endstruc
 
 ;------------------------------------------------------------------------------
 ; CALC_DELTA_FLAG res, line, tmp1, tmp2
+; Set bits of result register (res):
+; bit 3 - for nonzero dn_delta,
+; bit 2 - for nonzero up_delta.
 ;------------------------------------------------------------------------------
 
 %macro CALC_DELTA_FLAG 4
@@ -372,11 +379,12 @@ endstruc
     and %4d, 4
     and %1d, 4
     lea %1d, [%1d + 2 * %1d]
-    xor %1d, %4d  ; bit 3 - dn_delta, bit 2 - up_delta
+    xor %1d, %4d
 %endmacro
 
 ;------------------------------------------------------------------------------
 ; UPDATE_DELTA up/dn, dst, flag, pos, tmp
+; Update delta array
 ;------------------------------------------------------------------------------
 
 %macro UPDATE_DELTA 5
@@ -403,18 +411,20 @@ endstruc
 
 ;------------------------------------------------------------------------------
 ; CALC_VBA tile_order, b
+; Calculate b - (tile_size - (mmsize / sizeof(int16_t))) * a
 ;------------------------------------------------------------------------------
 
 %macro CALC_VBA 2
     BCASTW m_vba, %2d
 %rep (2 << %1) / mmsize - 1
-    psubw mm_vba, mm_van  ; b - (tile_size - (mmsize / 2)) * a
+    psubw mm_vba, mm_van
 %endrep
 %endmacro
 
 ;------------------------------------------------------------------------------
 ; FILL_BORDER_LINE tile_order, res, abs_a(abs_ab), b, [abs_b], size, sum,
 ;                  tmp8, tmp9, mt10, mt11, mt12, mt13, mt14, [mt15]
+; Render top/bottom line of the trapezium with antialiasing
 ;------------------------------------------------------------------------------
 
 %macro FILL_BORDER_LINE 15
@@ -491,6 +501,7 @@ endstruc
 ;------------------------------------------------------------------------------
 ; SAVE_RESULT tile_order, buf, stride, src, delta,
 ;             tmp6, tmp7, mt8, mt9, mt10, mt11
+; Convert and store internal buffer (with delta array) in the result buffer
 ;------------------------------------------------------------------------------
 
 %macro SAVE_RESULT 11
@@ -531,6 +542,7 @@ endstruc
 ;------------------------------------------------------------------------------
 ; GET_RES_ADDR dst
 ; CALC_RES_ADDR tile_order, dst/index, tmp, [skip_calc]
+; Calculate position of line in the internal buffer
 ;------------------------------------------------------------------------------
 
 %macro GET_RES_ADDR 1

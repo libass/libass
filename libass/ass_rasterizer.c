@@ -22,7 +22,7 @@
 
 
 
-static inline int ilog2(uint32_t n)
+static inline int ilog2(uint32_t n)  // XXX: different compilers
 {
 #ifdef __GNUC__
     return __builtin_clz(n) ^ 31;
@@ -45,6 +45,12 @@ void rasterizer_init(ASS_Rasterizer *rst)
     rst->size[1] = rst->capacity[1] = 0;
 }
 
+/**
+ * \brief Ensure sufficient buffer size (allocate if necessary)
+ * \param index index (0 or 1) of the input segment buffer (rst->linebuf)
+ * \param delta requested size increase
+ * \return zero on error
+ */
 static inline int check_capacity(ASS_Rasterizer *rst, int index, size_t delta)
 {
     delta += rst->size[index];
@@ -74,15 +80,15 @@ typedef struct {
     int32_t x, y;
 } OutlinePoint;
 
+// Helper struct for spline split decision
 typedef struct {
     OutlinePoint r;
     int64_t r2, er;
 } OutlineSegment;
 
-static const int outline_error = 16;
-
 static inline void segment_init(OutlineSegment *seg,
-                                OutlinePoint beg, OutlinePoint end)
+                                OutlinePoint beg, OutlinePoint end,
+                                int32_t outline_error)
 {
     int32_t x = end.x - beg.x;
     int32_t y = end.y - beg.y;
@@ -106,6 +112,9 @@ static inline int segment_subdivide(const OutlineSegment *seg,
         (pcr < 0 ? -pcr : pcr) > seg->er;
 }
 
+/**
+ * \brief Add new segment to polyline
+ */
 static inline int add_line(ASS_Rasterizer *rst, OutlinePoint pt0, OutlinePoint pt1)
 {
     int32_t x = pt1.x - pt0.x;
@@ -134,6 +143,7 @@ static inline int add_line(ASS_Rasterizer *rst, OutlinePoint pt0, OutlinePoint p
     line->b = -x;
     line->c = y * (int64_t)pt0.x - x * (int64_t)pt0.y;
 
+    // halfplane normalization
     int32_t abs_x = x < 0 ? -x : x;
     int32_t abs_y = y < 0 ? -y : y;
     uint32_t max_ab = (abs_x > abs_y ? abs_x : abs_y);
@@ -148,15 +158,19 @@ static inline int add_line(ASS_Rasterizer *rst, OutlinePoint pt0, OutlinePoint p
     return 1;
 }
 
+/**
+ * \brief Add quadratic spline to polyline
+ * Preforms recursive subdivision if necessary.
+ */
 static int add_quadratic(ASS_Rasterizer *rst,
                          OutlinePoint pt0, OutlinePoint pt1, OutlinePoint pt2)
 {
     OutlineSegment seg;
-    segment_init(&seg, pt0, pt2);
+    segment_init(&seg, pt0, pt2, rst->outline_error);
     if (!segment_subdivide(&seg, pt0, pt1))
         return add_line(rst, pt0, pt2);
 
-    OutlinePoint p01, p12, c;  // TODO: overflow?
+    OutlinePoint p01, p12, c;  // XXX: overflow?
     p01.x = pt0.x + pt1.x;
     p01.y = pt0.y + pt1.y;
     p12.x = pt1.x + pt2.x;
@@ -170,15 +184,19 @@ static int add_quadratic(ASS_Rasterizer *rst,
     return add_quadratic(rst, pt0, p01, c) && add_quadratic(rst, c, p12, pt2);
 }
 
+/**
+ * \brief Add cubic spline to polyline
+ * Preforms recursive subdivision if necessary.
+ */
 static int add_cubic(ASS_Rasterizer *rst,
                      OutlinePoint pt0, OutlinePoint pt1, OutlinePoint pt2, OutlinePoint pt3)
 {
     OutlineSegment seg;
-    segment_init(&seg, pt0, pt3);
+    segment_init(&seg, pt0, pt3, rst->outline_error);
     if (!segment_subdivide(&seg, pt0, pt1) && !segment_subdivide(&seg, pt0, pt2))
         return add_line(rst, pt0, pt3);
 
-    OutlinePoint p01, p12, p23, p012, p123, c;  // TODO: overflow?
+    OutlinePoint p01, p12, p23, p012, p123, c;  // XXX: overflow?
     p01.x = pt0.x + pt1.x;
     p01.y = pt0.y + pt1.y;
     p12.x = pt1.x + pt2.x + 2;
@@ -447,6 +465,7 @@ static inline int segment_check_right(const struct segment *line, int32_t x)
         cc = -cc;
     return cc >= 0;
 }
+
 static inline int segment_check_left(const struct segment *line, int32_t x)
 {
     if (line->flags & SEGFLAG_EXACT_LEFT)
@@ -480,6 +499,14 @@ static inline int segment_check_bottom(const struct segment *line, int32_t y)
     return cc >= 0;
 }
 
+/**
+ * \brief Split list of segments horizontally
+ * \param src in: input array, can coincide with *dst0 or *dst1
+ * \param n_src in: input array size
+ * \param dst0, dst1 out: pointers to output arrays of at least n_src size
+ * \param x in: split coordinate
+ * \return winding difference between bottom-split and bottom-left points
+ */
 static int polyline_split_horz(const struct segment *src, size_t n_src,
                                struct segment **dst0, struct segment **dst1, int32_t x)
 {
@@ -514,6 +541,9 @@ static int polyline_split_horz(const struct segment *src, size_t n_src,
     return winding;
 }
 
+/**
+ * \brief Split list of segments vertically
+ */
 static int polyline_split_vert(const struct segment *src, size_t n_src,
                                struct segment **dst0, struct segment **dst1, int32_t y)
 {
@@ -602,6 +632,15 @@ static inline void rasterizer_fill_halfplane(ASS_Rasterizer *rst,
     }
 }
 
+/**
+ * \brief Main quad-tree filling function
+ * \param index index (0 or 1) of the input segment buffer (rst->linebuf)
+ * \param offs current offset from the beginning of the buffer
+ * \param winding bottom-left winding value
+ * \return zero on error
+ * Rasterizes (possibly recursive) one quad-tree level.
+ * Truncates used input buffer.
+ */
 static int rasterizer_fill_level(ASS_Rasterizer *rst,
     uint8_t *buf, int width, int height, ptrdiff_t stride, int index, size_t offs, int winding)
 {

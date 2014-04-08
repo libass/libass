@@ -121,6 +121,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         priv->rasterizer.fill_generic = ass_fill_generic_tile32_c;
     #endif
 #endif
+    priv->rasterizer.outline_error = 16;
     rasterizer_init(&priv->rasterizer);
 
     priv->cache.font_cache = ass_font_cache_create();

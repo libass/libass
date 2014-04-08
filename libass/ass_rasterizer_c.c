@@ -45,6 +45,28 @@ void ass_fill_solid_tile32_c(uint8_t *buf, ptrdiff_t stride)
 }
 
 
+/*
+ * Halfplane Filling Functions
+ *
+ * Fill pixels with antialiasing corresponding to equation
+ * A * x + B * y < C, where
+ * x, y - offset of pixel center from bottom-left,
+ * A = a * scale, B = b * scale, C = c * scale / 64.
+ *
+ * Normalization of coefficients prior call:
+ * max(abs(a), abs(b)) * scale = 1 << 61
+ *
+ * Used Algorithm
+ * Let
+ * max_ab = max(abs(A), abs(B)),
+ * min_ab = min(abs(A), abs(B)),
+ * CC = C - A * x - B * y, then
+ * result = (clamp((CC - min_ab / 4) / max_ab) +
+ *           clamp((CC + min_ab / 4) / max_ab) +
+ *           1) / 2,
+ * where clamp(Z) = max(-0.5, min(0.5, Z)).
+ */
+
 void ass_fill_halfplane_tile16_c(uint8_t *buf, ptrdiff_t stride,
                                  int32_t a, int32_t b, int64_t c, int32_t scale)
 {
@@ -112,6 +134,16 @@ void ass_fill_halfplane_tile32_c(uint8_t *buf, ptrdiff_t stride,
 }
 
 
+/*
+ * Generic Filling Functions
+ *
+ * Used Algorithm
+ * Construct trapezium from each polyline segment and its projection into left side of tile.
+ * Render that trapezium into internal buffer with additive blending and correct sign.
+ * Store clamped absolute value from internal buffer into result buffer.
+ */
+
+// Render top/bottom line of the trapezium with antialiasing
 static inline void update_border_line16(int16_t res[16],
                                         int16_t abs_a, const int16_t va[16],
                                         int16_t b, int16_t abs_b,
@@ -230,6 +262,7 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
     }
 }
 
+// Render top/bottom line of the trapezium with antialiasing
 static inline void update_border_line32(int16_t res[32],
                                         int16_t abs_a, const int16_t va[32],
                                         int16_t b, int16_t abs_b,
