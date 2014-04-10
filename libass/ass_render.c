@@ -816,6 +816,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.detect_collisions = 1;
     render_priv->state.fade = 0;
     render_priv->state.drawing_scale = 0;
+    render_priv->state.pbo = 0;
     render_priv->state.effect_type = EF_NONE;
     render_priv->state.effect_timing = 0;
     render_priv->state.effect_skip_timing = 0;
