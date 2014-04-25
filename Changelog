@@ -1,3 +1,13 @@
+libass (0.11.2)
+ * Improve yasm version check
+ * Fix \fscx0 crashes
+ * Actually export ass_library_version
+ * Fix change detection with vector clips
+ * SIMD assembly bugfixes
+ * Parse drawing numbers as floats (GH #63)
+ * Fix shaper sign bug (GH #68)
+ * Initialize \pbo correctly (GH #74)
+
 libass (0.11.1)
  * Fix distfile generation
  * No functional changes

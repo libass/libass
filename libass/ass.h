@@ -23,7 +23,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01101000
+#define LIBASS_VERSION 0x01102000
 
 /*
  * A linked list of images produced by an ass renderer.
