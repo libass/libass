@@ -48,7 +48,7 @@ typedef struct {
     unsigned char *buffer;      // h * stride buffer
 } Bitmap;
 
-Bitmap *outline_to_bitmap(ASS_Library *library, FT_Library ftlib,
+Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           FT_Outline *outline, int bord);
 
 Bitmap *alloc_bitmap(int w, int h);
@@ -62,8 +62,7 @@ Bitmap *alloc_bitmap(int w, int h);
  * \param be 1 = produces blurred bitmaps, 0 = normal bitmaps
  * \param border_visible whether border is visible if border_style is 3
  */
-int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
-                       FT_Library ftlib, FT_Outline *outline, FT_Outline *border,
+int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outline *border,
                        Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
                        int be, double blur_radius, FT_Vector shadow_offset,
                        int border_style, int border_visible);
