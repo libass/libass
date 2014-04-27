@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <ass.h>
+#include "../libass/ass.h"
 
 typedef struct image_s {
     int width, height, stride;

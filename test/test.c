@@ -20,7 +20,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <ass.h>
+#include <string.h>
+#include "../libass/ass.h"
 #include <png.h>
 
 typedef struct image_s {
