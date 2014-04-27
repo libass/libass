@@ -1827,7 +1827,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             if (!in_tag && *p == '{') {            // '\0' goes here
                 p++;
                 in_tag = 1;
-                if (render_priv->state.drawing_scale) {
+                if (drawing->i) {
                     // A drawing definition has just ended.
                     // Exit and create the drawing now lest we
                     // accidentally let it consume later text
