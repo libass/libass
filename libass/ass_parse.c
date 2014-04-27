@@ -30,7 +30,7 @@
 #define NBSP 0xa0   // unicode non-breaking space character
 
 #define skip_to(x) while ((*p != (x)) && (*p != '}') && (*p != 0)) { ++p;}
-#define skip(x) if (*p == (x)) ++p; else { return p; }
+#define skip(x) if (*p == (x) && !(*p == '(' && *(p+1) == ')')) ++p; else { return p; }
 #define skipopt(x) if (*p == (x)) { ++p; }
 
 /**
