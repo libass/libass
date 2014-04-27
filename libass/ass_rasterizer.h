@@ -19,6 +19,8 @@
 #ifndef LIBASS_RASTERIZER_H
 #define LIBASS_RASTERIZER_H
 
+#include "config.h"
+#include "ass_compat.h"
 #include <stddef.h>
 #include <stdint.h>
 

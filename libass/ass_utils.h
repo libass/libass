@@ -19,6 +19,9 @@
 #ifndef LIBASS_UTILS_H
 #define LIBASS_UTILS_H
 
+#include "config.h"
+
+#include "ass_compat.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -27,8 +30,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <math.h>
-
-#include "config.h"
 
 #ifdef CONFIG_ENCA
 #include <enca.h>
