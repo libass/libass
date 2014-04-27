@@ -16,7 +16,7 @@ AM_PROG_AS
 # Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_STDBOOL
-AC_CHECK_HEADERS([stdint.h unistd.h iconv.h])
+AC_CHECK_HEADERS([stdint.h iconv.h])
 
 # Checks for library functions.
 AC_CHECK_FUNCS([strdup strndup])
