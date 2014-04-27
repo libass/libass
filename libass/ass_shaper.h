@@ -21,6 +21,8 @@
 
 #include "config.h"
 
+typedef struct ass_shaper ASS_Shaper;
+
 #include <fribidi.h>
 #include "ass_render.h"
 
