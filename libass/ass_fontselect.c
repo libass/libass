@@ -640,7 +640,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     iconv_close(utf16to8);
 
     // check if we got a valid family - if not use whatever FreeType gives us
-    if (num_family == 0) {
+    if (num_family == 0 && face->family_name) {
         families[0] = strdup(face->family_name);
         num_family++;
     }
