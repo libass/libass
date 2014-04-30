@@ -730,8 +730,11 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         } else
             reset_render_context(render_priv, NULL);
     } else if (mystrcmp(&p, "be")) {
-        int val;
-        if (mystrtoi(&p, &val)) {
+        double dval;
+        if (mystrtod(&p, &dval)) {
+            int val;
+            // VSFilter always adds +0.5, even if the value is negative
+            val = (int) (render_priv->state.be * (1 - pwr) + dval * pwr + 0.5);
             // Clamp to a safe upper limit, since high values need excessive CPU
             val = (val < 0) ? 0 : val;
             val = (val > MAX_BE) ? MAX_BE : val;
