@@ -420,9 +420,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         skipopt(')');
         delta_t = t2 - t1;
         t = render_priv->time - render_priv->state.event->Start;
-        if (t < t1)
+        if (t <= t1)
             k = 0.;
-        else if (t > t2)
+        else if (t >= t2)
             k = 1.;
         else
             k = ((double) (t - t1)) / delta_t;
