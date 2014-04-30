@@ -106,7 +106,7 @@ int mystrtoll(char **p, long long *res)
     double temp_res;
     char *start = *p;
     temp_res = ass_strtod(*p, p);
-    *res = (int) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
+    *res = (long long) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
     if (*p != start)
         return 1;
     else
