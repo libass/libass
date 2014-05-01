@@ -663,6 +663,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
                 render_priv->state.clip_y0 * (1 - pwr) + y0 * pwr;
             render_priv->state.clip_y1 =
                 render_priv->state.clip_y1 * (1 - pwr) + y1 * pwr;
+            render_priv->state.clip_mode = 0;
         // Might be a vector clip
         } else if (!render_priv->state.clip_drawing) {
             p = parse_vector_clip(render_priv, start);
