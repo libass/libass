@@ -321,30 +321,27 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         } else
             render_priv->state.blur = 0.0;
         // ASS standard tags
-    } else if (mystrcmp(&p, "fsc")) {
-        char tp = *p++;
+    } else if (mystrcmp(&p, "fscx")) {
         double val;
-        if (tp == 'x') {
-            if (mystrtod(&p, &val)) {
-                val /= 100;
-                val = render_priv->state.scale_x * (1 - pwr) + val * pwr;
-                val = (val < 0) ? 0 : val;
-            } else
-                val = render_priv->state.style->ScaleX;
-            render_priv->state.scale_x = val;
-        } else if (tp == 'y') {
-            if (mystrtod(&p, &val)) {
-                val /= 100;
-                val = render_priv->state.scale_y * (1 - pwr) + val * pwr;
-                val = (val < 0) ? 0 : val;
-            } else
-                val = render_priv->state.style->ScaleY;
-            render_priv->state.scale_y = val;
-        } else {
-            --p;
-            render_priv->state.scale_x = render_priv->state.style->ScaleX;
-            render_priv->state.scale_y = render_priv->state.style->ScaleY;
-        }
+        if (mystrtod(&p, &val)) {
+            val /= 100;
+            val = render_priv->state.scale_x * (1 - pwr) + val * pwr;
+            val = (val < 0) ? 0 : val;
+        } else
+            val = render_priv->state.style->ScaleX;
+        render_priv->state.scale_x = val;
+    } else if (mystrcmp(&p, "fscy")) {
+        double val;
+        if (mystrtod(&p, &val)) {
+            val /= 100;
+            val = render_priv->state.scale_y * (1 - pwr) + val * pwr;
+            val = (val < 0) ? 0 : val;
+        } else
+            val = render_priv->state.style->ScaleY;
+        render_priv->state.scale_y = val;
+    } else if (mystrcmp(&p, "fsc")) {
+        render_priv->state.scale_x = render_priv->state.style->ScaleX;
+        render_priv->state.scale_y = render_priv->state.style->ScaleY;
     } else if (mystrcmp(&p, "fsp")) {
         double val;
         if (mystrtod(&p, &val))
