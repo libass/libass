@@ -703,6 +703,8 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
                 val = 0;
                 break;          // impossible due to assert; avoid compilation warning
             }
+            if (cmd == 'a')
+                val <<= 24;
             pwr = 1;
         }
         switch (cmd) {
