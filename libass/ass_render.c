@@ -209,6 +209,8 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     free(render_priv->settings.default_font);
     free(render_priv->settings.default_family);
 
+    free(render_priv->user_override_style.FontName);
+
     free_list_clear(render_priv);
     free(render_priv);
 }
@@ -781,14 +783,95 @@ static void compute_string_bbox(TextInfo *text, DBBox *bbox)
         bbox->xMin = bbox->xMax = bbox->yMin = bbox->yMax = 0.;
 }
 
+static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
+                                                   ASS_Style *rstyle)
+{
+    // The script style is the one the event was declared with.
+    // The rstyle is either NULL, or the style used with a \r tag.
+    ASS_Style *script = render_priv->track->styles +
+                        render_priv->state.event->Style;
+    ASS_Style *new = &render_priv->state.override_style_temp_storage;
+    double scale;
+
+    if (!rstyle)
+        rstyle = script;
+
+    render_priv->state.style = script;
+    render_priv->state.override_style =
+        !event_is_positioned(render_priv->state.event->Text);
+
+    if (!render_priv->settings.selective_style_overrides)
+        return rstyle;
+    if (!render_priv->state.override_style)
+        return rstyle;
+
+    // Create a new style that contains a mix of the original style and
+    // user_style (the user's override style). Copy only fields from the
+    // script's style that are deemed necessary.
+    *new = render_priv->user_override_style;
+    new->Alignment = script->Alignment;
+    new->Encoding = script->Encoding;
+    // no script author would set these just to be annoying
+    new->StrikeOut = rstyle->StrikeOut;
+    new->Underline = rstyle->Underline;
+    // better if the scipt uses margins for explicit positioning
+    new->MarginL = script->MarginL;
+    new->MarginR = script->MarginR;
+    new->MarginV = script->MarginV;
+    // ?
+    new->treat_fontname_as_pattern = script->treat_fontname_as_pattern;
+    new->Angle = rstyle->Angle;
+
+    // The user style is supposed to be independent of the script resolution.
+    // Treat the user style's values as if they were specified for a script with
+    // PlayResY=288, and rescale the values to the current script.
+    scale = render_priv->track->PlayResY / 288.0;
+    new->FontSize *= scale;
+    new->Spacing *= scale;
+    new->Outline *= scale;
+    new->Shadow *= scale;
+
+    render_priv->state.style = new;
+
+    return new;
+}
+
+static void init_font_scale(ASS_Renderer *render_priv)
+{
+    ASS_Settings *settings_priv = &render_priv->settings;
+
+    render_priv->font_scale = ((double) render_priv->orig_height) /
+                              render_priv->track->PlayResY;
+    if (settings_priv->storage_height)
+        render_priv->blur_scale = ((double) render_priv->orig_height) /
+            settings_priv->storage_height;
+    else
+        render_priv->blur_scale = 1.;
+    if (render_priv->track->ScaledBorderAndShadow)
+        render_priv->border_scale =
+            ((double) render_priv->orig_height) /
+            render_priv->track->PlayResY;
+    else
+        render_priv->border_scale = render_priv->blur_scale;
+    if (!settings_priv->storage_height)
+        render_priv->blur_scale = render_priv->border_scale;
+
+    if (render_priv->state.override_style) {
+        render_priv->font_scale *= settings_priv->font_size_coeff;
+        render_priv->border_scale *= settings_priv->font_size_coeff;
+        render_priv->blur_scale *= settings_priv->font_size_coeff;
+    }
+}
+
 /**
  * \brief partially reset render_context to style values
  * Works like {\r}: resets some style overrides
  */
 void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
 {
-    if (!style)
-        style = render_priv->state.style;
+    style = handle_selective_style_overrides(render_priv, style);
+
+    init_font_scale(render_priv);
 
     render_priv->state.c[0] = style->PrimaryColour;
     render_priv->state.c[1] = style->SecondaryColour;
@@ -832,11 +915,10 @@ static void
 init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
 {
     render_priv->state.event = event;
-    render_priv->state.style = render_priv->track->styles + event->Style;
     render_priv->state.parsed_tags = 0;
     render_priv->state.has_vector_clip = 0;
 
-    reset_render_context(render_priv, render_priv->state.style);
+    reset_render_context(render_priv, NULL);
     render_priv->state.wrap_style = render_priv->track->WrapStyle;
 
     render_priv->state.evt_type = EVENT_NORMAL;
@@ -2177,6 +2259,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             device_y = scr_y - (bbox.yMax + bbox.yMin) / 2.0;
         } else {                // subtitle
             double scr_top, scr_bottom, scr_y0;
+            double line_pos = render_priv->state.override_style ?
+                              render_priv->settings.line_position : 0;
             if (valign != VALIGN_SUB)
                 ass_msg(render_priv->library, MSGL_V,
                        "Invalid valign, assuming 0 (subtitle)");
@@ -2184,8 +2268,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 y2scr_sub(render_priv,
                           render_priv->track->PlayResY - MarginV);
             scr_top = y2scr_top(render_priv, 0); //xxx not always 0?
-            device_y = scr_bottom + (scr_top - scr_bottom) *
-                       render_priv->settings.line_position / 100.0;
+            device_y = scr_bottom + (scr_top - scr_bottom) * line_pos / 100.0;
             device_y -= text_info->height;
             device_y += text_info->lines[0].asc;
             // clip to top to avoid confusion if line_position is very high,
@@ -2618,23 +2701,6 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     render_priv->time = now;
 
     ass_lazy_track_init(render_priv->library, render_priv->track);
-
-    render_priv->font_scale = settings_priv->font_size_coeff *
-        render_priv->orig_height / render_priv->track->PlayResY;
-    if (settings_priv->storage_height)
-        render_priv->blur_scale = ((double) render_priv->orig_height) /
-            settings_priv->storage_height;
-    else
-        render_priv->blur_scale = 1.;
-    if (render_priv->track->ScaledBorderAndShadow)
-        render_priv->border_scale =
-            ((double) render_priv->orig_height) /
-            render_priv->track->PlayResY;
-    else
-        render_priv->border_scale = render_priv->blur_scale;
-    if (!settings_priv->storage_height)
-        render_priv->blur_scale = render_priv->border_scale;
-    render_priv->border_scale *= settings_priv->font_size_coeff;
 
     ass_shaper_set_kerning(render_priv->shaper, track->Kerning);
     ass_shaper_set_language(render_priv->shaper, track->Language);

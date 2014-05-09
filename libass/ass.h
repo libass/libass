@@ -25,6 +25,8 @@
 
 #define LIBASS_VERSION 0x01102000
 
+#define LIBASS_HAVE_SELECTIVE_STYLE_OVERRIDES 1
+
 /*
  * A linked list of images produced by an ass renderer.
  *
@@ -318,6 +320,32 @@ void ass_set_line_position(ASS_Renderer *priv, double line_position);
 void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
                    const char *default_family, int fc, const char *config,
                    int update);
+
+/**
+ * \brief Set selective style override mode.
+ * If enabled, the renderer attempts to override the ASS script's styling of
+ * normal subtitles, without affecting explicitly positioned text. If an event
+ * looks like a normal subtitle, parts of the font style are copied from the
+ * user style set with ass_set_selective_style_override().
+ * Warning: the heuristic used for deciding when to override the style is rather
+ *          rough, and enabling this option can lead to incorrectly rendered
+ *          subtitles. Since the ASS format doesn't have any support for
+ *          allowing end-users to customize subtitle styling, this feature can
+ *          only be implemented on "best effort" basis, and has to rely on
+ *          heuristics that can easily break.
+ * \param priv renderer handle
+ * \param enable enable selective styling if the value is not 0
+ */
+void ass_set_enable_selective_style_override(ASS_Renderer *priv, int enable);
+
+/**
+ * \brief Set style for selective style override.
+ * See ass_set_enable_selective_style_override().
+ * \param style style settings to use if override is enabled. Applications
+ * should initialize it with {0} before setting fields. Strings will be copied
+ * by the function.
+ */
+void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style);
 
 /**
  * \brief Update/build font cache.  This needs to be called if it was
