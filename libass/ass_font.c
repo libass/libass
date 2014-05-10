@@ -766,3 +766,18 @@ void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
     free(valid_cont);
 }
 
+void ass_add_memory_font(ASS_Library *library,
+                         const ASS_Renderer *renderer,
+                         const unsigned char *data,
+                         size_t size)
+{
+    FT_Face face;
+    if (FT_New_Memory_Face(renderer->ftlibrary, data, size, 0, &face) == 0)
+    {
+        ass_add_font(library,
+                     (char *)face->family_name,
+                     (char *)data,
+                     (int)size);
+        FT_Done_Face(face);
+    }
+}
