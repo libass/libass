@@ -145,7 +145,7 @@ static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
     if (!path)
         return -1;
 
-    mem_idx = find_font(font->library, path);
+    mem_idx = find_font(font->library, font->desc.family);
     if (mem_idx >= 0) {
         error =
             FT_New_Memory_Face(font->ftlibrary,
@@ -155,7 +155,7 @@ static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
                                &face);
         if (error) {
             ass_msg(font->library, MSGL_WARN,
-                    "Error opening memory font: '%s'", path);
+                    "Error opening memory font: '%s'", font->desc.family);
             free(path);
             return -1;
         }
