@@ -164,6 +164,13 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           FT_Outline *outline, int bord)
 {
     ASS_Rasterizer *rst = &render_priv->rasterizer;
+    int x_min, y_min, x_max, y_max, w, h;
+    int mask;
+    int tile_w, tile_h;
+    Bitmap *bm;
+    int offs;
+    int bord_h;
+
     if (!rasterizer_set_outline(rst, outline)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
         return NULL;
@@ -175,12 +182,12 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return bm;
     }
 
-    int x_min = rst->x_min >> 6;
-    int y_min = rst->y_min >> 6;
-    int x_max = (rst->x_max + 63) >> 6;
-    int y_max = (rst->y_max + 63) >> 6;
-    int w = x_max - x_min;
-    int h = y_max - y_min;
+    x_min = rst->x_min >> 6;
+    y_min = rst->y_min >> 6;
+    x_max = (rst->x_max + 63) >> 6;
+    y_max = (rst->y_max + 63) >> 6;
+    w = x_max - x_min;
+    h = y_max - y_min;
 
     if (w * h > 8000000) {
         ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
@@ -188,15 +195,15 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return NULL;
     }
 
-    int mask = (1 << rst->tile_order) - 1;
-    int tile_w = (w + 2 * bord + mask) & ~mask;
-    int tile_h = (h + 2 * bord + mask) & ~mask;
-    Bitmap *bm = alloc_bitmap(tile_w, tile_h);
+    mask = (1 << rst->tile_order) - 1;
+    tile_w = (w + 2 * bord + mask) & ~mask;
+    tile_h = (h + 2 * bord + mask) & ~mask;
+    bm = alloc_bitmap(tile_w, tile_h);
     bm->left = x_min - bord;
     bm->top = -y_max - bord;
 
-    int offs = bord & ~mask;
-    int bord_h = tile_h - h - bord;
+    offs = bord & ~mask;
+    bord_h = tile_h - h - bord;
     if (!rasterizer_fill(rst,
             bm->buffer + offs * (bm->stride + 1),
             x_min - bord + offs,
@@ -560,9 +567,9 @@ int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outlin
                        int be, double blur_radius, FT_Vector shadow_offset,
                        int border_style, int border_visible)
 {
-    blur_radius *= 2;
+    double blur_radius_x2 = blur_radius * 2;
     int bbord = be > 0 ? sqrt(2 * be) : 0;
-    int gbord = blur_radius > 0.0 ? blur_radius + 1 : 0;
+    int gbord = blur_radius_x2 > 0.0 ? blur_radius_x2 + 1 : 0;
     int bord = FFMAX(bbord, gbord);
     if (bord == 0 && (shadow_offset.x || shadow_offset.y))
         bord = 1;
@@ -597,7 +604,8 @@ void add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
     unsigned out;
     uint8_t* end = dst + dst_stride * height;
     while (dst < end) {
-        for (unsigned j = 0; j < width; ++j) {
+        unsigned j;
+        for (j = 0; j < width; ++j) {
             out = dst[j] + src[j];
             dst[j] = FFMIN(out, 255);
         }
@@ -613,7 +621,8 @@ void sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
     short out;
     uint8_t* end = dst + dst_stride * height;
     while (dst < end) {
-        for (unsigned j = 0; j < width; ++j) {
+        unsigned j;
+        for (j = 0; j < width; ++j) {
             out = dst[j] - src[j];
             dst[j] = FFMAX(out, 0);
         }
@@ -641,7 +650,8 @@ void mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
 {
     uint8_t* end = src1 + src1_stride * h;
     while (src1 < end) {
-        for (unsigned x = 0; x < w; ++x) {
+        unsigned x;
+        for (x = 0; x < w; ++x) {
             dst[x] = (src1[x] * src2[x] + 255) >> 8;
         }
         dst  += dst_stride;

@@ -1,0 +1,68 @@
+#if @FOUND_ASSEMBLER@
+#define CONFIG_ASM 1
+#else
+#define CONFIG_ASM 0
+#endif
+
+#if @FOUND_ENCA@
+#define CONFIG_ENCA 1
+#else
+#undef CONFIG_ENCA
+#endif
+
+#if @FOUND_FONTCONFIG@
+#define CONFIG_FONTCONFIG 1
+#else
+#undef CONFIG_FONTCONFIG
+#endif
+
+#if @FOUND_FREETYPE@
+#define CONFIG_FREETYPE 1
+#else
+#undef CONFIG_FREETYPE
+#endif
+
+#if @FOUND_FRIBIDI@
+#define CONFIG_FRIBIDI 1
+#else
+#undef CONFIG_FRIBIDI
+#endif
+
+#if @FOUND_HARFBUZZ@
+#define CONFIG_HARFBUZZ 1
+#else
+#undef CONFIG_HARFBUZZ
+#endif
+
+#if @FOUND_ICONV@
+#define HAVE_ICONV_H 1
+#else
+#undef HAVE_ICONV_H
+#endif
+
+/* rasterizer enabled */
+#define CONFIG_RASTERIZER 1
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#define HAVE_STDLIB_H 1
+
+/* Define to 1 if you have the `strcasecmp' function. */
+#undef HAVE_STRCASECMP
+
+/* Define to 1 if you have the `strdup' function. */
+#define HAVE_STRDUP 1
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#define HAVE_STRING_H 1
+
+/* Define to 1 if you have the `strtol' function. */
+#define HAVE_STRTOL 1
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#define HAVE_SYS_STAT_H 1
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#define HAVE_SYS_TYPES_H 1

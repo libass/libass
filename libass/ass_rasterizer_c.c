@@ -70,23 +70,29 @@ void ass_fill_solid_tile32_c(uint8_t *buf, ptrdiff_t stride)
 void ass_fill_halfplane_tile16_c(uint8_t *buf, ptrdiff_t stride,
                                  int32_t a, int32_t b, int64_t c, int32_t scale)
 {
+    static const int16_t full = (1 << 10) - 1;
+
+    int16_t abs_a;
+    int16_t abs_b;
+    int16_t delta;
+
+    int i, j;
+    int16_t va1[16], va2[16];
+
     int16_t aa = (a * (int64_t)scale + ((int64_t)1 << 49)) >> 50;
     int16_t bb = (b * (int64_t)scale + ((int64_t)1 << 49)) >> 50;
     int16_t cc = ((int32_t)(c >> 11) * (int64_t)scale + ((int64_t)1 << 44)) >> 45;
     cc += (1 << 9) - ((aa + bb) >> 1);
 
-    int16_t abs_a = aa < 0 ? -aa : aa;
-    int16_t abs_b = bb < 0 ? -bb : bb;
-    int16_t delta = (FFMIN(abs_a, abs_b) + 2) >> 2;
+    abs_a = aa < 0 ? -aa : aa;
+    abs_b = bb < 0 ? -bb : bb;
+    delta = (FFMIN(abs_a, abs_b) + 2) >> 2;
 
-    int i, j;
-    int16_t va1[16], va2[16];
     for (i = 0; i < 16; ++i) {
         va1[i] = aa * i - delta;
         va2[i] = aa * i + delta;
     }
 
-    static const int16_t full = (1 << 10) - 1;
     for (j = 0; j < 16; ++j) {
         for (i = 0; i < 16; ++i) {
             int16_t c1 = cc - va1[i];
@@ -103,23 +109,29 @@ void ass_fill_halfplane_tile16_c(uint8_t *buf, ptrdiff_t stride,
 void ass_fill_halfplane_tile32_c(uint8_t *buf, ptrdiff_t stride,
                                  int32_t a, int32_t b, int64_t c, int32_t scale)
 {
+    static const int16_t full = (1 << 9) - 1;
+
+    int16_t abs_a;
+    int16_t abs_b;
+    int16_t delta;
+
+    int i, j;
+    int16_t va1[32], va2[32];
+
     int16_t aa = (a * (int64_t)scale + ((int64_t)1 << 50)) >> 51;
     int16_t bb = (b * (int64_t)scale + ((int64_t)1 << 50)) >> 51;
     int16_t cc = ((int32_t)(c >> 12) * (int64_t)scale + ((int64_t)1 << 44)) >> 45;
     cc += (1 << 8) - ((aa + bb) >> 1);
 
-    int16_t abs_a = aa < 0 ? -aa : aa;
-    int16_t abs_b = bb < 0 ? -bb : bb;
-    int16_t delta = (FFMIN(abs_a, abs_b) + 2) >> 2;
+    abs_a = aa < 0 ? -aa : aa;
+    abs_b = bb < 0 ? -bb : bb;
+    delta = (FFMIN(abs_a, abs_b) + 2) >> 2;
 
-    int i, j;
-    int16_t va1[32], va2[32];
     for (i = 0; i < 32; ++i) {
         va1[i] = aa * i - delta;
         va2[i] = aa * i + delta;
     }
 
-    static const int16_t full = (1 << 9) - 1;
     for (j = 0; j < 32; ++j) {
         for (i = 0; i < 32; ++i) {
             int16_t c1 = cc - va1[i];
@@ -149,18 +161,26 @@ static inline void update_border_line16(int16_t res[16],
                                         int16_t b, int16_t abs_b,
                                         int16_t c, int dn, int up)
 {
+    int16_t dc_b;
+    int16_t dc;
+
+    int16_t base;
+    int16_t offs1;
+    int16_t offs2;
+
+    int i;
+
     int16_t size = up - dn;
     int16_t w = (1 << 10) + (size << 4) - abs_a;
     w = FFMIN(w, 1 << 10) << 3;
 
-    int16_t dc_b = abs_b * (int32_t)size >> 6;
-    int16_t dc = (FFMIN(abs_a, dc_b) + 2) >> 2;
+    dc_b = abs_b * (int32_t)size >> 6;
+    dc = (FFMIN(abs_a, dc_b) + 2) >> 2;
 
-    int16_t base = (int32_t)b * (int16_t)(dn + up) >> 7;
-    int16_t offs1 = size - ((base + dc) * (int32_t)w >> 16);
-    int16_t offs2 = size - ((base - dc) * (int32_t)w >> 16);
+    base = (int32_t)b * (int16_t)(dn + up) >> 7;
+    offs1 = size - ((base + dc) * (int32_t)w >> 16);
+    offs2 = size - ((base - dc) * (int32_t)w >> 16);
 
-    int i;
     size <<= 1;
     for (i = 0; i < 16; ++i) {
         int16_t cw = (c - va[i]) * (int32_t)w >> 16;
@@ -176,23 +196,48 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
                                const struct segment *line, size_t n_lines,
                                int winding)
 {
+    static const int16_t full = 1 << 10;
+    const struct segment *end;
     int i, j;
     int16_t res[16][16], delta[18];
+    int16_t cur;
+
     for (j = 0; j < 16; ++j)
         for (i = 0; i < 16; ++i)
             res[j][i] = 0;
     for (j = 0; j < 18; ++j)
         delta[j] = 0;
 
-    static const int16_t full = 1 << 10;
-    const struct segment *end = line + n_lines;
+    end = line + n_lines;
     for (; line != end; ++line) {
+        int16_t dn_delta;
+        int16_t up_delta;
+
+        int dn, up;
+        int16_t dn_pos;
+        int16_t dn_delta1;
+        int16_t up_pos;
+        int16_t up_delta1;
+
+        int16_t a;
+        int16_t b;
+        int16_t c;
+
+        int16_t va[16];
+
+        int16_t abs_a;
+        int16_t abs_b;
+        int16_t dc;
+        int16_t base;
+        int16_t dc1;
+        int16_t dc2;
+
         assert(line->y_min >= 0 && line->y_min < 1 << 10);
         assert(line->y_max > 0 && line->y_max <= 1 << 10);
         assert(line->y_min <= line->y_max);
 
-        int16_t dn_delta = line->flags & SEGFLAG_UP ? 4 : 0;
-        int16_t up_delta = dn_delta;
+        dn_delta = line->flags & SEGFLAG_UP ? 4 : 0;
+        up_delta = dn_delta;
         if (!line->x_min && (line->flags & SEGFLAG_EXACT_LEFT))up_delta ^= 4;
         if (line->flags & SEGFLAG_UR_DL) {
             int16_t tmp = dn_delta;
@@ -200,11 +245,12 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
             up_delta = tmp;
         }
 
-        int dn = line->y_min >> 6, up = line->y_max >> 6;
-        int16_t dn_pos = line->y_min & 63;
-        int16_t dn_delta1 = dn_delta * dn_pos;
-        int16_t up_pos = line->y_max & 63;
-        int16_t up_delta1 = up_delta * up_pos;
+        dn = line->y_min >> 6;
+        up = line->y_max >> 6;
+        dn_pos = line->y_min & 63;
+        dn_delta1 = dn_delta * dn_pos;
+        up_pos = line->y_max & 63;
+        up_delta1 = up_delta * up_pos;
         delta[dn + 1] -= dn_delta1;
         delta[dn] -= (dn_delta << 6) - dn_delta1;
         delta[up + 1] += up_delta1;
@@ -212,20 +258,19 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
         if (line->y_min == line->y_max)
             continue;
 
-        int16_t a = (line->a * (int64_t)line->scale + ((int64_t)1 << 49)) >> 50;
-        int16_t b = (line->b * (int64_t)line->scale + ((int64_t)1 << 49)) >> 50;
-        int16_t c = ((int32_t)(line->c >> 11) * (int64_t)line->scale + ((int64_t)1 << 44)) >> 45;
+        a = (line->a * (int64_t)line->scale + ((int64_t)1 << 49)) >> 50;
+        b = (line->b * (int64_t)line->scale + ((int64_t)1 << 49)) >> 50;
+        c = ((int32_t)(line->c >> 11) * (int64_t)line->scale + ((int64_t)1 << 44)) >> 45;
         c -= (a >> 1) + b * dn;
 
-        int16_t va[16];
         for (i = 0; i < 16; ++i)
             va[i] = a * i;
-        int16_t abs_a = a < 0 ? -a : a;
-        int16_t abs_b = b < 0 ? -b : b;
-        int16_t dc = (FFMIN(abs_a, abs_b) + 2) >> 2;
-        int16_t base = (1 << 9) - (b >> 1);
-        int16_t dc1 = base + dc;
-        int16_t dc2 = base - dc;
+        abs_a = a < 0 ? -a : a;
+        abs_b = b < 0 ? -b : b;
+        dc = (FFMIN(abs_a, abs_b) + 2) >> 2;
+        base = (1 << 9) - (b >> 1);
+        dc1 = base + dc;
+        dc2 = base - dc;
 
         if (dn_pos) {
             if (up == dn) {
@@ -250,7 +295,7 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
             update_border_line16(res[up], abs_a, va, b, abs_b, c, 0, up_pos);
     }
 
-    int16_t cur = winding << 8;
+    cur = winding << 8;
     for (j = 0; j < 16; ++j) {
         cur += delta[j];
         for (i = 0; i < 16; ++i) {
@@ -268,18 +313,26 @@ static inline void update_border_line32(int16_t res[32],
                                         int16_t b, int16_t abs_b,
                                         int16_t c, int dn, int up)
 {
+    int16_t dc_b;
+    int16_t dc;
+
+    int16_t base;
+    int16_t offs1;
+    int16_t offs2;
+
+    int i;
+
     int16_t size = up - dn;
     int16_t w = (1 << 9) + (size << 3) - abs_a;
     w = FFMIN(w, 1 << 9) << 5;
 
-    int16_t dc_b = abs_b * (int32_t)size >> 6;
-    int16_t dc = (FFMIN(abs_a, dc_b) + 2) >> 2;
+    dc_b = abs_b * (int32_t)size >> 6;
+    dc = (FFMIN(abs_a, dc_b) + 2) >> 2;
 
-    int16_t base = (int32_t)b * (int16_t)(dn + up) >> 7;
-    int16_t offs1 = size - ((base + dc) * (int32_t)w >> 16);
-    int16_t offs2 = size - ((base - dc) * (int32_t)w >> 16);
+    base = (int32_t)b * (int16_t)(dn + up) >> 7;
+    offs1 = size - ((base + dc) * (int32_t)w >> 16);
+    offs2 = size - ((base - dc) * (int32_t)w >> 16);
 
-    int i;
     size <<= 1;
     for (i = 0; i < 32; ++i) {
         int16_t cw = (c - va[i]) * (int32_t)w >> 16;
@@ -295,7 +348,11 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
                                const struct segment *line, size_t n_lines,
                                int winding)
 {
+    static const int16_t full = 1 << 9;
+    const struct segment *end;
+
     int i, j;
+    int16_t cur;
     int16_t res[32][32], delta[34];
     for (j = 0; j < 32; ++j)
         for (i = 0; i < 32; ++i)
@@ -303,15 +360,36 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
     for (j = 0; j < 34; ++j)
         delta[j] = 0;
 
-    static const int16_t full = 1 << 9;
-    const struct segment *end = line + n_lines;
+    end = line + n_lines;
     for (; line != end; ++line) {
+        int16_t dn_delta;
+        int16_t up_delta;
+
+        int dn, up;
+        int16_t dn_pos;
+        int16_t dn_delta1;
+        int16_t up_pos;
+        int16_t up_delta1;
+
+        int16_t a;
+        int16_t b;
+        int16_t c;
+
+        int16_t va[32];
+
+        int16_t abs_a;
+        int16_t abs_b;
+        int16_t dc;
+        int16_t base;
+        int16_t dc1;
+        int16_t dc2;
+
         assert(line->y_min >= 0 && line->y_min < 1 << 11);
         assert(line->y_max > 0 && line->y_max <= 1 << 11);
         assert(line->y_min <= line->y_max);
 
-        int16_t dn_delta = line->flags & SEGFLAG_UP ? 4 : 0;
-        int16_t up_delta = dn_delta;
+        dn_delta = line->flags & SEGFLAG_UP ? 4 : 0;
+        up_delta = dn_delta;
         if (!line->x_min && (line->flags & SEGFLAG_EXACT_LEFT))up_delta ^= 4;
         if (line->flags & SEGFLAG_UR_DL) {
             int16_t tmp = dn_delta;
@@ -319,11 +397,12 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
             up_delta = tmp;
         }
 
-        int dn = line->y_min >> 6, up = line->y_max >> 6;
-        int16_t dn_pos = line->y_min & 63;
-        int16_t dn_delta1 = dn_delta * dn_pos;
-        int16_t up_pos = line->y_max & 63;
-        int16_t up_delta1 = up_delta * up_pos;
+        dn = line->y_min >> 6;
+        up = line->y_max >> 6;
+        dn_pos = line->y_min & 63;
+        dn_delta1 = dn_delta * dn_pos;
+        up_pos = line->y_max & 63;
+        up_delta1 = up_delta * up_pos;
         delta[dn + 1] -= dn_delta1;
         delta[dn] -= (dn_delta << 6) - dn_delta1;
         delta[up + 1] += up_delta1;
@@ -331,20 +410,19 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
         if (line->y_min == line->y_max)
             continue;
 
-        int16_t a = (line->a * (int64_t)line->scale + ((int64_t)1 << 50)) >> 51;
-        int16_t b = (line->b * (int64_t)line->scale + ((int64_t)1 << 50)) >> 51;
-        int16_t c = ((int32_t)(line->c >> 12) * (int64_t)line->scale + ((int64_t)1 << 44)) >> 45;
+        a = (line->a * (int64_t)line->scale + ((int64_t)1 << 50)) >> 51;
+        b = (line->b * (int64_t)line->scale + ((int64_t)1 << 50)) >> 51;
+        c = ((int32_t)(line->c >> 12) * (int64_t)line->scale + ((int64_t)1 << 44)) >> 45;
         c -= (a >> 1) + b * dn;
 
-        int16_t va[32];
         for (i = 0; i < 32; ++i)
             va[i] = a * i;
-        int16_t abs_a = a < 0 ? -a : a;
-        int16_t abs_b = b < 0 ? -b : b;
-        int16_t dc = (FFMIN(abs_a, abs_b) + 2) >> 2;
-        int16_t base = (1 << 8) - (b >> 1);
-        int16_t dc1 = base + dc;
-        int16_t dc2 = base - dc;
+        abs_a = a < 0 ? -a : a;
+        abs_b = b < 0 ? -b : b;
+        dc = (FFMIN(abs_a, abs_b) + 2) >> 2;
+        base = (1 << 8) - (b >> 1);
+        dc1 = base + dc;
+        dc2 = base - dc;
 
         if (dn_pos) {
             if (up == dn) {
@@ -369,7 +447,7 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
             update_border_line32(res[up], abs_a, va, b, abs_b, c, 0, up_pos);
     }
 
-    int16_t cur = winding << 8;
+    cur = winding << 8;
     for (j = 0; j < 32; ++j) {
         cur += delta[j];
         for (i = 0; i < 32; ++i) {

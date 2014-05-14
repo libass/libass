@@ -473,6 +473,18 @@ void ass_add_font(ASS_Library *library, char *name, char *data,
                   int data_size);
 
 /**
+ * \brief Add a memory font
+ * \param library library handle
+ * \param renderer renderer handle
+ * \param data binary font data
+ * \param data_size data size
+*/
+void ass_add_memory_font(ASS_Library *library,
+                         const ASS_Renderer *renderer,
+                         const unsigned char *data,
+                         size_t data_size);
+
+/**
  * \brief Remove all fonts stored in an ass_library object.
  * \param library library handle
  */
