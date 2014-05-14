@@ -145,7 +145,7 @@ static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
     if (!path)
         return -1;
 
-    mem_idx = find_font(font->library, path);
+    mem_idx = find_font(font->library, font->desc.family);
     if (mem_idx >= 0) {
         error =
             FT_New_Memory_Face(font->ftlibrary,
@@ -155,7 +155,7 @@ static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
                                &face);
         if (error) {
             ass_msg(font->library, MSGL_WARN,
-                    "Error opening memory font: '%s'", path);
+                    "Error opening memory font: '%s'", font->desc.family);
             free(path);
             return -1;
         }
@@ -766,3 +766,18 @@ void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
     free(valid_cont);
 }
 
+void ass_add_memory_font(ASS_Library *library,
+                         const ASS_Renderer *renderer,
+                         const unsigned char *data,
+                         size_t size)
+{
+    FT_Face face;
+    if (FT_New_Memory_Face(renderer->ftlibrary, data, size, 0, &face) == 0)
+    {
+        ass_add_font(library,
+                     (char *)face->family_name,
+                     (char *)data,
+                     (int)size);
+        FT_Done_Face(face);
+    }
+}
