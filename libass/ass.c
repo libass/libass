@@ -26,11 +26,13 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <inttypes.h>
 #include <ctype.h>
 
-#ifdef CONFIG_ICONV
+#if defined(CONFIG_ICONV) || (defined(HAVE_ICONV_H) && HAVE_ICONV_H)
 #include <iconv.h>
 #endif
 

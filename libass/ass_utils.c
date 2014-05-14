@@ -68,15 +68,19 @@ int has_avx2(void)
 
 void *ass_aligned_alloc(size_t alignment, size_t size)
 {
+    char *allocation;
+    char *ptr;
+    unsigned int misalign;
+
     if (alignment & (alignment - 1))
         abort(); // not a power of 2
     if (size >= SIZE_MAX - alignment - sizeof(void *))
         return NULL;
-    char *allocation = malloc(size + sizeof(void *) + alignment - 1);
+    allocation = malloc(size + sizeof(void *) + alignment - 1);
     if (!allocation)
         return NULL;
-    char *ptr = allocation + sizeof(void *);
-    unsigned int misalign = (uintptr_t)ptr & (alignment - 1);
+    ptr = allocation + sizeof(void *);
+    misalign = (uintptr_t)ptr & (alignment - 1);
     if (misalign)
         ptr += alignment - misalign;
     *((void **)ptr - 1) = allocation;
@@ -188,20 +192,23 @@ char parse_bool(char *str)
 
 int parse_ycbcr_matrix(char *str)
 {
+    char *end;
+    char buffer[16];
+    size_t n;
+
     while (*str == ' ' || *str == '\t')
         str++;
     if (*str == '\0')
         return YCBCR_DEFAULT;
 
-    char *end = str + strlen(str);
+    end = str + strlen(str);
     while (end[-1] == ' ' || end[-1] == '\t')
         end--;
 
     // Trim a local copy of the input that we know is safe to
     // modify. The buffer is larger than any valid string + NUL,
     // so we can simply chop off the rest of the input.
-    char buffer[16];
-    size_t n = FFMIN(end - str, sizeof buffer - 1);
+    n = FFMIN(end - str, sizeof buffer - 1);
     strncpy(buffer, str, n);
     buffer[n] = '\0';
 
