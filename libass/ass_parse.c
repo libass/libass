@@ -241,7 +241,7 @@ static int parse_vector_clip(ASS_Renderer *render_priv,
     int scale = 1;
     int res = 0;
     ASS_Drawing *drawing = render_priv->state.clip_drawing;
-    char *p;
+    struct arg text;
 
     if (nargs != 1 && nargs != 2)
         return 0;
@@ -255,9 +255,8 @@ static int parse_vector_clip(ASS_Renderer *render_priv,
     drawing->scale = scale;
     drawing->scale_x = render_priv->font_scale_x * render_priv->font_scale;
     drawing->scale_y = render_priv->font_scale;
-    p = args[nargs - 1].start;
-    while (p < args[nargs - 1].end)
-        ass_drawing_add_char(drawing, *p++);
+    text = args[nargs - 1];
+    ass_drawing_add_chars(drawing, text.start, text.end - text.start);
 
     return 1;
 }

@@ -72,6 +72,7 @@ typedef struct {
 ASS_Drawing *ass_drawing_new(ASS_Library *lib, FT_Library ftlib);
 void ass_drawing_free(ASS_Drawing* drawing);
 void ass_drawing_add_char(ASS_Drawing* drawing, char symbol);
+void ass_drawing_add_chars(ASS_Drawing* drawing, char *str, int n);
 void ass_drawing_hash(ASS_Drawing* drawing);
 FT_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode);
 

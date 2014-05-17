@@ -381,6 +381,20 @@ void ass_drawing_add_char(ASS_Drawing* drawing, char symbol)
 }
 
 /*
+ * \brief Add an ASCII string to the drawing text buffer
+ */
+void ass_drawing_add_chars(ASS_Drawing* drawing, char *str, int n)
+{
+    if (drawing->i + n + 1 >= drawing->size) {
+        drawing->size = drawing->i + n + 1;
+        drawing->text = realloc(drawing->text, drawing->size);
+    }
+
+    memcpy(drawing->text + drawing->i, str, n);
+    drawing->text[drawing->i += n] = 0;
+}
+
+/*
  * \brief Create a hashcode for the drawing
  * XXX: To avoid collisions a better hash algorithm might be useful.
  */
