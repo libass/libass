@@ -179,13 +179,6 @@ static void set_default_style(ASS_Style *style)
     style->MarginL = style->MarginR = style->MarginV = 20;
 }
 
-static uint32_t string2color(ASS_Library *library, char *p)
-{
-    uint32_t tmp;
-    (void) strtocolor(library, &p, &tmp, 0);
-    return tmp;
-}
-
 static long long string2timecode(ASS_Library *library, char *p)
 {
     unsigned h, m, s, ms;
@@ -251,7 +244,7 @@ static int numpad2align(int val)
 
 #define COLORVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
-		target->name = string2color(track->library, token);
+		target->name = string2color(track->library, token, 0);
 
 #define INTVAL(name) ANYVAL(name,atoi)
 #define FPVAL(name) ANYVAL(name,ass_atof)
