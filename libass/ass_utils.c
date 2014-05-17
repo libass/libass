@@ -89,6 +89,22 @@ void ass_aligned_free(void *ptr)
         free(*((void **)ptr - 1));
 }
 
+void skip_spaces(char **str)
+{
+    char *p = *str;
+    while ((*p == ' ') || (*p == '\t'))
+        ++p;
+    *str = p;
+}
+
+void rskip_spaces(char **str, char *limit)
+{
+    char *p = *str;
+    while ((p > limit) && ((p[-1] == ' ') || (p[-1] == '\t')))
+        --p;
+    *str = p;
+}
+
 int mystrtoi(char **p, int *res)
 {
     double temp_res;
@@ -177,8 +193,7 @@ int strtocolor(ASS_Library *library, char **q, uint32_t *res, int hex)
 // Return a boolean value for a string
 char parse_bool(char *str)
 {
-    while (*str == ' ' || *str == '\t')
-        str++;
+    skip_spaces(&str);
     if (!strncasecmp(str, "yes", 3))
         return 1;
     else if (strtol(str, NULL, 10) > 0)
@@ -188,14 +203,12 @@ char parse_bool(char *str)
 
 int parse_ycbcr_matrix(char *str)
 {
-    while (*str == ' ' || *str == '\t')
-        str++;
+    skip_spaces(&str);
     if (*str == '\0')
         return YCBCR_DEFAULT;
 
     char *end = str + strlen(str);
-    while (end[-1] == ' ' || end[-1] == '\t')
-        end--;
+    rskip_spaces(&end, str);
 
     // Trim a local copy of the input that we know is safe to
     // modify. The buffer is larger than any valid string + NUL,

@@ -153,22 +153,6 @@ void ass_free_style(ASS_Track *track, int sid)
 
 // ==============================================================================================
 
-static void skip_spaces(char **str)
-{
-    char *p = *str;
-    while ((*p == ' ') || (*p == '\t'))
-        ++p;
-    *str = p;
-}
-
-static void rskip_spaces(char **str, char *limit)
-{
-    char *p = *str;
-    while ((p >= limit) && ((*p == ' ') || (*p == '\t')))
-        --p;
-    *str = p;
-}
-
 /**
  * \brief Set up default style
  * \param style style to edit to defaults
@@ -297,12 +281,7 @@ static char *next_token(char **str)
         *p = '\0';
         *str = p + 1;           // ',' found, str will point to the next char (beginning of the next token)
     }
-    --p;                        // end of current token
-    rskip_spaces(&p, start);
-    if (p < start)
-        p = start;              // empty token
-    else
-        ++p;                    // the first space character, or '\0'
+    rskip_spaces(&p, start);    // end of current token: the first space character, or '\0'
     *p = '\0';
     return start;
 }
