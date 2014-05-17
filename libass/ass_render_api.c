@@ -151,6 +151,17 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
                         default_font, fc, config, update);
 }
 
+void ass_renderer_set_fonts_dir(ASS_Renderer *priv, const char *fonts_dir)
+{
+    ass_set_fonts_dir(priv->library, fonts_dir);
+}
+
+void ass_renderer_add_font(ASS_Renderer *priv, char *name, char *data,
+                           int data_size)
+{
+    ass_add_font(priv->library, name, data, data_size);
+}
+
 int ass_fonts_update(ASS_Renderer *render_priv)
 {
     return fontconfig_update(render_priv->fontconfig_priv);
