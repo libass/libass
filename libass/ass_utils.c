@@ -149,11 +149,9 @@ int mystrtod(char **p, double *res)
         return 0;
 }
 
-int strtocolor(ASS_Library *library, char **q, uint32_t *res, int hex)
+uint32_t string2color(ASS_Library *library, char *p, int hex)
 {
     uint32_t color = 0;
-    int result;
-    char *p = *q;
     int base = hex ? 16 : 10;
 
     if (*p == '&')
@@ -164,9 +162,9 @@ int strtocolor(ASS_Library *library, char **q, uint32_t *res, int hex)
 
     if (*p == 'H' || *p == 'h') {
         ++p;
-        result = mystrtou32(&p, 16, &color);
+        mystrtou32(&p, 16, &color);
     } else {
-        result = mystrtou32(&p, base, &color);
+        mystrtou32(&p, base, &color);
     }
 
     while (*p == '&' || *p == 'H')
@@ -182,12 +180,8 @@ int strtocolor(ASS_Library *library, char **q, uint32_t *res, int hex)
         tmp[1] = tmp[2];
         tmp[2] = b;
     }
-    if (*p == '&')
-        ++p;
-    *q = p;
 
-    *res = color;
-    return result;
+    return color;
 }
 
 // Return a boolean value for a string
