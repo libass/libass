@@ -954,9 +954,15 @@ static void stroke_outline(ASS_Renderer *render_priv, FT_Outline *outline,
         outline->n_points = outline->n_contours = 0;
         FT_Stroker_ExportBorder(render_priv->state.stroker, border, outline);
 
-    // "Stroke" with the outline emboldener in two passes.
+    // "Stroke" with the outline emboldener (in two passes if needed).
     // The outlines look uglier, but the emboldening never adds any points
     } else {
+#if (FREETYPE_MAJOR > 2) || \
+    ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR > 4)) || \
+    ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR == 4) && (FREETYPE_PATCH >= 10))
+        FT_Outline_EmboldenXY(outline, sx * 2, sy * 2);
+        FT_Outline_Translate(outline, -sx, -sy);
+#else
         int i;
         FT_Outline nol;
 
@@ -973,6 +979,7 @@ static void stroke_outline(ASS_Renderer *render_priv, FT_Outline *outline,
             outline->points[i].y = nol.points[i].y;
 
         FT_Outline_Done(render_priv->ftlibrary, &nol);
+#endif
     }
 }
 
