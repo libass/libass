@@ -126,7 +126,7 @@ void ass_synth_done(ASS_SynthPriv *priv)
     free(priv);
 }
 
-Bitmap *alloc_bitmap(int w, int h)
+static Bitmap *alloc_bitmap_raw(int w, int h)
 {
     Bitmap *bm;
 
@@ -134,11 +134,19 @@ Bitmap *alloc_bitmap(int w, int h)
     unsigned s = ass_align(align, w);
     bm = malloc(sizeof(Bitmap));
     bm->buffer = ass_aligned_alloc(align, s * h + 32);
-    memset(bm->buffer, 0, s * h + 32);
     bm->w = w;
     bm->h = h;
     bm->stride = s;
     bm->left = bm->top = 0;
+    return bm;
+}
+
+Bitmap *alloc_bitmap(int w, int h)
+{
+    Bitmap *bm = alloc_bitmap_raw(w, h);
+    if(!bm)
+        return NULL;
+    memset(bm->buffer, 0, bm->stride * bm->h + 32);
     return bm;
 }
 
@@ -151,7 +159,7 @@ void ass_free_bitmap(Bitmap *bm)
 
 Bitmap *copy_bitmap(const Bitmap *src)
 {
-    Bitmap *dst = alloc_bitmap(src->w, src->h);
+    Bitmap *dst = alloc_bitmap_raw(src->w, src->h);
     dst->left = src->left;
     dst->top = src->top;
     memcpy(dst->buffer, src->buffer, src->stride * src->h);
