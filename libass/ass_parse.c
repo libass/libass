@@ -264,11 +264,12 @@ static int parse_vector_clip(ASS_Renderer *render_priv,
 /**
  * \brief Parse style override tag.
  * \param p string to parse
+ * \param end end of string to parse, which must be '}' or ')'
  * \param pwr multiplier for some tag effects (comes from \t tags)
  */
-char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
+char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
 {
-    while (*p != '\\' && *p != '}' && *p != 0)
+    while (*p != '\\' && p != end)
         ++p;
     if (*p != '\\')
         return p;
@@ -276,12 +277,12 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
     skip_spaces(&p);
 
     char *q = p;
-    while (*q != '(' && *q != '\\' && *q != '}' && *q != 0)
+    while (*q != '(' && *q != '\\' && q != end)
         ++q;
     if (q == p)
         return q;
 
-    char *end = q;
+    char *name_end = q;
 
     // Store one extra element to be able to detect excess arguments
     struct arg args[MAX_VALID_NARGS + 1];
@@ -302,7 +303,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             // to the end of the argument string into a single argument.
 
             char *r = q;
-            while (*r != ',' && *r != '\\' && *r != ')' && *r != '}' && *r != 0)
+            while (*r != ',' && *r != '\\' && *r != ')' && r != end)
                 ++r;
 
             if (*r == ',') {
@@ -311,7 +312,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             } else {
                 // Swallow the rest of the parenthesized string. This could
                 // be either a backslash-argument or simply the last argument.
-                while (*r != ')' && *r != '}' && *r != 0)
+                while (*r != ')' && r != end)
                     ++r;
                 push_arg(args, &nargs, q, r);
                 q = r;
@@ -323,7 +324,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         }
     }
 
-#define tag(name) (mystrcmp(&p, (name)) && (push_arg(args, &nargs, p, end), 1))
+#define tag(name) (mystrcmp(&p, (name)) && (push_arg(args, &nargs, p, name_end), 1))
 #define complex_tag(name) mystrcmp(&p, (name))
 
     // New tags introduced in vsfilter 2.39
@@ -663,7 +664,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         int cnt = nargs - 1;
         long long t1, t2, t, delta_t;
         double k;
-        char c;
         if (cnt == 3) {
             t1 = argtoll(args[0]);
             t2 = argtoll(args[1]);
@@ -695,12 +695,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             assert(delta_t != 0.);
             k = pow(((double) (t - t1)) / delta_t, accel);
         }
-        c = *args[cnt].end;
-        *args[cnt].end = '\0';
         p = args[cnt].start;
         while (p < args[cnt].end)
-            p = parse_tag(render_priv, p, k);   // maybe k*pwr ? no, specs forbid nested \t's
-        *args[cnt].end = c;
+            p = parse_tag(render_priv, p, args[cnt].end, k);    // maybe k*pwr ? no, specs forbid nested \t's
     } else if (complex_tag("clip")) {
         if (nargs == 4) {
             int x0, y0, x1, y1;

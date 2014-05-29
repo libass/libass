@@ -1888,7 +1888,7 @@ static int
 ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                  EventImages *event_images)
 {
-    char *p;
+    char *p, *tag_end;
     FT_Vector pen;
     unsigned code;
     DBBox bbox;
@@ -1916,8 +1916,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     drawing = render_priv->state.drawing;
     text_info->length = 0;
     p = event->Text;
-
-    int in_tag = 0;
+    tag_end = NULL;
 
     // Event parsing.
     while (1) {
@@ -1925,9 +1924,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         // this affects render_context
         do {
             code = 0;
-            if (!in_tag && *p == '{') {            // '\0' goes here
-                p++;
-                in_tag = 1;
+            if (!tag_end && *p == '{') {
+                tag_end = strchr(p, '}');
                 if (drawing->i) {
                     // A drawing definition has just ended.
                     // Exit and create the drawing now lest we
@@ -1937,15 +1935,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                     break;
                 }
             }
-            if (in_tag) {
-                p = parse_tag(render_priv, p, 1.);
-                if (*p == '}') {    // end of tag
-                    p++;
-                    in_tag = 0;
-                } else if (*p != '\\') {
-                    ass_msg(render_priv->library, MSGL_V,
-                            "Unable to parse: '%.30s'", p);
-                }
+            if (tag_end) {
+                while (p < tag_end)
+                    p = parse_tag(render_priv, p, tag_end, 1.);
+                assert(*p == '}');
+                p++;
+                tag_end = NULL;
             } else {
                 code = get_next_char(render_priv, &p);
                 if (code && render_priv->state.drawing_scale) {

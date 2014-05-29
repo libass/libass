@@ -34,7 +34,7 @@ void change_border(ASS_Renderer *render_priv, double border_x,
 void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event);
 void process_karaoke_effects(ASS_Renderer *render_priv);
 unsigned get_next_char(ASS_Renderer *render_priv, char **str);
-char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr);
+char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr);
 int event_is_positioned(char *str);
 extern void change_alpha(uint32_t *var, uint32_t new, double pwr);
 extern uint32_t mult_alpha(uint32_t a, uint32_t b);
