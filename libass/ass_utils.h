@@ -65,7 +65,7 @@ unsigned ass_utf8_get_char(char **str);
 unsigned ass_utf8_put_char(char *dest, uint32_t ch);
 void ass_msg(ASS_Library *priv, int lvl, char *fmt, ...);
 int lookup_style(ASS_Track *track, char *name);
-ASS_Style *lookup_style_strict(ASS_Track *track, char *name);
+ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len);
 #ifdef CONFIG_ENCA
 void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
                           int buflen, char *preferred_language,

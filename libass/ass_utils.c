@@ -337,19 +337,21 @@ int lookup_style(ASS_Track *track, char *name)
  * \brief find style by name as in \r
  * \param track track
  * \param name style name
+ * \param len style name length
  * \return style in track->styles
  * Returns NULL if no style has the given name.
  */
-ASS_Style *lookup_style_strict(ASS_Track *track, char *name)
+ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len)
 {
     int i;
     for (i = track->n_styles - 1; i >= 0; --i) {
-        if (strcmp(track->styles[i].Name, name) == 0)
+        if (strncmp(track->styles[i].Name, name, len) == 0 &&
+            track->styles[i].Name[len] == '\0')
             return track->styles + i;
     }
     ass_msg(track->library, MSGL_WARN,
-            "[%p]: Warning: no style named '%s' found",
-            track, name);
+            "[%p]: Warning: no style named '%.*s' found",
+            track, (int) len, name);
     return NULL;
 }
 

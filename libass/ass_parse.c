@@ -772,16 +772,10 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
             break;
         }
     } else if (tag("r")) {
-        char *style;
         if (nargs) {
-            char *start = args->start;
-            end = args->end;
-            style = malloc(end - start + 1);
-            strncpy(style, start, end - start);
-            style[end - start] = '\0';
+            int len = args->end - args->start;
             reset_render_context(render_priv,
-                    lookup_style_strict(render_priv->track, style));
-            free(style);
+                    lookup_style_strict(render_priv->track, args->start, len));
         } else
             reset_render_context(render_priv, NULL);
     } else if (tag("be")) {
