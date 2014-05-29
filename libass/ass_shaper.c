@@ -824,10 +824,11 @@ static void ass_shaper_skip_characters(TextInfo *text_info)
 /**
  * \brief Shape an event's text. Calculates directional runs and shapes them.
  * \param text_info event's text
+ * \return success, when 0
  */
-void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
+int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
 {
-    int i, last_break;
+    int i, ret, last_break;
     FriBidiParType dir;
     GlyphInfo *glyphs = text_info->glyphs;
 
@@ -842,8 +843,10 @@ void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
             dir = shaper->base_direction;
             fribidi_get_bidi_types(shaper->event_text + last_break,
                     i - last_break + 1, shaper->ctypes + last_break);
-            fribidi_get_par_embedding_levels(shaper->ctypes + last_break,
+            ret = fribidi_get_par_embedding_levels(shaper->ctypes + last_break,
                     i - last_break + 1, &dir, shaper->emblevels + last_break);
+            if (ret == 0)
+                return -1;
             last_break = i + 1;
         }
     }
@@ -867,6 +870,8 @@ void ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         shape_fribidi(shaper, glyphs, text_info->length);
         ass_shaper_skip_characters(text_info);
 #endif
+
+    return 0;
 }
 
 /**
@@ -910,10 +915,13 @@ void ass_shaper_cleanup(ASS_Shaper *shaper, TextInfo *text_info)
 
 /**
  * \brief Calculate reorder map to render glyphs in visual order
+ * \param shaper shaper instance
+ * \param text_info text to be reordered
+ * \return map of reordered characters, or NULL
  */
 FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
 {
-    int i;
+    int i, ret;
 
     // Initialize reorder map
     for (i = 0; i < text_info->length; i++)
@@ -924,10 +932,12 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
         LineInfo *line = text_info->lines + i;
         FriBidiParType dir = FRIBIDI_PAR_ON;
 
-        fribidi_reorder_line(0,
+        ret = fribidi_reorder_line(0,
                 shaper->ctypes + line->offset, line->len, 0, dir,
                 shaper->emblevels + line->offset, NULL,
                 shaper->cmap + line->offset);
+        if (ret == 0)
+            return NULL;
     }
 
     return shaper->cmap;

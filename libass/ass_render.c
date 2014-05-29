@@ -1985,7 +1985,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             resolve_base_direction(render_priv->state.font_encoding));
     ass_shaper_find_runs(render_priv->shaper, render_priv, glyphs,
             text_info->length);
-    ass_shaper_shape(render_priv->shaper, text_info);
+    if (ass_shaper_shape(render_priv->shaper, text_info) < 0) {
+        ass_msg(render_priv->library, MSGL_ERR, "Failed to shape text");
+        free_render_context(render_priv);
+        return 1;
+    }
 
     // Retrieve glyphs
     for (i = 0; i < text_info->length; i++) {
@@ -2075,6 +2079,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     // Reorder text into visual order
     FriBidiStrIndex *cmap = ass_shaper_reorder(render_priv->shaper, text_info);
+    if (!cmap) {
+        ass_msg(render_priv->library, MSGL_ERR, "Failed to reorder text");
+        ass_shaper_cleanup(render_priv->shaper, text_info);
+        free_render_context(render_priv);
+        return 1;
+    }
 
     // Reposition according to the map
     pen.x = 0;
