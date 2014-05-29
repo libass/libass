@@ -256,7 +256,7 @@ static int parse_vector_clip(ASS_Renderer *render_priv,
     drawing->scale_x = render_priv->font_scale_x * render_priv->font_scale;
     drawing->scale_y = render_priv->font_scale;
     text = args[nargs - 1];
-    ass_drawing_add_chars(drawing, text.start, text.end - text.start);
+    ass_drawing_set_text(drawing, text.start, text.end - text.start);
 
     return 1;
 }

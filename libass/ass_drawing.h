@@ -24,8 +24,6 @@
 
 #include "ass.h"
 
-#define DRAWING_INITIAL_SIZE 256
-
 typedef enum {
     TOKEN_MOVE,
     TOKEN_MOVE_NC,
@@ -46,7 +44,6 @@ typedef struct ass_drawing_token {
 
 typedef struct {
     char *text; // drawing string
-    int i;      // text index
     int scale;  // scale (1-64) for subpixel accuracy
     double pbo; // drawing will be shifted in y direction by this amount
     double scale_x;     // FontScaleX
@@ -60,7 +57,6 @@ typedef struct {
     // private
     FT_Library ftlibrary;   // needed for font ops
     ASS_Library *library;
-    int size;           // current buffer size
     ASS_DrawingToken *tokens;    // tokenized drawing
     int max_points;     // current maximum size
     int max_contours;
@@ -71,8 +67,7 @@ typedef struct {
 
 ASS_Drawing *ass_drawing_new(ASS_Library *lib, FT_Library ftlib);
 void ass_drawing_free(ASS_Drawing* drawing);
-void ass_drawing_add_char(ASS_Drawing* drawing, char symbol);
-void ass_drawing_add_chars(ASS_Drawing* drawing, char *str, int n);
+void ass_drawing_set_text(ASS_Drawing* drawing, char *str, size_t n);
 void ass_drawing_hash(ASS_Drawing* drawing);
 FT_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode);
 

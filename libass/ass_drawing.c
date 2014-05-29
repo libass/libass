@@ -335,8 +335,6 @@ ASS_Drawing *ass_drawing_new(ASS_Library *lib, FT_Library ftlib)
     ASS_Drawing *drawing;
 
     drawing = calloc(1, sizeof(*drawing));
-    drawing->text = calloc(1, DRAWING_INITIAL_SIZE);
-    drawing->size = DRAWING_INITIAL_SIZE;
     drawing->cbox.xMin = drawing->cbox.yMin = INT_MAX;
     drawing->cbox.xMax = drawing->cbox.yMax = INT_MIN;
     drawing->ftlibrary = ftlib;
@@ -367,31 +365,14 @@ void ass_drawing_free(ASS_Drawing* drawing)
 }
 
 /*
- * \brief Add one ASCII character to the drawing text buffer
+ * \brief Copy an ASCII string to the drawing text buffer
  */
-void ass_drawing_add_char(ASS_Drawing* drawing, char symbol)
+void ass_drawing_set_text(ASS_Drawing* drawing, char *str, size_t len)
 {
-    drawing->text[drawing->i++] = symbol;
-    drawing->text[drawing->i] = 0;
-
-    if (drawing->i + 1 >= drawing->size) {
-        drawing->size *= 2;
-        drawing->text = realloc(drawing->text, drawing->size);
-    }
-}
-
-/*
- * \brief Add an ASCII string to the drawing text buffer
- */
-void ass_drawing_add_chars(ASS_Drawing* drawing, char *str, int n)
-{
-    if (drawing->i + n + 1 >= drawing->size) {
-        drawing->size = drawing->i + n + 1;
-        drawing->text = realloc(drawing->text, drawing->size);
-    }
-
-    memcpy(drawing->text + drawing->i, str, n);
-    drawing->text[drawing->i += n] = 0;
+    free(drawing->text);
+    drawing->text = malloc(len + 1);
+    memcpy(drawing->text, str, len);
+    drawing->text[len] = 0;
 }
 
 /*

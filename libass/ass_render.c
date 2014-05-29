@@ -1934,7 +1934,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                     q++;
                 while ((*q != '{') && (*q != 0))
                     q++;
-                ass_drawing_add_chars(drawing, p, q - p);
+                ass_drawing_set_text(drawing, p, q - p);
                 code = 0xfffc; // object replacement character
                 p = q;
                 break;
@@ -1961,7 +1961,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         memset(info, 0, sizeof(GlyphInfo));
 
         // Parse drawing
-        if (drawing->i) {
+        if (drawing->text) {
             drawing->scale_x = render_priv->state.scale_x *
                                      render_priv->font_scale;
             drawing->scale_y = render_priv->state.scale_y *
