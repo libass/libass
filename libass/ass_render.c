@@ -1888,7 +1888,7 @@ static int
 ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                  EventImages *event_images)
 {
-    char *p, *tag_end;
+    char *p, *q;
     FT_Vector pen;
     unsigned code;
     DBBox bbox;
@@ -1916,40 +1916,36 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     drawing = render_priv->state.drawing;
     text_info->length = 0;
     p = event->Text;
-    tag_end = NULL;
 
     // Event parsing.
     while (1) {
         // get next char, executing style override
         // this affects render_context
-        do {
-            code = 0;
-            if (!tag_end && *p == '{') {
-                tag_end = strchr(p, '}');
-                if (drawing->i) {
-                    // A drawing definition has just ended.
-                    // Exit and create the drawing now lest we
-                    // accidentally let it consume later text
-                    // or be affected by later override tags.
-                    // See Google Code issues #47 and #101.
-                    break;
-                }
-            }
-            if (tag_end) {
-                while (p < tag_end)
-                    p = parse_tag(render_priv, p, tag_end, 1.);
+        code = 0;
+        while (*p) {
+            if ((*p == '{') && (q = strchr(p, '}'))) {
+                while (p < q)
+                    p = parse_tag(render_priv, p, q, 1.);
                 assert(*p == '}');
                 p++;
-                tag_end = NULL;
+            } else if (render_priv->state.drawing_scale) {
+                q = p;
+                if (*p == '{')
+                    q++;
+                while ((*q != '{') && (*q != 0))
+                    q++;
+                ass_drawing_add_chars(drawing, p, q - p);
+                code = 0xfffc; // object replacement character
+                p = q;
+                break;
             } else {
                 code = get_next_char(render_priv, &p);
-                if (code && render_priv->state.drawing_scale) {
-                    ass_drawing_add_char(drawing, (char) code);
-                    continue;   // skip everything in drawing mode
-                }
                 break;
             }
-        } while (*p);
+        }
+
+        if (code == 0)
+            break;
 
         if (text_info->length >= text_info->max_glyphs) {
             // Raise maximum number of glyphs
@@ -1972,7 +1968,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                                      render_priv->font_scale;
             drawing->scale = render_priv->state.drawing_scale;
             drawing->pbo = render_priv->state.pbo;
-            code = 0xfffc; // object replacement character
             info->drawing = drawing;
         }
 
@@ -1981,9 +1976,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             free_render_context(render_priv);
             return 1;
         }
-
-        if (code == 0)
-            break;
 
         // Fill glyph information
         info->symbol = code;
