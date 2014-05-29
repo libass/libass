@@ -702,8 +702,8 @@ static void shape_fribidi(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 
 /**
  * \brief Toggle kerning for HarfBuzz shaping.
- * NOTE: currently only works with OpenType fonts, the TrueType fallback *always*
- * kerns. It's a bug in HarfBuzz.
+ * \param shaper shaper instance
+ * \param kern toggle kerning
  */
 void ass_shaper_set_kerning(ASS_Shaper *shaper, int kern)
 {
