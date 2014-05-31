@@ -670,6 +670,8 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
         CombinedBitmapInfo *info = &text_info->combined_bitmaps[i];
         if (!info->bm_s || (info->shadow_x == 0 && info->shadow_y == 0))
             continue;
+        if (render_priv->state.border_style == 4)
+            continue;
 
         pen_x =
             dst_x + info->pos.x +
@@ -2540,6 +2542,24 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->shift_direction = (valign == VALIGN_TOP) ? 1 : -1;
     event_images->event = event;
     event_images->imgs = render_text(render_priv, (int) device_x, (int) device_y);
+
+    if (render_priv->state.border_style == 4) {
+        void *nbuffer = ass_aligned_alloc(1, event_images->width * event_images->height);
+        if (nbuffer) {
+            free_list_add(render_priv, nbuffer);
+            memset(nbuffer, 0xFF, event_images->width * event_images->height);
+            ASS_Image *img = my_draw_bitmap(nbuffer, event_images->width,
+                                            event_images->height,
+                                            event_images->width,
+                                            event_images->left,
+                                            event_images->top,
+                                            render_priv->state.c[3]);
+            if (img) {
+                img->next = event_images->imgs;
+                event_images->imgs = img;
+            }
+        }
+    }
 
     ass_shaper_cleanup(render_priv->shaper, text_info);
     free_render_context(render_priv);
