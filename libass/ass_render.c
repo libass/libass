@@ -667,6 +667,8 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
         CombinedBitmapInfo *info = &text_info->combined_bitmaps[i];
         if (!info->bm_s || (info->shadow_x == 0 && info->shadow_y == 0))
             continue;
+        if (render_priv->state.border_style == 4)
+            continue;
 
         pen_x =
             dst_x + info->pos.x +
