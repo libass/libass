@@ -66,6 +66,48 @@ int has_avx2(void)
 
 #endif // ASM
 
+void *crash_on_malloc_failure(void *ptr, const char *location)
+{
+    if (!ptr) {
+        fprintf(stderr, "libass: malloc failure at %s\n", location);
+        abort();
+    }
+    return ptr;
+}
+
+void *ass_xrealloc_(void *ptr, size_t size, const char *loc)
+{
+    ptr = realloc(ptr, size);
+    if (!ptr && size > 0)
+        crash_on_malloc_failure(ptr, loc);
+    return ptr;
+}
+
+// Return a * b. If it overflows, return (size_t)-1 (SIZE_MAX).
+// I.e. the equivalent of: MIN(element_size * count, SIZE_MAX).
+// The idea is that every real memory allocator will reject (size_t)-1, thus
+// this is a valid way to handle too large array allocation requests.
+size_t ass_satmul_size(size_t a, size_t b)
+{
+    if (a > (((size_t)-1) / b))
+        return (size_t)-1;
+    return a * b;
+}
+
+// xxx this doesn't check negative values correctly (but we don't need that)
+int ass_satmul_int(int a, int b)
+{
+    if (a > (INT_MAX / b))
+        return INT_MAX;
+    return a * b;
+}
+
+void *ass_realloc_array(void *ptr, size_t nmemb, size_t size)
+{
+    size_t nsize = ass_satmul_size(nmemb, size);
+    return realloc(ptr, nsize);
+}
+
 void *ass_aligned_alloc(size_t alignment, size_t size)
 {
     if (alignment & (alignment - 1))
@@ -373,7 +415,7 @@ void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
         encoding = enca_analyse_const(analyser, buffer, buflen);
         tmp = enca_charset_name(encoding.charset, ENCA_NAME_STYLE_ICONV);
         if (tmp && encoding.charset != ENCA_CS_UNKNOWN) {
-            detected_sub_cp = strdup(tmp);
+            detected_sub_cp = ass_xstrdup(tmp);
             ass_msg(library, MSGL_INFO, "ENCA detected charset: %s", tmp);
         }
         enca_analyser_free(analyser);
@@ -382,7 +424,7 @@ void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
     free(languages);
 
     if (!detected_sub_cp) {
-        detected_sub_cp = strdup(fallback);
+        detected_sub_cp = ass_xstrdup(fallback);
         ass_msg(library, MSGL_INFO,
                "ENCA detection failed: fallback to %s", fallback);
     }

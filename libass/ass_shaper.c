@@ -93,10 +93,12 @@ void ass_shaper_info(ASS_Library *lib)
 static void check_allocations(ASS_Shaper *shaper, size_t new_size)
 {
     if (new_size > shaper->n_glyphs) {
-        shaper->event_text = realloc(shaper->event_text, sizeof(FriBidiChar) * new_size);
-        shaper->ctypes     = realloc(shaper->ctypes, sizeof(FriBidiCharType) * new_size);
-        shaper->emblevels  = realloc(shaper->emblevels, sizeof(FriBidiLevel) * new_size);
-        shaper->cmap       = realloc(shaper->cmap, sizeof(FriBidiStrIndex) * new_size);
+        shaper->event_text = ass_realloc_array(shaper->event_text, sizeof(FriBidiChar), new_size);
+        shaper->ctypes     = ass_realloc_array(shaper->ctypes, sizeof(FriBidiCharType), new_size);
+        shaper->emblevels  = ass_realloc_array(shaper->emblevels, sizeof(FriBidiLevel), new_size);
+        shaper->cmap       = ass_realloc_array(shaper->cmap, sizeof(FriBidiStrIndex), new_size);
+        if (!shaper->event_text || !shaper->ctypes || !shaper->emblevels || !shaper->cmap)
+            crash_on_malloc_failure(NULL, ASS_LOC);
     }
 }
 
@@ -137,7 +139,7 @@ void ass_shaper_font_data_free(ASS_ShaperFontData *priv)
  */
 static void init_features(ASS_Shaper *shaper)
 {
-    shaper->features = calloc(sizeof(hb_feature_t), NUM_FEATURES);
+    shaper->features = ass_xcalloc(sizeof(hb_feature_t), NUM_FEATURES);
 
     shaper->n_features = NUM_FEATURES;
     shaper->features[VERT].tag = HB_TAG('v', 'e', 'r', 't');
@@ -368,7 +370,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
     hb_font_t **hb_fonts;
 
     if (!font->shaper_priv)
-        font->shaper_priv = calloc(sizeof(ASS_ShaperFontData), 1);
+        font->shaper_priv = ass_xcalloc(sizeof(ASS_ShaperFontData), 1);
 
 
     hb_fonts = font->shaper_priv->fonts;
@@ -378,7 +380,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
 
         // set up cached metrics access
         font->shaper_priv->metrics_data[info->face_index] =
-            calloc(sizeof(struct ass_shaper_metrics_data), 1);
+            ass_xcalloc(sizeof(struct ass_shaper_metrics_data), 1);
         struct ass_shaper_metrics_data *metrics =
             font->shaper_priv->metrics_data[info->face_index];
         metrics->metrics_cache = shaper->metrics_cache;
@@ -549,7 +551,7 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
         if (info->skip == 0) {
             while (info->next)
                 info = info->next;
-            info->next = malloc(sizeof(GlyphInfo));
+            info->next = ass_xmalloc(sizeof(GlyphInfo));
             memcpy(info->next, info, sizeof(GlyphInfo));
             info = info->next;
             info->next = NULL;
@@ -672,7 +674,7 @@ void ass_shaper_determine_script(ASS_Shaper *shaper, GlyphInfo *glyphs,
 static void shape_fribidi(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 {
     int i;
-    FriBidiJoiningType *joins = calloc(sizeof(*joins), len);
+    FriBidiJoiningType *joins = ass_xcalloc(sizeof(*joins), len);
 
     // shape on codepoint level
     fribidi_get_joining_types(shaper->event_text, len, joins);
@@ -880,7 +882,7 @@ int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
  */
 ASS_Shaper *ass_shaper_new(size_t prealloc)
 {
-    ASS_Shaper *shaper = calloc(sizeof(*shaper), 1);
+    ASS_Shaper *shaper = ass_xcalloc(sizeof(*shaper), 1);
 
     shaper->base_direction = FRIBIDI_PAR_ON;
     check_allocations(shaper, prealloc);

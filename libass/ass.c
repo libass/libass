@@ -94,21 +94,14 @@ void ass_free_track(ASS_Track *track)
 /// \return style id
 int ass_alloc_style(ASS_Track *track)
 {
-    int sid;
+    ASS_ARRAY_PREALLOC(track->styles, track->max_styles, track->n_styles);
 
-    assert(track->n_styles <= track->max_styles);
-
-    if (track->n_styles == track->max_styles) {
-        track->max_styles += ASS_STYLES_ALLOC;
-        track->styles =
-            (ASS_Style *) realloc(track->styles,
-                                  sizeof(ASS_Style) *
-                                  track->max_styles);
+    if (track->n_styles < track->max_styles) {
+        int sid = track->n_styles++;
+        memset(track->styles + sid, 0, sizeof(ASS_Style));
+        return sid;
     }
-
-    sid = track->n_styles++;
-    memset(track->styles + sid, 0, sizeof(ASS_Style));
-    return sid;
+    return -1;
 }
 
 /// \brief Allocate a new event struct
@@ -116,21 +109,14 @@ int ass_alloc_style(ASS_Track *track)
 /// \return event id
 int ass_alloc_event(ASS_Track *track)
 {
-    int eid;
+    ASS_ARRAY_PREALLOC(track->events, track->max_events, track->n_events);
 
-    assert(track->n_events <= track->max_events);
-
-    if (track->n_events == track->max_events) {
-        track->max_events = track->max_events * 2 + 1;
-        track->events =
-            (ASS_Event *) realloc(track->events,
-                                  sizeof(ASS_Event) *
-                                  track->max_events);
+    if (track->n_events < track->max_events) {
+        int eid = track->n_events++;
+        memset(track->events + eid, 0, sizeof(ASS_Event));
+        return eid;
     }
-
-    eid = track->n_events++;
-    memset(track->events + eid, 0, sizeof(ASS_Event));
-    return eid;
+    return -1;
 }
 
 void ass_free_event(ASS_Track *track, int eid)
@@ -177,8 +163,8 @@ static void rskip_spaces(char **str, char *limit)
  */
 static void set_default_style(ASS_Style *style)
 {
-    style->Name             = strdup("Default");
-    style->FontName         = strdup("Arial");
+    style->Name             = ass_xstrdup("Default");
+    style->FontName         = ass_xstrdup("Arial");
     style->FontSize         = 18;
     style->PrimaryColour    = 0xffffff00;
     style->SecondaryColour  = 0x00ffff00;
@@ -257,13 +243,13 @@ static int numpad2align(int val)
 #define STRVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
 		if (target->name != NULL) free(target->name); \
-		target->name = strdup(token);
+		target->name = ass_xstrdup(token);
 
 #define STARREDSTRVAL(name) \
     } else if (strcasecmp(tname, #name) == 0) { \
         if (target->name != NULL) free(target->name); \
         while (*token == '*') ++token; \
-        target->name = strdup(token);
+        target->name = ass_xstrdup(token);
 
 #define COLORVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
@@ -323,7 +309,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
     int i;
     ASS_Event *target = event;
 
-    char *format = strdup(track->event_format);
+    char *format = ass_xstrdup(track->event_format);
     char *q = format;           // format scanning pointer
 
     if (track->n_styles == 0) {
@@ -342,7 +328,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
         NEXT(q, tname);
         if (strcasecmp(tname, "Text") == 0) {
             char *last;
-            event->Text = strdup(p);
+            event->Text = ass_xstrdup(p);
             if (*event->Text != 0) {
                 last = event->Text + strlen(event->Text) - 1;
                 if (last >= event->Text && *last == '\r')
@@ -477,20 +463,20 @@ static int process_style(ASS_Track *track, char *str)
         // probably an ancient script version
         if (track->track_type == TRACK_TYPE_SSA)
             track->style_format =
-                strdup
+                ass_xstrdup
                 ("Name, Fontname, Fontsize, PrimaryColour, SecondaryColour,"
                  "TertiaryColour, BackColour, Bold, Italic, BorderStyle, Outline,"
                  "Shadow, Alignment, MarginL, MarginR, MarginV, AlphaLevel, Encoding");
         else
             track->style_format =
-                strdup
+                ass_xstrdup
                 ("Name, Fontname, Fontsize, PrimaryColour, SecondaryColour,"
                  "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut,"
                  "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow,"
                  "Alignment, MarginL, MarginR, MarginV, Encoding");
     }
 
-    q = format = strdup(track->style_format);
+    q = format = ass_xstrdup(track->style_format);
 
     // Add default style first
     if (track->n_styles == 0) {
@@ -564,9 +550,9 @@ static int process_style(ASS_Track *track, char *str)
     style->Underline = !!style->Underline;
     style->StrikeOut = !!style->StrikeOut;
     if (!style->Name)
-        style->Name = strdup("Default");
+        style->Name = ass_xstrdup("Default");
     if (!style->FontName)
-        style->FontName = strdup("Arial");
+        style->FontName = ass_xstrdup("Arial");
     free(format);
     return 0;
 
@@ -577,7 +563,7 @@ static int process_styles_line(ASS_Track *track, char *str)
     if (!strncmp(str, "Format:", 7)) {
         char *p = str + 7;
         skip_spaces(&p);
-        track->style_format = strdup(p);
+        track->style_format = ass_xstrdup(p);
         ass_msg(track->library, MSGL_DBG2, "Style format: %s",
                track->style_format);
     } else if (!strncmp(str, "Style:", 6)) {
@@ -607,7 +593,7 @@ static int process_info_line(ASS_Track *track, char *str)
     } else if (!strncmp(str, "Language:", 9)) {
         char *p = str + 9;
         while (*p && isspace(*p)) p++;
-        track->Language = malloc(3);
+        track->Language = ass_xmalloc(3);
         strncpy(track->Language, p, 2);
         track->Language[2] = 0;
     }
@@ -618,10 +604,10 @@ static void event_format_fallback(ASS_Track *track)
 {
     track->parser_priv->state = PST_EVENTS;
     if (track->track_type == TRACK_TYPE_SSA)
-        track->event_format = strdup("Marked, Start, End, Style, "
+        track->event_format = ass_xstrdup("Marked, Start, End, Style, "
             "Name, MarginL, MarginR, MarginV, Effect, Text");
     else
-        track->event_format = strdup("Layer, Start, End, Style, "
+        track->event_format = ass_xstrdup("Layer, Start, End, Style, "
             "Actor, MarginL, MarginR, MarginV, Effect, Text");
     ass_msg(track->library, MSGL_V,
             "No event format found, using fallback");
@@ -633,7 +619,7 @@ static int process_events_line(ASS_Track *track, char *str)
         char *p = str + 7;
         skip_spaces(&p);
         free(track->event_format);
-        track->event_format = strdup(p);
+        track->event_format = ass_xstrdup(p);
         ass_msg(track->library, MSGL_DBG2, "Event format: %s", track->event_format);
     } else if (!strncmp(str, "Dialogue:", 9)) {
         // This should never be reached for embedded subtitles.
@@ -697,6 +683,8 @@ static int decode_font(ASS_Track *track)
         goto error_decode_font;
     }
     buf = malloc(size / 4 * 3 + 2);
+    if (!buf)
+        goto error_decode_font;
     q = buf;
     for (i = 0, p = (unsigned char *) track->parser_priv->fontdata;
          i < size / 4; i++, p += 4) {
@@ -736,7 +724,7 @@ static int process_fonts_line(ASS_Track *track, char *str)
         if (track->parser_priv->fontname) {
             decode_font(track);
         }
-        track->parser_priv->fontname = strdup(p);
+        track->parser_priv->fontname = ass_xstrdup(p);
         ass_msg(track->library, MSGL_V, "Fontname: %s",
                track->parser_priv->fontname);
         return 0;
@@ -757,7 +745,7 @@ static int process_fonts_line(ASS_Track *track, char *str)
         track->parser_priv->fontdata_size) {
         track->parser_priv->fontdata_size += 100 * 1024;
         track->parser_priv->fontdata =
-            realloc(track->parser_priv->fontdata,
+            ass_xrealloc(track->parser_priv->fontdata,
                     track->parser_priv->fontdata_size);
     }
     memcpy(track->parser_priv->fontdata + track->parser_priv->fontdata_used,
@@ -849,6 +837,8 @@ static int process_text(ASS_Track *track, char *str)
 void ass_process_data(ASS_Track *track, char *data, int size)
 {
     char *str = malloc(size + 1);
+    if (!str)
+        return;
 
     memcpy(str, data, size);
     str[size] = '\0';
@@ -909,6 +899,8 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
     }
 
     str = malloc(size + 1);
+    if (!str)
+        return;
     memcpy(str, data, size);
     str[size] = '\0';
     ass_msg(track->library, MSGL_V, "Event at %" PRId64 ", +%" PRId64 ": %s",
@@ -995,6 +987,9 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
 #endif
     }
 
+    if (icdsc == (iconv_t) (-1))
+        return NULL;
+
     {
         size_t osize = size;
         size_t ileft = size;
@@ -1005,6 +1000,8 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
         int clear = 0;
 
         outbuf = malloc(osize);
+        if (!outbuf)
+            goto out;
         ip = data;
         op = outbuf;
 
@@ -1018,7 +1015,12 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
             if (rc == (size_t) (-1)) {
                 if (errno == E2BIG) {
                     size_t offset = op - outbuf;
-                    outbuf = (char *) realloc(outbuf, osize + size);
+                    char *nbuf = realloc(outbuf, osize + size);
+                    if (!nbuf) {
+                        free(outbuf);
+                        outbuf = 0;
+                        goto out;
+                    }
                     op = outbuf + offset;
                     osize += size;
                     oleft += size;
@@ -1078,7 +1080,10 @@ static char *read_file(ASS_Library *library, char *fname, size_t *bufsize)
     ass_msg(library, MSGL_V, "File size: %ld", sz);
 
     buf = malloc(sz + 1);
-    assert(buf);
+    if (!buf) {
+        fclose(fp);
+        return NULL;
+    }
     bytes_read = 0;
     do {
         res = fread(buf + bytes_read, 1, sz - bytes_read, fp);
@@ -1187,8 +1192,10 @@ static char *read_file_recode(ASS_Library *library, char *fname,
 #ifdef CONFIG_ICONV
     if (codepage) {
         char *tmpbuf = sub_recode(library, buf, bufsize, codepage);
-        free(buf);
-        buf = tmpbuf;
+        if (tmpbuf) {
+            free(buf);
+            buf = tmpbuf;
+        }
     }
     if (!buf)
         return 0;
@@ -1219,7 +1226,7 @@ ASS_Track *ass_read_file(ASS_Library *library, char *fname,
     if (!track)
         return 0;
 
-    track->name = strdup(fname);
+    track->name = ass_xstrdup(fname);
 
     ass_msg(library, MSGL_INFO,
             "Added subtitle file: '%s' (%d styles, %d events)",
@@ -1244,8 +1251,10 @@ int ass_read_styles(ASS_Track *track, char *fname, char *codepage)
     if (codepage) {
         char *tmpbuf;
         tmpbuf = sub_recode(track->library, buf, sz, codepage);
-        free(buf);
-        buf = tmpbuf;
+        if (tmpbuf) {
+            free(buf);
+            buf = tmpbuf;
+        }
     }
     if (!buf)
         return 0;
@@ -1306,9 +1315,15 @@ long long ass_step_sub(ASS_Track *track, long long now, int movement)
 ASS_Track *ass_new_track(ASS_Library *library)
 {
     ASS_Track *track = calloc(1, sizeof(ASS_Track));
+    if (!track)
+        return NULL;
     track->library = library;
     track->ScaledBorderAndShadow = 1;
     track->parser_priv = calloc(1, sizeof(ASS_ParserPriv));
+    if (!track->parser_priv) {
+        free(track);
+        return NULL;
+    }
     return track;
 }
 

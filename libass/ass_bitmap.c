@@ -50,10 +50,13 @@ int generate_tables(ASS_SynthPriv *priv, double radius)
     priv->g_w = 2 * priv->g_r + 1;
 
     if (priv->g_r) {
-        priv->g0 = realloc(priv->g0, priv->g_w * sizeof(double));
-        priv->g = realloc(priv->g, priv->g_w * sizeof(unsigned));
-        priv->gt2 = realloc(priv->gt2, 256 * priv->g_w * sizeof(unsigned));
-        if (priv->g == NULL || priv->gt2 == NULL) {
+        priv->g0 = ass_realloc_array(priv->g0, priv->g_w, sizeof(double));
+        priv->g = ass_realloc_array(priv->g, priv->g_w, sizeof(unsigned));
+        priv->gt2 = ass_realloc_array(priv->gt2, priv->g_w, 256 * sizeof(unsigned));
+        if (!priv->g || !priv->g0 || !priv->gt2) {
+            free(priv->g0);
+            free(priv->g);
+            free(priv->gt2);
             return -1;
         }
     }
@@ -108,12 +111,14 @@ void resize_tmp(ASS_SynthPriv *priv, int w, int h)
     ass_aligned_free(priv->tmp);
     priv->tmp =
         ass_aligned_alloc(32, (priv->tmp_w + 1) * priv->tmp_h * sizeof(unsigned));
+    crash_on_malloc_failure(priv->tmp, ASS_LOC);
 }
 
 ASS_SynthPriv *ass_synth_init(double radius)
 {
-    ASS_SynthPriv *priv = calloc(1, sizeof(ASS_SynthPriv));
-    generate_tables(priv, radius);
+    ASS_SynthPriv *priv = ass_xcalloc(1, sizeof(ASS_SynthPriv));
+    if (priv)
+        generate_tables(priv, radius);
     return priv;
 }
 
@@ -133,7 +138,13 @@ static Bitmap *alloc_bitmap_raw(int w, int h)
     unsigned align = (w >= 32) ? 32 : ((w >= 16) ? 16 : 1);
     unsigned s = ass_align(align, w);
     bm = malloc(sizeof(Bitmap));
+    if (!bm)
+        return NULL;
     bm->buffer = ass_aligned_alloc(align, s * h + 32);
+    if (!bm->buffer) {
+        free(bm);
+        return NULL;
+    }
     bm->w = w;
     bm->h = h;
     bm->stride = s;
@@ -160,6 +171,7 @@ void ass_free_bitmap(Bitmap *bm)
 Bitmap *copy_bitmap(const Bitmap *src)
 {
     Bitmap *dst = alloc_bitmap_raw(src->w, src->h);
+    crash_on_malloc_failure(dst, ASS_LOC);
     dst->left = src->left;
     dst->top = src->top;
     memcpy(dst->buffer, src->buffer, src->stride * src->h);
@@ -179,7 +191,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
     if (rst->x_min >= rst->x_max || rst->y_min >= rst->y_max) {
         Bitmap *bm = alloc_bitmap(2 * bord, 2 * bord);
-        bm->left = bm->top = -bord;
+        if (bm)
+            bm->left = bm->top = -bord;
         return bm;
     }
 
@@ -200,6 +213,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     int tile_w = (w + 2 * bord + mask) & ~mask;
     int tile_h = (h + 2 * bord + mask) & ~mask;
     Bitmap *bm = alloc_bitmap(tile_w, tile_h);
+    if (!bm)
+        return NULL;
     bm->left = x_min - bord;
     bm->top = -y_max - bord;
 
@@ -234,7 +249,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     FT_Outline_Get_CBox(outline, &bbox);
     if (bbox.xMin >= bbox.xMax || bbox.yMin >= bbox.yMax) {
         bm = alloc_bitmap(2 * bord, 2 * bord);
-        bm->left = bm->top = -bord;
+        if (bm);
+            bm->left = bm->top = -bord;
         return bm;
     }
 
@@ -259,6 +275,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
     // allocate and set up bitmap
     bm = alloc_bitmap(w + 2 * bord, h + 2 * bord);
+    if (!bm)
+        return NULL;
     bm->left = bbox.xMin - bord;
     bm->top = -bbox.yMax - bord;
     bitmap.width = w;
