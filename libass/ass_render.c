@@ -90,7 +90,6 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         priv->mul_bitmaps_func = mul_bitmaps_c;
         priv->be_blur_func = be_blur_c;
     #endif
-    priv->restride_bitmap_func = restride_bitmap_c;
 
 #if CONFIG_RASTERIZER
 #if CONFIG_LARGE_TILES
@@ -731,29 +730,6 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
 
     *tail = 0;
     blend_vector_clip(render_priv, head);
-
-    for (ASS_Image* cur = head; cur; cur = cur->next) {
-        unsigned w = cur->w,
-                 h = cur->h,
-                 s = cur->stride;
-        if(w + 31 < (unsigned)cur->stride){ // Larger value? Play with this.
-            // Allocate new buffer and add to free list
-            unsigned align = (w >= 32) ? 32 : ((w >= 16) ? 16 : 1);
-            unsigned ns = ass_align(align, w);
-            uint8_t* nbuffer = ass_aligned_alloc(align, ns * cur->h);
-            if (!nbuffer) continue;
-            free_list_add(render_priv, nbuffer);
-
-            // Copy
-            render_priv->restride_bitmap_func(nbuffer, ns,
-                                              cur->bitmap, s,
-                                              w, h);
-            cur->w = w;
-            cur->h = h;
-            cur->stride = ns;
-            cur->bitmap = nbuffer;
-        }
-    }
 
     return head;
 }

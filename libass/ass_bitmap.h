@@ -80,9 +80,6 @@ void add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
 void sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
                    uint8_t *src, intptr_t src_stride,
                    intptr_t height, intptr_t width);
-void restride_bitmap_c(uint8_t *dst, intptr_t dst_stride,
-                       uint8_t *src, intptr_t src_stride,
-                       intptr_t width, intptr_t height);
 void mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
                    uint8_t *src1, intptr_t src1_stride,
                    uint8_t *src2, intptr_t src2_stride,

@@ -630,18 +630,6 @@ void sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
     }
 }
 
-void restride_bitmap_c(uint8_t *dst, intptr_t dst_stride,
-                       uint8_t *src, intptr_t src_stride,
-                       intptr_t width, intptr_t height)
-{
-    uint8_t* end = dst + dst_stride * height;
-    while (dst < end) {
-        memcpy(dst, src, width);
-        dst += dst_stride;
-        src += src_stride;
-    }
-}
-
 void mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
                    uint8_t *src1, intptr_t src1_stride,
                    uint8_t *src2, intptr_t src2_stride,
