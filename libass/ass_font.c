@@ -345,12 +345,12 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
 
     // Grow outline
     i = (under ? 4 : 0) + (through ? 4 : 0);
-    ol->points = realloc(ol->points, sizeof(FT_Vector) *
-                         (ol->n_points + i));
-    ol->tags = realloc(ol->tags, ol->n_points + i);
+    ol->points = ass_xrealloc(ol->points, sizeof(FT_Vector) *
+                              (ol->n_points + i));
+    ol->tags = ass_xrealloc(ol->tags, ol->n_points + i);
     i = !!under + !!through;
-    ol->contours = realloc(ol->contours, sizeof(short) *
-                           (ol->n_contours + i));
+    ol->contours = ass_xrealloc(ol->contours, sizeof(short) *
+                                (ol->n_contours + i));
 
     // If the bearing is negative, the glyph starts left of the current
     // pen position
@@ -394,6 +394,7 @@ void outline_copy(FT_Library lib, FT_Outline *source, FT_Outline **dest)
         return;
     }
     *dest = calloc(1, sizeof(**dest));
+    crash_on_malloc_failure(*dest, ASS_LOC);
 
     FT_Outline_New(lib, source->n_points, source->n_contours, *dest);
     FT_Outline_Copy(source, *dest);
@@ -685,6 +686,9 @@ void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
     FT_BBox *boxes = malloc(nc * sizeof(FT_BBox));
     int i, j;
     int inside_direction;
+
+    crash_on_malloc_failure(valid_cont, ASS_LOC);
+    crash_on_malloc_failure(boxes, ASS_LOC);
 
     inside_direction = FT_Outline_Get_Orientation(outline) ==
         FT_ORIENTATION_TRUETYPE;

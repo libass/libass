@@ -137,9 +137,9 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->text_info.max_glyphs = MAX_GLYPHS_INITIAL;
     priv->text_info.max_lines = MAX_LINES_INITIAL;
     priv->text_info.n_bitmaps = 0;
-    priv->text_info.combined_bitmaps = calloc(MAX_BITMAPS_INITIAL, sizeof(CombinedBitmapInfo));
-    priv->text_info.glyphs = calloc(MAX_GLYPHS_INITIAL, sizeof(GlyphInfo));
-    priv->text_info.lines = calloc(MAX_LINES_INITIAL, sizeof(LineInfo));
+    priv->text_info.combined_bitmaps = ass_xcalloc(MAX_BITMAPS_INITIAL, sizeof(CombinedBitmapInfo));
+    priv->text_info.glyphs = ass_xcalloc(MAX_GLYPHS_INITIAL, sizeof(GlyphInfo));
+    priv->text_info.lines = ass_xcalloc(MAX_LINES_INITIAL, sizeof(LineInfo));
 
     priv->settings.font_size_coeff = 1.;
 
@@ -498,11 +498,11 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
 static void free_list_add(ASS_Renderer *render_priv, void *object)
 {
     if (!render_priv->free_head) {
-        render_priv->free_head = calloc(1, sizeof(FreeList));
+        render_priv->free_head = ass_xcalloc(1, sizeof(FreeList));
         render_priv->free_head->object = object;
         render_priv->free_tail = render_priv->free_head;
     } else {
-        FreeList *l = calloc(1, sizeof(FreeList));
+        FreeList *l = ass_xcalloc(1, sizeof(FreeList));
         l->object = object;
         render_priv->free_tail->next = l;
         render_priv->free_tail = render_priv->free_tail->next;
@@ -560,7 +560,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
 
         // Add to cache
         memset(&v, 0, sizeof(v));
-        key.u.clip.text = strdup(drawing->text);
+        key.u.clip.text = ass_xstrdup(drawing->text);
         v.bm = clip_bm;
         ass_cache_put(render_priv->cache.bitmap_cache, &key, &v);
     }
@@ -783,7 +783,7 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
 
     free(render_priv->state.family);
     render_priv->state.family = NULL;
-    render_priv->state.family = strdup(style->FontName);
+    render_priv->state.family = ass_xstrdup(style->FontName);
     render_priv->state.treat_family_as_pattern =
         style->treat_fontname_as_pattern;
     render_priv->state.bold = style->Bold;
@@ -1072,7 +1072,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             v.advance.y = drawing->advance.y;
             v.asc = drawing->asc;
             v.desc = drawing->desc;
-            key.u.drawing.text = strdup(drawing->text);
+            key.u.drawing.text = ass_xstrdup(drawing->text);
         } else {
             ass_face_set_size(info->font->faces[info->face_index],
                               info->font_size);
@@ -1105,7 +1105,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         if (info->border_style == 3) {
             FT_Vector advance;
 
-            v.border = calloc(1, sizeof(FT_Outline));
+            v.border = ass_xcalloc(1, sizeof(FT_Outline));
 
             if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing)
                 advance = v.advance;
@@ -1459,13 +1459,9 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
             // need to use one more line
             // marking break_at+1 as start of a new line
             int lead = break_at + 1;    // the first symbol of the new line
-            if (text_info->n_lines >= text_info->max_lines) {
-                // Raise maximum number of lines
-                text_info->max_lines *= 2;
-                text_info->lines = realloc(text_info->lines,
-                                           sizeof(LineInfo) *
-                                           text_info->max_lines);
-            }
+            ASS_ARRAY_PREALLOC(text_info->lines, text_info->max_lines, text_info->n_lines);
+            if (text_info->max_lines == text_info->n_lines)
+                crash_on_malloc_failure(NULL, ASS_LOC);
             if (lead < text_info->length) {
                 text_info->glyphs[lead].linebreak = break_type;
                 last_space = -1;
@@ -1873,12 +1869,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             }
         } while (*p);
 
-        if (text_info->length >= text_info->max_glyphs) {
-            // Raise maximum number of glyphs
-            text_info->max_glyphs *= 2;
-            text_info->glyphs = glyphs =
-                realloc(text_info->glyphs,
-                        sizeof(GlyphInfo) * text_info->max_glyphs);
+        ASS_ARRAY_PREALLOC(text_info->glyphs, text_info->max_glyphs, text_info->length);
+
+        if (text_info->length == text_info->max_glyphs) {
+            free_render_context(render_priv);
+            return 1;
         }
 
         GlyphInfo *info = &glyphs[text_info->length];
@@ -2322,14 +2317,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
             if(linebreak || is_new_bm_run(info, last_info)){
                 linebreak = 0;
+                ASS_ARRAY_PREALLOC(combined_info, text_info->max_bitmaps, nb_bitmaps);
+                text_info->combined_bitmaps = combined_info;
+                if (nb_bitmaps == text_info->max_bitmaps)
+                    crash_on_malloc_failure(NULL, ASS_LOC);
                 ++nb_bitmaps;
-                if (nb_bitmaps >= text_info->max_bitmaps) {
-                    // Raise maximum number of bitmaps
-                    text_info->max_bitmaps *= 2;
-                    text_info->combined_bitmaps = combined_info =
-                        realloc(combined_info,
-                                sizeof(CombinedBitmapInfo) * text_info->max_bitmaps);
-                }
 
                 current_info = &combined_info[nb_bitmaps - 1];
 
@@ -2374,7 +2366,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
                 current_info->max_str_length = MAX_STR_LENGTH_INITIAL;
                 current_info->str_length = 0;
-                current_info->str = malloc(MAX_STR_LENGTH_INITIAL);
+                current_info->str = ass_xmalloc(MAX_STR_LENGTH_INITIAL);
                 current_info->chars = 0;
 
                 current_info->w = current_info->h = current_info->o_w = current_info->o_h = 0;
@@ -2383,10 +2375,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
             if(info->drawing){
                 free(current_info->str);
-                current_info->str = strdup(info->drawing->text);
+                current_info->str = ass_xstrdup(info->drawing->text);
                 current_info->is_drawing = 1;
                 ass_drawing_free(info->drawing);
             }else{
+                // wtf?!?
                 current_info->str_length +=
                     ass_utf8_put_char(
                         current_info->str + current_info->str_length,
@@ -2452,8 +2445,10 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         }else{
             if(info->chars != 1 && !info->is_drawing){
                 info->bm = alloc_bitmap(info->w, info->h);
+                crash_on_malloc_failure(info->bm, ASS_LOC);
                 if(info->has_outline){
                     info->bm_o = alloc_bitmap(info->o_w, info->o_h);
+                    crash_on_malloc_failure(info->bm_o, ASS_LOC);
                 }
             }
         }
@@ -2692,7 +2687,7 @@ static ASS_RenderPriv *get_render_priv(ASS_Renderer *render_priv,
                                        ASS_Event *event)
 {
     if (!event->render_priv)
-        event->render_priv = calloc(1, sizeof(ASS_RenderPriv));
+        event->render_priv = ass_xcalloc(1, sizeof(ASS_RenderPriv));
     if (render_priv->render_id != event->render_priv->render_id) {
         memset(event->render_priv, 0, sizeof(ASS_RenderPriv));
         event->render_priv->render_id = render_priv->render_id;
@@ -2774,7 +2769,7 @@ static int fit_segment(Segment *s, Segment *fixed, int *cnt, int dir)
 static void
 fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
 {
-    Segment *used = malloc(cnt * sizeof(*used));
+    Segment *used = ass_xcalloc(cnt, sizeof(*used));
     int cnt_used = 0;
     int i, j;
 
@@ -2941,12 +2936,9 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
         ASS_Event *event = track->events + i;
         if ((event->Start <= now)
             && (now < (event->Start + event->Duration))) {
-            if (cnt >= priv->eimg_size) {
-                priv->eimg_size += 100;
-                priv->eimg =
-                    realloc(priv->eimg,
-                            priv->eimg_size * sizeof(EventImages));
-            }
+            ASS_ARRAY_PREALLOC(priv->eimg, priv->eimg_size, cnt);
+            if (cnt == priv->eimg_size)
+                return NULL;
             rc = ass_render_event(priv, event, priv->eimg + cnt);
             if (!rc)
                 ++cnt;

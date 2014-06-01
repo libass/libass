@@ -69,7 +69,7 @@ static inline int check_capacity(ASS_Rasterizer *rst, int index, size_t delta)
     size_t capacity = FFMAX(2 * rst->capacity[index], 64);
     while (capacity < delta)
         capacity *= 2;
-    void *ptr = realloc(rst->linebuf[index], sizeof(struct segment) * capacity);
+    void *ptr = ass_realloc_array(rst->linebuf[index], sizeof(struct segment), capacity);
     if (!ptr)
         return 0;
 

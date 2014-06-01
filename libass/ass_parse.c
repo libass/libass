@@ -73,10 +73,10 @@ void update_font(ASS_Renderer *render_priv)
 
     if (render_priv->state.family[0] == '@') {
         desc.vertical = 1;
-        desc.family = strdup(render_priv->state.family + 1);
+        desc.family = ass_xstrdup(render_priv->state.family + 1);
     } else {
         desc.vertical = 0;
-        desc.family = strdup(render_priv->state.family);
+        desc.family = ass_xstrdup(render_priv->state.family);
     }
 
     val = render_priv->state.bold;
@@ -464,11 +464,11 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         char *family;
         skip_to('\\');
         if (p > start && strncmp(start, "0", p - start)) {
-            family = malloc(p - start + 1);
+            family = ass_xmalloc(p - start + 1);
             strncpy(family, start, p - start);
             family[p - start] = '\0';
         } else
-            family = strdup(render_priv->state.style->FontName);
+            family = ass_xstrdup(render_priv->state.style->FontName);
         free(render_priv->state.family);
         render_priv->state.family = family;
         update_font(render_priv);
@@ -725,6 +725,8 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         skip_to('\\');
         if (p > start) {
             style = malloc(p - start + 1);
+            if (!style)
+                return p;
             strncpy(style, start, p - start);
             style[p - start] = '\0';
             reset_render_context(render_priv,

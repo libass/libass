@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <assert.h>
 
 #ifdef CONFIG_ENCA
@@ -48,6 +49,46 @@ int has_sse2(void);
 int has_avx(void);
 int has_avx2(void);
 #endif
+
+#define ASS_STRINGIFY_(x) # x
+#define ASS_STRINGIFY(x) ASS_STRINGIFY_(x)
+#define ASS_LOC __FILE__ ":" ASS_STRINGIFY(__LINE__)
+
+#define ass_xmalloc(size) crash_on_malloc_failure(malloc(size), ASS_LOC)
+#define ass_xcalloc(a, b) crash_on_malloc_failure(calloc(a, b), ASS_LOC)
+#define ass_xstrdup(str) ((char*)crash_on_malloc_failure(strdup(str), ASS_LOC))
+void *crash_on_malloc_failure(void *ptr, const char *location);
+#define ass_xrealloc(ptr, s) ass_xrealloc_(ptr, s, ASS_LOC)
+void *ass_xrealloc_(void *ptr, size_t size, const char *loc);
+
+void *ass_realloc_array(void *ptr, size_t nmemb, size_t size);
+
+// Reallocate the array pointed to by ptr (with capacity number of elements
+// allocated), so that at least one element can be appended. count is the
+// number of elements currently in use.
+// Currently assumes that capacity and count are int (due to legacy reasons).
+// After running this macro, check the capacity whether it's safe to append.
+// If capacity is still not larger than count, reallocation failed, or it's
+// not possible to append without overflowing int.
+#define ASS_ARRAY_PREALLOC(ptr, capacity, count)                    \
+    do {                                                            \
+        assert((count) <= (capacity));                              \
+        assert(!(ptr) || (capacity) > 0);                           \
+        if (((count) < INT_MAX) && ((count) == (capacity))) {       \
+            int newsz_ = ass_satmul_int(FFMAX((capacity), 1),       \
+                                        sizeof((ptr)[0]) * 2);      \
+            if (newsz_ != INT_MAX) {                                \
+                void *nptr_ = realloc((ptr), newsz_);               \
+                if (nptr_) {                                        \
+                    (ptr) = nptr_;                                  \
+                    (capacity) = FFMAX((capacity), 1) * 2;          \
+                }                                                   \
+            }                                                       \
+        }                                                           \
+    } while (0);
+
+size_t ass_satmul_size(size_t a, size_t b);
+int ass_satmul_int(int a, int b);
 
 void *ass_aligned_alloc(size_t alignment, size_t size);
 void ass_aligned_free(void *ptr);

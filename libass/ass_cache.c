@@ -237,6 +237,8 @@ Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
                         size_t key_size, size_t value_size)
 {
     Cache *cache = calloc(1, sizeof(*cache));
+    if (!cache)
+        return NULL;
     cache->buckets = 0xFFFF;
     cache->hash_func = hash_simple;
     cache->compare_func = compare_simple;
@@ -251,6 +253,10 @@ Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
     cache->key_size = key_size;
     cache->value_size = value_size;
     cache->map = calloc(cache->buckets, sizeof(CacheItem *));
+    if (!cache->map) {
+        free(cache);
+        return NULL;
+    }
 
     return cache;
 }
@@ -261,8 +267,16 @@ void *ass_cache_put(Cache *cache, void *key, void *value)
     CacheItem **bucketptr = &cache->map[bucket];
 
     CacheItem *item = calloc(1, sizeof(CacheItem));
+    if (!item)
+        return NULL;
     item->key = malloc(cache->key_size);
     item->value = malloc(cache->value_size);
+    if (!item->key || !item->value) {
+        free(item->key);
+        free(item->value);
+        free(item);
+        return NULL;
+    }
     memcpy(item->key, key, cache->key_size);
     memcpy(item->value, value, cache->value_size);
 

@@ -40,7 +40,8 @@ static void ass_msg_handler(int level, const char *fmt, va_list va, void *data)
 ASS_Library *ass_library_init(void)
 {
     ASS_Library* lib = calloc(1, sizeof(*lib));
-    lib->msg_callback = ass_msg_handler;
+    if (lib)
+        lib->msg_callback = ass_msg_handler;
 
     return lib;
 }
@@ -87,6 +88,8 @@ void ass_set_style_overrides(ASS_Library *priv, char **list)
     }
 
     priv->style_overrides = malloc((cnt + 1) * sizeof(char *));
+    if (!priv->style_overrides)
+        return;
     for (p = list, q = priv->style_overrides; *p; ++p, ++q)
         *q = strdup(*p);
     priv->style_overrides[cnt] = NULL;
@@ -95,7 +98,8 @@ void ass_set_style_overrides(ASS_Library *priv, char **list)
 static void grow_array(void **array, int nelem, size_t elsize)
 {
     if (!(nelem & 31))
-        *array = realloc(*array, (nelem + 32) * elsize);
+        *array = ass_realloc_array(*array, (nelem + 32), elsize);
+    crash_on_malloc_failure(*array, ASS_LOC);
 }
 
 void ass_add_font(ASS_Library *priv, char *name, char *data, int size)
@@ -107,8 +111,12 @@ void ass_add_font(ASS_Library *priv, char *name, char *data, int size)
                sizeof(*priv->fontdata));
 
     priv->fontdata[idx].name = strdup(name);
-
     priv->fontdata[idx].data = malloc(size);
+    if (!priv->fontdata[idx].name || !priv->fontdata[idx].data) {
+        free(priv->fontdata[idx].name);
+        free(priv->fontdata[idx].data);
+        return;
+    }
     memcpy(priv->fontdata[idx].data, data, size);
 
     priv->fontdata[idx].size = size;

@@ -39,9 +39,9 @@ static inline void drawing_add_point(ASS_Drawing *drawing,
 
     if (ol->n_points >= drawing->max_points) {
         drawing->max_points *= 2;
-        ol->points = realloc(ol->points, sizeof(FT_Vector) *
-                             drawing->max_points);
-        ol->tags = realloc(ol->tags, drawing->max_points);
+        ol->points = ass_xrealloc(ol->points, sizeof(FT_Vector) *
+                                  drawing->max_points);
+        ol->tags = ass_xrealloc(ol->tags, drawing->max_points);
     }
 
     ol->points[ol->n_points].x = point->x;
@@ -59,8 +59,8 @@ static inline void drawing_close_shape(ASS_Drawing *drawing)
 
     if (ol->n_contours >= drawing->max_contours) {
         drawing->max_contours *= 2;
-        ol->contours = realloc(ol->contours, sizeof(short) *
-                               drawing->max_contours);
+        ol->contours = ass_xrealloc(ol->contours, sizeof(short) *
+                                    drawing->max_contours);
     }
 
     if (ol->n_points) {
@@ -146,6 +146,7 @@ static ASS_DrawingToken *drawing_tokenize(char *str)
             if (token_check_values(spline_start->next, 2, TOKEN_B_SPLINE)) {
                 for (i = 0; i < 3; i++) {
                     tail->next = calloc(1, sizeof(ASS_DrawingToken));
+                    crash_on_malloc_failure(tail->next, ASS_LOC);
                     tail->next->prev = tail;
                     tail = tail->next;
                     tail->type = TOKEN_B_SPLINE;
@@ -181,10 +182,13 @@ static ASS_DrawingToken *drawing_tokenize(char *str)
         if (type != -1 && is_set == 2) {
             if (root) {
                 tail->next = calloc(1, sizeof(ASS_DrawingToken));
+                crash_on_malloc_failure(tail->next, ASS_LOC);
                 tail->next->prev = tail;
                 tail = tail->next;
-            } else
+            } else {
                 root = tail = calloc(1, sizeof(ASS_DrawingToken));
+                crash_on_malloc_failure(root, ASS_LOC);
+            }
             tail->type = type;
             tail->point = point;
             is_set = 0;
@@ -335,7 +339,13 @@ ASS_Drawing *ass_drawing_new(ASS_Library *lib, FT_Library ftlib)
     ASS_Drawing *drawing;
 
     drawing = calloc(1, sizeof(*drawing));
+    if (!drawing)
+        return NULL;
     drawing->text = calloc(1, DRAWING_INITIAL_SIZE);
+    if (!drawing->text) {
+        free(drawing);
+        return NULL;
+    }
     drawing->size = DRAWING_INITIAL_SIZE;
     drawing->cbox.xMin = drawing->cbox.yMin = INT_MAX;
     drawing->cbox.xMax = drawing->cbox.yMax = INT_MIN;
@@ -376,7 +386,7 @@ void ass_drawing_add_char(ASS_Drawing* drawing, char symbol)
 
     if (drawing->i + 1 >= drawing->size) {
         drawing->size *= 2;
-        drawing->text = realloc(drawing->text, drawing->size);
+        drawing->text = ass_xrealloc(drawing->text, drawing->size);
     }
 }
 
