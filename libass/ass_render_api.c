@@ -151,6 +151,24 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
                         default_font, fc, config, update);
 }
 
+void ass_set_enable_selective_style_override(ASS_Renderer *priv, int enable)
+{
+    enable = !!enable;
+    if (priv->settings.selective_style_overrides != enable) {
+        priv->settings.selective_style_overrides = enable;
+        ass_reconfigure(priv);
+    }
+}
+
+void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style)
+{
+    ASS_Style *user_style = &priv->user_override_style;
+    free(user_style->FontName);
+    *user_style = *style;
+    user_style->FontName = strdup(user_style->FontName);
+    user_style->Name = "OverrideStyle"; // name insignificant
+}
+
 int ass_fonts_update(ASS_Renderer *render_priv)
 {
     return fontconfig_update(render_priv->fontconfig_priv);
