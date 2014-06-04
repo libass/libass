@@ -85,6 +85,7 @@ typedef struct {
     double par;                 // user defined pixel aspect ratio (0 = unset)
     ASS_Hinting hinting;
     ASS_ShapingLevel shaper;
+    int selective_style_overrides;
 
     char *default_font;
     char *default_family;
@@ -294,6 +295,9 @@ typedef struct {
     int treat_family_as_pattern;
     int wrap_style;
     int font_encoding;
+
+    // used to store RenderContext.style when doing selective style overrides
+    ASS_Style override_style_temp_storage;
 } RenderContext;
 
 typedef struct {
@@ -360,6 +364,8 @@ struct ass_renderer {
 
     FreeList *free_head;
     FreeList *free_tail;
+
+    ASS_Style user_override_style;
 };
 
 typedef struct render_priv {

@@ -1025,3 +1025,29 @@ unsigned get_next_char(ASS_Renderer *render_priv, char **str)
     *str = p;
     return chr;
 }
+
+// Return 1 if the event contains tags that will put the renderer into the
+// EVENT_POSITIONED state. Return 0 otherwise.
+int event_is_positioned(char *str)
+{
+    // look for \pos and \move tags inside {...}
+    // mirrors get_next_char, but is faster and doesn't change any global state
+    while (*str) {
+        if (str[0] == '\\' && str[1] != '\0') {
+            str += 2;
+        } else if (str[0] == '{') {
+            str++;
+            while (*str && *str != '}') {
+                if (*str == '\\') {
+                    char *p = str + 1;
+                    if (mystrcmp(&p, "pos") || mystrcmp(&p, "move"))
+                        return 1;
+                }
+                str++;
+            }
+        } else {
+            str++;
+        }
+    }
+    return 0;
+}
