@@ -24,8 +24,32 @@
 #include <fribidi.h>
 #include "ass_render.h"
 
+struct ass_shaper {
+    ASS_ShapingLevel shaping_level;
+
+    // FriBidi log2vis
+    int n_glyphs;
+    FriBidiChar *event_text;
+    FriBidiCharType *ctypes;
+    FriBidiLevel *emblevels;
+    FriBidiStrIndex *cmap;
+    FriBidiParType base_direction;
+
+    ASS_Renderer *renderer;
+
+#ifdef CONFIG_HARFBUZZ
+    // OpenType features
+    int n_features;
+    hb_feature_t *features;
+    hb_language_t language;
+
+    // Glyph metrics cache, to speed up shaping
+    Cache *metrics_cache;
+#endif
+};
+
 void ass_shaper_info(ASS_Library *lib);
-ASS_Shaper *ass_shaper_new(size_t prealloc);
+ASS_Shaper *ass_shaper_new(size_t prealloc, unsigned count, ASS_Renderer *rend);
 void ass_shaper_free(ASS_Shaper *shaper);
 void ass_shaper_set_kerning(ASS_Shaper *shaper, int kern);
 void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,

@@ -37,33 +37,12 @@ enum {
 #define NUM_FEATURES 5
 #endif
 
-struct ass_shaper {
-    ASS_ShapingLevel shaping_level;
-
-    // FriBidi log2vis
-    int n_glyphs;
-    FriBidiChar *event_text;
-    FriBidiCharType *ctypes;
-    FriBidiLevel *emblevels;
-    FriBidiStrIndex *cmap;
-    FriBidiParType base_direction;
-
-#ifdef CONFIG_HARFBUZZ
-    // OpenType features
-    int n_features;
-    hb_feature_t *features;
-    hb_language_t language;
-
-    // Glyph metrics cache, to speed up shaping
-    Cache *metrics_cache;
-#endif
-};
-
 #ifdef CONFIG_HARFBUZZ
 struct ass_shaper_metrics_data {
     Cache *metrics_cache;
     GlyphMetricsHashKey hash_key;
     int vertical;
+    ASS_Renderer *renderer;
 };
 
 struct ass_shaper_font_data {
@@ -113,7 +92,6 @@ void ass_shaper_free(ASS_Shaper *shaper)
     free(shaper->ctypes);
     free(shaper->emblevels);
     free(shaper->cmap);
-    free(shaper);
 }
 
 void ass_shaper_font_data_free(ASS_ShaperFontData *priv)
@@ -208,7 +186,8 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics, FT_Face face,
             | FT_LOAD_IGNORE_TRANSFORM;
         GlyphMetricsHashValue new_val;
 
-        if (FT_Load_Glyph(face, glyph, load_flags))
+        FT_Error err = FT_Load_Glyph(face, glyph, load_flags);
+        if (err)
             return NULL;
 
         memcpy(&new_val.metrics, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
@@ -218,7 +197,8 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics, FT_Face face,
         if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
             new_val.metrics.horiAdvance = new_val.metrics.vertAdvance;
 
-        val = ass_cache_put(metrics->metrics_cache, &metrics->hash_key, &new_val);
+        val = ass_cache_put_now(metrics->metrics_cache, &metrics->hash_key,
+                                &new_val);
     }
 
     return val;
@@ -383,6 +363,8 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
             font->shaper_priv->metrics_data[info->face_index];
         metrics->metrics_cache = shaper->metrics_cache;
         metrics->vertical = info->font->desc.vertical;
+
+        metrics->renderer = shaper->renderer;
 
         hb_font_funcs_t *funcs = hb_font_funcs_create();
         font->shaper_priv->font_funcs[info->face_index] = funcs;
@@ -878,19 +860,24 @@ int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
  * \brief Create a new shaper instance and preallocate data structures
  * \param prealloc preallocation size
  */
-ASS_Shaper *ass_shaper_new(size_t prealloc)
+ASS_Shaper *ass_shaper_new(size_t prealloc, unsigned count, ASS_Renderer *rend)
 {
-    ASS_Shaper *shaper = calloc(sizeof(*shaper), 1);
+    ASS_Shaper *shapers = calloc(count, sizeof(*shapers));
 
-    shaper->base_direction = FRIBIDI_PAR_ON;
-    check_allocations(shaper, prealloc);
+    for (unsigned i = 0; i < count; i++) {
+        ASS_Shaper *shaper = shapers + i;
+
+        shaper->base_direction = FRIBIDI_PAR_ON;
+        shaper->renderer = rend;
+        check_allocations(shaper, prealloc);
 
 #ifdef CONFIG_HARFBUZZ
-    init_features(shaper);
-    shaper->metrics_cache = ass_glyph_metrics_cache_create();
+        init_features(shaper);
+        shaper->metrics_cache = ass_glyph_metrics_cache_create();
 #endif
+    }
 
-    return shaper;
+    return shapers;
 }
 
 

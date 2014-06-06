@@ -38,7 +38,7 @@ typedef struct ass_synth_priv {
     double radius;
 } ASS_SynthPriv;
 
-ASS_SynthPriv *ass_synth_init(double);
+ASS_SynthPriv *ass_synth_init(double radius, unsigned count);
 void ass_synth_done(ASS_SynthPriv *priv);
 
 typedef struct {
@@ -48,8 +48,8 @@ typedef struct {
     unsigned char *buffer;      // h * stride buffer
 } Bitmap;
 
-Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          FT_Outline *outline, int bord);
+Bitmap *outline_to_bitmap(ASS_Renderer *render_priv, FT_Outline *outline,
+						  int bord, void *rast);
 
 Bitmap *alloc_bitmap(int w, int h);
 /**
@@ -65,7 +65,7 @@ Bitmap *alloc_bitmap(int w, int h);
 int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outline *border,
                        Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
                        int be, double blur_radius, FT_Vector shadow_offset,
-                       int border_style, int border_visible);
+                       int border_style, int border_visible, void *rast);
 
 void ass_free_bitmap(Bitmap *bm);
 void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,

@@ -51,6 +51,8 @@ AC_ARG_ENABLE([rasterizer], AS_HELP_STRING([--disable-rasterizer],
     [disable internal rasterizer @<:@default=enabled@:>@]))
 AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
     [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
+AC_ARG_ENABLE([pthreads], AS_HELP_STRING([--disable-pthreads],
+    [disable threading support @<:@default=enabled@:>@]))
 
 AS_IF([test x$enable_asm != xno], [
     AS_CASE([$host],
@@ -141,6 +143,16 @@ PKG_CHECK_MODULES([FRIBIDI], fribidi >= 0.19.0, [
     LIBS="$LIBS $FRIBIDI_LIBS"
     AC_DEFINE(CONFIG_FRIBIDI, 1, [found fribidi via pkg-config])
     ])
+
+if test x$enable_pthreads != xno; then
+AX_PTHREAD([
+    CC="$PTHREAD_CC"
+    CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+    LIBS="$LIBS $PTHREAD_LIBS"
+    AC_DEFINE(CONFIG_PTHREAD, 1, [found pthreads via AX_PTHREAD])
+	pthread=true
+    ])
+fi
 
 if test x$enable_fontconfig != xno; then
 PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.4.2, [

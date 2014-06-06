@@ -110,9 +110,9 @@ void resize_tmp(ASS_SynthPriv *priv, int w, int h)
         ass_aligned_alloc(32, (priv->tmp_w + 1) * priv->tmp_h * sizeof(unsigned));
 }
 
-ASS_SynthPriv *ass_synth_init(double radius)
+ASS_SynthPriv *ass_synth_init(double radius, unsigned count)
 {
-    ASS_SynthPriv *priv = calloc(1, sizeof(ASS_SynthPriv));
+    ASS_SynthPriv *priv = calloc(count, sizeof(ASS_SynthPriv));
     generate_tables(priv, radius);
     return priv;
 }
@@ -123,7 +123,6 @@ void ass_synth_done(ASS_SynthPriv *priv)
     free(priv->g0);
     free(priv->g);
     free(priv->gt2);
-    free(priv);
 }
 
 static Bitmap *alloc_bitmap_raw(int w, int h)
@@ -168,10 +167,10 @@ Bitmap *copy_bitmap(const Bitmap *src)
 
 #if CONFIG_RASTERIZER
 
-Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          FT_Outline *outline, int bord)
+Bitmap *outline_to_bitmap(ASS_Renderer *render_priv, FT_Outline *outline,
+                          int bord, void *rast)
 {
-    ASS_Rasterizer *rst = &render_priv->rasterizer;
+    ASS_Rasterizer *rst = rast;
     if (!rasterizer_set_outline(rst, outline)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
         return NULL;
@@ -222,8 +221,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
 #else
 
-Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          FT_Outline *outline, int bord)
+Bitmap *outline_to_bitmap(ASS_Renderer *render_priv, FT_Outline *outline,
+                          int bord, void *rast)
 {
     Bitmap *bm;
     int w, h;
@@ -566,7 +565,7 @@ void be_blur_c(uint8_t *buf, intptr_t w,
 int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outline *border,
                        Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
                        int be, double blur_radius, FT_Vector shadow_offset,
-                       int border_style, int border_visible)
+                       int border_style, int border_visible, void *rast)
 {
     blur_radius *= 2;
     int bbord = be > 0 ? sqrt(2 * be) : 0;
@@ -580,12 +579,12 @@ int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outlin
     *bm_g = *bm_o = *bm_s = 0;
 
     if (outline)
-        *bm_g = outline_to_bitmap(render_priv, outline, bord);
+        *bm_g = outline_to_bitmap(render_priv, outline, bord, rast);
     if (!*bm_g)
         return 1;
 
     if (border) {
-        *bm_o = outline_to_bitmap(render_priv, border, bord);
+        *bm_o = outline_to_bitmap(render_priv, border, bord, rast);
         if (!*bm_o) {
             return 1;
         }

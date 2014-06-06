@@ -19,6 +19,12 @@
 #ifndef LIBASS_LIBRARY_H
 #define LIBASS_LIBRARY_H
 
+#include "config.h"
+
+#ifdef CONFIG_PTHREAD
+#include <pthread.h>
+#endif
+
 #include <stdarg.h>
 
 typedef struct {
@@ -36,6 +42,11 @@ struct ass_library {
     int num_fontdata;
     void (*msg_callback)(int, const char *, va_list, void *);
     void *msg_callback_data;
+#ifdef CONFIG_PTHREAD
+    pthread_attr_t pthread_attr;
+    pthread_mutexattr_t pthread_mutexattr;
+    pthread_condattr_t pthread_condattr;
+#endif
 };
 
 #endif                          /* LIBASS_LIBRARY_H */

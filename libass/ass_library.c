@@ -42,6 +42,12 @@ ASS_Library *ass_library_init(void)
     ASS_Library* lib = calloc(1, sizeof(*lib));
     lib->msg_callback = ass_msg_handler;
 
+#ifdef CONFIG_PTHREAD
+    pthread_attr_init(&lib->pthread_attr);
+    pthread_mutexattr_init(&lib->pthread_mutexattr);
+    pthread_condattr_init(&lib->pthread_condattr);
+#endif
+
     return lib;
 }
 
@@ -51,6 +57,9 @@ void ass_library_done(ASS_Library *priv)
         ass_set_fonts_dir(priv, NULL);
         ass_set_style_overrides(priv, NULL);
         ass_clear_fonts(priv);
+#ifdef CONFIG_PTHREAD
+        pthread_attr_destroy(&priv->pthread_attr);
+#endif
         free(priv);
     }
 }

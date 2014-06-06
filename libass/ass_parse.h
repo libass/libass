@@ -19,6 +19,8 @@
 #ifndef LIBASS_PARSE_H
 #define LIBASS_PARSE_H
 
+#include "ass_render.h"
+
 #define BLUR_MAX_RADIUS 100.0
 
 #define _r(c)   ((c) >> 24)
@@ -26,15 +28,19 @@
 #define _b(c)   (((c) >> 8) & 0xFF)
 #define _a(c)   ((c) & 0xFF)
 
-void update_font(ASS_Renderer *render_priv);
+void update_font(ASS_Renderer *render_priv, RenderContext *state);
 double ensure_font_size(ASS_Renderer *priv, double size);
 void calc_border(ASS_Renderer *priv, double border_x, double border_y);
 void change_border(ASS_Renderer *render_priv, double border_x,
-                   double border_y);
-void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event);
-void process_karaoke_effects(ASS_Renderer *render_priv);
-unsigned get_next_char(ASS_Renderer *render_priv, char **str);
-char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr);
+                   double border_y, RenderContext *state);
+void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event,
+                              RenderContext *state);
+void process_karaoke_effects(ASS_Renderer *render_priv, TextInfo *text_info,
+                             RenderContext *state);
+unsigned get_next_char(ASS_Renderer *render_priv, char **str,
+                       RenderContext *state);
+char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr,
+                RenderContext *state);
 int event_is_positioned(char *str);
 extern void change_alpha(uint32_t *var, uint32_t new, double pwr);
 extern uint32_t mult_alpha(uint32_t a, uint32_t b);

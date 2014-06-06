@@ -30,6 +30,14 @@
 #include "hb.h"
 #endif
 
+#ifdef CONFIG_PTHREAD
+#define MAX_THREADS 16
+#include <pthread.h>
+#include <stdatomic.h>
+#else
+#define MAX_THREADS 1
+#endif
+
 // XXX: fix the inclusion mess so we can avoid doing this here
 typedef struct ass_shaper ASS_Shaper;
 
@@ -98,6 +106,9 @@ typedef struct {
     int detect_collisions;
     int shift_direction;
     ASS_Event *event;
+#ifdef CONFIG_PTHREAD
+    volatile int valid;
+#endif
 } EventImages;
 
 typedef enum {
@@ -227,13 +238,22 @@ typedef struct {
     unsigned max_bitmaps;
 } TextInfo;
 
+typedef struct {
+    Cache *font_cache;
+    Cache *outline_cache;
+    Cache *bitmap_cache;
+    Cache *composite_cache;
+    size_t glyph_max;
+    size_t bitmap_max_size;
+    size_t composite_max_size;
+} CacheStore;
+
 // Renderer state.
 // Values like current font face, color, screen position, clipping and so on are stored here.
 typedef struct {
     ASS_Event *event;
     ASS_Style *style;
     int parsed_tags;
-    int has_clips;              // clips that conflict with cache change detection
 
     ASS_Font *font;
     double font_size;
@@ -298,17 +318,13 @@ typedef struct {
 
     // used to store RenderContext.style when doing selective style overrides
     ASS_Style override_style_temp_storage;
-} RenderContext;
 
-typedef struct {
-    Cache *font_cache;
-    Cache *outline_cache;
-    Cache *bitmap_cache;
-    Cache *composite_cache;
-    size_t glyph_max;
-    size_t bitmap_max_size;
-    size_t composite_max_size;
-} CacheStore;
+    FT_Library ftlibrary;
+    CacheStore *cache;
+
+    FreeList **free_head;
+    FreeList **free_tail;
+} RenderContext;
 
 typedef void (*BitmapBlendFunc)(uint8_t *dst, intptr_t dst_stride,
                                 uint8_t *src, intptr_t src_stride,
@@ -321,14 +337,24 @@ typedef void (*BEBlurFunc)(uint8_t *buf, intptr_t w,
                            intptr_t h, intptr_t stride,
                            uint16_t *tmp);
 
+#ifdef CONFIG_PTHREAD
+typedef struct {
+    pthread_t thread;
+    unsigned id;
+    ASS_Renderer *renderer;
+} ASS_ThreadInfo;
+#endif
+
 struct ass_renderer {
     ASS_Library *library;
-    FT_Library ftlibrary;
+    FT_Library ftlibraries[MAX_THREADS];
     FCInstance *fontconfig_priv;
     ASS_Settings settings;
     int render_id;
-    ASS_SynthPriv *synth_priv;
-    ASS_Shaper *shaper;
+    ASS_SynthPriv *synth_privs;
+    ASS_Shaper *shapers;
+
+    int has_clips;
 
     ASS_Image *images_root;     // rendering result is stored here
     ASS_Image *prev_images_root;
@@ -350,22 +376,37 @@ struct ass_renderer {
     double border_scale;
     double blur_scale;
 
-    RenderContext state;
-    TextInfo text_info;
-    CacheStore cache;
+    RenderContext states[MAX_THREADS];
+    TextInfo text_infos[MAX_THREADS];
+    CacheStore caches[MAX_THREADS];
+    CacheStore master_cache;
 
 #if CONFIG_RASTERIZER
-    ASS_Rasterizer rasterizer;
+    ASS_Rasterizer rasterizers[MAX_THREADS];
 #endif
     BitmapBlendFunc add_bitmaps_func;
     BitmapBlendFunc sub_bitmaps_func;
     BitmapMulFunc mul_bitmaps_func;
     BEBlurFunc be_blur_func;
 
-    FreeList *free_head;
-    FreeList *free_tail;
-
     ASS_Style user_override_style;
+
+    FreeList *free_head[MAX_THREADS];
+    FreeList *free_tail[MAX_THREADS];
+
+#ifdef CONFIG_PTHREAD
+    ASS_ThreadInfo threads[MAX_THREADS];
+    unsigned nb_threads;
+
+    unsigned rendering_events;
+    atomic_uint cur_event;
+    atomic_uint finished_events;
+    pthread_cond_t start_frame;
+    pthread_cond_t finished_frame;
+    pthread_mutex_t cur_event_mutex;
+
+    int stop_threads;
+#endif
 };
 
 typedef struct render_priv {
@@ -385,7 +426,8 @@ typedef struct {
     int ha, hb;                 // left and width
 } Segment;
 
-void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style);
+void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style,
+                          RenderContext *state);
 void ass_free_images(ASS_Image *img);
 
 // XXX: this is actually in ass.c, includes should be fixed later on

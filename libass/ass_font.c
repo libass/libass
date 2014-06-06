@@ -211,7 +211,7 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
         free(font.desc.family);
         return 0;
     } else
-        return ass_cache_put(font_cache, &font.desc, &font);
+        return ass_cache_put_now(font_cache, &font.desc, &font);
 }
 
 /**
