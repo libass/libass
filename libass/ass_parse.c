@@ -239,7 +239,6 @@ static int parse_vector_clip(ASS_Renderer *render_priv,
                              struct arg *args, int nargs)
 {
     int scale = 1;
-    int res = 0;
     ASS_Drawing *drawing = render_priv->state.clip_drawing;
     struct arg text;
 
@@ -659,7 +658,6 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
             render_priv->state.detect_collisions = 0;
         }
     } else if (complex_tag("t")) {
-        double v[3];
         double accel;
         int cnt = nargs - 1;
         long long t1, t2, t, delta_t;
