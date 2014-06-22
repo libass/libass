@@ -46,6 +46,9 @@ struct ass_library {
     pthread_attr_t pthread_attr;
     pthread_mutexattr_t pthread_mutexattr;
     pthread_condattr_t pthread_condattr;
+
+    int unsafe_fribidi;
+    pthread_mutex_t fribidi_mutex;
 #endif
 };
 

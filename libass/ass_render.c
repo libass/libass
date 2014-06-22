@@ -2148,6 +2148,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     }
 
     // Find shape runs and shape text
+
+#ifdef CONFIG_PTHREAD
+    if(render_priv->library->unsafe_fribidi)
+        pthread_mutex_lock(&render_priv->library->fribidi_mutex);
+#endif
     ass_shaper_set_base_direction(shaper,
             resolve_base_direction(state->font_encoding));
     ass_shaper_find_runs(shaper, render_priv, glyphs,
@@ -2252,6 +2257,10 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         free_render_context(state);
         return 1;
     }
+#ifdef CONFIG_PTHREAD
+    if(render_priv->library->unsafe_fribidi)
+        pthread_mutex_unlock(&render_priv->library->fribidi_mutex);
+#endif
 
     // Reposition according to the map
     pen.x = 0;

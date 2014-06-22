@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <fribidi.h>
 
 #include "ass.h"
 #include "ass_library.h"
@@ -46,6 +47,10 @@ ASS_Library *ass_library_init(void)
     pthread_attr_init(&lib->pthread_attr);
     pthread_mutexattr_init(&lib->pthread_mutexattr);
     pthread_condattr_init(&lib->pthread_condattr);
+
+    lib->unsafe_fribidi = !strstr(fribidi_version_info, "--enable-malloc");
+    if (lib->unsafe_fribidi)
+        pthread_mutex_init(&lib->fribidi_mutex, &lib->pthread_mutexattr);
 #endif
 
     return lib;
