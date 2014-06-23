@@ -48,7 +48,9 @@ ASS_Library *ass_library_init(void)
     pthread_mutexattr_init(&lib->pthread_mutexattr);
     pthread_condattr_init(&lib->pthread_condattr);
 
-    lib->unsafe_fribidi = !strstr(fribidi_version_info, "--enable-malloc");
+    lib->unsafe_fribidi =
+        !strstr(fribidi_version_info, "--enable-malloc") &&
+        !strstr(fribidi_version_info, "--with-glib");
     if (lib->unsafe_fribidi)
         pthread_mutex_init(&lib->fribidi_mutex, &lib->pthread_mutexattr);
 #endif
