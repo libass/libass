@@ -2303,7 +2303,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 y2scr(render_priv, render_priv->state.clip_y1);
         } else if (valign == VALIGN_SUB) {
             render_priv->state.clip_y0 =
-                y2scr_sub(render_priv, render_priv->state.clip_y0);
+                y2scr_top(render_priv, render_priv->state.clip_y0);
             render_priv->state.clip_y1 =
                 y2scr_sub(render_priv, render_priv->state.clip_y1);
         }
