@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <fribidi.h>
 
 #include "ass.h"
 #include "ass_library.h"
@@ -42,6 +43,18 @@ ASS_Library *ass_library_init(void)
     ASS_Library* lib = calloc(1, sizeof(*lib));
     lib->msg_callback = ass_msg_handler;
 
+#ifdef CONFIG_PTHREAD
+    pthread_attr_init(&lib->pthread_attr);
+    pthread_mutexattr_init(&lib->pthread_mutexattr);
+    pthread_condattr_init(&lib->pthread_condattr);
+
+    lib->unsafe_fribidi =
+        !strstr(fribidi_version_info, "--enable-malloc") &&
+        !strstr(fribidi_version_info, "--with-glib");
+    if (lib->unsafe_fribidi)
+        pthread_mutex_init(&lib->fribidi_mutex, &lib->pthread_mutexattr);
+#endif
+
     return lib;
 }
 
@@ -51,6 +64,9 @@ void ass_library_done(ASS_Library *priv)
         ass_set_fonts_dir(priv, NULL);
         ass_set_style_overrides(priv, NULL);
         ass_clear_fonts(priv);
+#ifdef CONFIG_PTHREAD
+        pthread_attr_destroy(&priv->pthread_attr);
+#endif
         free(priv);
     }
 }

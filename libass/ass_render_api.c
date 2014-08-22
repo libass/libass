@@ -25,9 +25,16 @@ static void ass_reconfigure(ASS_Renderer *priv)
     ASS_Settings *settings = &priv->settings;
 
     priv->render_id++;
-    ass_cache_empty(priv->cache.outline_cache, 0);
-    ass_cache_empty(priv->cache.bitmap_cache, 0);
-    ass_cache_empty(priv->cache.composite_cache, 0);
+#ifdef CONFIG_PTHREAD
+    unsigned threads = priv->nb_threads;
+#else
+    unsigned threads = 1;
+#endif
+    for (unsigned i = 0; i < threads; i++) {
+        ass_cache_empty(priv->caches[i].outline_cache, 0);
+        ass_cache_empty(priv->caches[i].bitmap_cache, 0);
+        ass_cache_empty(priv->caches[i].composite_cache, 0);
+    }
     ass_free_images(priv->prev_images_root);
     priv->prev_images_root = 0;
 
@@ -147,7 +154,7 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
     if (priv->fontconfig_priv)
         fontconfig_done(priv->fontconfig_priv);
     priv->fontconfig_priv =
-        fontconfig_init(priv->library, priv->ftlibrary, default_family,
+        fontconfig_init(priv->library, priv->ftlibraries[0], default_family,
                         default_font, fc, config, update);
 }
 
@@ -177,7 +184,15 @@ int ass_fonts_update(ASS_Renderer *render_priv)
 void ass_set_cache_limits(ASS_Renderer *render_priv, int glyph_max,
                           int bitmap_max)
 {
-    render_priv->cache.glyph_max = glyph_max ? glyph_max : GLYPH_CACHE_MAX;
-    render_priv->cache.bitmap_max_size = bitmap_max ? 1048576 * bitmap_max :
-                                         BITMAP_CACHE_MAX_SIZE;
+#ifdef CONFIG_PTHREAD
+    unsigned threads = render_priv->nb_threads;
+#else
+    unsigned threads = 1;
+#endif
+    for (unsigned i = 0; i < threads; i++) {
+        CacheStore *cache = render_priv->caches + i;
+        cache->glyph_max = glyph_max ? glyph_max : GLYPH_CACHE_MAX;
+        cache->bitmap_max_size = bitmap_max ? 1048576 * bitmap_max :
+                                 BITMAP_CACHE_MAX_SIZE;
+    }
 }

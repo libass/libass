@@ -39,6 +39,10 @@
 #include <fontconfig/fcfreetype.h>
 #endif
 
+#ifdef CONFIG_PTHREAD
+#include <pthread.h>
+#endif
+
 struct fc_instance {
 #ifdef CONFIG_FONTCONFIG
     FcConfig *config;
@@ -46,6 +50,9 @@ struct fc_instance {
     char *family_default;
     char *path_default;
     int index_default;
+#ifdef CONFIG_PTHREAD
+    pthread_mutex_t mutex;
+#endif
 };
 
 #ifdef CONFIG_FONTCONFIG
@@ -328,6 +335,9 @@ char *fontconfig_select(ASS_Library *library, FCInstance *priv,
         res = priv->path_default ? strdup(priv->path_default) : 0;
         return res;
     }
+#ifdef CONFIG_PTHREAD
+    pthread_mutex_lock(&priv->mutex);
+#endif
     if (family && *family)
         res =
             select_font(library, priv, family, treat_family_as_pattern,
@@ -360,6 +370,9 @@ char *fontconfig_select(ASS_Library *library, FCInstance *priv,
         ass_msg(library, MSGL_V,
                 "fontconfig_select: (%s, %d, %d) -> %s, %d", family, bold,
                 italic, res, *index);
+#ifdef CONFIG_PTHREAD
+    pthread_mutex_unlock(&priv->mutex);
+#endif
     return res;
 }
 
@@ -482,6 +495,10 @@ FCInstance *fontconfig_init(ASS_Library *library,
         }
     }
 
+#ifdef CONFIG_PTHREAD
+    pthread_mutex_init(&priv->mutex, &library->pthread_mutexattr);
+#endif
+
     priv->family_default = family ? strdup(family) : NULL;
 exit:
     priv->path_default = path ? strdup(path) : NULL;
@@ -542,6 +559,9 @@ void fontconfig_done(FCInstance *priv)
 #endif
         free(priv->path_default);
         free(priv->family_default);
+#ifdef CONFIG_PTHREAD
+        pthread_mutex_destroy(&priv->mutex);
+#endif
+        free(priv);
     }
-    free(priv);
 }

@@ -91,12 +91,16 @@ typedef struct bitmap_hash_key {
 Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
                         CacheItemDestructor destruct_func, ItemSize size_func,
                         size_t key_size, size_t value_size);
+Cache *ass_cache_clone(Cache *src);
 void *ass_cache_put(Cache *cache, void *key, void *value);
+void *ass_cache_put_now(Cache *cache, void *key, void *value);
+void ass_cache_merge(Cache *dst, Cache *src);
 void *ass_cache_get(Cache *cache, void *key);
 int ass_cache_empty(Cache *cache, size_t max_size);
 void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
                      unsigned *misses, unsigned *count);
 void ass_cache_done(Cache *cache);
+void ass_cache_dupe_done(Cache *cache);
 Cache *ass_font_cache_create(void);
 Cache *ass_outline_cache_create(void);
 Cache *ass_glyph_metrics_cache_create(void);
