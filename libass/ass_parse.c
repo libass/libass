@@ -623,8 +623,8 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
             t4 = -1;
         } else if (nargs == 7) {
             // 7-argument version (\fade)
-            a2 = argtoi(args[0]);
-            a3 = argtoi(args[1]);
+            a1 = argtoi(args[0]);
+            a2 = argtoi(args[1]);
             a3 = argtoi(args[2]);
             t1 = argtoll(args[3]);
             t2 = argtoll(args[4]);
