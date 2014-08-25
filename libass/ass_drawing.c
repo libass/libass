@@ -58,8 +58,11 @@ static inline void drawing_add_point(ASS_Drawing *drawing,
 static inline void drawing_close_shape(ASS_Drawing *drawing)
 {
     FT_Outline *ol = &drawing->outline;
-    if (ol->n_contours == SHRT_MAX)
+    if (ol->n_contours == SHRT_MAX) {
+        if (ol->n_points)
+            ol->contours[ol->n_contours] = ol->n_points - 1;
         return;
+    }
 
     if (ol->n_contours >= drawing->max_contours) {
         drawing->max_contours *= 2;
