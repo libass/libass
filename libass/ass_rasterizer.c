@@ -244,6 +244,9 @@ int rasterizer_set_outline(ASS_Rasterizer *rst, const FT_Outline *path)
         enum Status st;
 
         int last = path->contours[i];
+        if (j > last)
+            return 0;
+
         switch (FT_CURVE_TAG(path->tags[j])) {
         case FT_CURVE_TAG_ON:
             p[0].x = path->points[j].x;
