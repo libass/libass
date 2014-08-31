@@ -1008,8 +1008,13 @@ static void stroke_outline(ASS_Renderer *render_priv, FT_Outline *outline,
                     "FT_Stroker_GetBorderCounts failed, error: %d", error);
         }
         FT_Outline_Done(render_priv->ftlibrary, outline);
-        FT_Outline_New(render_priv->ftlibrary, n_points, n_contours, outline);
+        error = FT_Outline_New(render_priv->ftlibrary, n_points, n_contours, outline);
         outline->n_points = outline->n_contours = 0;
+        if (error) {
+            ass_msg(render_priv->library, MSGL_WARN,
+                    "FT_Outline_New failed, error: %d", error);
+            return;
+        }
         FT_Stroker_ExportBorder(render_priv->state.stroker, border, outline);
 
     // "Stroke" with the outline emboldener (in two passes if needed).
