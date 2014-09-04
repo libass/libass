@@ -1103,7 +1103,8 @@ static void fill_composite_hash(CompositeHashKey *hk, CombinedBitmapInfo *info)
     hk->border_style = info->border_style;
     hk->has_outline = info->has_outline;
     hk->is_drawing = info->is_drawing;
-    hk->str = info->str;
+    hk->str.size = info->str_length;
+    hk->str.data = info->str;
     hk->chars = info->chars;
     hk->shadow_x = info->shadow_x;
     hk->shadow_y = info->shadow_y;
@@ -2447,9 +2448,10 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
                 current_info->bm = current_info->bm_o = current_info->bm_s = NULL;
 
-                current_info->max_str_length = MAX_STR_LENGTH_INITIAL;
+                current_info->max_str_length =
+                    MAX_STR_LENGTH_INITIAL * sizeof(info->glyph_index);
                 current_info->str_length = 0;
-                current_info->str = malloc(MAX_STR_LENGTH_INITIAL);
+                current_info->str = malloc(current_info->max_str_length);
                 current_info->chars = 0;
 
                 current_info->w = current_info->h = current_info->o_w = current_info->o_h = 0;
@@ -2459,19 +2461,19 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             if(info->drawing){
                 free(current_info->str);
                 current_info->str = strdup(info->drawing->text);
+                current_info->str_length = strlen(info->drawing->text);
                 current_info->is_drawing = 1;
                 ass_drawing_free(info->drawing);
             }else{
-                current_info->str_length +=
-                    ass_utf8_put_char(
-                        current_info->str + current_info->str_length,
-                        info->symbol);
+                int length = current_info->str_length;
                 current_info->chars++;
-                if(current_info->str_length > current_info->max_str_length - 5){
+                current_info->str_length += sizeof(info->glyph_index);
+                if(current_info->str_length > current_info->max_str_length){
                     current_info->max_str_length *= 2;
                     current_info->str = realloc(current_info->str,
                                                 current_info->max_str_length);
                 }
+                *(int *)(current_info->str + length) = info->glyph_index;
             }
 
             current_info->has_outline = current_info->has_outline || !!info->bm_o;

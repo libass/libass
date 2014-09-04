@@ -132,7 +132,7 @@ static void composite_destruct(void *key, void *value)
         ass_free_bitmap(v->bm_o);
     if (v->bm_s)
         ass_free_bitmap(v->bm_s);
-    free(k->str);
+    free(k->str.data);
     free(key);
     free(value);
 }
