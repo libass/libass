@@ -168,4 +168,5 @@ END(CompositeHashKey)
 #undef STRING
 #undef FTVECTOR
 #undef BITMAPHASHKEY
+#undef BINSTRING
 #undef END
