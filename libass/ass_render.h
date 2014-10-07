@@ -296,6 +296,8 @@ typedef struct {
     int wrap_style;
     int font_encoding;
 
+    int selective_override_active;
+
     // used to store RenderContext.style when doing selective style overrides
     ASS_Style override_style_temp_storage;
 } RenderContext;
