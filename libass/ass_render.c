@@ -780,9 +780,12 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
         rstyle = script;
 
     render_priv->state.style = script;
+    render_priv->state.selective_override_active = 0;
 
     if (!override || !render_priv->settings.selective_style_overrides)
         return rstyle;
+
+    render_priv->state.selective_override_active = 1;
 
     // Create a new style that contains a mix of the original style and
     // user_style (the user's override style). Copy only fields from the
@@ -834,9 +837,13 @@ static void init_font_scale(ASS_Renderer *render_priv)
     if (!settings_priv->storage_height)
         render_priv->blur_scale = render_priv->border_scale;
 
-    render_priv->font_scale *= settings_priv->font_size_coeff;
-    render_priv->border_scale *= settings_priv->font_size_coeff;
-    render_priv->blur_scale *= settings_priv->font_size_coeff;
+    if (!render_priv->settings.selective_style_overrides ||
+        render_priv->state.selective_override_active)
+    {
+        render_priv->font_scale *= settings_priv->font_size_coeff;
+        render_priv->border_scale *= settings_priv->font_size_coeff;
+        render_priv->blur_scale *= settings_priv->font_size_coeff;
+    }
 }
 
 /**
