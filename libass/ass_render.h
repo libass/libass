@@ -296,6 +296,9 @@ typedef struct {
     int wrap_style;
     int font_encoding;
 
+    // combination of ASS_OVERRIDE_BIT_* flags that apply right now
+    unsigned overrides;
+
     // used to store RenderContext.style when doing selective style overrides
     ASS_Style override_style_temp_storage;
 } RenderContext;

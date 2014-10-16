@@ -23,7 +23,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01103000
+#define LIBASS_VERSION 0x01103001
 
 /*
  * A linked list of images produced by an ass renderer.
@@ -86,6 +86,15 @@ typedef enum {
     ASS_SHAPING_SIMPLE = 0,
     ASS_SHAPING_COMPLEX
 } ASS_ShapingLevel;
+
+/**
+ * \brief Style override options. See
+ * ass_set_selective_style_override_enabled() for details.
+ */
+typedef enum {
+    ASS_OVERRIDE_BIT_STYLE = 1,
+    ASS_OVERRIDE_BIT_FONT_SIZE = 2,
+} ASS_OverrideBits;
 
 /**
  * \brief Return the version of library. This returns the value LIBASS_VERSION
@@ -332,9 +341,21 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
  *          only be implemented on "best effort" basis, and has to rely on
  *          heuristics that can easily break.
  * \param priv renderer handle
- * \param enable enable selective styling if the value is not 0
+ * \param bits bit mask comprised of ASS_OverrideBits values. If the value is
+ *  0, all override features are disabled, and libass will behave like libass
+ *  versions before this feature was introduced. Possible values:
+ *      ASS_OVERRIDE_BIT_STYLE: apply the style as set with
+ *          ass_set_selective_style_override() on events which look like
+ *          dialogue. Other style overrides are also applied this way, except
+ *          ass_set_font_scale(). How ass_set_font_scale() is applied depends
+ *          on the ASS_OVERRIDE_BIT_FONT_SIZE flag.
+ *      ASS_OVERRIDE_BIT_FONT_SIZE: apply ass_set_font_scale() only on events
+ *          which look like dialogue. If not set, it is applied to all
+ *          events.
+ *      0: ignore ass_set_selective_style_override(), but apply all other
+ *          overrides (traditional behavior).
  */
-void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int enable);
+void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits);
 
 /**
  * \brief Set style for selective style override.

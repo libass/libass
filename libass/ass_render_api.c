@@ -151,11 +151,10 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
                         default_font, fc, config, update);
 }
 
-void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int enable)
+void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits)
 {
-    enable = !!enable;
-    if (priv->settings.selective_style_overrides != enable) {
-        priv->settings.selective_style_overrides = enable;
+    if (priv->settings.selective_style_overrides != bits) {
+        priv->settings.selective_style_overrides = bits;
         ass_reconfigure(priv);
     }
 }

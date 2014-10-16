@@ -773,15 +773,23 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     ASS_Style *script = render_priv->track->styles +
                         render_priv->state.event->Style;
     ASS_Style *new = &render_priv->state.override_style_temp_storage;
-    int override = !event_is_positioned(render_priv->state.event->Text);
+    int explicit = event_is_positioned(render_priv->state.event->Text);
+    int requested = render_priv->settings.selective_style_overrides;
     double scale;
 
     if (!rstyle)
         rstyle = script;
 
     render_priv->state.style = script;
+    render_priv->state.overrides = ASS_OVERRIDE_BIT_FONT_SIZE; // odd default
 
-    if (!override || !render_priv->settings.selective_style_overrides)
+    if (explicit && (requested & ASS_OVERRIDE_BIT_FONT_SIZE))
+        render_priv->state.overrides &= ~(unsigned)ASS_OVERRIDE_BIT_FONT_SIZE;
+
+    if (!explicit && (requested & ASS_OVERRIDE_BIT_STYLE))
+        render_priv->state.overrides |= ASS_OVERRIDE_BIT_STYLE;
+
+    if (!(render_priv->state.overrides & ASS_OVERRIDE_BIT_STYLE))
         return rstyle;
 
     // Create a new style that contains a mix of the original style and
@@ -834,9 +842,11 @@ static void init_font_scale(ASS_Renderer *render_priv)
     if (!settings_priv->storage_height)
         render_priv->blur_scale = render_priv->border_scale;
 
-    render_priv->font_scale *= settings_priv->font_size_coeff;
-    render_priv->border_scale *= settings_priv->font_size_coeff;
-    render_priv->blur_scale *= settings_priv->font_size_coeff;
+    if (render_priv->state.overrides & ASS_OVERRIDE_BIT_FONT_SIZE) {
+        render_priv->font_scale *= settings_priv->font_size_coeff;
+        render_priv->border_scale *= settings_priv->font_size_coeff;
+        render_priv->blur_scale *= settings_priv->font_size_coeff;
+    }
 }
 
 /**
