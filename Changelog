@@ -1,3 +1,18 @@
+libass (0.12.0)
+ * Implement fast quad-tree rasterizer in C and SSE2/AVX2 assembly
+ * Make \be animatable
+ * Add BorderStyle=4 (GH #105)
+ * Add selective style override functionality
+   * ass_set_selective_style_override()
+   * ass_set_selective_style_override_enabled()
+ * Support for assembly on DragonFly BSD
+ * Bugfixes
+   * Various parser fixes
+   * Fix premature parser exit on }{ in drawing mode (GH #75)
+   * Reset clipping mode on every rectangle clip
+   * Improved error handling for FriBidi and FreeType (GH #131)
+   * Fix bitmap combining cache
+
 libass (0.11.2)
  * Improve yasm version check
  * Fix \fscx0 crashes
