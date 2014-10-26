@@ -4,7 +4,7 @@ AC_CONFIG_MACRO_DIR([m4])
 # Disable C++/Fortran checks
 define([AC_LIBTOOL_LANG_CXX_CONFIG], [:])
 define([AC_LIBTOOL_LANG_F77_CONFIG], [:])
-AC_PROG_LIBTOOL
+LT_INIT
 AC_CONFIG_SRCDIR([libass/ass.c])
 AC_CONFIG_HEADER([config.h])
 
