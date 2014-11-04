@@ -33,7 +33,7 @@
  * \brief Add a single point to a contour.
  */
 static inline void drawing_add_point(ASS_Drawing *drawing,
-                                     FT_Vector *point)
+                                     const FT_Vector *point, char tags)
 {
     FT_Outline *ol = &drawing->outline;
     if (ol->n_points == SHRT_MAX)
@@ -48,7 +48,7 @@ static inline void drawing_add_point(ASS_Drawing *drawing,
 
     ol->points[ol->n_points].x = point->x;
     ol->points[ol->n_points].y = point->y;
-    ol->tags[ol->n_points] = 1;
+    ol->tags[ol->n_points] = tags;
     ol->n_points++;
 }
 
@@ -250,88 +250,36 @@ static void drawing_evaluate_curve(ASS_Drawing *drawing,
                                    ASS_DrawingToken *token, char spline,
                                    int started)
 {
-    double cx3, cx2, cx1, cx0, cy3, cy2, cy1, cy0;
-    double t, h, max_accel, max_accel1, max_accel2;
-    FT_Vector cur = {0, 0};
-
-    cur = token->point;
-    translate_point(drawing, &cur);
-    int x0 = cur.x;
-    int y0 = cur.y;
-    token = token->next;
-    cur = token->point;
-    translate_point(drawing, &cur);
-    int x1 = cur.x;
-    int y1 = cur.y;
-    token = token->next;
-    cur = token->point;
-    translate_point(drawing, &cur);
-    int x2 = cur.x;
-    int y2 = cur.y;
-    token = token->next;
-    cur = token->point;
-    translate_point(drawing, &cur);
-    int x3 = cur.x;
-    int y3 = cur.y;
+    FT_Vector p[4];
+    for (int i = 0; i < 4; ++i) {
+        p[i] = token->point;
+        translate_point(drawing, &p[i]);
+        token = token->next;
+    }
 
     if (spline) {
-        // 1   [-1 +3 -3 +1]
-        // - * [+3 -6 +3  0]
-        // 6   [-3  0 +3  0]
-        //	   [+1 +4 +1  0]
+        int x01 = (p[1].x - p[0].x) / 3;
+        int y01 = (p[1].y - p[0].y) / 3;
+        int x12 = (p[2].x - p[1].x) / 3;
+        int y12 = (p[2].y - p[1].y) / 3;
+        int x23 = (p[3].x - p[2].x) / 3;
+        int y23 = (p[3].y - p[2].y) / 3;
 
-        double div6 = 1.0/6.0;
-
-        cx3 = div6*(-  x0+3*x1-3*x2+x3);
-        cx2 = div6*( 3*x0-6*x1+3*x2);
-        cx1 = div6*(-3*x0	   +3*x2);
-        cx0 = div6*(   x0+4*x1+1*x2);
-
-        cy3 = div6*(-  y0+3*y1-3*y2+y3);
-        cy2 = div6*( 3*y0-6*y1+3*y2);
-        cy1 = div6*(-3*y0     +3*y2);
-        cy0 = div6*(   y0+4*y1+1*y2);
-    } else {
-        // [-1 +3 -3 +1]
-        // [+3 -6 +3  0]
-        // [-3 +3  0  0]
-        // [+1  0  0  0]
-
-        cx3 = -  x0+3*x1-3*x2+x3;
-        cx2 =  3*x0-6*x1+3*x2;
-        cx1 = -3*x0+3*x1;
-        cx0 =    x0;
-
-        cy3 = -  y0+3*y1-3*y2+y3;
-        cy2 =  3*y0-6*y1+3*y2;
-        cy1 = -3*y0+3*y1;
-        cy0 =    y0;
+        p[0].x = p[1].x + ((x12 - x01) >> 1);
+        p[0].y = p[1].y + ((y12 - y01) >> 1);
+        p[3].x = p[2].x + ((x23 - x12) >> 1);
+        p[3].y = p[2].y + ((y23 - y12) >> 1);
+        p[1].x += x12;
+        p[1].y += y12;
+        p[2].x -= x12;
+        p[2].y -= y12;
     }
 
-    max_accel1 = fabs(2 * cy2) + fabs(6 * cy3);
-    max_accel2 = fabs(2 * cx2) + fabs(6 * cx3);
-
-    max_accel = FFMAX(max_accel1, max_accel2);
-    h = 1.0;
-
-    if (max_accel > CURVE_ACCURACY)
-        h = sqrt(CURVE_ACCURACY / max_accel);
-
-    if (!started) {
-        cur.x = cx0;
-        cur.y = cy0;
-        drawing_add_point(drawing, &cur);
-    }
-
-    for (t = 0; t < 1.0; t += h) {
-        cur.x = cx0 + t * (cx1 + t * (cx2 + t * cx3));
-        cur.y = cy0 + t * (cy1 + t * (cy2 + t * cy3));
-        drawing_add_point(drawing, &cur);
-    }
-
-    cur.x = cx0 + cx1 + cx2 + cx3;
-    cur.y = cy0 + cy1 + cy2 + cy3;
-    drawing_add_point(drawing, &cur);
+    if (!started)
+        drawing_add_point(drawing, &p[0], FT_CURVE_TAG_ON);
+    drawing_add_point(drawing, &p[1], FT_CURVE_TAG_CUBIC);
+    drawing_add_point(drawing, &p[2], FT_CURVE_TAG_CUBIC);
+    drawing_add_point(drawing, &p[3], FT_CURVE_TAG_ON);
 }
 
 /*
@@ -427,8 +375,8 @@ FT_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode)
             FT_Vector to;
             to = token->point;
             translate_point(drawing, &to);
-            if (!started) drawing_add_point(drawing, &pen);
-            drawing_add_point(drawing, &to);
+            if (!started) drawing_add_point(drawing, &pen, FT_CURVE_TAG_ON);
+            drawing_add_point(drawing, &to, FT_CURVE_TAG_ON);
             started = 1;
             token = token->next;
             break;
