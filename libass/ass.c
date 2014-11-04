@@ -776,12 +776,6 @@ static int process_line(ASS_Track *track, char *str)
             break;
         }
     }
-
-    // there is no explicit end-of-font marker in ssa/ass
-    if ((track->parser_priv->state != PST_FONTS)
-        && (track->parser_priv->fontname))
-        decode_font(track);
-
     return 0;
 }
 
@@ -809,6 +803,9 @@ static int process_text(ASS_Track *track, char *str)
             break;
         p = q;
     }
+    // there is no explicit end-of-font marker in ssa/ass
+    if (track->parser_priv->fontname)
+        decode_font(track);
     return 0;
 }
 
@@ -1087,10 +1084,6 @@ static ASS_Track *parse_memory(ASS_Library *library, char *buf)
     // external SSA/ASS subs does not have ReadOrder field
     for (i = 0; i < track->n_events; ++i)
         track->events[i].ReadOrder = i;
-
-    // there is no explicit end-of-font marker in ssa/ass
-    if (track->parser_priv->fontname)
-        decode_font(track);
 
     if (track->track_type == TRACK_TYPE_UNKNOWN) {
         ass_free_track(track);
