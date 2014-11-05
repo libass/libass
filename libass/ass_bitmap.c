@@ -329,6 +329,7 @@ void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 
     // Shift in x direction
     if (shift_x > 0) {
+        shift_x &= 0x3F;
         for (y = 0; y < h; y++) {
             for (x = w - 1; x > 0; x--) {
                 b = (buf[x + y * s - 1] * shift_x) >> 6;
@@ -337,7 +338,7 @@ void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
             }
         }
     } else if (shift_x < 0) {
-        shift_x = -shift_x;
+        shift_x = -shift_x & 0x3F;
         for (y = 0; y < h; y++) {
             for (x = 0; x < w - 1; x++) {
                 b = (buf[x + y * s + 1] * shift_x) >> 6;
@@ -349,6 +350,7 @@ void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 
     // Shift in y direction
     if (shift_y > 0) {
+        shift_y &= 0x3F;
         for (x = 0; x < w; x++) {
             for (y = h - 1; y > 0; y--) {
                 b = (buf[x + (y - 1) * s] * shift_y) >> 6;
@@ -357,7 +359,7 @@ void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
             }
         }
     } else if (shift_y < 0) {
-        shift_y = -shift_y;
+        shift_y = -shift_y & 0x3F;
         for (x = 0; x < w; x++) {
             for (y = 0; y < h - 1; y++) {
                 b = (buf[x + (y + 1) * s] * shift_y) >> 6;
