@@ -675,12 +675,8 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
         if (render_priv->state.border_style == 4)
             continue;
 
-        pen_x =
-            dst_x + info->pos.x +
-            (int) (info->shadow_x * render_priv->border_scale);
-        pen_y =
-            dst_y + info->pos.y +
-            (int) (info->shadow_y * render_priv->border_scale);
+        pen_x = dst_x + info->pos.x;
+        pen_y = dst_y + info->pos.y;
         bm = info->bm_s;
 
         tail =
@@ -1724,12 +1720,10 @@ fill_bitmap_hash(ASS_Renderer *priv, GlyphInfo *info,
     hash_key->fay = double_to_d16(info->fay);
     hash_key->be = info->be;
     hash_key->blur = info->blur;
-    hash_key->shadow_offset.x = double_to_d6(
-            info->shadow_x * priv->border_scale -
-            (int) (info->shadow_x * priv->border_scale));
-    hash_key->shadow_offset.y = double_to_d6(
-            info->shadow_y * priv->border_scale -
-            (int) (info->shadow_y * priv->border_scale));
+    hash_key->shadow_offset.x =
+        double_to_d6(info->shadow_x * priv->border_scale) & SUBPIXEL_MASK;
+    hash_key->shadow_offset.y =
+        double_to_d6(info->shadow_y * priv->border_scale) & SUBPIXEL_MASK;
 }
 
 /**
@@ -1869,7 +1863,7 @@ static void apply_blur(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
     }
 }
 
-static void make_shadow_bitmap(CombinedBitmapInfo *info)
+static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
 {
     // VSFilter compatibility: invisible fill and no border?
     // In this case no shadow is supposed to be rendered.
@@ -1891,7 +1885,13 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info)
 
     assert(info->bm_s);
 
-    shift_bitmap(info->bm_s, info->shadow_x, info->shadow_y);
+    // Works right even for negative offsets
+    // '>>' rounds toward negative infinity, '&' returns correct remainder
+    int offset_x = double_to_d6(info->shadow_x * render_priv->border_scale);
+    int offset_y = double_to_d6(info->shadow_y * render_priv->border_scale);
+    info->bm_s->left += offset_x >> 6;
+    info->bm_s->top  += offset_y >> 6;
+    shift_bitmap(info->bm_s, offset_x & SUBPIXEL_MASK, offset_y & SUBPIXEL_MASK);
 }
 
 /**
@@ -2603,7 +2603,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             CombinedBitmapInfo *info = &combined_info[i];
             if(info->bm || info->bm_o){
                 apply_blur(info, render_priv);
-                make_shadow_bitmap(info);
+                make_shadow_bitmap(info, render_priv);
             }
 
             fill_composite_hash(&hk, info);

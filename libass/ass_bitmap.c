@@ -327,45 +327,23 @@ void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
     int s = bm->stride;
     unsigned char *buf = bm->buffer;
 
+    assert((shift_x & ~63) == 0 && (shift_y & ~63) == 0);
+
     // Shift in x direction
-    if (shift_x > 0) {
-        shift_x &= 0x3F;
-        for (y = 0; y < h; y++) {
-            for (x = w - 1; x > 0; x--) {
-                b = (buf[x + y * s - 1] * shift_x) >> 6;
-                buf[x + y * s - 1] -= b;
-                buf[x + y * s] += b;
-            }
-        }
-    } else if (shift_x < 0) {
-        shift_x = -shift_x & 0x3F;
-        for (y = 0; y < h; y++) {
-            for (x = 0; x < w - 1; x++) {
-                b = (buf[x + y * s + 1] * shift_x) >> 6;
-                buf[x + y * s + 1] -= b;
-                buf[x + y * s] += b;
-            }
+    for (y = 0; y < h; y++) {
+        for (x = w - 1; x > 0; x--) {
+            b = (buf[x + y * s - 1] * shift_x) >> 6;
+            buf[x + y * s - 1] -= b;
+            buf[x + y * s] += b;
         }
     }
 
     // Shift in y direction
-    if (shift_y > 0) {
-        shift_y &= 0x3F;
-        for (x = 0; x < w; x++) {
-            for (y = h - 1; y > 0; y--) {
-                b = (buf[x + (y - 1) * s] * shift_y) >> 6;
-                buf[x + (y - 1) * s] -= b;
-                buf[x + y * s] += b;
-            }
-        }
-    } else if (shift_y < 0) {
-        shift_y = -shift_y & 0x3F;
-        for (x = 0; x < w; x++) {
-            for (y = 0; y < h - 1; y++) {
-                b = (buf[x + (y + 1) * s] * shift_y) >> 6;
-                buf[x + (y + 1) * s] -= b;
-                buf[x + y * s] += b;
-            }
+    for (x = 0; x < w; x++) {
+        for (y = h - 1; y > 0; y--) {
+            b = (buf[x + (y - 1) * s] * shift_y) >> 6;
+            buf[x + (y - 1) * s] -= b;
+            buf[x + y * s] += b;
         }
     }
 }
