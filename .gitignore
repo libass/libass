@@ -1,21 +1,38 @@
+# Compilation outputs
 *.o
 *.lo
 *.la
+
+# Temporaries
 .deps
 .libs
+.dirstamp
+
+# Makefiles
 Makefile
 Makefile.in
+
+# Configuration
 /config.*
-/test/test
-/stamp-h1
 /configure
+/stamp-h1
+
+# Test programs
+/test/test*
+/profile/profile*
+
+# pkgconfig
+/libass.pc
+
+# Compilation support
+/depcomp
+/compile
+
+# Autoconf files
 /aclocal.m4
 /autom4te.cache
-/depcomp
 /install-sh
 /libtool
 /ltmain.sh
 /missing
-/compile
-/libass.pc
 /m4
