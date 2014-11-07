@@ -133,7 +133,13 @@ static Bitmap *alloc_bitmap_raw(int w, int h)
     unsigned align = (w >= 32) ? 32 : ((w >= 16) ? 16 : 1);
     unsigned s = ass_align(align, w);
     bm = malloc(sizeof(Bitmap));
+    if (!bm)
+        return NULL;
     bm->buffer = ass_aligned_alloc(align, s * h + 32);
+    if (!bm->buffer) {
+        free(bm);
+        return NULL;
+    }
     bm->w = w;
     bm->h = h;
     bm->stride = s;
@@ -160,6 +166,8 @@ void ass_free_bitmap(Bitmap *bm)
 Bitmap *copy_bitmap(const Bitmap *src)
 {
     Bitmap *dst = alloc_bitmap_raw(src->w, src->h);
+    if (!dst)
+        return NULL;
     dst->left = src->left;
     dst->top = src->top;
     memcpy(dst->buffer, src->buffer, src->stride * src->h);
@@ -179,6 +187,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
     if (rst->x_min >= rst->x_max || rst->y_min >= rst->y_max) {
         Bitmap *bm = alloc_bitmap(2 * bord, 2 * bord);
+        if (!bm)
+            return NULL;
         bm->left = bm->top = -bord;
         return bm;
     }
@@ -200,6 +210,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     int tile_w = (w + 2 * bord + mask) & ~mask;
     int tile_h = (h + 2 * bord + mask) & ~mask;
     Bitmap *bm = alloc_bitmap(tile_w, tile_h);
+    if (!bm)
+        return NULL;
     bm->left = x_min - bord;
     bm->top = -y_max - bord;
 
@@ -234,6 +246,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     FT_Outline_Get_CBox(outline, &bbox);
     if (bbox.xMin >= bbox.xMax || bbox.yMin >= bbox.yMax) {
         bm = alloc_bitmap(2 * bord, 2 * bord);
+        if (!bm)
+            return NULL;
         bm->left = bm->top = -bord;
         return bm;
     }
@@ -259,6 +273,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
     // allocate and set up bitmap
     bm = alloc_bitmap(w + 2 * bord, h + 2 * bord);
+    if (!bm)
+        return NULL;
     bm->left = bbox.xMin - bord;
     bm->top = -bbox.yMax - bord;
     bitmap.width = w;

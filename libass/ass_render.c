@@ -1883,7 +1883,8 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_pr
     } else
         info->bm_s = copy_bitmap(info->bm);
 
-    assert(info->bm_s);
+    if (!info->bm_s)
+        return;
 
     // Works right even for negative offsets
     // '>>' rounds toward negative infinity, '&' returns correct remainder
@@ -2557,11 +2558,15 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                     int offset_y = (info->pos.y >> 6) - current_info->pos.y;
                     if(info->bm){
                         current_info->bm = copy_bitmap(info->bm);
+                        if (!current_info->bm)
+                            goto cleanup;
                         current_info->bm->left += offset_x;
                         current_info->bm->top += offset_y;
                     }
                     if(info->bm_o){
                         current_info->bm_o = copy_bitmap(info->bm_o);
+                        if (!current_info->bm_o)
+                            goto cleanup;
                         current_info->bm_o->left += offset_x;
                         current_info->bm_o->top += offset_y;
                     }
@@ -2593,6 +2598,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                     }
                 }
             }
+            cleanup:
             info = info->next;
         }
     }
