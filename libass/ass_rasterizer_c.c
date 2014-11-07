@@ -250,7 +250,7 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
             update_border_line16(res[up], abs_a, va, b, abs_b, c, 0, up_pos);
     }
 
-    int16_t cur = winding << 8;
+    int16_t cur = 256 * winding;
     for (j = 0; j < 16; ++j) {
         cur += delta[j];
         for (i = 0; i < 16; ++i) {
@@ -369,7 +369,7 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
             update_border_line32(res[up], abs_a, va, b, abs_b, c, 0, up_pos);
     }
 
-    int16_t cur = winding << 8;
+    int16_t cur = 256 * winding;
     for (j = 0; j < 32; ++j) {
         cur += delta[j];
         for (i = 0; i < 32; ++i) {

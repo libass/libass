@@ -158,9 +158,9 @@ static inline int add_line(ASS_Rasterizer *rst, OutlinePoint pt0, OutlinePoint p
     uint32_t max_ab = (abs_x > abs_y ? abs_x : abs_y);
     int shift = 30 - ilog2(max_ab);
     max_ab <<= shift + 1;
-    line->a <<= shift;
-    line->b <<= shift;
-    line->c <<= shift;
+    line->a *= 1 << shift;
+    line->b *= 1 << shift;
+    line->c *= 1 << shift;
     line->scale = (uint64_t)0x53333333 * (uint32_t)(max_ab * (uint64_t)max_ab >> 32) >> 32;
     line->scale += 0x8810624D - (0xBBC6A7EF * (uint64_t)max_ab >> 32);
     //line->scale = ((uint64_t)1 << 61) / max_ab;
@@ -599,7 +599,7 @@ static inline void rasterizer_fill_solid(ASS_Rasterizer *rst,
 
     int i, j;
     ptrdiff_t step = 1 << rst->tile_order;
-    ptrdiff_t tile_stride = stride << rst->tile_order;
+    ptrdiff_t tile_stride = stride * (1 << rst->tile_order);
     width  >>= rst->tile_order;
     height >>= rst->tile_order;
     for (j = 0; j < height; ++j) {
@@ -623,21 +623,21 @@ static inline void rasterizer_fill_halfplane(ASS_Rasterizer *rst,
     uint32_t abs_a = a < 0 ? -a : a;
     uint32_t abs_b = b < 0 ? -b : b;
     int64_t size = (int64_t)(abs_a + abs_b) << (rst->tile_order + 5);
-    int64_t offs = ((int64_t)a + b) << (rst->tile_order + 5);
+    int64_t offs = ((int64_t)a + b) * (1 << (rst->tile_order + 5));
 
     int i, j;
     ptrdiff_t step = 1 << rst->tile_order;
-    ptrdiff_t tile_stride = stride << rst->tile_order;
+    ptrdiff_t tile_stride = stride * (1 << rst->tile_order);
     width  >>= rst->tile_order;
     height >>= rst->tile_order;
     for (j = 0; j < height; ++j) {
         for (i = 0; i < width; ++i) {
-            int64_t cc = c - ((a * (int64_t)i + b * (int64_t)j) << (rst->tile_order + 6));
+            int64_t cc = c - (a * (int64_t)i + b * (int64_t)j) * (1 << (rst->tile_order + 6));
             int64_t offs_c = offs - cc;
             int64_t abs_c = offs_c < 0 ? -offs_c : offs_c;
             if (abs_c < size)
                 rst->fill_halfplane(buf + i * step, stride, a, b, cc, scale);
-            else if (((int32_t)(offs_c >> 32) ^ scale) & (1 << 31))
+            else if (((uint32_t)(offs_c >> 32) ^ scale) & 0x80000000)
                 rst->fill_solid(buf + i * step, stride);
         }
         buf += tile_stride;
@@ -730,7 +730,7 @@ int rasterizer_fill(ASS_Rasterizer *rst,
     assert(width > 0 && height > 0);
     assert(!(width  & ((1 << rst->tile_order) - 1)));
     assert(!(height & ((1 << rst->tile_order) - 1)));
-    x0 <<= 6;  y0 <<= 6;
+    x0 *= 1 << 6;  y0 *= 1 << 6;
 
     if (vert_flip) {
         buf += (height - 1) * stride;

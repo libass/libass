@@ -90,11 +90,11 @@ static inline int d16_to_int(int x)
 }
 static inline int int_to_d6(int x)
 {
-    return x << 6;
+    return x * (1 << 6);
 }
 static inline int int_to_d16(int x)
 {
-    return x << 16;
+    return x * (1 << 16);
 }
 static inline int d16_to_d6(int x)
 {
@@ -102,7 +102,7 @@ static inline int d16_to_d6(int x)
 }
 static inline int d6_to_d16(int x)
 {
-    return x << 10;
+    return x * (1 << 10);
 }
 static inline double d6_to_double(int x)
 {
