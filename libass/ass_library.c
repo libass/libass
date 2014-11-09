@@ -40,8 +40,8 @@ static void ass_msg_handler(int level, const char *fmt, va_list va, void *data)
 ASS_Library *ass_library_init(void)
 {
     ASS_Library* lib = calloc(1, sizeof(*lib));
-    lib->msg_callback = ass_msg_handler;
-
+    if (lib)
+        lib->msg_callback = ass_msg_handler;
     return lib;
 }
 
@@ -86,16 +86,22 @@ void ass_set_style_overrides(ASS_Library *priv, char **list)
     for (p = list, cnt = 0; *p; ++p, ++cnt) {
     }
 
-    priv->style_overrides = malloc((cnt + 1) * sizeof(char *));
+    priv->style_overrides = calloc(cnt + 1, sizeof(char *));
+    if (!priv->style_overrides)
+        return;
     for (p = list, q = priv->style_overrides; *p; ++p, ++q)
         *q = strdup(*p);
-    priv->style_overrides[cnt] = NULL;
 }
 
-static void grow_array(void **array, int nelem, size_t elsize)
+static int grow_array(void **array, int nelem, size_t elsize)
 {
-    if (!(nelem & 31))
-        *array = realloc(*array, (nelem + 32) * elsize);
+    if (!(nelem & 31)) {
+        void *ptr = realloc(*array, (nelem + 32) * elsize);
+        if (!ptr)
+            return 0;
+        *array = ptr;
+    }
+    return 1;
 }
 
 void ass_add_font(ASS_Library *priv, char *name, char *data, int size)
@@ -103,17 +109,26 @@ void ass_add_font(ASS_Library *priv, char *name, char *data, int size)
     int idx = priv->num_fontdata;
     if (!name || !data || !size)
         return;
-    grow_array((void **) &priv->fontdata, priv->num_fontdata,
-               sizeof(*priv->fontdata));
+    if (!grow_array((void **) &priv->fontdata, priv->num_fontdata,
+                    sizeof(*priv->fontdata)))
+        return;
 
     priv->fontdata[idx].name = strdup(name);
-
     priv->fontdata[idx].data = malloc(size);
+
+    if (!priv->fontdata[idx].name || !priv->fontdata[idx].data)
+        goto error;
+
     memcpy(priv->fontdata[idx].data, data, size);
 
     priv->fontdata[idx].size = size;
 
     priv->num_fontdata++;
+    return;
+
+error:
+    free(priv->fontdata[idx].name);
+    free(priv->fontdata[idx].data);
 }
 
 void ass_clear_fonts(ASS_Library *priv)

@@ -160,6 +160,8 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
         family_cnt = 1;
         {
             char *s = strdup(family);
+            if (!s)
+                goto error;
             char *p = s + strlen(s);
             while (--p > s)
                 if (*p == ' ' || *p == '-') {
@@ -246,6 +248,8 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
     if (result != FcResultMatch)
         goto error;
     retval = strdup((const char *) r_file);
+    if (!retval)
+        goto error;
 
     result = FcPatternGetString(rpat, FC_FAMILY, 0, &r_family);
     if (result != FcResultMatch)
@@ -344,9 +348,10 @@ char *fontconfig_select(ASS_Library *library, FCInstance *priv,
     if (!res && priv->path_default) {
         res = strdup(priv->path_default);
         *index = priv->index_default;
-        ass_msg(library, MSGL_WARN, "fontconfig_select: Using default font: "
-                "(%s, %d, %d) -> %s, %d", family, bold, italic,
-                res, *index);
+        if (res)
+            ass_msg(library, MSGL_WARN, "fontconfig_select: Using default font: "
+                    "(%s, %d, %d) -> %s, %d", family, bold, italic,
+                    res, *index);
     }
     if (!res) {
         res = select_font(library, priv, "Arial", 0, bold, italic,
@@ -444,6 +449,9 @@ FCInstance *fontconfig_init(ASS_Library *library,
     const char *dir = library->fonts_dir;
     int i;
 
+    if (!priv)
+        return NULL;
+
     if (!fc) {
         ass_msg(library, MSGL_WARN,
                "Fontconfig disabled, only default font will be used.");
@@ -518,6 +526,8 @@ FCInstance *fontconfig_init(ASS_Library *library,
         "Fontconfig disabled, only default font will be used.");
 
     priv = calloc(1, sizeof(FCInstance));
+    if (!priv)
+        return NULL;
 
     priv->path_default = path ? strdup(path) : 0;
     priv->index_default = 0;

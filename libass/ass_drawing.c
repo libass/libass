@@ -342,6 +342,8 @@ ASS_Drawing *ass_drawing_new(ASS_Library *lib, FT_Library ftlib)
     ASS_Drawing *drawing;
 
     drawing = calloc(1, sizeof(*drawing));
+    if (!drawing)
+        return NULL;
     drawing->cbox.xMin = drawing->cbox.yMin = INT_MAX;
     drawing->cbox.xMax = drawing->cbox.yMax = INT_MIN;
     drawing->ftlibrary = ftlib;
