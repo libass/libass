@@ -32,6 +32,10 @@
 
 #include "ass.h"
 
+#ifndef SIZE_MAX
+#define SIZE_MAX ((size_t)-1)
+#endif
+
 #define MSGL_FATAL 0
 #define MSGL_ERR 1
 #define MSGL_WARN 2
