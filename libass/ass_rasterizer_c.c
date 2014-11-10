@@ -147,16 +147,16 @@ void ass_fill_halfplane_tile32_c(uint8_t *buf, ptrdiff_t stride,
 static inline void update_border_line16(int16_t res[16],
                                         int16_t abs_a, const int16_t va[16],
                                         int16_t b, int16_t abs_b,
-                                        int16_t c, int dn, int up)
+                                        int16_t c, int up, int dn)
 {
-    int16_t size = up - dn;
+    int16_t size = dn - up;
     int16_t w = (1 << 10) + (size << 4) - abs_a;
     w = FFMIN(w, 1 << 10) << 3;
 
     int16_t dc_b = abs_b * (int32_t)size >> 6;
     int16_t dc = (FFMIN(abs_a, dc_b) + 2) >> 2;
 
-    int16_t base = (int32_t)b * (int16_t)(dn + up) >> 7;
+    int16_t base = (int32_t)b * (int16_t)(up + dn) >> 7;
     int16_t offs1 = size - ((base + dc) * (int32_t)w >> 16);
     int16_t offs2 = size - ((base - dc) * (int32_t)w >> 16);
 
@@ -191,31 +191,31 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
         assert(line->y_max > 0 && line->y_max <= 1 << 10);
         assert(line->y_min <= line->y_max);
 
-        int16_t dn_delta = line->flags & SEGFLAG_UP ? 4 : 0;
-        int16_t up_delta = dn_delta;
-        if (!line->x_min && (line->flags & SEGFLAG_EXACT_LEFT))up_delta ^= 4;
-        if (line->flags & SEGFLAG_UR_DL) {
-            int16_t tmp = dn_delta;
-            dn_delta = up_delta;
-            up_delta = tmp;
+        int16_t up_delta = line->flags & SEGFLAG_DN ? 4 : 0;
+        int16_t dn_delta = up_delta;
+        if (!line->x_min && (line->flags & SEGFLAG_EXACT_LEFT))dn_delta ^= 4;
+        if (line->flags & SEGFLAG_UL_DR) {
+            int16_t tmp = up_delta;
+            up_delta = dn_delta;
+            dn_delta = tmp;
         }
 
-        int dn = line->y_min >> 6, up = line->y_max >> 6;
-        int16_t dn_pos = line->y_min & 63;
-        int16_t dn_delta1 = dn_delta * dn_pos;
-        int16_t up_pos = line->y_max & 63;
+        int up = line->y_min >> 6, dn = line->y_max >> 6;
+        int16_t up_pos = line->y_min & 63;
         int16_t up_delta1 = up_delta * up_pos;
-        delta[dn + 1] -= dn_delta1;
-        delta[dn] -= (dn_delta << 6) - dn_delta1;
-        delta[up + 1] += up_delta1;
-        delta[up] += (up_delta << 6) - up_delta1;
+        int16_t dn_pos = line->y_max & 63;
+        int16_t dn_delta1 = dn_delta * dn_pos;
+        delta[up + 1] -= up_delta1;
+        delta[up] -= (up_delta << 6) - up_delta1;
+        delta[dn + 1] += dn_delta1;
+        delta[dn] += (dn_delta << 6) - dn_delta1;
         if (line->y_min == line->y_max)
             continue;
 
         int16_t a = (line->a * (int64_t)line->scale + ((int64_t)1 << 49)) >> 50;
         int16_t b = (line->b * (int64_t)line->scale + ((int64_t)1 << 49)) >> 50;
         int16_t c = ((int32_t)(line->c >> 11) * (int64_t)line->scale + ((int64_t)1 << 44)) >> 45;
-        c -= (a >> 1) + b * dn;
+        c -= (a >> 1) + b * up;
 
         int16_t va[16];
         for (i = 0; i < 16; ++i)
@@ -227,16 +227,16 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
         int16_t dc1 = base + dc;
         int16_t dc2 = base - dc;
 
-        if (dn_pos) {
-            if (up == dn) {
-                update_border_line16(res[dn], abs_a, va, b, abs_b, c, dn_pos, up_pos);
+        if (up_pos) {
+            if (dn == up) {
+                update_border_line16(res[up], abs_a, va, b, abs_b, c, up_pos, dn_pos);
                 continue;
             }
-            update_border_line16(res[dn], abs_a, va, b, abs_b, c, dn_pos, 64);
-            dn++;
+            update_border_line16(res[up], abs_a, va, b, abs_b, c, up_pos, 64);
+            up++;
             c -= b;
         }
-        for (j = dn; j < up; ++j) {
+        for (j = up; j < dn; ++j) {
             for (i = 0; i < 16; ++i) {
                 int16_t c1 = c - va[i] + dc1;
                 int16_t c2 = c - va[i] + dc2;
@@ -246,8 +246,8 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
             }
             c -= b;
         }
-        if (up_pos)
-            update_border_line16(res[up], abs_a, va, b, abs_b, c, 0, up_pos);
+        if (dn_pos)
+            update_border_line16(res[dn], abs_a, va, b, abs_b, c, 0, dn_pos);
     }
 
     int16_t cur = 256 * winding;
@@ -266,16 +266,16 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
 static inline void update_border_line32(int16_t res[32],
                                         int16_t abs_a, const int16_t va[32],
                                         int16_t b, int16_t abs_b,
-                                        int16_t c, int dn, int up)
+                                        int16_t c, int up, int dn)
 {
-    int16_t size = up - dn;
+    int16_t size = dn - up;
     int16_t w = (1 << 9) + (size << 3) - abs_a;
     w = FFMIN(w, 1 << 9) << 5;
 
     int16_t dc_b = abs_b * (int32_t)size >> 6;
     int16_t dc = (FFMIN(abs_a, dc_b) + 2) >> 2;
 
-    int16_t base = (int32_t)b * (int16_t)(dn + up) >> 7;
+    int16_t base = (int32_t)b * (int16_t)(up + dn) >> 7;
     int16_t offs1 = size - ((base + dc) * (int32_t)w >> 16);
     int16_t offs2 = size - ((base - dc) * (int32_t)w >> 16);
 
@@ -310,31 +310,31 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
         assert(line->y_max > 0 && line->y_max <= 1 << 11);
         assert(line->y_min <= line->y_max);
 
-        int16_t dn_delta = line->flags & SEGFLAG_UP ? 4 : 0;
-        int16_t up_delta = dn_delta;
-        if (!line->x_min && (line->flags & SEGFLAG_EXACT_LEFT))up_delta ^= 4;
-        if (line->flags & SEGFLAG_UR_DL) {
-            int16_t tmp = dn_delta;
-            dn_delta = up_delta;
-            up_delta = tmp;
+        int16_t up_delta = line->flags & SEGFLAG_DN ? 4 : 0;
+        int16_t dn_delta = up_delta;
+        if (!line->x_min && (line->flags & SEGFLAG_EXACT_LEFT))dn_delta ^= 4;
+        if (line->flags & SEGFLAG_UL_DR) {
+            int16_t tmp = up_delta;
+            up_delta = dn_delta;
+            dn_delta = tmp;
         }
 
-        int dn = line->y_min >> 6, up = line->y_max >> 6;
-        int16_t dn_pos = line->y_min & 63;
-        int16_t dn_delta1 = dn_delta * dn_pos;
-        int16_t up_pos = line->y_max & 63;
+        int up = line->y_min >> 6, dn = line->y_max >> 6;
+        int16_t up_pos = line->y_min & 63;
         int16_t up_delta1 = up_delta * up_pos;
-        delta[dn + 1] -= dn_delta1;
-        delta[dn] -= (dn_delta << 6) - dn_delta1;
-        delta[up + 1] += up_delta1;
-        delta[up] += (up_delta << 6) - up_delta1;
+        int16_t dn_pos = line->y_max & 63;
+        int16_t dn_delta1 = dn_delta * dn_pos;
+        delta[up + 1] -= up_delta1;
+        delta[up] -= (up_delta << 6) - up_delta1;
+        delta[dn + 1] += dn_delta1;
+        delta[dn] += (dn_delta << 6) - dn_delta1;
         if (line->y_min == line->y_max)
             continue;
 
         int16_t a = (line->a * (int64_t)line->scale + ((int64_t)1 << 50)) >> 51;
         int16_t b = (line->b * (int64_t)line->scale + ((int64_t)1 << 50)) >> 51;
         int16_t c = ((int32_t)(line->c >> 12) * (int64_t)line->scale + ((int64_t)1 << 44)) >> 45;
-        c -= (a >> 1) + b * dn;
+        c -= (a >> 1) + b * up;
 
         int16_t va[32];
         for (i = 0; i < 32; ++i)
@@ -346,16 +346,16 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
         int16_t dc1 = base + dc;
         int16_t dc2 = base - dc;
 
-        if (dn_pos) {
-            if (up == dn) {
-                update_border_line32(res[dn], abs_a, va, b, abs_b, c, dn_pos, up_pos);
+        if (up_pos) {
+            if (dn == up) {
+                update_border_line32(res[up], abs_a, va, b, abs_b, c, up_pos, dn_pos);
                 continue;
             }
-            update_border_line32(res[dn], abs_a, va, b, abs_b, c, dn_pos, 64);
-            dn++;
+            update_border_line32(res[up], abs_a, va, b, abs_b, c, up_pos, 64);
+            up++;
             c -= b;
         }
-        for (j = dn; j < up; ++j) {
+        for (j = up; j < dn; ++j) {
             for (i = 0; i < 32; ++i) {
                 int16_t c1 = c - va[i] + dc1;
                 int16_t c2 = c - va[i] + dc2;
@@ -365,8 +365,8 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
             }
             c -= b;
         }
-        if (up_pos)
-            update_border_line32(res[up], abs_a, va, b, abs_b, c, 0, up_pos);
+        if (dn_pos)
+            update_border_line32(res[dn], abs_a, va, b, abs_b, c, 0, dn_pos);
     }
 
     int16_t cur = 256 * winding;

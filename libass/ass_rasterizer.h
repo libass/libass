@@ -26,12 +26,12 @@
 
 
 enum {
-    SEGFLAG_UP = 1,
-    SEGFLAG_UR_DL = 2,
+    SEGFLAG_DN = 1,
+    SEGFLAG_UL_DR = 2,
     SEGFLAG_EXACT_LEFT = 4,
     SEGFLAG_EXACT_RIGHT = 8,
-    SEGFLAG_EXACT_BOTTOM = 16,
-    SEGFLAG_EXACT_TOP = 32
+    SEGFLAG_EXACT_TOP = 16,
+    SEGFLAG_EXACT_BOTTOM = 32,
 };
 
 // Polyline segment struct
@@ -88,12 +88,11 @@ int rasterizer_set_outline(ASS_Rasterizer *rst, const FT_Outline *path);
  * \param x0, y0, width, height in: source window (full pixel units)
  * \param buf out: aligned output buffer (size = stride * height)
  * \param stride output buffer stride (aligned)
- * \param vert_flip vertical flip flag
  * \return zero on error
  * Deletes preprocessed polyline after work.
  */
 int rasterizer_fill(ASS_Rasterizer *rst, uint8_t *buf, int x0, int y0,
-                    int width, int height, ptrdiff_t stride, int vert_flip);
+                    int width, int height, ptrdiff_t stride);
 
 
 #endif                          /* LIBASS_RASTERIZER_H */

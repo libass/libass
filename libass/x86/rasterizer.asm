@@ -362,8 +362,8 @@ endstruc
 ;------------------------------------------------------------------------------
 ; CALC_DELTA_FLAG res, line, tmp1, tmp2
 ; Set bits of result register (res):
-; bit 3 - for nonzero dn_delta,
-; bit 2 - for nonzero up_delta.
+; bit 3 - for nonzero up_delta,
+; bit 2 - for nonzero dn_delta.
 ;------------------------------------------------------------------------------
 
 %macro CALC_DELTA_FLAG 4
@@ -372,7 +372,7 @@ endstruc
     cmp %4d, [%2 + line.x_min]
     cmovz %4d, %3d
     xor %1d, %1d
-    test %3d, 2  ; SEGFLAG_UR_DL
+    test %3d, 2  ; SEGFLAG_UL_DR
     cmovnz %1d, %4d
     shl %3d, 2
     xor %1d, %3d
@@ -383,21 +383,21 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; UPDATE_DELTA up/dn, dst, flag, pos, tmp
+; UPDATE_DELTA dn/up, dst, flag, pos, tmp
 ; Update delta array
 ;------------------------------------------------------------------------------
 
 %macro UPDATE_DELTA 5
-%ifidn %1, up
+%ifidn %1, dn
     %define %%op add
     %define %%opi sub
     %assign %%flag 1 << 2
-%elifidn %1, dn
+%elifidn %1, up
     %define %%op sub
     %define %%opi add
     %assign %%flag 1 << 3
 %else
-    %error "up/dn expected"
+    %error "dn/up expected"
 %endif
 
     test %3d, %%flag
@@ -575,7 +575,7 @@ endstruc
 ;------------------------------------------------------------------------------
 
 %macro FILL_GENERIC_TILE 2
-    ; t3=line t4=dn/cur t5=up/end t6=up_pos t7=dn_pos
+    ; t3=line t4=up/cur t5=dn/end t6=dn_pos t7=up_pos
     ; t8=a/abs_a/abs_ab t9=b t10=c/abs_b
 %if ARCH_X86_64
     DECLARE_REG_TMP 10,11,5,2, 4,9,6,7, 8,12,13
@@ -649,10 +649,10 @@ cglobal fill_generic_tile%2, 0,7,8
 %if ARCH_X86_64
     mova mm_index, [words_index]
     mova mm_full, [words_tile%2]
-    %define up_addr t5
+    %define dn_addr t5
 %else
-    %define up_addr [rstk + delta_offs + 2 * tile_size + 4]
-    %define up_pos [rstk + delta_offs + 2 * tile_size + 8]
+    %define dn_addr [rstk + delta_offs + 2 * tile_size + 4]
+    %define dn_pos [rstk + delta_offs + 2 * tile_size + 8]
 %endif
 
 .line_loop
@@ -668,15 +668,15 @@ cglobal fill_generic_tile%2, 0,7,8
 %if ARCH_X86_64
     mov t8d, t4d
     mov t6d, t4d
-    and t6d, 63  ; dn_pos
-    shr t4d, 6  ; dn
+    and t6d, 63  ; up_pos
+    shr t4d, 6  ; up
     mov t5d, t2d
     mov t7d, t2d
-    and t7d, 63  ; up_pos
-    shr t5d, 6  ; up
+    and t7d, 63  ; dn_pos
+    shr t5d, 6  ; dn
 
-    UPDATE_DELTA dn, rstk + 2 * t4 + delta_offs, t0,t6, t1
-    UPDATE_DELTA up, rstk + 2 * t5 + delta_offs, t0,t7, t1
+    UPDATE_DELTA up, rstk + 2 * t4 + delta_offs, t0,t6, t1
+    UPDATE_DELTA dn, rstk + 2 * t5 + delta_offs, t0,t7, t1
     cmp t8d, t2d
 %else
     lea t1d, [t0d + 1]
@@ -684,18 +684,18 @@ cglobal fill_generic_tile%2, 0,7,8
     cmovnz t0d, t1d  ; bit 0 -- not horz line
 
     mov t6d, t2d
-    and t6d, 63  ; up_pos
-    shr t2d, 6  ; up
-    UPDATE_DELTA up, rstk + 2 * t2 + delta_offs, t0,t6, t1
+    and t6d, 63  ; dn_pos
+    shr t2d, 6  ; dn
+    UPDATE_DELTA dn, rstk + 2 * t2 + delta_offs, t0,t6, t1
 
     CALC_RES_ADDR %1, t2, t1
-    mov up_addr, t2
-    mov up_pos, t6d
+    mov dn_addr, t2
+    mov dn_pos, t6d
 
     mov t6d, t4d
-    and t6d, 63  ; dn_pos
-    shr t4d, 6  ; dn
-    UPDATE_DELTA dn, rstk + 2 * t4 + delta_offs, t0,t6, t1
+    and t6d, 63  ; up_pos
+    shr t4d, 6  ; up
+    UPDATE_DELTA up, rstk + 2 * t4 + delta_offs, t0,t6, t1
     test t0d, 1
 %endif
     jz .end_line_loop
@@ -772,7 +772,7 @@ cglobal fill_generic_tile%2, 0,7,8
 %if ARCH_X86_64
     CALC_RES_ADDR %1, t5, t0, skip
 %endif
-    cmp t4, up_addr
+    cmp t4, dn_addr
     jz .single_line
 
 %if ARCH_X86_64 || a_shift == 0
@@ -782,12 +782,12 @@ cglobal fill_generic_tile%2, 0,7,8
     test t6d, t6d
     jz .generic_fist
     mov t2d, 64
-    sub t2d, t6d  ; 64 - dn_pos
-    add t6d, 64  ; 64 + dn_pos
+    sub t2d, t6d  ; 64 - up_pos
+    add t6d, 64  ; 64 + up_pos
     FILL_BORDER_LINE %1, t4,t8,t9,t10,t2,t6, t0,t1, 0,1,2,3,4,5
 
 %if ARCH_X86_64 == 0
-    mov t5, up_addr
+    mov t5, dn_addr
 %if a_shift
     CALC_VBA %1, t9
 %endif
@@ -803,7 +803,7 @@ cglobal fill_generic_tile%2, 0,7,8
 
 .generic_fist
 %if ARCH_X86_64 == 0
-    mov t5, up_addr
+    mov t5, dn_addr
 %if a_shift
     CALC_VBA %1, t9
 %endif
@@ -871,7 +871,7 @@ cglobal fill_generic_tile%2, 0,7,8
     jz .end_line_loop
     xor t6d, t6d
 %else
-    mov t2d, up_pos
+    mov t2d, dn_pos
     test t2d, t2d
     jz .end_line_loop
     mov t6d, t2d
@@ -880,11 +880,11 @@ cglobal fill_generic_tile%2, 0,7,8
 
 .single_line
 %if ARCH_X86_64 == 0
-    mov t7d, up_pos
+    mov t7d, dn_pos
 %endif
     mov t2d, t7d
-    sub t2d, t6d  ; up_pos - dn_pos
-    add t6d, t7d  ; up_pos + dn_pos
+    sub t2d, t6d  ; dn_pos - up_pos
+    add t6d, t7d  ; dn_pos + up_pos
 .last_line
     FILL_BORDER_LINE %1, t4,t8,t9,t10,t2,t6, t0,t1, 0,1,2,3,4,5
 
