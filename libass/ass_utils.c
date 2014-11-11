@@ -89,6 +89,24 @@ void ass_aligned_free(void *ptr)
         free(*((void **)ptr - 1));
 }
 
+/**
+ * This works similar to realloc(ptr, nmemb * size), but checks for overflow.
+ *
+ * Unlike some implementations of realloc, this never acts as a call to free().
+ * If the total size is 0, it is bumped up to 1. This means a NULL return always
+ * means allocation failure, and the unportable realloc(0, 0) case is avoided.
+ */
+void *ass_realloc_array(void *ptr, size_t nmemb, size_t size)
+{
+    if (nmemb > (SIZE_MAX / size))
+        return NULL;
+    size *= nmemb;
+    if (size < 1)
+        size = 1;
+
+    return realloc(ptr, size);
+}
+
 void skip_spaces(char **str)
 {
     char *p = *str;

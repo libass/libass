@@ -56,6 +56,8 @@ int has_avx2(void);
 void *ass_aligned_alloc(size_t alignment, size_t size);
 void ass_aligned_free(void *ptr);
 
+void *ass_realloc_array(void *ptr, size_t nmemb, size_t size);
+
 void skip_spaces(char **str);
 void rskip_spaces(char **str, char *limit);
 int mystrtoi(char **p, int *res);
