@@ -41,6 +41,11 @@ int generate_tables(ASS_SynthPriv *priv, double radius)
     double volume_diff, volume_factor = 0;
     unsigned volume;
 
+    if (radius < 0)
+        return -1;
+    if (radius + 2.0 > INT_MAX / 2)
+        radius = INT_MAX / 2;
+
     if (priv->radius == radius)
         return 0;
     else
@@ -50,10 +55,13 @@ int generate_tables(ASS_SynthPriv *priv, double radius)
     priv->g_w = 2 * priv->g_r + 1;
 
     if (priv->g_r) {
-        priv->g0 = realloc(priv->g0, priv->g_w * sizeof(double));
-        priv->g = realloc(priv->g, priv->g_w * sizeof(unsigned));
-        priv->gt2 = realloc(priv->gt2, 256 * priv->g_w * sizeof(unsigned));
-        if (priv->g == NULL || priv->gt2 == NULL) {
+        priv->g0 = ass_realloc_array(priv->g0, priv->g_w, sizeof(double));
+        priv->g = ass_realloc_array(priv->g, priv->g_w, sizeof(unsigned));
+        priv->gt2 = ass_realloc_array(priv->gt2, priv->g_w, 256 * sizeof(unsigned));
+        if (!priv->g || !priv->g0 || !priv->gt2) {
+            free(priv->g0);
+            free(priv->g);
+            free(priv->gt2);
             return -1;
         }
     }
@@ -113,8 +121,10 @@ void resize_tmp(ASS_SynthPriv *priv, int w, int h)
 ASS_SynthPriv *ass_synth_init(double radius)
 {
     ASS_SynthPriv *priv = calloc(1, sizeof(ASS_SynthPriv));
-    if (priv)
-        generate_tables(priv, radius);
+    if (priv && generate_tables(priv, radius) < 0) {
+        free(priv);
+        priv = NULL;
+    }
     return priv;
 }
 

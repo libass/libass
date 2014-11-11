@@ -1848,8 +1848,7 @@ static void apply_blur(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
     }
 
     // Apply gaussian blur
-    if (blur_radius > 0.0) {
-        generate_tables(priv_blur, blur_radius);
+    if (blur_radius > 0.0 && generate_tables(priv_blur, blur_radius) >= 0) {
         if (bm_o)
             ass_gauss_blur(bm_o->buffer, priv_blur->tmp,
                            bm_o->w, bm_o->h, bm_o->stride,
