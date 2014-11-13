@@ -363,7 +363,6 @@ struct ass_renderer {
     BitmapBlendFunc add_bitmaps_func;
     BitmapBlendFunc sub_bitmaps_func;
     BitmapMulFunc mul_bitmaps_func;
-    BEBlurFunc be_blur_func;
 
     FreeList *free_head;
     FreeList *free_tail;

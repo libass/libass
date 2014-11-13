@@ -24,19 +24,7 @@
 
 #include "ass.h"
 
-typedef struct ass_synth_priv {
-    int tmp_w, tmp_h;
-    void *tmp;
-
-    int g_r;
-    int g_w;
-
-    double *g0;
-    unsigned *g;
-    unsigned *gt2;
-
-    double radius;
-} ASS_SynthPriv;
+typedef struct ass_synth_priv ASS_SynthPriv;
 
 ASS_SynthPriv *ass_synth_init(double);
 void ass_synth_done(ASS_SynthPriv *priv);
@@ -52,6 +40,10 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           FT_Outline *outline, int bord);
 
 Bitmap *alloc_bitmap(int w, int h);
+
+void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
+                    double blur_radius, Bitmap *bm_g, Bitmap *bm_o);
+
 /**
  * \brief perform glyph rendering
  * \param glyph original glyph
@@ -86,8 +78,6 @@ void mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
                    intptr_t w, intptr_t h);
 void shift_bitmap(Bitmap *bm, int shift_x, int shift_y);
 void fix_outline(Bitmap *bm_g, Bitmap *bm_o);
-void resize_tmp(ASS_SynthPriv *priv, int w, int h);
-int generate_tables(ASS_SynthPriv *priv, double radius);
 Bitmap *copy_bitmap(const Bitmap *src);
 
 #endif                          /* LIBASS_BITMAP_H */

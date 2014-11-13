@@ -36,7 +36,6 @@
 #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
 
 #include "x86/blend_bitmaps.h"
-#include "x86/be_blur.h"
 #include "x86/rasterizer.h"
 
 #endif // ASM
@@ -76,11 +75,9 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         priv->add_bitmaps_func = avx2 ? ass_add_bitmaps_avx2 :
             (sse2 ? ass_add_bitmaps_sse2 : ass_add_bitmaps_x86);
         #ifdef __x86_64__
-            priv->be_blur_func = avx2 ? ass_be_blur_avx2 : ass_be_blur_sse2;
             priv->mul_bitmaps_func = avx2 ? ass_mul_bitmaps_avx2 : ass_mul_bitmaps_sse2;
             priv->sub_bitmaps_func = avx2 ? ass_sub_bitmaps_avx2 : ass_sub_bitmaps_sse2;
         #else
-            priv->be_blur_func = be_blur_c;
             priv->mul_bitmaps_func = mul_bitmaps_c;
             priv->sub_bitmaps_func = ass_sub_bitmaps_x86;
         #endif
@@ -88,7 +85,6 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         priv->add_bitmaps_func = add_bitmaps_c;
         priv->sub_bitmaps_func = sub_bitmaps_c;
         priv->mul_bitmaps_func = mul_bitmaps_c;
-        priv->be_blur_func = be_blur_c;
     #endif
 
 #if CONFIG_RASTERIZER
@@ -1796,72 +1792,6 @@ static int is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
     return 0;
 }
 
-static void apply_blur(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
-{
-    int be = info->be;
-    double blur_radius = info->blur * render_priv->blur_scale * 2;
-    ASS_SynthPriv *priv_blur = render_priv->synth_priv;
-    Bitmap *bm_g = info->bm;
-    Bitmap *bm_o = info->bm_o;
-    int border_style = info->border_style;
-
-    if(blur_radius > 0.0 || be){
-        if (bm_o)
-            resize_tmp(priv_blur, bm_o->w, bm_o->h);
-        if (!bm_o || border_style == 3)
-            resize_tmp(priv_blur, bm_g->w, bm_g->h);
-    }
-
-    // Apply box blur (multiple passes, if requested)
-    if (be) {
-        uint16_t* tmp = priv_blur->tmp;
-        if (bm_o) {
-            unsigned passes = be;
-            unsigned w = bm_o->w;
-            unsigned h = bm_o->h;
-            unsigned stride = bm_o->stride;
-            unsigned char *buf = bm_o->buffer;
-            if(w && h){
-                while(passes--){
-                    memset(tmp, 0, stride * 2);
-                    if(w < 16){
-                        be_blur_c(buf, w, h, stride, tmp);
-                    }else{
-                        render_priv->be_blur_func(buf, w, h, stride, tmp);
-                    }
-                }
-            }
-        }
-        if (!bm_o || border_style == 3) {
-            unsigned passes = be;
-            unsigned w = bm_g->w;
-            unsigned h = bm_g->h;
-            unsigned stride = bm_g->stride;
-            unsigned char *buf = bm_g->buffer;
-            if(w && h){
-                while(passes--){
-                    memset(tmp, 0, stride * 2);
-                    render_priv->be_blur_func(buf, w, h, stride, tmp);
-                }
-            }
-        }
-    }
-
-    // Apply gaussian blur
-    if (blur_radius > 0.0 && generate_tables(priv_blur, blur_radius) >= 0) {
-        if (bm_o)
-            ass_gauss_blur(bm_o->buffer, priv_blur->tmp,
-                           bm_o->w, bm_o->h, bm_o->stride,
-                           priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
-        if (!bm_o || border_style == 3)
-            ass_gauss_blur(bm_g->buffer, priv_blur->tmp,
-                           bm_g->w, bm_g->h, bm_g->stride,
-                           priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
-    }
-}
-
 static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
 {
     // VSFilter compatibility: invisible fill and no border?
@@ -2607,7 +2537,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             CompositeHashValue chv;
             CombinedBitmapInfo *info = &combined_info[i];
             if(info->bm || info->bm_o){
-                apply_blur(info, render_priv);
+                ass_synth_blur(render_priv->synth_priv, info->border_style == 3,
+                               info->be, info->blur * render_priv->blur_scale * 2,
+                               info->bm, info->bm_o);
                 make_shadow_bitmap(info, render_priv);
             }
 

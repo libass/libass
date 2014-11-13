@@ -32,9 +32,29 @@
 #include "ass_bitmap.h"
 #include "ass_render.h"
 
+#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+#include "x86/be_blur.h"
+#endif
+
 static const unsigned base = 256;
 
-int generate_tables(ASS_SynthPriv *priv, double radius)
+struct ass_synth_priv {
+    int tmp_w, tmp_h;
+    void *tmp;
+
+    int g_r;
+    int g_w;
+
+    double *g0;
+    unsigned *g;
+    unsigned *gt2;
+
+    double radius;
+
+    BEBlurFunc be_blur_func;
+};
+
+static int generate_tables(ASS_SynthPriv *priv, double radius)
 {
     double A = log(1.0 / base) / (radius * radius * 2);
     int mx, i;
@@ -101,7 +121,7 @@ int generate_tables(ASS_SynthPriv *priv, double radius)
     return 0;
 }
 
-void resize_tmp(ASS_SynthPriv *priv, int w, int h)
+static void resize_tmp(ASS_SynthPriv *priv, int w, int h)
 {
     if (priv->tmp_w >= w && priv->tmp_h >= h)
         return;
@@ -118,6 +138,66 @@ void resize_tmp(ASS_SynthPriv *priv, int w, int h)
         ass_aligned_alloc(32, (priv->tmp_w + 1) * priv->tmp_h * sizeof(unsigned));
 }
 
+void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
+                    double blur_radius, Bitmap *bm_g, Bitmap *bm_o)
+{
+    if(blur_radius > 0.0 || be){
+        if (bm_o)
+            resize_tmp(priv_blur, bm_o->w, bm_o->h);
+        if (!bm_o || opaque_box)
+            resize_tmp(priv_blur, bm_g->w, bm_g->h);
+    }
+
+    // Apply box blur (multiple passes, if requested)
+    if (be) {
+        uint16_t* tmp = priv_blur->tmp;
+        if (bm_o) {
+            unsigned passes = be;
+            unsigned w = bm_o->w;
+            unsigned h = bm_o->h;
+            unsigned stride = bm_o->stride;
+            unsigned char *buf = bm_o->buffer;
+            if(w && h){
+                while(passes--){
+                    memset(tmp, 0, stride * 2);
+                    if(w < 16){
+                        be_blur_c(buf, w, h, stride, tmp);
+                    }else{
+                        priv_blur->be_blur_func(buf, w, h, stride, tmp);
+                    }
+                }
+            }
+        }
+        if (!bm_o || opaque_box) {
+            unsigned passes = be;
+            unsigned w = bm_g->w;
+            unsigned h = bm_g->h;
+            unsigned stride = bm_g->stride;
+            unsigned char *buf = bm_g->buffer;
+            if(w && h){
+                while(passes--){
+                    memset(tmp, 0, stride * 2);
+                    priv_blur->be_blur_func(buf, w, h, stride, tmp);
+                }
+            }
+        }
+    }
+
+    // Apply gaussian blur
+    if (blur_radius > 0.0 && generate_tables(priv_blur, blur_radius) >= 0) {
+        if (bm_o)
+            ass_gauss_blur(bm_o->buffer, priv_blur->tmp,
+                           bm_o->w, bm_o->h, bm_o->stride,
+                           priv_blur->gt2, priv_blur->g_r,
+                           priv_blur->g_w);
+        if (!bm_o || opaque_box)
+            ass_gauss_blur(bm_g->buffer, priv_blur->tmp,
+                           bm_g->w, bm_g->h, bm_g->stride,
+                           priv_blur->gt2, priv_blur->g_r,
+                           priv_blur->g_w);
+    }
+}
+
 ASS_SynthPriv *ass_synth_init(double radius)
 {
     ASS_SynthPriv *priv = calloc(1, sizeof(ASS_SynthPriv));
@@ -125,6 +205,16 @@ ASS_SynthPriv *ass_synth_init(double radius)
         free(priv);
         priv = NULL;
     }
+    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+        int avx2 = has_avx2();
+        #ifdef __x86_64__
+            priv->be_blur_func = avx2 ? ass_be_blur_avx2 : ass_be_blur_sse2;
+        #else
+            priv->be_blur_func = be_blur_c;
+        #endif
+    #else
+        priv->be_blur_func = be_blur_c;
+    #endif
     return priv;
 }
 
