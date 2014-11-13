@@ -55,7 +55,7 @@ struct ass_synth_priv {
     BEBlurFunc be_blur_func;
 };
 
-static int generate_tables(ASS_SynthPriv *priv, double radius)
+static bool generate_tables(ASS_SynthPriv *priv, double radius)
 {
     double A = log(1.0 / base) / (radius * radius * 2);
     int mx, i;
@@ -63,12 +63,12 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
     unsigned volume;
 
     if (radius < 0)
-        return -1;
+        return false;
     if (radius + 2.0 > INT_MAX / 2)
         radius = INT_MAX / 2;
 
     if (priv->radius == radius)
-        return 0;
+        return true;
     else
         priv->radius = radius;
 
@@ -83,7 +83,7 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
             free(priv->g0);
             free(priv->g);
             free(priv->gt2);
-            return -1;
+            return false;
         }
     }
 
@@ -119,7 +119,7 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
         }
     }
 
-    return 0;
+    return true;
 }
 
 static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
@@ -186,7 +186,7 @@ void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
     }
 
     // Apply gaussian blur
-    if (blur_radius > 0.0 && generate_tables(priv_blur, blur_radius) >= 0) {
+    if (blur_radius > 0.0 && generate_tables(priv_blur, blur_radius)) {
         if (bm_o)
             ass_gauss_blur(bm_o->buffer, priv_blur->tmp,
                            bm_o->w, bm_o->h, bm_o->stride,
@@ -203,9 +203,9 @@ void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
 ASS_SynthPriv *ass_synth_init(double radius)
 {
     ASS_SynthPriv *priv = calloc(1, sizeof(ASS_SynthPriv));
-    if (priv && generate_tables(priv, radius) < 0) {
+    if (!priv || !generate_tables(priv, radius)) {
         free(priv);
-        priv = NULL;
+        return NULL;
     }
     #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
         int avx2 = has_avx2();
