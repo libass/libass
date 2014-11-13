@@ -38,38 +38,33 @@ int has_sse2(void)
 {
     uint32_t eax = 1, ebx, ecx, edx;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    return (!!(edx & (1 << 26)));
+    return (edx >> 26) & 0x1;
 }
 
 int has_avx(void)
 {
     uint32_t eax = 1, ebx, ecx, edx;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    if(!(ecx & (1 << 27))){
+    if(!(ecx & (1 << 27))) // not OSXSAVE
         return 0;
-    }
     uint32_t misc = ecx;
     eax = 0;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    if((ecx & (0x2 | 0x4)) != (0x2 | 0x4)){
-        return 0;
-    }
-    return (!!(misc & (1 << 28)));
+    return (ecx & 0x6) == 0x6 ? (misc >> 28) & 0x1 : 0; // check high bits are relevant, then AVX support
 }
 
 int has_avx2(void)
 {
     uint32_t eax = 7, ebx, ecx, edx;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    return (!!(ebx & (1 << 5))) && has_avx();
+    return (ebx >> 5) & has_avx();
 }
 
 #endif // ASM
 
 void *ass_aligned_alloc(size_t alignment, size_t size)
 {
-    if (alignment & (alignment - 1))
-        abort(); // not a power of 2
+    assert(!(alignment & (alignment - 1))); // alignment must be power of 2
     if (size >= SIZE_MAX - alignment - sizeof(void *))
         return NULL;
     char *allocation = malloc(size + sizeof(void *) + alignment - 1);
@@ -125,46 +120,32 @@ void rskip_spaces(char **str, char *limit)
 
 int mystrtoi(char **p, int *res)
 {
-    double temp_res;
     char *start = *p;
-    temp_res = ass_strtod(*p, p);
+    double temp_res = ass_strtod(*p, p);
     *res = (int) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
-    if (*p != start)
-        return 1;
-    else
-        return 0;
+    return *p != start;
 }
 
 int mystrtoll(char **p, long long *res)
 {
-    double temp_res;
     char *start = *p;
-    temp_res = ass_strtod(*p, p);
+    double temp_res = ass_strtod(*p, p);
     *res = (long long) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
-    if (*p != start)
-        return 1;
-    else
-        return 0;
+    return *p != start;
 }
 
 int mystrtou32(char **p, int base, uint32_t *res)
 {
     char *start = *p;
     *res = strtoll(*p, p, base);
-    if (*p != start)
-        return 1;
-    else
-        return 0;
+    return *p != start;
 }
 
 int mystrtod(char **p, double *res)
 {
     char *start = *p;
     *res = ass_strtod(*p, p);
-    if (*p != start)
-        return 1;
-    else
-        return 0;
+    return *p != start;
 }
 
 uint32_t string2color(ASS_Library *library, char *p, int hex)
@@ -181,23 +162,20 @@ uint32_t string2color(ASS_Library *library, char *p, int hex)
     if (*p == 'H' || *p == 'h') {
         ++p;
         mystrtou32(&p, 16, &color);
-    } else {
+    } else
         mystrtou32(&p, base, &color);
-    }
 
     while (*p == '&' || *p == 'H')
         ++p;
 
-    {
-        unsigned char *tmp = (unsigned char *) (&color);
-        unsigned char b;
-        b = tmp[0];
-        tmp[0] = tmp[3];
-        tmp[3] = b;
-        b = tmp[1];
-        tmp[1] = tmp[2];
-        tmp[2] = b;
-    }
+    unsigned char *tmp = (unsigned char *) (&color);
+    unsigned char b;
+    b = tmp[0];
+    tmp[0] = tmp[3];
+    tmp[3] = b;
+    b = tmp[1];
+    tmp[1] = tmp[2];
+    tmp[2] = b;
 
     return color;
 }
@@ -206,11 +184,7 @@ uint32_t string2color(ASS_Library *library, char *p, int hex)
 char parse_bool(char *str)
 {
     skip_spaces(&str);
-    if (!strncasecmp(str, "yes", 3))
-        return 1;
-    else if (strtol(str, NULL, 10) > 0)
-        return 1;
-    return 0;
+    return !strncasecmp(str, "yes", 3) || strtol(str, NULL, 10) > 0;
 }
 
 int parse_ycbcr_matrix(char *str)
@@ -227,8 +201,7 @@ int parse_ycbcr_matrix(char *str)
     // so we can simply chop off the rest of the input.
     char buffer[16];
     size_t n = FFMIN(end - str, sizeof buffer - 1);
-    strncpy(buffer, str, n);
-    buffer[n] = '\0';
+    ((char*)memcpy(buffer, str, n))[n] = '\0';
 
     if (!strcasecmp(buffer, "none"))
         return YCBCR_NONE;
