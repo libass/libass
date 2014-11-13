@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdbool.h>
 #include <assert.h>
 #include <ft2build.h>
 #include FT_GLYPH_H
@@ -39,7 +40,7 @@
 static const unsigned base = 256;
 
 struct ass_synth_priv {
-    int tmp_w, tmp_h;
+    size_t tmp_allocated;
     void *tmp;
 
     int g_r;
@@ -121,31 +122,32 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
     return 0;
 }
 
-static void resize_tmp(ASS_SynthPriv *priv, int w, int h)
+static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
 {
-    if (priv->tmp_w >= w && priv->tmp_h >= h)
-        return;
-    if (priv->tmp_w == 0)
-        priv->tmp_w = 64;
-    if (priv->tmp_h == 0)
-        priv->tmp_h = 64;
-    while (priv->tmp_w < w)
-        priv->tmp_w *= 2;
-    while (priv->tmp_h < h)
-        priv->tmp_h *= 2;
+    if (w > SIZE_MAX / sizeof(unsigned) / h)
+        return false;
+    size_t needed = sizeof(unsigned) * w * h;
+    if (priv->tmp && priv->tmp_allocated >= needed)
+        return true;
+    if (needed >= SIZE_MAX / 2)
+        return false;
+
     ass_aligned_free(priv->tmp);
-    priv->tmp =
-        ass_aligned_alloc(32, (priv->tmp_w + 1) * priv->tmp_h * sizeof(unsigned));
+    priv->tmp_allocated = FFMAX(needed, priv->tmp_allocated * 2);
+    priv->tmp = ass_aligned_alloc(32, priv->tmp_allocated);
+    if (!priv->tmp)
+        return false;
+    return true;
 }
 
 void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
                     double blur_radius, Bitmap *bm_g, Bitmap *bm_o)
 {
     if(blur_radius > 0.0 || be){
-        if (bm_o)
-            resize_tmp(priv_blur, bm_o->w, bm_o->h);
-        if (!bm_o || opaque_box)
-            resize_tmp(priv_blur, bm_g->w, bm_g->h);
+        if (bm_o && !resize_tmp(priv_blur, bm_o->w, bm_o->h))
+            return;
+        if ((!bm_o || opaque_box) && !resize_tmp(priv_blur, bm_g->w, bm_g->h))
+            return;
     }
 
     // Apply box blur (multiple passes, if requested)
