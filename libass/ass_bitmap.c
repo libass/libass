@@ -124,9 +124,9 @@ static bool generate_tables(ASS_SynthPriv *priv, double radius)
 
 static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
 {
-    if (w > SIZE_MAX / sizeof(unsigned) / h)
+    if ((w - 1) > SIZE_MAX / sizeof(unsigned) / h)
         return false;
-    size_t needed = sizeof(unsigned) * w * h;
+    size_t needed = sizeof(unsigned) * (w + 1) * h;
     if (priv->tmp && priv->tmp_allocated >= needed)
         return true;
     if (needed >= SIZE_MAX / 2)
