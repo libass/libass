@@ -124,20 +124,16 @@ static bool generate_tables(ASS_SynthPriv *priv, double radius)
 
 static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
 {
-    if ((w - 1) > SIZE_MAX / sizeof(unsigned) / h)
+    if (w >= INT_MAX || (w + 1) > SIZE_MAX / 2 / sizeof(unsigned) / h)
         return false;
     size_t needed = sizeof(unsigned) * (w + 1) * h;
     if (priv->tmp && priv->tmp_allocated >= needed)
         return true;
-    if (needed >= SIZE_MAX / 2)
-        return false;
 
     ass_aligned_free(priv->tmp);
     priv->tmp_allocated = FFMAX(needed, priv->tmp_allocated * 2);
     priv->tmp = ass_aligned_alloc(32, priv->tmp_allocated);
-    if (!priv->tmp)
-        return false;
-    return true;
+    return !!priv->tmp;
 }
 
 void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
