@@ -102,6 +102,23 @@ void *ass_realloc_array(void *ptr, size_t nmemb, size_t size)
     return realloc(ptr, size);
 }
 
+/**
+ * Like ass_realloc_array(), but:
+ * 1. on failure, return the original ptr value, instead of NULL
+ * 2. set errno to indicate failure (errno!=0) or success (errno==0)
+ */
+void *ass_try_realloc_array(void *ptr, size_t nmemb, size_t size)
+{
+    void *new_ptr = ass_realloc_array(ptr, nmemb, size);
+    if (new_ptr) {
+        errno = 0;
+        return new_ptr;
+    } else {
+        errno = ENOMEM;
+        return ptr;
+    }
+}
+
 void skip_spaces(char **str)
 {
     char *p = *str;

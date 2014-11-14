@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
 
 #ifdef CONFIG_ENCA
 #include <enca.h>
@@ -57,6 +58,20 @@ void *ass_aligned_alloc(size_t alignment, size_t size);
 void ass_aligned_free(void *ptr);
 
 void *ass_realloc_array(void *ptr, size_t nmemb, size_t size);
+void *ass_try_realloc_array(void *ptr, size_t nmemb, size_t size);
+
+/**
+ * Reallocate the array in ptr to at least count elements. For example, if
+ * you do "int *ptr = NULL; ASS_REALLOC_ARRAY(ptr, 5)", you can access ptr[0]
+ * through ptr[4] (inclusive).
+ *
+ * If memory allocation fails, ptr is left unchanged, and the macro returns 0:
+ * "if (!ASS_REALLOC_ARRAY(ptr, 5)) goto error;"
+ *
+ * A count of 0 does not free the array (see ass_realloc_array for remarks).
+ */
+#define ASS_REALLOC_ARRAY(ptr, count) \
+    (errno = 0, (ptr) = ass_try_realloc_array(ptr, count, sizeof(*ptr)), !errno)
 
 void skip_spaces(char **str);
 void rskip_spaces(char **str, char *limit);
