@@ -345,12 +345,17 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
 
     // Grow outline
     i = (under ? 4 : 0) + (through ? 4 : 0);
-    ol->points = realloc(ol->points, sizeof(FT_Vector) *
-                         (ol->n_points + i));
-    ol->tags = realloc(ol->tags, ol->n_points + i);
+    if (ol->n_points > SHRT_MAX - i)
+        return 0;
+    if (!ASS_REALLOC_ARRAY(ol->points, ol->n_points + i))
+        return 0;
+    if (!ASS_REALLOC_ARRAY(ol->tags, ol->n_points + i))
+        return 0;
     i = !!under + !!through;
-    ol->contours = realloc(ol->contours, sizeof(short) *
-                           (ol->n_contours + i));
+    if (ol->n_contours > SHRT_MAX - i)
+        return 0;
+    if (!ASS_REALLOC_ARRAY(ol->contours, ol->n_contours + i))
+        return 0;
 
     // If the bearing is negative, the glyph starts left of the current
     // pen position
