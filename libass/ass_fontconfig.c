@@ -392,6 +392,8 @@ static void process_fontdata(FCInstance *priv, ASS_Library *library,
     int face_index, num_faces = 1;
 
     for (face_index = 0; face_index < num_faces; ++face_index) {
+        ass_msg(library, MSGL_V, "Adding memory font '%s'", name);
+
         rc = FT_New_Memory_Face(ftlibrary, (unsigned char *) data,
                                 data_size, face_index, &face);
         if (rc) {
