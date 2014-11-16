@@ -230,7 +230,10 @@ static Bitmap *alloc_bitmap_raw(int w, int h)
     Bitmap *bm;
 
     unsigned align = (w >= 32) ? 32 : ((w >= 16) ? 16 : 1);
-    unsigned s = ass_align(align, w);
+    size_t s = ass_align(align, w);
+    // Too often we use ints as offset for bitmaps => use INT_MAX.
+    if (s > (INT_MAX - 32) / FFMAX(h, 1))
+        return NULL;
     bm = malloc(sizeof(Bitmap));
     if (!bm)
         return NULL;

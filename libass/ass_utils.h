@@ -98,6 +98,8 @@ double ass_strtod(const char *string, char **endPtr);
 
 static inline size_t ass_align(size_t alignment, size_t s)
 {
+    if (s > SIZE_MAX - (alignment - 1))
+        return s;
     return (s + (alignment - 1)) & ~(alignment - 1);
 }
 
