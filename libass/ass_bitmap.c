@@ -367,7 +367,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     bbox.xMin >>= 6;
     bbox.yMax >>= 6;
 
-    if (w * h > 8000000) {
+    if (w < 0 || h < 0 || w > 8000000 / FFMAX(h, 1)) {
         ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
                 w, h);
         return NULL;
