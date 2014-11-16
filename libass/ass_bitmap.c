@@ -124,7 +124,7 @@ static bool generate_tables(ASS_SynthPriv *priv, double radius)
 
 static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
 {
-    if (w >= INT_MAX || (w + 1) > SIZE_MAX / 2 / sizeof(unsigned) / h)
+    if (w >= INT_MAX || (w + 1) > SIZE_MAX / 2 / sizeof(unsigned) / FFMAX(h, 1))
         return false;
     size_t needed = sizeof(unsigned) * (w + 1) * h;
     if (priv->tmp && priv->tmp_allocated >= needed)
@@ -679,7 +679,7 @@ int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outlin
 {
     blur_radius *= 2;
     int bbord = be > 0 ? sqrt(2 * be) : 0;
-    int gbord = blur_radius > 0.0 ? FFMAX(blur_radius + 1, INT_MAX) : 0;
+    int gbord = blur_radius > 0.0 ? FFMIN(blur_radius + 1, INT_MAX) : 0;
     int bord = FFMAX(bbord, gbord);
     if (bord == 0 && (shadow_offset.x || shadow_offset.y))
         bord = 1;
