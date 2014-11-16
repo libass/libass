@@ -287,6 +287,9 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return NULL;
     }
 
+    if (bord < 0 || bord > INT_MAX / 2)
+        return NULL;
+
     if (rst->x_min >= rst->x_max || rst->y_min >= rst->y_max) {
         Bitmap *bm = alloc_bitmap(2 * bord, 2 * bord);
         if (!bm)
@@ -295,6 +298,9 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return bm;
     }
 
+    if (rst->x_max > INT_MAX - 63 || rst->y_max > INT_MAX - 63)
+        return NULL;
+
     int x_min = rst->x_min >> 6;
     int y_min = rst->y_min >> 6;
     int x_max = (rst->x_max + 63) >> 6;
@@ -302,13 +308,15 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     int w = x_max - x_min;
     int h = y_max - y_min;
 
-    if (w < 0 || h < 0 || w > 8000000 / FFMAX(h, 1)) {
+    int mask = (1 << rst->tile_order) - 1;
+
+    if (w < 0 || h < 0 || w > 8000000 / FFMAX(h, 1) ||
+        w > INT_MAX - (2 * bord + mask) || h > INT_MAX - (2 * bord + mask)) {
         ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
                 w, h);
         return NULL;
     }
 
-    int mask = (1 << rst->tile_order) - 1;
     int tile_w = (w + 2 * bord + mask) & ~mask;
     int tile_h = (h + 2 * bord + mask) & ~mask;
     Bitmap *bm = alloc_bitmap(tile_w, tile_h);
@@ -358,6 +366,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     bbox.xMin &= ~63;
     bbox.yMin &= ~63;
     FT_Outline_Translate(outline, -bbox.xMin, -bbox.yMin);
+    if (bbox.xMax > INT_MAX - 63 || bbox.yMax > INT_MAX - 63)
+        return NULL;
     // bitmap size
     bbox.xMax = (bbox.xMax + 63) & ~63;
     bbox.yMax = (bbox.yMax + 63) & ~63;
@@ -367,7 +377,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     bbox.xMin >>= 6;
     bbox.yMax >>= 6;
 
-    if (w < 0 || h < 0 || w > 8000000 / FFMAX(h, 1)) {
+    if (w < 0 || h < 0 || w > 8000000 / FFMAX(h, 1) ||
+        w > INT_MAX - 2 * bord || h > INT_MAX - 2 * bord) {
         ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
                 w, h);
         return NULL;
@@ -668,7 +679,7 @@ int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outlin
 {
     blur_radius *= 2;
     int bbord = be > 0 ? sqrt(2 * be) : 0;
-    int gbord = blur_radius > 0.0 ? blur_radius + 1 : 0;
+    int gbord = blur_radius > 0.0 ? FFMAX(blur_radius + 1, INT_MAX) : 0;
     int bord = FFMAX(bbord, gbord);
     if (bord == 0 && (shadow_offset.x || shadow_offset.y))
         bord = 1;
