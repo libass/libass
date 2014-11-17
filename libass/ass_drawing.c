@@ -146,7 +146,7 @@ static ASS_DrawingToken *drawing_tokenize(char *str)
 
     ASS_DrawingToken *root = NULL, *tail = NULL, *spline_start = NULL;
 
-    while (*p) {
+    while (p && *p) {
         if (*p == 'c' && spline_start) {
             // Close b-splines: add the first three points of the b-spline
             // back to the end
@@ -379,9 +379,7 @@ void ass_drawing_free(ASS_Drawing* drawing)
 void ass_drawing_set_text(ASS_Drawing* drawing, char *str, size_t len)
 {
     free(drawing->text);
-    drawing->text = malloc(len + 1);
-    memcpy(drawing->text, str, len);
-    drawing->text[len] = 0;
+    drawing->text = strndup(str, len);
 }
 
 /*
@@ -390,6 +388,8 @@ void ass_drawing_set_text(ASS_Drawing* drawing, char *str, size_t len)
  */
 void ass_drawing_hash(ASS_Drawing* drawing)
 {
+    if (!drawing->text)
+        return;
     drawing->hash = fnv_32a_str(drawing->text, FNV1_32A_INIT);
 }
 

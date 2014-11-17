@@ -579,9 +579,7 @@ static int process_info_line(ASS_Track *track, char *str)
     } else if (!strncmp(str, "Language:", 9)) {
         char *p = str + 9;
         while (*p && isspace(*p)) p++;
-        track->Language = malloc(3);
-        strncpy(track->Language, p, 2);
-        track->Language[2] = 0;
+        track->Language = strndup(p, 2);
     }
     return 0;
 }

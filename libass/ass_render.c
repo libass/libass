@@ -2837,9 +2837,12 @@ static int fit_segment(Segment *s, Segment *fixed, int *cnt, int dir)
 static void
 fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
 {
-    Segment *used = malloc(cnt * sizeof(*used));
+    Segment *used = ass_realloc_array(NULL, cnt, sizeof(*used));
     int cnt_used = 0;
     int i, j;
+
+    if (!used)
+        return;
 
     // fill used[] with fixed events
     for (i = 0; i < cnt; ++i) {

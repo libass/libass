@@ -538,9 +538,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
         end = args->end;
         if (nargs && strncmp(start, "0", end - start)) {
             skip_spaces(&start);
-            family = malloc(end - start + 1);
-            strncpy(family, start, end - start);
-            family[end - start] = '\0';
+            family = strndup(start, end - start);
         } else
             family = strdup(render_priv->state.style->FontName);
         free(render_priv->state.family);
