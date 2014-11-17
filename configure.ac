@@ -28,7 +28,7 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT8_T
 
 # Checks for library functions.
-AC_CHECK_FUNCS([mkdir strcasecmp strdup strtol])
+AC_CHECK_FUNCS([mkdir strcasecmp strdup strndup strtol])
 
 # Checks for libraries.
 AC_SEARCH_LIBS([iconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))

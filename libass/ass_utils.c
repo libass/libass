@@ -62,6 +62,20 @@ int has_avx2(void)
 
 #endif // ASM
 
+#ifndef HAVE_STRNDUP
+char *ass_strndup(const char *s, size_t n)
+{
+    char *end = memchr(s, 0, n);
+    size_t len = end ? end - s : n;
+    char *new = len < SIZE_MAX ? malloc(len + 1) : NULL;
+    if (new) {
+        memcpy(new, s, len);
+        new[len] = 0;
+    }
+    return new;
+}
+#endif
+
 void *ass_aligned_alloc(size_t alignment, size_t size)
 {
     assert(!(alignment & (alignment - 1))); // alignment must be power of 2

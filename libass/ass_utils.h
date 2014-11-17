@@ -27,6 +27,8 @@
 #include <assert.h>
 #include <errno.h>
 
+#include "config.h"
+
 #ifdef CONFIG_ENCA
 #include <enca.h>
 #endif
@@ -52,6 +54,11 @@
 int has_sse2(void);
 int has_avx(void);
 int has_avx2(void);
+#endif
+
+#ifndef HAVE_STRNDUP
+char *ass_strndup(const char *s, size_t n);
+#define strndup ass_strndup
 #endif
 
 void *ass_aligned_alloc(size_t alignment, size_t size);
