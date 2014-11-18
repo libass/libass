@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <math.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "ass_render.h"
 #include "ass_parse.h"
@@ -493,18 +494,24 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
     return tail;
 }
 
-static void free_list_add(ASS_Renderer *render_priv, void *object)
+// Return true if the object could be added, and the object is not NULL.
+static bool free_list_add(ASS_Renderer *render_priv, void *object)
 {
+    if (!object)
+        return false;
+    FreeList *l = calloc(1, sizeof(FreeList));
+    if (!l)
+        return false;
     if (!render_priv->free_head) {
-        render_priv->free_head = calloc(1, sizeof(FreeList));
+        render_priv->free_head = l;
         render_priv->free_head->object = object;
         render_priv->free_tail = render_priv->free_head;
     } else {
-        FreeList *l = calloc(1, sizeof(FreeList));
         l->object = object;
         render_priv->free_tail->next = l;
         render_priv->free_tail = render_priv->free_tail->next;
     }
+    return true;
 }
 
 /**
@@ -609,8 +616,10 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
 
             // Allocate new buffer and add to free list
             nbuffer = ass_aligned_alloc(32, as * ah);
-            if (!nbuffer) return;
-            free_list_add(render_priv, nbuffer);
+            if (!free_list_add(render_priv, nbuffer)) {
+                ass_aligned_free(nbuffer);
+                return;
+            }
 
             // Blend together
             memcpy(nbuffer, abuffer, ((ah - 1) * as) + aw);
@@ -629,8 +638,10 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             unsigned align = (w >= 16) ? 16 : ((w >= 8) ? 8 : 1);
             unsigned ns = ass_align(align, w);
             nbuffer = ass_aligned_alloc(align, ns * h);
-            if (!nbuffer) return;
-            free_list_add(render_priv, nbuffer);
+            if (!free_list_add(render_priv, nbuffer)) {
+                ass_aligned_free(nbuffer);
+                return;
+            }
 
             // Blend together
             render_priv->mul_bitmaps_func(nbuffer, ns,
@@ -2406,8 +2417,9 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
 {
     void *nbuffer = ass_aligned_alloc(1, event_images->width * event_images->height);
-    if (nbuffer) {
-        free_list_add(render_priv, nbuffer);
+    if (!free_list_add(render_priv, nbuffer)) {
+        ass_aligned_free(nbuffer);
+    } else {
         memset(nbuffer, 0xFF, event_images->width * event_images->height);
         ASS_Image *img = my_draw_bitmap(nbuffer, event_images->width,
                                         event_images->height,
@@ -2754,8 +2766,11 @@ static int cmp_event_layer(const void *p1, const void *p2)
 static ASS_RenderPriv *get_render_priv(ASS_Renderer *render_priv,
                                        ASS_Event *event)
 {
-    if (!event->render_priv)
+    if (!event->render_priv) {
         event->render_priv = calloc(1, sizeof(ASS_RenderPriv));
+        if (!event->render_priv)
+            return NULL;
+    }
     if (render_priv->render_id != event->render_priv->render_id) {
         memset(event->render_priv, 0, sizeof(ASS_RenderPriv));
         event->render_priv->render_id = render_priv->render_id;
@@ -2850,7 +2865,7 @@ fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
         if (!imgs[i].detect_collisions)
             continue;
         priv = get_render_priv(render_priv, imgs[i].event);
-        if (priv->height > 0) { // it's a fixed event
+        if (priv && priv->height > 0) { // it's a fixed event
             Segment s;
             s.a = priv->top;
             s.b = priv->top + priv->height;
@@ -2889,7 +2904,7 @@ fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
         if (!imgs[i].detect_collisions)
             continue;
         priv = get_render_priv(render_priv, imgs[i].event);
-        if (priv->height == 0) {        // not a fixed event
+        if (priv && priv->height == 0) {        // not a fixed event
             int shift;
             Segment s;
             s.a = imgs[i].top;
