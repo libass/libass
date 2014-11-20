@@ -24,6 +24,7 @@
 #include "ass_parse.h"
 #include "ass_cache.h"
 #include <limits.h>
+#include <stdbool.h>
 
 #ifdef CONFIG_HARFBUZZ
 #include <hb-ft.h>
@@ -90,14 +91,16 @@ void ass_shaper_info(ASS_Library *lib)
  * \brief grow arrays, if needed
  * \param new_size requested size
  */
-static void check_allocations(ASS_Shaper *shaper, size_t new_size)
+static bool check_allocations(ASS_Shaper *shaper, size_t new_size)
 {
     if (new_size > shaper->n_glyphs) {
-        shaper->event_text = realloc(shaper->event_text, sizeof(FriBidiChar) * new_size);
-        shaper->ctypes     = realloc(shaper->ctypes, sizeof(FriBidiCharType) * new_size);
-        shaper->emblevels  = realloc(shaper->emblevels, sizeof(FriBidiLevel) * new_size);
-        shaper->cmap       = realloc(shaper->cmap, sizeof(FriBidiStrIndex) * new_size);
+        if (!ASS_REALLOC_ARRAY(shaper->event_text, new_size) ||
+            !ASS_REALLOC_ARRAY(shaper->ctypes, new_size) ||
+            !ASS_REALLOC_ARRAY(shaper->emblevels, new_size) ||
+            !ASS_REALLOC_ARRAY(shaper->cmap, new_size))
+            return false;
     }
+    return true;
 }
 
 /**
@@ -135,9 +138,11 @@ void ass_shaper_font_data_free(ASS_ShaperFontData *priv)
  * \brief set up the HarfBuzz OpenType feature list with some
  * standard features.
  */
-static void init_features(ASS_Shaper *shaper)
+static bool init_features(ASS_Shaper *shaper)
 {
     shaper->features = calloc(sizeof(hb_feature_t), NUM_FEATURES);
+    if (!shaper->features)
+        return false;
 
     shaper->n_features = NUM_FEATURES;
     shaper->features[VERT].tag = HB_TAG('v', 'e', 'r', 't');
@@ -150,6 +155,8 @@ static void init_features(ASS_Shaper *shaper)
     shaper->features[LIGA].end = UINT_MAX;
     shaper->features[CLIG].tag = HB_TAG('c', 'l', 'i', 'g');
     shaper->features[CLIG].end = UINT_MAX;
+
+    return true;
 }
 
 /**
@@ -550,9 +557,11 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
             while (info->next)
                 info = info->next;
             info->next = malloc(sizeof(GlyphInfo));
-            memcpy(info->next, info, sizeof(GlyphInfo));
-            info = info->next;
-            info->next = NULL;
+            if (info->next) {
+                memcpy(info->next, info, sizeof(GlyphInfo));
+                info = info->next;
+                info->next = NULL;
+            }
         }
 
         // set position and advance
@@ -832,7 +841,8 @@ int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     FriBidiParType dir;
     GlyphInfo *glyphs = text_info->glyphs;
 
-    check_allocations(shaper, text_info->length);
+    if (!check_allocations(shaper, text_info->length))
+        return -1;
 
     // Get bidi character types and embedding levels
     last_break = 0;
@@ -881,16 +891,26 @@ int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
 ASS_Shaper *ass_shaper_new(size_t prealloc)
 {
     ASS_Shaper *shaper = calloc(sizeof(*shaper), 1);
+    if (!shaper)
+        return NULL;
 
     shaper->base_direction = FRIBIDI_PAR_ON;
-    check_allocations(shaper, prealloc);
+    if (!check_allocations(shaper, prealloc))
+        goto error;
 
 #ifdef CONFIG_HARFBUZZ
-    init_features(shaper);
+    if (!init_features(shaper))
+        goto error;
     shaper->metrics_cache = ass_glyph_metrics_cache_create();
+    if (!shaper->metrics_cache)
+        goto error;
 #endif
 
     return shaper;
+
+error:
+    ass_shaper_free(shaper);
+    return NULL;
 }
 
 

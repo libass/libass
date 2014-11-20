@@ -70,6 +70,9 @@ match_fullname(ASS_Library *lib, FCInstance *priv, const char *family,
     int nsets = 0;
     int i, fi;
 
+    if (!result)
+        return NULL;
+
     if ((sets[nsets] = FcConfigGetFonts(priv->config, FcSetSystem)))
         nsets++;
     if ((sets[nsets] = FcConfigGetFonts(priv->config, FcSetApplication)))
