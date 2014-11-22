@@ -1199,8 +1199,11 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             }
         }
 
-        if (!v.outline)
+        if (!v.outline) {
+            if (info->drawing)
+                free(key.u.drawing.text);
             return;
+        }
 
         FT_Outline_Get_CBox(v.outline, &v.bbox_scaled);
 
