@@ -7,8 +7,6 @@ env:
 
 os:
   - linux
-compiler:
-  - gcc
 
 branches:
   only:
@@ -18,7 +16,7 @@ branches:
 
 script:
   - sudo apt-get install -y fontconfig libfribidi-dev yasm && ./autogen.sh && ./configure
-  - make
+  - make -j4
 
 notifications:
   email: false
@@ -34,5 +32,5 @@ addons:
       name: "libass/libass"
       description: "Build submitted via Travis CI"
     build_command_prepend: "./configure; make clean"
-    build_command:   "make -j 4"
+    build_command:   "make -j4"
     branch_pattern: coverity_scan
