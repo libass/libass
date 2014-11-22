@@ -2,7 +2,7 @@ language: c
 
 env:
   global:
-   # Coverity tokeb
+   # Coverity token
    - secure: "QFUmMNyjyhXhe+zBfGNgnrrgR9NTks90AU6BQXYCxBZm+aaRjjxkN+ITjTJeHxZJEVpqDf/gtidh6KriSWMWM2TcH+ZSsAkVym9XUdk+0Nglh/5mulp++LsbmsERhed5F4YvGS0UAcXPAAv/dESmiJY/EaDPVgXxbTFMa85c6H8="
 
 os:
@@ -14,8 +14,8 @@ branches:
     - ci
     - coverity_scan
 
+before_install: sudo apt-get install -y fontconfig libfribidi-dev yasm && ./autogen.sh && ./configure
 script:
-  - sudo apt-get install -y fontconfig libfribidi-dev yasm && ./autogen.sh && ./configure
   - make -j4
 
 notifications:
@@ -31,6 +31,6 @@ addons:
     project:
       name: "libass/libass"
       description: "Build submitted via Travis CI"
-    build_command_prepend: "./configure; make clean"
+    build_command_prepend: "./configure"
     build_command:   "make -j4"
     branch_pattern: coverity_scan

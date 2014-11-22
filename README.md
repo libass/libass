@@ -1,5 +1,7 @@
 [![Build Status](https://api.travis-ci.org/libass/libass.png)](https://travis-ci.org/libass/libass)
 
+[![Coverity Scan Build Status](https://scan.coverity.com/projects/3531/badge.svg)](https://scan.coverity.com/projects/3531)
+
 libass
 ======
 libass is a portable subtitle renderer for the ASS/SSA (Advanced Substation Alpha/Substation Alpha) subtitle format. It is mostly compatible with VSFilter.
