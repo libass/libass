@@ -1,0 +1,23 @@
+language: c
+
+os:
+  - linux
+compiler:
+  - clang
+
+branches:
+  only:
+    - master
+    - ci
+
+script:
+  - ./configure
+  - make
+
+notifications:
+  email: false
+  irc:
+    channels:
+      - "irc.freenode.org#libass"
+    on_success: change
+    on_failure: always
