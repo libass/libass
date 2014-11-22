@@ -194,4 +194,12 @@ static inline unsigned fnv_32a_str(char *str, unsigned hval)
     return hval;
 }
 
+#if defined(__GNUC__) && (__GNUC__ >= 4)
+#define ASS_WARN_UNUSED __attribute__ ((warn_unused_result))
+#elif defined(_MSC_VER) && (_MSC_VER >= 1700)
+#define ASS_WARN_UNUSED _Check_return_
+#else
+#define ASS_WARN_UNUSED
+#endif
+
 #endif                          /* LIBASS_UTILS_H */
