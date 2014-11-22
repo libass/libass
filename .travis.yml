@@ -11,7 +11,7 @@ branches:
     - ci
 
 script:
-  - ./configure
+  - ./autogen.sh
   - make
 
 notifications:
