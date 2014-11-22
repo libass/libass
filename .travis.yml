@@ -1,7 +1,7 @@
 language: c
 
 os:
-  - linux
+  - osx
 compiler:
   - clang
 
@@ -11,7 +11,7 @@ branches:
     - ci
 
 script:
-  - ./autogen.sh && ./configure
+  - brew update && brew install harfbuzz fribidi freetype fontconfig && ./autogen.sh && ./configure
   - make
 
 notifications:
