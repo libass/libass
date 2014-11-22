@@ -1002,6 +1002,7 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
                         outbuf = 0;
                         goto out;
                     }
+                    outbuf = nbuf;
                     op = outbuf + offset;
                     osize += size;
                     oleft += size;
