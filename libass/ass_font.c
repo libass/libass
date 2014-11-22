@@ -392,16 +392,23 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
     return 0;
 }
 
-void outline_copy(FT_Library lib, FT_Outline *source, FT_Outline **dest)
+FT_Outline *outline_copy(FT_Library lib, FT_Outline *source)
 {
-    if (source == NULL) {
-        *dest = NULL;
-        return;
-    }
-    *dest = calloc(1, sizeof(**dest));
+    FT_Outline *dest;
+    if (!source)
+        return NULL;
 
-    FT_Outline_New(lib, source->n_points, source->n_contours, *dest);
-    FT_Outline_Copy(source, *dest);
+    dest = calloc(1, sizeof(*dest));
+    if (!dest)
+        return NULL;
+
+    if (FT_Outline_New(lib, source->n_points, source->n_contours, dest)) {
+        free(dest);
+        return NULL;
+    }
+
+    FT_Outline_Copy(source, dest);
+    return dest;
 }
 
 void outline_free(FT_Library lib, FT_Outline *outline)
@@ -679,7 +686,7 @@ static int get_contour_direction(FT_Vector *points, int start, int end)
  * \param border_x border size, x direction, d6 format
  * \param border_x border size, y direction, d6 format
  */
-void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
+bool fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
 {
     int nc = outline->n_contours;
     int begin, stop;
@@ -690,6 +697,12 @@ void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
     FT_BBox *boxes = malloc(nc * sizeof(FT_BBox));
     int i, j;
     int inside_direction;
+
+    if (!valid_cont || !boxes) {
+        free(valid_cont);
+        free(boxes);
+        return false;
+    }
 
     inside_direction = FT_Outline_Get_Orientation(outline) ==
         FT_ORIENTATION_TRUETYPE;
@@ -769,5 +782,7 @@ void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
 
     free(boxes);
     free(valid_cont);
+
+    return true;
 }
 
