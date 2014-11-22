@@ -1575,7 +1575,6 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
                 text_info->glyphs[lead].linebreak = break_type;
                 last_space = -1;
                 s1 = text_info->glyphs + lead;
-                s_offset = d6_to_double(s1->bbox.xMin + s1->pos.x);
                 text_info->n_lines++;
             }
         }
@@ -1584,7 +1583,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     exit = 0;
     while (!exit && render_priv->state.wrap_style != 1) {
         exit = 1;
-        w = s3 = text_info->glyphs;
+        s3 = text_info->glyphs;
         s1 = s2 = 0;
         for (i = 0; i <= text_info->length; ++i) {
             cur = text_info->glyphs + i;
@@ -1638,7 +1637,6 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     measure_text(render_priv);
     trim_whitespace(render_priv);
 
-    pen_shift_x = 0.;
     pen_shift_y = 0.;
     cur_line = 1;
     run_offset = 0;
