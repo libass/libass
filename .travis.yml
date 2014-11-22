@@ -31,6 +31,7 @@ addons:
     project:
       name: "libass/libass"
       description: "Build submitted via Travis CI"
+    notification_email: none@example.com
     build_command_prepend: "./configure"
     build_command:   "make -j4"
     branch_pattern: coverity_scan
