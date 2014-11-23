@@ -230,13 +230,13 @@ static int add_cubic(ASS_Rasterizer *rst,
 }
 
 
-int rasterizer_set_outline(ASS_Rasterizer *rst, const FT_Outline *path)
+int rasterizer_set_outline(ASS_Rasterizer *rst, const ASS_Outline *path)
 {
     enum Status {
         S_ON, S_Q, S_C1, S_C2
     };
 
-    int i, j = 0;
+    size_t i, j = 0;
     rst->size[0] = 0;
     for (i = 0; i < path->n_contours; ++i) {
         OutlinePoint start, p[4];

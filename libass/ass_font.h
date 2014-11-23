@@ -74,8 +74,14 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
                             ASS_Hinting hinting, int deco);
 FT_Vector ass_font_get_kerning(ASS_Font *font, uint32_t c1, uint32_t c2);
 void ass_font_free(ASS_Font *font);
-void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y);
-void outline_copy(FT_Library lib, FT_Outline *source, FT_Outline **dest);
-void outline_free(FT_Library lib, FT_Outline *outline);
+
+void outline_translate(const ASS_Outline *outline, FT_Pos dx, FT_Pos dy);
+void outline_transform(const ASS_Outline *outline, const FT_Matrix *matrix);
+void outline_get_cbox(const ASS_Outline *outline, FT_BBox *cbox);
+void fix_freetype_stroker(ASS_Outline *outline, int border_x, int border_y);
+int outline_alloc(ASS_Outline *outline, size_t n_contours, size_t n_points);
+ASS_Outline *outline_convert(const FT_Outline *source);
+ASS_Outline *outline_copy(const ASS_Outline *source);
+void outline_free(ASS_Outline *outline);
 
 #endif                          /* LIBASS_FONT_H */

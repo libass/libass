@@ -166,8 +166,8 @@ typedef struct glyph_info {
 #endif
     double font_size;
     ASS_Drawing *drawing;
-    FT_Outline *outline;
-    FT_Outline *border;
+    ASS_Outline *outline;
+    ASS_Outline *border;
     Bitmap *bm;                 // glyph bitmap
     Bitmap *bm_o;               // outline bitmap
     Bitmap *bm_s;               // shadow bitmap

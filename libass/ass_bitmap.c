@@ -279,7 +279,7 @@ Bitmap *copy_bitmap(const Bitmap *src)
 #if CONFIG_RASTERIZER
 
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          FT_Outline *outline, int bord)
+                          ASS_Outline *outline, int bord)
 {
     ASS_Rasterizer *rst = &render_priv->rasterizer;
     if (!rasterizer_set_outline(rst, outline)) {
@@ -343,8 +343,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
 #else
 
-Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          FT_Outline *outline, int bord)
+static Bitmap *outline_to_bitmap_ft(ASS_Renderer *render_priv,
+                                    FT_Outline *outline, int bord)
 {
     Bitmap *bm;
     int w, h;
@@ -403,6 +403,42 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return NULL;
     }
 
+    return bm;
+}
+
+Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
+                          ASS_Outline *outline, int bord)
+{
+    size_t n_points = outline->n_points;
+    if (n_points > SHRT_MAX) {
+        ass_msg(render_priv->library, MSGL_WARN, "Too many outline points: %d",
+                outline->n_points);
+        n_points = SHRT_MAX;
+    }
+
+    size_t n_contours = FFMIN(outline->n_contours, SHRT_MAX);
+    short contours_small[EFFICIENT_CONTOUR_COUNT];
+    short *contours = contours_small;
+    short *contours_large = NULL;
+    if (n_contours > EFFICIENT_CONTOUR_COUNT) {
+        contours_large = malloc(n_contours * sizeof(short));
+        if (!contours_large)
+            return NULL;
+        contours = contours_large;
+    }
+    for (size_t i = 0; i < n_contours; ++i)
+        contours[i] = FFMIN(outline->contours[i], n_points - 1);
+
+    FT_Outline ftol;
+    ftol.n_points = n_points;
+    ftol.n_contours = n_contours;
+    ftol.points = outline->points;
+    ftol.tags = outline->tags;
+    ftol.contours = contours;
+    ftol.flags = 0;
+
+    Bitmap *bm = outline_to_bitmap_ft(render_priv, &ftol, bord);
+    free(contours_large);
     return bm;
 }
 
@@ -671,7 +707,8 @@ void be_blur_c(uint8_t *buf, intptr_t w,
     }
 }
 
-int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outline *border,
+int outline_to_bitmap3(ASS_Renderer *render_priv,
+                       ASS_Outline *outline, ASS_Outline *border,
                        Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
                        int be, double blur_radius, FT_Vector shadow_offset,
                        int border_style, int border_visible)

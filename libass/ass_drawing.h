@@ -23,6 +23,7 @@
 #include FT_OUTLINE_H
 
 #include "ass.h"
+#include "ass_bitmap.h"
 
 typedef enum {
     TOKEN_MOVE,
@@ -50,7 +51,7 @@ typedef struct {
     double scale_y;     // FontScaleY
     int asc;            // ascender
     int desc;           // descender
-    FT_Outline outline; // target outline
+    ASS_Outline outline; // target outline
     FT_Vector advance;  // advance (from cbox)
     int hash;           // hash value (for caching)
 
@@ -58,8 +59,6 @@ typedef struct {
     FT_Library ftlibrary;   // needed for font ops
     ASS_Library *library;
     ASS_DrawingToken *tokens;    // tokenized drawing
-    int max_points;     // current maximum size
-    int max_contours;
     double point_scale_x;
     double point_scale_y;
     FT_BBox cbox;   // bounding box, or let's say... VSFilter's idea of it
@@ -69,6 +68,6 @@ ASS_Drawing *ass_drawing_new(ASS_Library *lib, FT_Library ftlib);
 void ass_drawing_free(ASS_Drawing* drawing);
 void ass_drawing_set_text(ASS_Drawing* drawing, char *str, size_t n);
 void ass_drawing_hash(ASS_Drawing* drawing);
-FT_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode);
+ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode);
 
 #endif /* LIBASS_DRAWING_H */

@@ -392,23 +392,91 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
     return 0;
 }
 
-void outline_copy(FT_Library lib, FT_Outline *source, FT_Outline **dest)
-{
-    if (source == NULL) {
-        *dest = NULL;
-        return;
-    }
-    *dest = calloc(1, sizeof(**dest));
 
-    FT_Outline_New(lib, source->n_points, source->n_contours, *dest);
-    FT_Outline_Copy(source, *dest);
+int outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_contours)
+{
+    outline->contours = malloc(sizeof(size_t) * n_contours);
+    outline->points = malloc(sizeof(FT_Vector) * n_points);
+    outline->tags = malloc(n_points);
+    if (!outline->contours || !outline->points || !outline->tags)
+        return 0;
+
+    outline->max_contours = n_contours;
+    outline->max_points = n_points;
+    return 1;
 }
 
-void outline_free(FT_Library lib, FT_Outline *outline)
+ASS_Outline *outline_convert(const FT_Outline *source)
 {
-    if (outline)
-        FT_Outline_Done(lib, outline);
-    free(outline);
+    if (!source)
+        return NULL;
+
+    ASS_Outline *ol = calloc(1, sizeof(*ol));
+    if (!ol)
+        return NULL;
+
+    if (!outline_alloc(ol, source->n_points, source->n_contours)) {
+        outline_free(ol);
+        free(ol);
+        return NULL;
+    }
+
+    //if (source->flags & FT_OUTLINE_REVERSE_FILL) {
+    if (FT_Outline_Get_Orientation((FT_Outline *)source) != FT_ORIENTATION_TRUETYPE) {
+        int prev = 0;
+        for (int i = 0; i < source->n_contours; ++i) {
+            int last = source->contours[i];
+            ol->contours[i] = last;
+            ol->points[prev] = source->points[prev];
+            ol->tags[prev] = source->tags[prev];
+            for (int j = 0; j < last - prev; ++j) {
+                ol->points[last - j] = source->points[prev + j + 1];
+                ol->tags[last - j] = source->tags[prev + j + 1];
+            }
+            prev = last + 1;
+        }
+    } else {
+        for (int i = 0; i < source->n_contours; ++i)
+            ol->contours[i] = source->contours[i];
+        memcpy(ol->points, source->points, sizeof(FT_Vector) * source->n_points);
+        memcpy(ol->tags, source->tags, source->n_points);
+    }
+    ol->n_contours = source->n_contours;
+    ol->n_points = source->n_points;
+    return ol;
+}
+
+ASS_Outline *outline_copy(const ASS_Outline *source)
+{
+    if (!source)
+        return NULL;
+
+    ASS_Outline *ol = calloc(1, sizeof(*ol));
+    if (!ol)
+        return NULL;
+
+    if (!outline_alloc(ol, source->n_points, source->n_contours)) {
+        outline_free(ol);
+        free(ol);
+        return NULL;
+    }
+
+    memcpy(ol->contours, source->contours, sizeof(size_t) * source->n_contours);
+    memcpy(ol->points, source->points, sizeof(FT_Vector) * source->n_points);
+    memcpy(ol->tags, source->tags, source->n_points);
+    ol->n_contours = source->n_contours;
+    ol->n_points = source->n_points;
+    return ol;
+}
+
+void outline_free(ASS_Outline *outline)
+{
+    if (!outline)
+        return;
+
+    free(outline->contours);
+    free(outline->points);
+    free(outline->tags);
 }
 
 /**
@@ -663,6 +731,43 @@ static int get_contour_direction(FT_Vector *points, int start, int end)
     return sum > 0;
 }
 
+void outline_translate(const ASS_Outline *outline, FT_Pos dx, FT_Pos dy)
+{
+    for (size_t i = 0; i < outline->n_points; ++i) {
+        outline->points[i].x += dx;
+        outline->points[i].y += dy;
+    }
+}
+
+void outline_transform(const ASS_Outline *outline, const FT_Matrix *matrix)
+{
+    for (size_t i = 0; i < outline->n_points; ++i) {
+        FT_Pos x = FT_MulFix(outline->points[i].x, matrix->xx) +
+                   FT_MulFix(outline->points[i].y, matrix->xy);
+        FT_Pos y = FT_MulFix(outline->points[i].x, matrix->yx) +
+                   FT_MulFix(outline->points[i].y, matrix->yy);
+        outline->points[i].x = x;
+        outline->points[i].y = y;
+    }
+}
+
+void outline_get_cbox(const ASS_Outline *outline, FT_BBox *cbox)
+{
+    if (!outline->n_points) {
+        cbox->xMin = cbox->xMax = 0;
+        cbox->yMin = cbox->yMax = 0;
+        return;
+    }
+    cbox->xMin = cbox->xMax = outline->points[0].x;
+    cbox->yMin = cbox->yMax = outline->points[0].y;
+    for (size_t i = 1; i < outline->n_points; ++i) {
+        cbox->xMin = FFMIN(cbox->xMin, outline->points[i].x);
+        cbox->xMax = FFMAX(cbox->xMax, outline->points[i].x);
+        cbox->yMin = FFMIN(cbox->yMin, outline->points[i].y);
+        cbox->yMax = FFMAX(cbox->yMax, outline->points[i].y);
+    }
+}
+
 /**
  * \brief Apply fixups to please the FreeType stroker and improve the
  * rendering result, especially in case the outline has some anomalies.
@@ -679,7 +784,7 @@ static int get_contour_direction(FT_Vector *points, int start, int end)
  * \param border_x border size, x direction, d6 format
  * \param border_x border size, y direction, d6 format
  */
-void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
+void fix_freetype_stroker(ASS_Outline *outline, int border_x, int border_y)
 {
     int nc = outline->n_contours;
     int begin, stop;
@@ -689,10 +794,6 @@ void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
     int end = -1;
     FT_BBox *boxes = malloc(nc * sizeof(FT_BBox));
     int i, j;
-    int inside_direction;
-
-    inside_direction = FT_Outline_Get_Orientation(outline) ==
-        FT_ORIENTATION_TRUETYPE;
 
     // create a list of cboxes of the contours
     for (i = 0; i < nc; i++) {
@@ -709,7 +810,7 @@ void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
         end = outline->contours[i];
         int dir = get_contour_direction(outline->points, start, end);
         valid_cont[i] = 1;
-        if (dir == inside_direction) {
+        if (dir) {
             for (j = 0; j < nc; j++) {
                 if (i == j)
                     continue;
@@ -733,7 +834,7 @@ void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y)
             dir ^= 1;
         }
         check_inside:
-        if (dir == inside_direction) {
+        if (dir) {
             FT_BBox box;
             get_contour_cbox(&box, outline->points, start, end);
             int width = box.xMax - box.xMin;

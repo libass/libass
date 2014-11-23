@@ -19,10 +19,11 @@
 #ifndef LIBASS_RASTERIZER_H
 #define LIBASS_RASTERIZER_H
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
 #include <stddef.h>
 #include <stdint.h>
+
+#include "ass.h"
+#include "ass_font.h"
 
 
 enum {
@@ -82,7 +83,7 @@ void rasterizer_done(ASS_Rasterizer *rst);
 /**
  * \brief Convert FreeType outline to polyline and calculate exact bounds
  */
-int rasterizer_set_outline(ASS_Rasterizer *rst, const FT_Outline *path);
+int rasterizer_set_outline(ASS_Rasterizer *rst, const ASS_Outline *path);
 /**
  * \brief Polyline rasterization function
  * \param x0, y0, width, height in: source window (full pixel units)

@@ -42,9 +42,8 @@ typedef struct {
 } CompositeHashValue;
 
 typedef struct {
-    FT_Library lib;
-    FT_Outline *outline;
-    FT_Outline *border;
+    ASS_Outline *outline;
+    ASS_Outline *border;
     FT_BBox bbox_scaled;        // bbox after scaling, but before rotation
     FT_Vector advance;          // 26.6, advance distance to the next outline in line
     int asc, desc;              // ascender/descender

@@ -20,10 +20,12 @@
 #include FT_OUTLINE_H
 #include FT_BBOX_H
 #include <math.h>
+#include <stdbool.h>
 #include <limits.h>
 
 #include "ass_utils.h"
 #include "ass_drawing.h"
+#include "ass_font.h"
 
 #define CURVE_ACCURACY 64.0
 #define GLYPH_INITIAL_POINTS 100
@@ -32,46 +34,42 @@
 /*
  * \brief Add a single point to a contour.
  */
-static inline void drawing_add_point(ASS_Drawing *drawing,
+static inline bool drawing_add_point(ASS_Drawing *drawing,
                                      const FT_Vector *point, char tags)
 {
-    FT_Outline *ol = &drawing->outline;
-    if (ol->n_points == SHRT_MAX)
-        return;
-
-    if (ol->n_points >= drawing->max_points) {
-        drawing->max_points *= 2;
-        ol->points = realloc(ol->points, sizeof(FT_Vector) *
-                             drawing->max_points);
-        ol->tags = realloc(ol->tags, drawing->max_points);
+    ASS_Outline *ol = &drawing->outline;
+    if (ol->n_points >= ol->max_points) {
+        size_t new_size = 2 * ol->max_points;
+        if (!ASS_REALLOC_ARRAY(ol->points, new_size))
+            return false;
+        if (!ASS_REALLOC_ARRAY(ol->tags, new_size))
+            return false;
+        ol->max_points = new_size;
     }
 
     ol->points[ol->n_points].x = point->x;
     ol->points[ol->n_points].y = point->y;
     ol->tags[ol->n_points] = tags;
     ol->n_points++;
+    return true;
 }
 
 /*
  * \brief Close a contour and check outline size overflow.
  */
-static inline void drawing_close_shape(ASS_Drawing *drawing)
+static inline bool drawing_close_shape(ASS_Drawing *drawing)
 {
-    FT_Outline *ol = &drawing->outline;
-    if (ol->n_contours == SHRT_MAX) {
-        if (ol->n_points)
-            ol->contours[ol->n_contours] = ol->n_points - 1;
-        return;
-    }
-
-    if (ol->n_contours >= drawing->max_contours) {
-        drawing->max_contours *= 2;
-        ol->contours = realloc(ol->contours, sizeof(short) *
-                               drawing->max_contours);
+    ASS_Outline *ol = &drawing->outline;
+    if (ol->n_contours >= ol->max_contours) {
+        size_t new_size = 2 * ol->max_contours;
+        if (!ASS_REALLOC_ARRAY(ol->contours, new_size))
+            return false;
+        ol->max_contours = new_size;
     }
 
     ol->contours[ol->n_contours] = ol->n_points - 1;
     ol->n_contours++;
+    return true;
 }
 
 /*
@@ -93,7 +91,7 @@ static void drawing_finish(ASS_Drawing *drawing, int raw_mode)
     int i;
     double pbo;
     FT_BBox bbox = drawing->cbox;
-    FT_Outline *ol = &drawing->outline;
+    ASS_Outline *ol = &drawing->outline;
 
     if (drawing->library)
         ass_msg(drawing->library, MSGL_V,
@@ -241,7 +239,7 @@ static inline void translate_point(ASS_Drawing *drawing, FT_Vector *point)
  * This curve evaluator is also used in VSFilter (RTS.cpp); it's a simple
  * implementation of the De Casteljau algorithm.
  */
-static void drawing_evaluate_curve(ASS_Drawing *drawing,
+static bool drawing_evaluate_curve(ASS_Drawing *drawing,
                                    ASS_DrawingToken *token, char spline,
                                    int started)
 {
@@ -270,11 +268,10 @@ static void drawing_evaluate_curve(ASS_Drawing *drawing,
         p[2].y -= y12;
     }
 
-    if (!started)
-        drawing_add_point(drawing, &p[0], FT_CURVE_TAG_ON);
-    drawing_add_point(drawing, &p[1], FT_CURVE_TAG_CUBIC);
-    drawing_add_point(drawing, &p[2], FT_CURVE_TAG_CUBIC);
-    drawing_add_point(drawing, &p[3], FT_CURVE_TAG_ON);
+    return (started || drawing_add_point(drawing, &p[0], FT_CURVE_TAG_ON)) &&
+        drawing_add_point(drawing, &p[1], FT_CURVE_TAG_CUBIC) &&
+        drawing_add_point(drawing, &p[2], FT_CURVE_TAG_CUBIC) &&
+        drawing_add_point(drawing, &p[3], FT_CURVE_TAG_ON);
 }
 
 /*
@@ -282,9 +279,7 @@ static void drawing_evaluate_curve(ASS_Drawing *drawing,
  */
 ASS_Drawing *ass_drawing_new(ASS_Library *lib, FT_Library ftlib)
 {
-    ASS_Drawing *drawing;
-
-    drawing = calloc(1, sizeof(*drawing));
+    ASS_Drawing *drawing = calloc(1, sizeof(*drawing));
     if (!drawing)
         return NULL;
     drawing->cbox.xMin = drawing->cbox.yMin = INT_MAX;
@@ -293,14 +288,8 @@ ASS_Drawing *ass_drawing_new(ASS_Library *lib, FT_Library ftlib)
     drawing->library   = lib;
     drawing->scale_x = 1.;
     drawing->scale_y = 1.;
-    drawing->max_contours = GLYPH_INITIAL_CONTOURS;
-    drawing->max_points = GLYPH_INITIAL_POINTS;
 
-    FT_Outline_New(drawing->ftlibrary, GLYPH_INITIAL_POINTS,
-            GLYPH_INITIAL_CONTOURS, &drawing->outline);
-    drawing->outline.n_contours = 0;
-    drawing->outline.n_points = 0;
-
+    outline_alloc(&drawing->outline, GLYPH_INITIAL_POINTS, GLYPH_INITIAL_CONTOURS);
     return drawing;
 }
 
@@ -311,7 +300,7 @@ void ass_drawing_free(ASS_Drawing* drawing)
 {
     if (drawing) {
         free(drawing->text);
-        FT_Outline_Done(drawing->ftlibrary, &drawing->outline);
+        outline_free(&drawing->outline);
     }
     free(drawing);
 }
@@ -339,7 +328,7 @@ void ass_drawing_hash(ASS_Drawing* drawing)
 /*
  * \brief Convert token list to outline.  Calls the line and curve evaluators.
  */
-FT_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode)
+ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode)
 {
     int started = 0;
     ASS_DrawingToken *token;
@@ -361,7 +350,8 @@ FT_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode)
             pen = token->point;
             translate_point(drawing, &pen);
             if (started) {
-                drawing_close_shape(drawing);
+                if (!drawing_close_shape(drawing))
+                    goto error;
                 started = 0;
             }
             token = token->next;
@@ -370,8 +360,10 @@ FT_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode)
             FT_Vector to;
             to = token->point;
             translate_point(drawing, &to);
-            if (!started) drawing_add_point(drawing, &pen, FT_CURVE_TAG_ON);
-            drawing_add_point(drawing, &to, FT_CURVE_TAG_ON);
+            if (!started && !drawing_add_point(drawing, &pen, FT_CURVE_TAG_ON))
+                goto error;
+            if (!drawing_add_point(drawing, &to, FT_CURVE_TAG_ON))
+                goto error;
             started = 1;
             token = token->next;
             break;
@@ -379,7 +371,8 @@ FT_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode)
         case TOKEN_CUBIC_BEZIER:
             if (token_check_values(token, 3, TOKEN_CUBIC_BEZIER) &&
                 token->prev) {
-                drawing_evaluate_curve(drawing, token->prev, 0, started);
+                if (!drawing_evaluate_curve(drawing, token->prev, 0, started))
+                    goto error;
                 token = token->next;
                 token = token->next;
                 token = token->next;
@@ -390,7 +383,8 @@ FT_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode)
         case TOKEN_B_SPLINE:
             if (token_check_values(token, 3, TOKEN_B_SPLINE) &&
                 token->prev) {
-                drawing_evaluate_curve(drawing, token->prev, 1, started);
+                if (!drawing_evaluate_curve(drawing, token->prev, 1, started))
+                    goto error;
                 token = token->next;
                 started = 1;
             } else
@@ -403,10 +397,14 @@ FT_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode)
     }
 
     // Close the last contour
-    if (started)
-        drawing_close_shape(drawing);
+    if (started && !drawing_close_shape(drawing))
+        goto error;
 
     drawing_finish(drawing, raw_mode);
     drawing_free_tokens(drawing->tokens);
     return &drawing->outline;
+
+error:
+    drawing_free_tokens(drawing->tokens);
+    return NULL;
 }

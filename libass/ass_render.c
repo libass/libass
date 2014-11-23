@@ -522,7 +522,6 @@ static bool free_list_add(ASS_Renderer *render_priv, void *object)
 static void blend_vector_clip(ASS_Renderer *render_priv,
                               ASS_Image *head)
 {
-    FT_Outline *outline;
     Bitmap *clip_bm = NULL;
     ASS_Image *cur;
     ASS_Drawing *drawing = render_priv->state.clip_drawing;
@@ -544,7 +543,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         BitmapHashValue v;
 
         // Not found in cache, parse and rasterize it
-        outline = ass_drawing_parse(drawing, 1);
+        ASS_Outline *outline = ass_drawing_parse(drawing, 1);
         if (!outline) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
@@ -558,7 +557,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
                 .x = int_to_d6(render_priv->settings.left_margin),
                 .y = -int_to_d6(render_priv->settings.top_margin),
             };
-            FT_Outline_Translate(outline, trans.x, trans.y);
+            outline_translate(outline, trans.x, trans.y);
         }
 
         clip_bm = outline_to_bitmap(render_priv, outline, 0);
@@ -953,10 +952,9 @@ static void free_render_context(ASS_Renderer *render_priv)
  * opaque rectangle.
  */
 static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
-                            int asc, int desc, FT_Outline *ol,
+                            int asc, int desc, ASS_Outline *ol,
                             FT_Vector advance, int sx, int sy)
 {
-    int i;
     int adv = advance.x;
     double scale_y = info->orig_scale_y;
     double scale_x = info->orig_scale_x;
@@ -981,10 +979,10 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
         { .x = -sx,         .y = -desc - sy },
     };
 
-    FT_Outline_New(render_priv->ftlibrary, 4, 1, ol);
-
     ol->n_points = ol->n_contours = 0;
-    for (i = 0; i < 4; i++) {
+    if (!outline_alloc(ol, 4, 1))
+        return;
+    for (int i = 0; i < 4; ++i) {
         ol->points[ol->n_points] = points[i];
         ol->tags[ol->n_points++] = 1;
     }
@@ -995,7 +993,7 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
  * Stroke an outline glyph in x/y direction.  Applies various fixups to get
  * around limitations of the FreeType stroker.
  */
-static void stroke_outline(ASS_Renderer *render_priv, FT_Outline *outline,
+static void stroke_outline(ASS_Renderer *render_priv, ASS_Outline *outline,
                            int sx, int sy)
 {
     if (sx <= 0 && sy <= 0)
@@ -1003,32 +1001,76 @@ static void stroke_outline(ASS_Renderer *render_priv, FT_Outline *outline,
 
     fix_freetype_stroker(outline, sx, sy);
 
+    size_t n_points = outline->n_points;
+    if (n_points > SHRT_MAX) {
+        ass_msg(render_priv->library, MSGL_WARN, "Too many outline points: %d",
+                outline->n_points);
+        n_points = SHRT_MAX;
+    }
+
+    size_t n_contours = FFMIN(outline->n_contours, SHRT_MAX);
+    short contours_small[EFFICIENT_CONTOUR_COUNT];
+    short *contours = contours_small;
+    short *contours_large = NULL;
+    if (n_contours > EFFICIENT_CONTOUR_COUNT) {
+        contours_large = malloc(n_contours * sizeof(short));
+        if (!contours_large)
+            return;
+        contours = contours_large;
+    }
+    for (size_t i = 0; i < n_contours; ++i)
+        contours[i] = FFMIN(outline->contours[i], n_points - 1);
+
+    FT_Outline ftol;
+    ftol.n_points = n_points;
+    ftol.n_contours = n_contours;
+    ftol.points = outline->points;
+    ftol.tags = outline->tags;
+    ftol.contours = contours;
+    ftol.flags = 0;
+
     // Borders are equal; use the regular stroker
     if (sx == sy && render_priv->state.stroker) {
         int error;
-        unsigned n_points, n_contours;
-
-        FT_StrokerBorder border = FT_Outline_GetOutsideBorder(outline);
-        error = FT_Stroker_ParseOutline(render_priv->state.stroker, outline, 0);
+        FT_StrokerBorder border = FT_Outline_GetOutsideBorder(&ftol);
+        error = FT_Stroker_ParseOutline(render_priv->state.stroker, &ftol, 0);
         if (error) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "FT_Stroker_ParseOutline failed, error: %d", error);
         }
+        unsigned new_points, new_contours;
         error = FT_Stroker_GetBorderCounts(render_priv->state.stroker, border,
-                &n_points, &n_contours);
+                &new_points, &new_contours);
         if (error) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "FT_Stroker_GetBorderCounts failed, error: %d", error);
         }
-        FT_Outline_Done(render_priv->ftlibrary, outline);
-        error = FT_Outline_New(render_priv->ftlibrary, n_points, n_contours, outline);
+        outline_free(outline);
         outline->n_points = outline->n_contours = 0;
-        if (error) {
+        if (new_contours > FFMAX(EFFICIENT_CONTOUR_COUNT, n_contours)) {
+            if (!ASS_REALLOC_ARRAY(contours_large, new_contours)) {
+                free(contours_large);
+                return;
+            }
+        }
+        n_points = new_points;
+        n_contours = new_contours;
+        if (!outline_alloc(outline, n_points, n_contours)) {
             ass_msg(render_priv->library, MSGL_WARN,
-                    "FT_Outline_New failed, error: %d", error);
+                    "Not enough memory for border outline");
+            free(contours_large);
             return;
         }
-        FT_Stroker_ExportBorder(render_priv->state.stroker, border, outline);
+        ftol.n_points = ftol.n_contours = 0;
+        ftol.points = outline->points;
+        ftol.tags = outline->tags;
+
+        FT_Stroker_ExportBorder(render_priv->state.stroker, border, &ftol);
+
+        outline->n_points = n_points;
+        outline->n_contours = n_contours;
+        for (size_t i = 0; i < n_contours; ++i)
+            outline->contours[i] = contours[i];
 
     // "Stroke" with the outline emboldener (in two passes if needed).
     // The outlines look uglier, but the emboldening never adds any points
@@ -1036,27 +1078,29 @@ static void stroke_outline(ASS_Renderer *render_priv, FT_Outline *outline,
 #if (FREETYPE_MAJOR > 2) || \
     ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR > 4)) || \
     ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR == 4) && (FREETYPE_PATCH >= 10))
-        FT_Outline_EmboldenXY(outline, sx * 2, sy * 2);
-        FT_Outline_Translate(outline, -sx, -sy);
+        FT_Outline_EmboldenXY(&ftol, sx * 2, sy * 2);
+        FT_Outline_Translate(&ftol, -sx, -sy);
 #else
         int i;
         FT_Outline nol;
 
-        FT_Outline_New(render_priv->ftlibrary, outline->n_points,
-                       outline->n_contours, &nol);
-        FT_Outline_Copy(outline, &nol);
+        FT_Outline_New(render_priv->ftlibrary, ftol.n_points,
+                       ftol.n_contours, &nol);
+        FT_Outline_Copy(&ftol, &nol);
 
-        FT_Outline_Embolden(outline, sx * 2);
-        FT_Outline_Translate(outline, -sx, -sx);
+        FT_Outline_Embolden(&ftol, sx * 2);
+        FT_Outline_Translate(&ftol, -sx, -sx);
         FT_Outline_Embolden(&nol, sy * 2);
         FT_Outline_Translate(&nol, -sy, -sy);
 
-        for (i = 0; i < outline->n_points; i++)
-            outline->points[i].y = nol.points[i].y;
+        for (i = 0; i < ftol.n_points; i++)
+            ftol.points[i].y = nol.points[i].y;
 
         FT_Outline_Done(render_priv->ftlibrary, &nol);
 #endif
     }
+
+    free(contours_large);
 }
 
 /**
@@ -1168,8 +1212,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             ass_drawing_hash(drawing);
             if(!ass_drawing_parse(drawing, 0))
                 return;
-            outline_copy(priv->ftlibrary, &drawing->outline,
-                    &v.outline);
+            v.outline = outline_copy(&drawing->outline);
             v.advance.x = drawing->advance.x;
             v.advance.y = drawing->advance.y;
             v.asc = drawing->asc;
@@ -1185,8 +1228,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                         info->symbol, info->face_index, info->glyph_index,
                         priv->settings.hinting, info->flags);
             if (glyph != NULL) {
-                outline_copy(priv->ftlibrary,
-                        &((FT_OutlineGlyph)glyph)->outline, &v.outline);
+                v.outline = outline_convert(&((FT_OutlineGlyph)glyph)->outline);
                 if (priv->settings.shaper == ASS_SHAPING_SIMPLE) {
                     v.advance.x = d16_to_d6(glyph->advance.x);
                     v.advance.y = d16_to_d6(glyph->advance.y);
@@ -1202,12 +1244,12 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         if (!v.outline)
             return;
 
-        FT_Outline_Get_CBox(v.outline, &v.bbox_scaled);
+        outline_get_cbox(v.outline, &v.bbox_scaled);
 
         if (info->border_style == 3) {
             FT_Vector advance;
 
-            v.border = calloc(1, sizeof(FT_Outline));
+            v.border = calloc(1, sizeof(ASS_Outline));
 
             if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing)
                 advance = v.advance;
@@ -1222,13 +1264,12 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
 
             change_border(priv, info->border_x, info->border_y);
-            outline_copy(priv->ftlibrary, v.outline, &v.border);
+            v.border = outline_copy(v.outline);
             stroke_outline(priv, v.border,
                     double_to_d6(info->border_x * priv->border_scale),
                     double_to_d6(info->border_y * priv->border_scale));
         }
 
-        v.lib = priv->ftlibrary;
         val = ass_cache_put(priv->cache.outline_cache, &key, &v);
     }
 
@@ -1250,7 +1291,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
  * onto the screen plane.
  */
 static void
-transform_3d_points(FT_Vector shift, FT_Outline *outline, double frx, double fry,
+transform_3d_points(FT_Vector shift, ASS_Outline *outline, double frx, double fry,
                     double frz, double fax, double fay, double scale,
                     int yshift)
 {
@@ -1262,10 +1303,10 @@ transform_3d_points(FT_Vector shift, FT_Outline *outline, double frx, double fry
     double cz = cos(frz);
     FT_Vector *p = outline->points;
     double x, y, z, xx, yy, zz;
-    int i, dist;
+    int dist;
 
     dist = 20000 * scale;
-    for (i = 0; i < outline->n_points; i++) {
+    for (size_t i = 0; i < outline->n_points; ++i) {
         x = (double) p[i].x + shift.x + (fax * (yshift - p[i].y));
         y = (double) p[i].y + shift.y + (-fay * p[i].x);
         z = 0.;
@@ -1302,7 +1343,7 @@ transform_3d_points(FT_Vector shift, FT_Outline *outline, double frx, double fry
  * Rotates both glyphs by frx, fry and frz. Shift vector is added before rotation and subtracted after it.
  */
 static void
-transform_3d(FT_Vector shift, FT_Outline *outline, FT_Outline *border,
+transform_3d(FT_Vector shift, ASS_Outline *outline, ASS_Outline *border,
              double frx, double fry, double frz, double fax, double fay,
              double scale, int yshift)
 {
@@ -1343,13 +1384,12 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         BitmapHashValue hash_val;
         int error;
         double fax_scaled, fay_scaled;
-        FT_Outline *outline, *border;
         double scale_x = render_priv->font_scale_x;
 
         hash_val.bm = hash_val.bm_o = hash_val.bm_s = 0;
 
-        outline_copy(render_priv->ftlibrary, info->outline, &outline);
-        outline_copy(render_priv->ftlibrary, info->border, &border);
+        ASS_Outline *outline = outline_copy(info->outline);
+        ASS_Outline *border  = outline_copy(info->border);
 
         // calculating rotation shift vector (from rotation origin to the glyph basepoint)
         shift.x = key->shift_x;
@@ -1370,13 +1410,13 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         // subpixel shift
         if (outline) {
             if (scale_x != 1.0)
-                FT_Outline_Transform(outline, &m);
-            FT_Outline_Translate(outline, key->advance.x, -key->advance.y);
+                outline_transform(outline, &m);
+            outline_translate(outline, key->advance.x, -key->advance.y);
         }
         if (border) {
             if (scale_x != 1.0)
-                FT_Outline_Transform(border, &m);
-            FT_Outline_Translate(border, key->advance.x, -key->advance.y);
+                outline_transform(border, &m);
+            outline_translate(border, key->advance.x, -key->advance.y);
         }
 
         // render glyph
@@ -1394,8 +1434,10 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         val = ass_cache_put(render_priv->cache.bitmap_cache, &info->hash_key,
                 &hash_val);
 
-        outline_free(render_priv->ftlibrary, outline);
-        outline_free(render_priv->ftlibrary, border);
+        outline_free(outline);
+        free(outline);
+        outline_free(border);
+        free(border);
     }
 
     info->bm = val->bm;

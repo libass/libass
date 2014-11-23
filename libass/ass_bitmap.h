@@ -30,6 +30,16 @@ ASS_SynthPriv *ass_synth_init(double);
 void ass_synth_done(ASS_SynthPriv *priv);
 
 typedef struct {
+    size_t n_contours, max_contours;
+    size_t *contours;
+    size_t n_points, max_points;
+    FT_Vector *points;
+    char *tags;
+} ASS_Outline;
+
+#define EFFICIENT_CONTOUR_COUNT 8
+
+typedef struct {
     int left, top;
     int w, h;                   // width, height
     int stride;
@@ -37,7 +47,7 @@ typedef struct {
 } Bitmap;
 
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          FT_Outline *outline, int bord);
+                          ASS_Outline *outline, int bord);
 
 Bitmap *alloc_bitmap(int w, int h);
 
@@ -54,7 +64,7 @@ void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
  * \param be 1 = produces blurred bitmaps, 0 = normal bitmaps
  * \param border_visible whether border is visible if border_style is 3
  */
-int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outline *border,
+int outline_to_bitmap3(ASS_Renderer *render_priv, ASS_Outline *outline, ASS_Outline *border,
                        Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
                        int be, double blur_radius, FT_Vector shadow_offset,
                        int border_style, int border_visible);

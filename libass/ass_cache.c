@@ -175,10 +175,10 @@ static void outline_destruct(void *key, void *value)
 {
     OutlineHashValue *v = value;
     OutlineHashKey *k = key;
-    if (v->outline)
-        outline_free(v->lib, v->outline);
-    if (v->border)
-        outline_free(v->lib, v->border);
+    outline_free(v->outline);
+    free(v->outline);
+    outline_free(v->border);
+    free(v->border);
     if (k->type == OUTLINE_DRAWING)
         free(k->u.drawing.text);
     free(key);
