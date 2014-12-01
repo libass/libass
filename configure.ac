@@ -151,6 +151,28 @@ PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.4.2, [
     ])
 fi
 
+if test x$enable_coretext != xno; then
+OLDLIBS="$LIBS"
+# Linking to CoreText directly only works from Mountain Lion and iOS6. In
+# earlier OS releases CoreText was part of the ApplicationServices umbrella
+# framework.
+LIBS="$LIBS -framework CoreText -framework CoreFoundation -framework CoreGraphics"
+AC_MSG_CHECKING([for CORETEXT])
+AC_LINK_IFELSE([
+  AC_LANG_PROGRAM(
+    [[#include <CoreText/CoreText.h>]],
+    [[CTFontCreateWithFontDescriptor(NULL, 0.0, NULL);]],)
+  ], [
+    AC_DEFINE(CONFIG_CORETEXT, 1, [found CoreText in System library])
+    coretext=true
+    AC_MSG_RESULT([yes])
+  ], [
+    LIBS="$OLDLIBS"
+    coretext=false
+    AC_MSG_RESULT([no])
+  ])
+fi
+
 if test x$enable_harfbuzz != xno; then
 PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
     CFLAGS="$CFLAGS $HARFBUZZ_CFLAGS"

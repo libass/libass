@@ -117,6 +117,7 @@ int ass_library_version(void);
 typedef enum {
     ASS_FONTPROVIDER_NONE       = 0,
     ASS_FONTPROVIDER_AUTODETECT = 1,
+    ASS_FONTPROVIDER_CORETEXT,
     ASS_FONTPROVIDER_FONTCONFIG,
 } ASS_DefaultFontProvider;
 
