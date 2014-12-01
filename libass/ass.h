@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
+ * Copyright (C) 2011 Grigori Goronzy <greg@chown.ath.cx>
  *
  * This file is part of libass.
  *
@@ -102,6 +103,23 @@ typedef enum {
  * \return library version
  */
 int ass_library_version(void);
+
+/**
+ * \brief Default Font provider to load fonts in libass' database
+ *
+ * NONE don't use any default font provider for font lookup
+ * AUTODETECT use the first available font provider
+ * CORETEXT force a CoreText based font provider (OS X only)
+ * FONTCONFIG force a Fontconfig based font provider
+ *
+ * libass uses the best shaper available by default.
+ */
+typedef enum {
+    ASS_FONTPROVIDER_NONE       = 0,
+    ASS_FONTPROVIDER_AUTODETECT = 1,
+    ASS_FONTPROVIDER_CORETEXT,
+    ASS_FONTPROVIDER_FONTCONFIG,
+} ASS_DefaultFontProvider;
 
 /**
  * \brief Initialize the library.
@@ -312,6 +330,14 @@ void ass_set_line_spacing(ASS_Renderer *priv, double line_spacing);
 void ass_set_line_position(ASS_Renderer *priv, double line_position);
 
 /**
+ * \brief Get the list of available font providers.
+ * \return list of available font providers (user owns the returned array)
+ */
+void ass_get_available_font_providers(ASS_Library *priv,
+                                      ASS_DefaultFontProvider **providers,
+                                      size_t *size);
+
+/**
  * \brief Set font lookup defaults.
  * \param default_font path to default font to use. Must be supplied if
  * fontconfig is disabled or unavailable.
@@ -325,8 +351,8 @@ void ass_set_line_position(ASS_Renderer *priv, double line_position);
  * NOTE: font lookup must be configured before an ASS_Renderer can be used.
  */
 void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
-                   const char *default_family, int fc, const char *config,
-                   int update);
+                   const char *default_family, ASS_DefaultFontProvider dfp,
+                   const char *config, int update);
 
 /**
  * \brief Set selective style override mode.
@@ -374,6 +400,41 @@ void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style);
  * \return success
  */
 int ass_fonts_update(ASS_Renderer *priv);
+
+/**
+ * \brief Create an empty font provider. A font provider can be used to
+ * provide additional fonts to libass.
+ * \param priv parent renderer
+ * \param funcs callback functions
+ * \param private data for provider callbacks
+ *
+ */
+ASS_FontProvider *
+ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
+                         void *data);
+
+/**
+ * \brief Add a font to a font provider.
+ * \param provider the font provider
+ * \param meta font metadata. See struct definition for more information.
+ * \param path absolute path to font, or NULL for memory-based fonts
+ * \param index index inside a font collection file
+ * \param psname PostScript name of the face (overrides index if present)
+ * \param data private data for font callbacks
+ * \return success
+ *
+ */
+int
+ass_font_provider_add_font(ASS_FontProvider *provider,
+                           ASS_FontProviderMetaData *meta, const char *path,
+                           unsigned int index, const char *psname, void *data);
+
+/**
+ * \brief Free font provider and associated fonts.
+ * \param provider the font provider
+ *
+ */
+void ass_font_provider_free(ASS_FontProvider *provider);
 
 /**
  * \brief Set hard cache limits.  Do not set, or set to zero, for reasonable

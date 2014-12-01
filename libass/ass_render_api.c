@@ -135,8 +135,8 @@ void ass_set_line_position(ASS_Renderer *priv, double line_position)
 }
 
 void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
-                   const char *default_family, int fc, const char *config,
-                   int update)
+                   const char *default_family, ASS_DefaultFontProvider dfp,
+                   const char *config, int update)
 {
     free(priv->settings.default_font);
     free(priv->settings.default_family);
@@ -144,11 +144,10 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
     priv->settings.default_family =
         default_family ? strdup(default_family) : 0;
 
-    if (priv->fontconfig_priv)
-        fontconfig_done(priv->fontconfig_priv);
-    priv->fontconfig_priv =
-        fontconfig_init(priv->library, priv->ftlibrary, default_family,
-                        default_font, fc, config, update);
+    if (priv->fontselect)
+        ass_fontselect_free(priv->fontselect);
+    priv->fontselect = ass_fontselect_init(priv->library, priv->ftlibrary,
+            default_family, default_font, config, dfp);
 }
 
 void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits)
@@ -170,7 +169,8 @@ void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style)
 
 int ass_fonts_update(ASS_Renderer *render_priv)
 {
-    return fontconfig_update(render_priv->fontconfig_priv);
+    // This is just a stub now!
+    return 1;
 }
 
 void ass_set_cache_limits(ASS_Renderer *render_priv, int glyph_max,
@@ -179,4 +179,11 @@ void ass_set_cache_limits(ASS_Renderer *render_priv, int glyph_max,
     render_priv->cache.glyph_max = glyph_max ? glyph_max : GLYPH_CACHE_MAX;
     render_priv->cache.bitmap_max_size = bitmap_max ? 1048576 * bitmap_max :
                                          BITMAP_CACHE_MAX_SIZE;
+}
+
+ASS_FontProvider *
+ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
+                         void *data)
+{
+    return ass_font_provider_new(priv->fontselect, funcs, data);
 }
