@@ -685,11 +685,11 @@ FT_Vector ass_font_get_kerning(ASS_Font *font, uint32_t c1, uint32_t c2)
 void ass_font_free(ASS_Font *font)
 {
     int i;
+    if (font->shaper_priv)
+        ass_shaper_font_data_free(font->shaper_priv);
     for (i = 0; i < font->n_faces; ++i)
         if (font->faces[i])
             FT_Done_Face(font->faces[i]);
-    if (font->shaper_priv)
-        ass_shaper_font_data_free(font->shaper_priv);
     free(font->desc.family);
     free(font);
 }
