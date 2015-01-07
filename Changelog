@@ -1,3 +1,14 @@
+libass (0.12.1)
+ * Make ASS drawings with an extremely high number of control points work
+   This change increases compatibility with VSFilter.
+ * Bugfixes
+   * Fix a crash when using newer harfbuzz versions (GH #155)
+   * Load embedded memory fonts correctly
+   * Large shadow offsets rendered incorrectly (GH #142)
+   * Fix incorrect closing of last drawing contour
+   * Fix issues with undefined behavior in shifts
+   * Lots of of malloc() error checking
+
 libass (0.12.0)
  * Implement fast quad-tree rasterizer in C and SSE2/AVX2 assembly
  * Make \be animatable
