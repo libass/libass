@@ -1,6 +1,6 @@
-[![Build Status](https://api.travis-ci.org/libass/libass.png)](https://travis-ci.org/libass/libass)
+[![Build status](https://api.travis-ci.org/libass/libass.png)](https://travis-ci.org/libass/libass)
 
-[![Coverity Scan Build Status](https://scan.coverity.com/projects/3531/badge.svg)](https://scan.coverity.com/projects/3531)
+[![Coverity scan build status](https://scan.coverity.com/projects/3531/badge.svg)](https://scan.coverity.com/projects/3531)
 
 libass
 ======
@@ -8,9 +8,9 @@ libass is a portable subtitle renderer for the ASS/SSA (Advanced Substation Alph
 
 Get it
 ======
-See [Github releases](https://github.com/libass/libass/releases) for the latest release 0.11.2 (released 2014-04-25). This release contains bugfixes and compatibility fixes. See the [changelog](https://github.com/libass/libass/blob/master/Changelog) for a detailed list of changes.
+See [GitHub releases](https://github.com/libass/libass/releases) for the latest release 0.12.1 (released 2015-01-07). This release contains bugfixes and compatibility fixes. See the [changelog](https://github.com/libass/libass/blob/master/Changelog) for a detailed list of changes.
 
-Source code is available from our [Github repository](https://github.com/libass/libass).
+Source code is available from our [GitHub repository](https://github.com/libass/libass).
 
 Contact
 =======
@@ -24,9 +24,11 @@ The following projects/companies use libass:
 - [mplayer2](http://www.mplayer2.org/)
 - [mpv](http://mpv.io/)
 - [VLC](http://www.videolan.org/)
-- [GStreamer (assrender plugin)](http://www.gstreamer.org/)
+- [GStreamer](http://www.gstreamer.org/) (assrender plugin)
+- [Libav](http://libav.org/)
+- [FFmpeg](http://ffmpeg.org/)
 - [Aegisub](http://www.aegisub.net/)
-- [XBMC](http://xbmc.org/)
+- [Kodi (XBMC)](http://kodi.tv/)
 - [avidemux](http://fixounet.free.fr/avidemux/)
 - [PunkGraphicsStream (BD subtitle encoder)](http://code.google.com/p/punkgraphicstream/)
 - [HandBrake](http://handbrake.fr/)
@@ -37,11 +39,17 @@ Information about the ASS format:
 =================================
 - [ASS specification (incomplete)](http://moodub.free.fr/video/ass-specs.doc)
 - [ASS override tags (Aegisub wiki)](http://aegisub.cellosoft.com/docs/ASS_Tags)
-- [VSFilter source code (guliverkli2)](http://guliverkli2.svn.sourceforge.net/viewvc/guliverkli2/src/subtitles/)
+- [VSFilter source code (Guliverkli2)](http://sourceforge.net/p/guliverkli2/code/HEAD/tree/src/subtitles/)
 
 Other ASS/SSA implementations:
 ==============================
-- [xy-vsfilter/XySubFilter](https://code.google.com/p/xy-vsfilter/)
-- [VSFilter](http://sourceforge.net/projects/guliverkli2/)
-- [asa (defunct)](http://git.spaceboyz.net/asa.git)
-- [Perian (defunct)](http://perian.org/)
+- VSFilter:
+  - [xy-VSFilter/XySubFilter](https://code.google.com/p/xy-vsfilter/)
+  - VSFilter in [MPC-HC](http://mpc-hc.org/)
+  - [VSFilterMod](https://code.google.com/p/vsfiltermod/) (with custom format extensions)
+  - [Threaded VSFilter](https://code.google.com/p/threaded-vsfilter/) (defunct)
+  - VSFilter in [Guliverkli2](http://sourceforge.net/projects/guliverkli2/) (defunct, subsumed by all of the above)
+  - VSFilter in [guliverkli](http://sourceforge.net/projects/guliverkli/) (defunct, forked as Guliverkli2)
+- [ffdshow](http://ffdshow-tryout.sourceforge.net/)
+- [Perian](https://github.com/MaddTheSane/perian)
+- [asa](http://git.spaceboyz.net/asa.git) (defunct)
