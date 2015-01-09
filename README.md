@@ -27,7 +27,7 @@ The following projects/companies use libass:
 - [GStreamer](http://www.gstreamer.org/) (assrender plugin)
 - [Libav](http://libav.org/)
 - [FFmpeg](http://ffmpeg.org/)
-- [Aegisub](http://www.aegisub.net/)
+- [Aegisub](http://www.aegisub.org/)
 - [Kodi (XBMC)](http://kodi.tv/)
 - [avidemux](http://fixounet.free.fr/avidemux/)
 - [PunkGraphicsStream (BD subtitle encoder)](http://code.google.com/p/punkgraphicstream/)
@@ -38,7 +38,7 @@ The following projects/companies use libass:
 Information about the ASS format:
 =================================
 - [ASS specification (incomplete)](http://moodub.free.fr/video/ass-specs.doc)
-- [ASS override tags (Aegisub wiki)](http://aegisub.cellosoft.com/docs/ASS_Tags)
+- [ASS override tags (Aegisub manual)](http://docs.aegisub.org/latest/ASS_Tags/)
 - [VSFilter source code (Guliverkli2)](http://sourceforge.net/p/guliverkli2/code/HEAD/tree/src/subtitles/)
 
 Other ASS/SSA implementations:
