@@ -669,8 +669,11 @@ static int rasterizer_fill_level(ASS_Rasterizer *rst,
         return 1;
     }
     if (n == 1) {
+        static const int test = SEGFLAG_UL_DR | SEGFLAG_EXACT_LEFT;
+        if (((line->flags & test) != test) == !(line->flags & SEGFLAG_DN))
+            winding++;
+
         int flag = 0;
-        if (line->c < 0)winding++;
         if (winding)
             flag ^= 1;
         if (winding - 1)
