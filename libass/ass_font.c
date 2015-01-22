@@ -421,26 +421,10 @@ ASS_Outline *outline_convert(const FT_Outline *source)
         return NULL;
     }
 
-    //if (source->flags & FT_OUTLINE_REVERSE_FILL) {
-    if (FT_Outline_Get_Orientation((FT_Outline *)source) != FT_ORIENTATION_TRUETYPE) {
-        int prev = 0;
-        for (int i = 0; i < source->n_contours; ++i) {
-            int last = source->contours[i];
-            ol->contours[i] = last;
-            ol->points[prev] = source->points[prev];
-            ol->tags[prev] = source->tags[prev];
-            for (int j = 0; j < last - prev; ++j) {
-                ol->points[last - j] = source->points[prev + j + 1];
-                ol->tags[last - j] = source->tags[prev + j + 1];
-            }
-            prev = last + 1;
-        }
-    } else {
-        for (int i = 0; i < source->n_contours; ++i)
-            ol->contours[i] = source->contours[i];
-        memcpy(ol->points, source->points, sizeof(FT_Vector) * source->n_points);
-        memcpy(ol->tags, source->tags, source->n_points);
-    }
+    for (int i = 0; i < source->n_contours; ++i)
+        ol->contours[i] = source->contours[i];
+    memcpy(ol->points, source->points, sizeof(FT_Vector) * source->n_points);
+    memcpy(ol->tags, source->tags, source->n_points);
     ol->n_contours = source->n_contours;
     ol->n_points = source->n_points;
     return ol;
@@ -713,22 +697,20 @@ get_contour_cbox(FT_BBox *box, FT_Vector *points, int start, int end)
 }
 
 /**
- * \brief Determine winding direction of a contour
- * \return direction; 0 = clockwise
+ * \brief Determine signed area of a contour
+ * \return area doubled
  */
-static int get_contour_direction(FT_Vector *points, int start, int end)
+static long long get_contour_area(FT_Vector *points, int start, int end)
 {
-    int i;
-    long long sum = 0;
-    int x = points[start].x;
-    int y = points[start].y;
-    for (i = start + 1; i <= end; i++) {
-        sum += x * (points[i].y - y) - y * (points[i].x - x);
+    long long area = 0;
+    int x = points[end].x;
+    int y = points[end].y;
+    for (int i = start; i <= end; i++) {
+        area += (long long)(points[i].x + x) * (points[i].y - y);
         x = points[i].x;
         y = points[i].y;
     }
-    sum += x * (points[start].y - y) - y * (points[start].x - x);
-    return sum > 0;
+    return area;
 }
 
 void outline_translate(const ASS_Outline *outline, FT_Pos dx, FT_Pos dy)
@@ -795,12 +777,15 @@ void fix_freetype_stroker(ASS_Outline *outline, int border_x, int border_y)
     FT_BBox *boxes = malloc(nc * sizeof(FT_BBox));
     int i, j;
 
+    long long area = 0;
     // create a list of cboxes of the contours
     for (i = 0; i < nc; i++) {
         start = end + 1;
         end = outline->contours[i];
         get_contour_cbox(&boxes[i], outline->points, start, end);
+        area += get_contour_area(outline->points, start, end);
     }
+    int inside_direction = area < 0;
 
     // for each contour, check direction and whether it's "outside"
     // or contained in another contour
@@ -808,9 +793,9 @@ void fix_freetype_stroker(ASS_Outline *outline, int border_x, int border_y)
     for (i = 0; i < nc; i++) {
         start = end + 1;
         end = outline->contours[i];
-        int dir = get_contour_direction(outline->points, start, end);
+        int dir = get_contour_area(outline->points, start, end) > 0;
         valid_cont[i] = 1;
-        if (dir) {
+        if (dir == inside_direction) {
             for (j = 0; j < nc; j++) {
                 if (i == j)
                     continue;
@@ -834,7 +819,7 @@ void fix_freetype_stroker(ASS_Outline *outline, int border_x, int border_y)
             dir ^= 1;
         }
         check_inside:
-        if (dir) {
+        if (dir == inside_direction) {
             FT_BBox box;
             get_contour_cbox(&box, outline->points, start, end);
             int width = box.xMax - box.xMin;
