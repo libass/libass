@@ -56,18 +56,14 @@ void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
 
 /**
  * \brief perform glyph rendering
- * \param glyph original glyph
- * \param outline_glyph "border" glyph, produced from original by FreeType's glyph stroker
+ * \param outline original glyph
+ * \param border "border" glyph, produced from outline by FreeType's glyph stroker
  * \param bm_g out: pointer to the bitmap of original glyph is returned here
- * \param bm_o out: pointer to the bitmap of outline (border) glyph is returned here
- * \param bm_g out: pointer to the bitmap of glyph shadow is returned here
- * \param be 1 = produces blurred bitmaps, 0 = normal bitmaps
- * \param border_visible whether border is visible if border_style is 3
+ * \param bm_o out: pointer to the bitmap of border glyph is returned here
  */
-int outline_to_bitmap3(ASS_Renderer *render_priv, ASS_Outline *outline, ASS_Outline *border,
-                       Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
-                       int be, double blur_radius, FT_Vector shadow_offset,
-                       int border_style, int border_visible);
+int outline_to_bitmap2(ASS_Renderer *render_priv,
+                       ASS_Outline *outline, ASS_Outline *border,
+                       Bitmap **bm_g, Bitmap **bm_o);
 
 void ass_free_bitmap(Bitmap *bm);
 void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,

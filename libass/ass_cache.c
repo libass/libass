@@ -81,8 +81,6 @@ static void bitmap_destruct(void *key, void *value)
         ass_free_bitmap(v->bm);
     if (v->bm_o)
         ass_free_bitmap(v->bm_o);
-    if (v->bm_s)
-        ass_free_bitmap(v->bm_s);
     if (k->type == BITMAP_CLIP)
         free(k->u.clip.text);
     free(key);
@@ -92,11 +90,12 @@ static void bitmap_destruct(void *key, void *value)
 static size_t bitmap_size(void *value, size_t value_size)
 {
     BitmapHashValue *val = value;
+    size_t size = sizeof(BitmapHashKey) + sizeof(BitmapHashValue);
+    if (val->bm)
+        size += sizeof(Bitmap) + val->bm->stride * val->bm->h;
     if (val->bm_o)
-        return val->bm_o->w * val->bm_o->h * 3;
-    else if (val->bm)
-        return val->bm->w * val->bm->h * 3;
-    return 0;
+        size += sizeof(Bitmap) + val->bm_o->stride * val->bm_o->h;
+    return size;
 }
 
 static unsigned bitmap_hash(void *key, size_t key_size)
@@ -132,7 +131,7 @@ static void composite_destruct(void *key, void *value)
         ass_free_bitmap(v->bm_o);
     if (v->bm_s)
         ass_free_bitmap(v->bm_s);
-    free(k->str.data);
+    free(k->bitmaps);
     free(key);
     free(value);
 }
@@ -140,11 +139,41 @@ static void composite_destruct(void *key, void *value)
 static size_t composite_size(void *value, size_t value_size)
 {
     CompositeHashValue *val = value;
+    size_t size = sizeof(CompositeHashKey) + sizeof(CompositeHashValue);
+    if (val->bm)
+        size += sizeof(Bitmap) + val->bm->stride * val->bm->h;
     if (val->bm_o)
-        return val->bm_o->w * val->bm_o->h * 3;
-    else if (val->bm)
-        return val->bm->w * val->bm->h * 3;
-    return 0;
+        size += sizeof(Bitmap) + val->bm_o->stride * val->bm_o->h;
+    if (val->bm_s)
+        size += sizeof(Bitmap) + val->bm_s->stride * val->bm_s->h;
+    return size;
+}
+
+static unsigned composite_hash(void *key, size_t key_size)
+{
+    CompositeHashKey *k = key;
+    unsigned hval = filter_hash(&k->filter, key_size);
+    for (size_t i = 0; i < k->bitmap_count; ++i) {
+        hval = fnv_32a_buf(&k->bitmaps[i].image, sizeof(k->bitmaps[i].image), hval);
+        hval = fnv_32a_buf(&k->bitmaps[i].x, sizeof(k->bitmaps[i].x), hval);
+        hval = fnv_32a_buf(&k->bitmaps[i].y, sizeof(k->bitmaps[i].y), hval);
+    }
+    return hval;
+}
+
+static unsigned composite_compare(void *a, void *b, size_t key_size)
+{
+    CompositeHashKey *ak = a;
+    CompositeHashKey *bk = b;
+    if (ak->bitmap_count != bk->bitmap_count)
+        return 0;
+    for (size_t i = 0; i < ak->bitmap_count; ++i) {
+        if (ak->bitmaps[i].image != bk->bitmaps[i].image ||
+            ak->bitmaps[i].x != bk->bitmaps[i].x ||
+            ak->bitmaps[i].y != bk->bitmaps[i].y)
+            return 0;
+    }
+    return filter_compare(&ak->filter, &bk->filter, key_size);
 }
 
 // outline cache

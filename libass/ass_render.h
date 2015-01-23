@@ -107,48 +107,29 @@ typedef enum {
     EF_KARAOKE_KO
 } Effect;
 
+typedef struct
+{
+    int x_min, y_min, x_max, y_max;
+} Rectangle;
+
 // describes a combined bitmap
 typedef struct {
-    Bitmap *bm;                 // glyphs bitmap
-    unsigned w;
-    unsigned h;
-    Bitmap *bm_o;               // outline bitmap
-    unsigned o_w;
-    unsigned o_h;
-    Bitmap *bm_s;               // shadow bitmap
-    FT_Vector pos;
+    FilterDesc filter;
     uint32_t c[4];              // colors
-    FT_Vector advance;          // 26.6
     Effect effect_type;
     int effect_timing;          // time duration of current karaoke word
     // after process_karaoke_effects: distance in pixels from the glyph origin.
     // part of the glyph to the left of it is displayed in a different color.
-    int be;                     // blur edges
-    double blur;                // gaussian blur
-    double shadow_x;
-    double shadow_y;
-    double frx, fry, frz;       // rotation
-    double fax, fay;            // text shearing
-    double scale_x, scale_y;
-    int border_style;
-    int has_border;
-    double border_x, border_y;
-    double hspacing;
-    unsigned italic;
-    unsigned bold;
-    int flags;
-    int shift_x, shift_y;
 
-    unsigned has_outline;
-    unsigned is_drawing;
-
-    int max_str_length;
-    int str_length;
-    unsigned chars;
-    char *str;
-    int cached;
-    FT_Vector pos_orig;
     int first_pos_x;
+
+    size_t bitmap_count, max_bitmap_count;
+    BitmapRef *bitmaps;
+
+    int x, y;
+    Rectangle rect, rect_o;
+    Bitmap *bm, *bm_o, *bm_s;   // glyphs, outline, shadow bitmaps
+    size_t n_bm, n_bm_o;
 } CombinedBitmapInfo;
 
 // describes a glyph
@@ -168,9 +149,6 @@ typedef struct glyph_info {
     ASS_Drawing *drawing;
     ASS_Outline *outline;
     ASS_Outline *border;
-    Bitmap *bm;                 // glyph bitmap
-    Bitmap *bm_o;               // outline bitmap
-    Bitmap *bm_s;               // shadow bitmap
     FT_BBox bbox;
     FT_Vector pos;
     FT_Vector offset;
@@ -200,10 +178,10 @@ typedef struct glyph_info {
     unsigned bold;
     int flags;
 
-    int bm_run_id;
     int shape_run_id;
 
     BitmapHashKey hash_key;
+    BitmapHashValue *image;
 
     // next glyph in this cluster
     struct glyph_info *next;
@@ -276,9 +254,6 @@ typedef struct {
     Effect effect_type;
     int effect_timing;
     int effect_skip_timing;
-
-    // bitmap run id (used for final bitmap rendering)
-    int bm_run_id;
 
     enum {
         SCROLL_LR,              // left-to-right

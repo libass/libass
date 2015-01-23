@@ -70,8 +70,6 @@
 // describes an outline bitmap
 START(outline_bitmap, outline_bitmap_hash_key)
     GENERIC(OutlineHashValue *, outline)
-    GENERIC(char, be) // blur edges
-    GENERIC(double, blur) // gaussian blur
     GENERIC(int, frx) // signed 16.16
     GENERIC(int, fry) // signed 16.16
     GENERIC(int, frz) // signed 16.16
@@ -83,7 +81,6 @@ START(outline_bitmap, outline_bitmap_hash_key)
     GENERIC(int, shift_x)
     GENERIC(int, shift_y)
     FTVECTOR(advance) // subpixel shift vector
-    FTVECTOR(shadow_offset) // shadow subpixel shift
 END(OutlineBitmapHashKey)
 
 // describe a clip mask bitmap
@@ -129,39 +126,13 @@ START(drawing, drawing_hash_key)
     STRING(text)
 END(DrawingHashKey)
 
-// Cache for composited bitmaps
-START(composite, composite_hash_key)
-    GENERIC(unsigned, w)
-    GENERIC(unsigned, h)
-    GENERIC(unsigned, o_w)
-    GENERIC(unsigned, o_h)
-    GENERIC(int, is_drawing)
-    GENERIC(unsigned, chars)
+// describes post-combining effects
+START(filter, filter_desc)
+    GENERIC(int, flags)
     GENERIC(int, be)
     GENERIC(double, blur)
-    GENERIC(int, border_style)
-    GENERIC(int, has_border)
-    GENERIC(double, border_x)
-    GENERIC(double, border_y)
-    GENERIC(double, shadow_x)
-    GENERIC(double, shadow_y)
-    GENERIC(double, frx)
-    GENERIC(double, fry)
-    GENERIC(double, frz)
-    GENERIC(double, fax)
-    GENERIC(double, fay)
-    GENERIC(double, scale_x)
-    GENERIC(double, scale_y)
-    GENERIC(double, hspacing)
-    GENERIC(unsigned, italic)
-    GENERIC(unsigned, bold)
-    GENERIC(int, flags)
-    GENERIC(unsigned, has_outline)
-    GENERIC(int, shift_x)
-    GENERIC(int, shift_y)
-    FTVECTOR(advance)
-    BINSTRING(str)
-END(CompositeHashKey)
+    FTVECTOR(shadow)
+END(FilterDesc)
 
 #undef START
 #undef GENERIC

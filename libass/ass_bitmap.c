@@ -707,30 +707,21 @@ void be_blur_c(uint8_t *buf, intptr_t w,
     }
 }
 
-int outline_to_bitmap3(ASS_Renderer *render_priv,
+int outline_to_bitmap2(ASS_Renderer *render_priv,
                        ASS_Outline *outline, ASS_Outline *border,
-                       Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
-                       int be, double blur_radius, FT_Vector shadow_offset,
-                       int border_style, int border_visible)
+                       Bitmap **bm_g, Bitmap **bm_o)
 {
-    blur_radius *= 2;
-    int bbord = be > 0 ? sqrt(2 * be) : 0;
-    int gbord = blur_radius > 0.0 ? FFMIN(blur_radius + 1, INT_MAX) : 0;
-    int bord = FFMAX(bbord, gbord);
-    if (bord == 0 && (shadow_offset.x || shadow_offset.y))
-        bord = 1;
+    assert(bm_g && bm_o);
 
-    assert(bm_g && bm_o && bm_s);
-
-    *bm_g = *bm_o = *bm_s = 0;
+    *bm_g = *bm_o = NULL;
 
     if (outline)
-        *bm_g = outline_to_bitmap(render_priv, outline, bord);
+        *bm_g = outline_to_bitmap(render_priv, outline, 1);
     if (!*bm_g)
         return 1;
 
     if (border) {
-        *bm_o = outline_to_bitmap(render_priv, border, bord);
+        *bm_o = outline_to_bitmap(render_priv, border, 1);
         if (!*bm_o) {
             return 1;
         }
