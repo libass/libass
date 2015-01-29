@@ -1148,7 +1148,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
     OutlineHashValue *val;
     OutlineHashKey key;
 
-    memset(&info->hash_key, 0, sizeof(key));
+    memset(&info->hash_key, 0, sizeof(info->hash_key));
 
     fill_glyph_hash(priv, &key, info);
     val = ass_cache_get(priv->cache.outline_cache, &key);
