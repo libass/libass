@@ -657,10 +657,6 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     }
 }
 
-static inline int is_skip_symbol(uint32_t x)
-{
-    return (x == 0 || x == '\n' || x == '\r');
-}
 /**
  * \brief Convert TextInfo struct to ASS_Image list
  * Splits glyphs in halves when needed (for \kf karaoke).
