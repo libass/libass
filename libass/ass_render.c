@@ -2257,7 +2257,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             continue;
         }
 
-        int bbord = info->filter.be > 0 ? sqrt(2 * info->filter.be) : 0;
+        int bbord = be_padding(info->filter.be);
         int gbord = info->filter.blur > 0.0 ? FFMIN(info->filter.blur + 1, INT_MAX) : 0;
         int bord = FFMAX(bbord, gbord);
 

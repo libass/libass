@@ -69,6 +69,7 @@ void ass_free_bitmap(Bitmap *bm);
 void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
                     int width, int height, int stride,
                     unsigned *m2, int r, int mwidth);
+int be_padding(int be);
 void be_blur_c(uint8_t *buf, intptr_t w,
                intptr_t h, intptr_t stride,
                uint16_t *tmp);
