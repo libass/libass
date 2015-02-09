@@ -126,7 +126,8 @@ static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
 {
     if (w >= INT_MAX || (w + 1) > SIZE_MAX / 2 / sizeof(unsigned) / FFMAX(h, 1))
         return false;
-    size_t needed = sizeof(unsigned) * (w + 1) * h;
+    size_t needed = FFMAX(sizeof(unsigned) * (w + 1) * h,
+                          sizeof(uint16_t) * ass_align(32, w) * 2);
     if (priv->tmp && priv->tmp_allocated >= needed)
         return true;
 
