@@ -651,7 +651,7 @@ void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
 }
 
 /**
- * \brief Blur with [[1,2,1]. [2,4,2], [1,2,1]] kernel
+ * \brief Blur with [[1,2,1], [2,4,2], [1,2,1]] kernel
  * This blur is the same as the one employed by vsfilter.
  * Pure C implementation.
  */
@@ -659,12 +659,11 @@ void be_blur_c(uint8_t *buf, intptr_t w,
                intptr_t h, intptr_t stride,
                uint16_t *tmp)
 {
-    unsigned short *col_pix_buf = tmp;
-    unsigned short *col_sum_buf = tmp + w * sizeof(unsigned short);
+    uint16_t *col_pix_buf = tmp;
+    uint16_t *col_sum_buf = tmp + w;
     unsigned x, y, old_pix, old_sum, temp1, temp2;
-    unsigned char *src, *dst;
-    memset(col_pix_buf, 0, w * sizeof(unsigned short));
-    memset(col_sum_buf, 0, w * sizeof(unsigned short));
+    uint8_t *src, *dst;
+    memset(tmp, 0, sizeof(uint16_t) * w * 2);
     y = 0;
 
     {
