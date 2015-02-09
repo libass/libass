@@ -116,12 +116,21 @@ SECTION .text
 
 ;------------------------------------------------------------------------------
 ; FILL_SOLID_TILE tile_order, suffix
-; void fill_solid_tile%2(uint8_t *buf, ptrdiff_t stride);
+; void fill_solid_tile%2(uint8_t *buf, ptrdiff_t stride, int set);
 ;------------------------------------------------------------------------------
 
 %macro FILL_SOLID_TILE 2
-cglobal fill_solid_tile%2, 2,2,1
-    pcmpeqd m0, m0
+cglobal fill_solid_tile%2, 3,4,1
+    mov r3d, -1
+    test r2d, r2d
+    cmovnz r2d, r3d
+    movd xm0, r2d
+%if mmsize == 32
+    vpbroadcastd m0, xm0
+%else
+    pshufd m0, m0, q0000
+%endif
+
 %rep (1 << %1) - 1
     FILL_LINE r0, 0, 1 << %1
     add r0, r1

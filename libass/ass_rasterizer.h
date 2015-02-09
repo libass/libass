@@ -43,15 +43,15 @@ struct segment {
 };
 
 
-typedef void (*FillSolidTileFunc)(uint8_t *buf, ptrdiff_t stride);
+typedef void (*FillSolidTileFunc)(uint8_t *buf, ptrdiff_t stride, int set);
 typedef void (*FillHalfplaneTileFunc)(uint8_t *buf, ptrdiff_t stride,
                                       int32_t a, int32_t b, int64_t c, int32_t scale);
 typedef void (*FillGenericTileFunc)(uint8_t *buf, ptrdiff_t stride,
                                     const struct segment *line, size_t n_lines,
                                     int winding);
 
-void ass_fill_solid_tile16_c(uint8_t *buf, ptrdiff_t stride);
-void ass_fill_solid_tile32_c(uint8_t *buf, ptrdiff_t stride);
+void ass_fill_solid_tile16_c(uint8_t *buf, ptrdiff_t stride, int set);
+void ass_fill_solid_tile32_c(uint8_t *buf, ptrdiff_t stride, int set);
 void ass_fill_halfplane_tile16_c(uint8_t *buf, ptrdiff_t stride,
                                  int32_t a, int32_t b, int64_t c, int32_t scale);
 void ass_fill_halfplane_tile32_c(uint8_t *buf, ptrdiff_t stride,

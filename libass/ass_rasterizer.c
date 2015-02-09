@@ -592,7 +592,8 @@ static int polyline_split_vert(const struct segment *src, size_t n_src,
 
 
 static inline void rasterizer_fill_solid(ASS_Rasterizer *rst,
-                                         uint8_t *buf, int width, int height, ptrdiff_t stride)
+                                         uint8_t *buf, int width, int height, ptrdiff_t stride,
+                                         int set)
 {
     assert(!(width  & ((1 << rst->tile_order) - 1)));
     assert(!(height & ((1 << rst->tile_order) - 1)));
@@ -604,7 +605,7 @@ static inline void rasterizer_fill_solid(ASS_Rasterizer *rst,
     height >>= rst->tile_order;
     for (j = 0; j < height; ++j) {
         for (i = 0; i < width; ++i)
-            rst->fill_solid(buf + i * step, stride);
+            rst->fill_solid(buf + i * step, stride, set);
         buf += tile_stride;
     }
 }
@@ -637,8 +638,9 @@ static inline void rasterizer_fill_halfplane(ASS_Rasterizer *rst,
             int64_t abs_c = offs_c < 0 ? -offs_c : offs_c;
             if (abs_c < size)
                 rst->fill_halfplane(buf + i * step, stride, a, b, cc, scale);
-            else if (((uint32_t)(offs_c >> 32) ^ scale) & 0x80000000)
-                rst->fill_solid(buf + i * step, stride);
+            else
+                rst->fill_solid(buf + i * step, stride,
+                                ((uint32_t)(offs_c >> 32) ^ scale) & 0x80000000);
         }
         buf += tile_stride;
     }
@@ -664,8 +666,7 @@ static int rasterizer_fill_level(ASS_Rasterizer *rst,
     size_t n = rst->size[index] - offs;
     struct segment *line = rst->linebuf[index] + offs;
     if (!n) {
-        if (winding)
-            rasterizer_fill_solid(rst, buf, width, height, stride);
+        rasterizer_fill_solid(rst, buf, width, height, stride, winding);
         return 1;
     }
     if (n == 1) {
@@ -682,8 +683,8 @@ static int rasterizer_fill_level(ASS_Rasterizer *rst,
             rasterizer_fill_halfplane(rst, buf, width, height, stride,
                                       line->a, line->b, line->c,
                                       flag & 2 ? -line->scale : line->scale);
-        else if (flag & 2)
-            rasterizer_fill_solid(rst, buf, width, height, stride);
+        else
+            rasterizer_fill_solid(rst, buf, width, height, stride, flag & 2);
         rst->size[index] = offs;
         return 1;
     }
