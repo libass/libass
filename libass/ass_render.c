@@ -782,12 +782,12 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     new->Underline = rstyle->Underline;
     new->Angle = rstyle->Angle;
 
-    new->MarginL = script->MarginL;
-    new->MarginR = script->MarginR;
-    new->MarginV = script->MarginV;
-    new->Alignment = script->Alignment;
-    new->Encoding = script->Encoding;
-    new->treat_fontname_as_pattern = script->treat_fontname_as_pattern;
+    new->MarginL = rstyle->MarginL;
+    new->MarginR = rstyle->MarginR;
+    new->MarginV = rstyle->MarginV;
+    new->Alignment = rstyle->Alignment;
+    new->Encoding = rstyle->Encoding;
+    new->treat_fontname_as_pattern = rstyle->treat_fontname_as_pattern;
 
     // The user style is supposed to be independent of the script resolution.
     // Treat the user style's values as if they were specified for a script with
