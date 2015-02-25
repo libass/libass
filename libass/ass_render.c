@@ -778,6 +778,7 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     // script's style that are deemed necessary.
     *new = render_priv->user_override_style;
 
+    new->Bold = rstyle->Bold;
     new->StrikeOut = rstyle->StrikeOut;
     new->Underline = rstyle->Underline;
     new->Angle = rstyle->Angle;
@@ -787,7 +788,6 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     new->MarginV = rstyle->MarginV;
     new->Alignment = rstyle->Alignment;
     new->Encoding = rstyle->Encoding;
-    new->treat_fontname_as_pattern = rstyle->treat_fontname_as_pattern;
 
     // The user style is supposed to be independent of the script resolution.
     // Treat the user style's values as if they were specified for a script with
