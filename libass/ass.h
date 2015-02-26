@@ -23,7 +23,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01201000
+#define LIBASS_VERSION 0x01201001
 
 #ifdef __cplusplus
 extern "C" {
@@ -96,8 +96,75 @@ typedef enum {
  * ass_set_selective_style_override_enabled() for details.
  */
 typedef enum {
-    ASS_OVERRIDE_BIT_STYLE = 1,
-    ASS_OVERRIDE_BIT_FONT_SIZE = 2,
+    /**
+     * Default mode (with no other bits set). All selective override features
+     * as well as the style set with ass_set_selective_style_override() are
+     * disabled, but traditional overrides like ass_set_font_scale() are
+     * applied unconditionally.
+     */
+    ASS_OVERRIDE_DEFAULT = 0,
+    /**
+     * Apply the style as set with ass_set_selective_style_override() on events
+     * which look like dialogue. Other style overrides are also applied this
+     * way, except ass_set_font_scale(). How ass_set_font_scale() is applied
+     * depends on the ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE flag.
+     *
+     * This is equivalent to setting all of the following bits:
+     *
+     * ASS_OVERRIDE_BIT_FONT_NAME
+     * ASS_OVERRIDE_BIT_FONT_SIZE_FIELDS
+     * ASS_OVERRIDE_BIT_COLORS
+     * ASS_OVERRIDE_BIT_BORDER
+     * ASS_OVERRIDE_BIT_ATTRIBUTES
+     */
+    ASS_OVERRIDE_BIT_STYLE = 1 << 0,
+    /**
+     * Apply ass_set_font_scale() only on events which look like dialogue.
+     * If not set, the font scale is applied to all events. (The behavior and
+     * name of this flag are unintuitive, but exist for compatibility)
+     */
+    ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE = 1 << 1,
+    /**
+     * Old alias for ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE. Deprecated. Do not use.
+     */
+    ASS_OVERRIDE_BIT_FONT_SIZE = 1 << 1,
+    /**
+     * On dialogue events override: FontSize, Spacing, Blur, ScaleX, ScaleY
+     */
+    ASS_OVERRIDE_BIT_FONT_SIZE_FIELDS = 1 << 2,
+    /**
+     * On dialogue events override: FontName, treat_fontname_as_pattern
+     */
+    ASS_OVERRIDE_BIT_FONT_NAME = 1 << 3,
+    /**
+     * On dialogue events override: PrimaryColour, SecondaryColour, OutlineColour, BackColour
+     */
+    ASS_OVERRIDE_BIT_COLORS = 1 << 4,
+    /**
+     * On dialogue events override: Bold, Italic, Underline, StrikeOut
+     */
+    ASS_OVERRIDE_BIT_ATTRIBUTES = 1 << 5,
+    /**
+     * On dialogue events override: BorderStyle, Outline, Shadow
+     */
+    ASS_OVERRIDE_BIT_BORDER = 1 << 6,
+    /**
+     * On dialogue events override: Alignment
+     */
+    ASS_OVERRIDE_BIT_ALIGNMENT = 1 << 7,
+    /**
+     * On dialogue events override: MarginL, MarginR, MarginV
+     */
+    ASS_OVERRIDE_BIT_MARGINS = 1 << 8,
+    /**
+     * Unconditionally replace all fields of all styles with the one provided
+     * with ass_set_selective_style_override().
+     * Does not apply ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE.
+     * Add ASS_OVERRIDE_BIT_FONT_SIZE_FIELDS and ASS_OVERRIDE_BIT_BORDER if
+     * you want FontSize, Spacing, Outline, Shadow to be scaled to the script
+     * resolution given by the ASS_Track.
+     */
+    ASS_OVERRIDE_FULL_STYLE = 1 << 9,
 } ASS_OverrideBits;
 
 /**
@@ -345,19 +412,7 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
  *          only be implemented on "best effort" basis, and has to rely on
  *          heuristics that can easily break.
  * \param priv renderer handle
- * \param bits bit mask comprised of ASS_OverrideBits values. If the value is
- *  0, all override features are disabled, and libass will behave like libass
- *  versions before this feature was introduced. Possible values:
- *      ASS_OVERRIDE_BIT_STYLE: apply the style as set with
- *          ass_set_selective_style_override() on events which look like
- *          dialogue. Other style overrides are also applied this way, except
- *          ass_set_font_scale(). How ass_set_font_scale() is applied depends
- *          on the ASS_OVERRIDE_BIT_FONT_SIZE flag.
- *      ASS_OVERRIDE_BIT_FONT_SIZE: apply ass_set_font_scale() only on events
- *          which look like dialogue. If not set, it is applied to all
- *          events.
- *      0: ignore ass_set_selective_style_override(), but apply all other
- *          overrides (traditional behavior).
+ * \param bits bit mask comprised of ASS_OverrideBits values.
  */
 void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits);
 

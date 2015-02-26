@@ -85,7 +85,7 @@ typedef struct {
     double par;                 // user defined pixel aspect ratio (0 = unset)
     ASS_Hinting hinting;
     ASS_ShapingLevel shaper;
-    int selective_style_overrides;
+    int selective_style_overrides; // ASS_OVERRIDE_* flags
 
     char *default_font;
     char *default_family;
@@ -273,6 +273,8 @@ typedef struct {
 
     // combination of ASS_OVERRIDE_BIT_* flags that apply right now
     unsigned overrides;
+    // whether to apply font_scale
+    int apply_font_scale;
 
     // used to store RenderContext.style when doing selective style overrides
     ASS_Style override_style_temp_storage;
