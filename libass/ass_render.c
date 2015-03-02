@@ -756,7 +756,7 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     // The user style was set with ass_set_selective_style_override().
     ASS_Style *user = &render_priv->user_override_style;
     ASS_Style *new = &render_priv->state.override_style_temp_storage;
-    int explicit = event_is_positioned(render_priv->state.event->Text);
+    int explicit = event_has_hard_overrides(render_priv->state.event->Text);
     int requested = render_priv->settings.selective_style_overrides;
     double scale;
 

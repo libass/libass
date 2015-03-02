@@ -1070,9 +1070,9 @@ unsigned get_next_char(ASS_Renderer *render_priv, char **str)
     return chr;
 }
 
-// Return 1 if the event contains tags that will put the renderer into the
-// EVENT_POSITIONED state. Return 0 otherwise.
-int event_is_positioned(char *str)
+// Return 1 if the event contains tags that will apply overrides the selective
+// style override code should not touch. Return 0 otherwise.
+int event_has_hard_overrides(char *str)
 {
     // look for \pos and \move tags inside {...}
     // mirrors get_next_char, but is faster and doesn't change any global state
@@ -1084,7 +1084,10 @@ int event_is_positioned(char *str)
             while (*str && *str != '}') {
                 if (*str == '\\') {
                     char *p = str + 1;
-                    if (mystrcmp(&p, "pos") || mystrcmp(&p, "move"))
+                    if (mystrcmp(&p, "pos") || mystrcmp(&p, "move") ||
+                        mystrcmp(&p, "clip") || mystrcmp(&p, "iclip") ||
+                        mystrcmp(&p, "org") || mystrcmp(&p, "pbo") ||
+                        mystrcmp(&p, "p"))
                         return 1;
                 }
                 str++;
