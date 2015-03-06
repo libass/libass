@@ -756,7 +756,8 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     // The user style was set with ass_set_selective_style_override().
     ASS_Style *user = &render_priv->user_override_style;
     ASS_Style *new = &render_priv->state.override_style_temp_storage;
-    int explicit = event_has_hard_overrides(render_priv->state.event->Text);
+    int explicit = event_has_hard_overrides(render_priv->state.event->Text) ||
+                   render_priv->state.evt_type != EVENT_NORMAL;
     int requested = render_priv->settings.selective_style_overrides;
     double scale;
 
@@ -925,11 +926,11 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.event = event;
     render_priv->state.parsed_tags = 0;
     render_priv->state.has_clips = 0;
+    render_priv->state.evt_type = EVENT_NORMAL;
 
     reset_render_context(render_priv, NULL);
     render_priv->state.wrap_style = render_priv->track->WrapStyle;
 
-    render_priv->state.evt_type = EVENT_NORMAL;
     render_priv->state.alignment = render_priv->state.style->Alignment;
     render_priv->state.pos_x = 0;
     render_priv->state.pos_y = 0;
