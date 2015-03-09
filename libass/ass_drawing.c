@@ -140,6 +140,7 @@ static ASS_DrawingToken *drawing_tokenize(char *str)
     ASS_DrawingToken *root = NULL, *tail = NULL, *spline_start = NULL;
 
     while (p && *p) {
+        int got_coord = 0;
         if (*p == 'c' && spline_start) {
             // Close b-splines: add the first three points of the b-spline
             // back to the end
@@ -157,10 +158,12 @@ static ASS_DrawingToken *drawing_tokenize(char *str)
         } else if (!is_set && mystrtod(&p, &val)) {
             point.x = double_to_d6(val);
             is_set = 1;
+            got_coord = 1;
             p--;
         } else if (is_set == 1 && mystrtod(&p, &val)) {
             point.y = double_to_d6(val);
             is_set = 2;
+            got_coord = 1;
             p--;
         } else if (*p == 'm')
             type = TOKEN_MOVE;
@@ -177,6 +180,10 @@ static ASS_DrawingToken *drawing_tokenize(char *str)
         // We're simply ignoring TOKEN_EXTEND_B_SPLINE here.
         // This is not harmful at all, since it can be ommitted with
         // similar result (the spline is extended anyway).
+
+        // Ignore the odd extra value, it makes no sense.
+        if (!got_coord)
+            is_set = 0;
 
         if (type != -1 && is_set == 2) {
             if (root) {
