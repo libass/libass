@@ -163,7 +163,7 @@ static inline int double_to_d22(double x)
 // Calculate cache key for a rotational angle in degrees
 static inline int rot_key(double a)
 {
-    return double_to_d22(fmod(a, M_PI));
+    return double_to_d22(remainder(a, 2 * M_PI));
 }
 
 #define FNV1_32A_INIT 0x811c9dc5U
