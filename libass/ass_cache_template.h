@@ -70,9 +70,9 @@
 // describes an outline bitmap
 START(outline_bitmap, outline_bitmap_hash_key)
     GENERIC(OutlineHashValue *, outline)
-    GENERIC(int, frx) // signed 16.16
-    GENERIC(int, fry) // signed 16.16
-    GENERIC(int, frz) // signed 16.16
+    GENERIC(int, frx) // signed 10.22
+    GENERIC(int, fry) // signed 10.22
+    GENERIC(int, frz) // signed 10.22
     GENERIC(int, fax) // signed 16.16
     GENERIC(int, fay) // signed 16.16
     // shift vector that was added to glyph before applying rotation

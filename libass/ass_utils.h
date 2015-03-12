@@ -26,6 +26,7 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <math.h>
 
 #include "config.h"
 
@@ -162,8 +163,7 @@ static inline int double_to_d22(double x)
 // Calculate cache key for a rotational angle in degrees
 static inline int rot_key(double a)
 {
-    const int m = double_to_d22(360.0);
-    return double_to_d22(a) % m;
+    return double_to_d22(fmod(a, M_PI));
 }
 
 #define FNV1_32A_INIT 0x811c9dc5U
