@@ -238,20 +238,14 @@ static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
 /**
  * \brief Mapping between script and screen coordinates
  */
-static double x2scr(ASS_Renderer *render_priv, double x)
-{
-    return x * render_priv->orig_width_nocrop / render_priv->font_scale_x /
-        render_priv->track->PlayResX +
-        FFMAX(render_priv->settings.left_margin, 0);
-}
 static double x2scr_pos(ASS_Renderer *render_priv, double x)
 {
     return x * render_priv->orig_width / render_priv->font_scale_x / render_priv->track->PlayResX +
         render_priv->settings.left_margin;
 }
-static double x2scr_scaled(ASS_Renderer *render_priv, double x)
+static double x2scr(ASS_Renderer *render_priv, double x)
 {
-    return x * render_priv->orig_width_nocrop /
+    return x * render_priv->orig_width_nocrop / render_priv->font_scale_x /
         render_priv->track->PlayResX +
         FFMAX(render_priv->settings.left_margin, 0);
 }
@@ -260,19 +254,25 @@ static double x2scr_pos_scaled(ASS_Renderer *render_priv, double x)
     return x * render_priv->orig_width / render_priv->track->PlayResX +
         render_priv->settings.left_margin;
 }
+static double x2scr_scaled(ASS_Renderer *render_priv, double x)
+{
+    return x * render_priv->orig_width_nocrop /
+        render_priv->track->PlayResX +
+        FFMAX(render_priv->settings.left_margin, 0);
+}
 /**
  * \brief Mapping between script and screen coordinates
  */
+static double y2scr_pos(ASS_Renderer *render_priv, double y)
+{
+    return y * render_priv->orig_height / render_priv->track->PlayResY +
+        render_priv->settings.top_margin;
+}
 static double y2scr(ASS_Renderer *render_priv, double y)
 {
     return y * render_priv->orig_height_nocrop /
         render_priv->track->PlayResY +
         FFMAX(render_priv->settings.top_margin, 0);
-}
-static double y2scr_pos(ASS_Renderer *render_priv, double y)
-{
-    return y * render_priv->orig_height / render_priv->track->PlayResY +
-        render_priv->settings.top_margin;
 }
 
 // the same for toptitles
