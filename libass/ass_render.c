@@ -245,6 +245,8 @@ static double x2scr_pos(ASS_Renderer *render_priv, double x)
 }
 static double x2scr(ASS_Renderer *render_priv, double x)
 {
+    if (render_priv->state.explicit)
+        return x2scr_pos(render_priv, x);
     return x * render_priv->orig_width_nocrop / render_priv->font_scale_x /
         render_priv->track->PlayResX +
         FFMAX(render_priv->settings.left_margin, 0);
@@ -256,6 +258,8 @@ static double x2scr_pos_scaled(ASS_Renderer *render_priv, double x)
 }
 static double x2scr_scaled(ASS_Renderer *render_priv, double x)
 {
+    if (render_priv->state.explicit)
+        return x2scr_pos_scaled(render_priv, x);
     return x * render_priv->orig_width_nocrop /
         render_priv->track->PlayResX +
         FFMAX(render_priv->settings.left_margin, 0);
@@ -270,6 +274,8 @@ static double y2scr_pos(ASS_Renderer *render_priv, double y)
 }
 static double y2scr(ASS_Renderer *render_priv, double y)
 {
+    if (render_priv->state.explicit)
+        return y2scr_pos(render_priv, y);
     return y * render_priv->orig_height_nocrop /
         render_priv->track->PlayResY +
         FFMAX(render_priv->settings.top_margin, 0);
@@ -278,6 +284,8 @@ static double y2scr(ASS_Renderer *render_priv, double y)
 // the same for toptitles
 static double y2scr_top(ASS_Renderer *render_priv, double y)
 {
+    if (render_priv->state.explicit)
+        return y2scr_pos(render_priv, y);
     if (render_priv->settings.use_margins)
         return y * render_priv->orig_height_nocrop /
             render_priv->track->PlayResY;
@@ -289,6 +297,8 @@ static double y2scr_top(ASS_Renderer *render_priv, double y)
 // the same for subtitles
 static double y2scr_sub(ASS_Renderer *render_priv, double y)
 {
+    if (render_priv->state.explicit)
+        return y2scr_pos(render_priv, y);
     if (render_priv->settings.use_margins)
         return y * render_priv->orig_height_nocrop /
             render_priv->track->PlayResY +
@@ -771,6 +781,8 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     // user_style (the user's override style). Copy only fields from the
     // script's style that are deemed necessary.
     *new = *rstyle;
+
+    render_priv->state.explicit = explicit;
 
     render_priv->state.apply_font_scale =
         !explicit || !(requested & ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE);

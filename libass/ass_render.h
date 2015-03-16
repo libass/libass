@@ -275,6 +275,8 @@ typedef struct {
     unsigned overrides;
     // whether to apply font_scale
     int apply_font_scale;
+    // whether this is assumed to be explicitly positioned
+    int explicit;
 
     // used to store RenderContext.style when doing selective style overrides
     ASS_Style override_style_temp_storage;
