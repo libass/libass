@@ -11,7 +11,7 @@ Get it
 See [GitHub releases](https://github.com/libass/libass/releases) for the latest release 0.12.1 (released 2015-01-07). This release contains bugfixes and compatibility fixes. See the [changelog](https://github.com/libass/libass/blob/master/Changelog) for a detailed list of changes.
 
 Source code is available from our [GitHub repository](https://github.com/libass/libass).
-
+g
 Contact
 =======
 Please use the [issue tracker](https://github.com/libass/libass/issues?state=open) to report bugs or feature requests. We have an IRC channel, too. Talk to us on [irc.freenode.net/#libass](irc://irc.freenode.net/libass).
@@ -24,7 +24,7 @@ The following projects/companies use libass:
 - [mplayer2](http://www.mplayer2.org/)
 - [mpv](http://mpv.io/)
 - [VLC](http://www.videolan.org/)
-- [GStreamer](http://www.gstreamer.org/) (assrender plugin)
+- [GStreamer](http://gstreamer.freedesktop.org/) (assrender plugin)
 - [Libav](http://libav.org/)
 - [FFmpeg](http://ffmpeg.org/)
 - [Aegisub](http://www.aegisub.org/)
