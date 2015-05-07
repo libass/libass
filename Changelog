@@ -1,3 +1,13 @@
+libass (0.12.2)
+ * Add extern "C" guards to the public headers for C++ compatibility
+ * Improvements to style override API and implementation
+ * Bugfixes
+   * Fix some rasterizer bugs of unknown severity
+   * Fix a broken memset() of unknown severity
+   * Make timestamp parsing more lenient, which makes libass accept invalid
+     files accepted by most other ASS parsers
+   * Increase compatibility with broken ASS drawings accepted by VSFilter
+
 libass (0.12.1)
  * Make ASS drawings with an extremely high number of control points work
    This change increases compatibility with VSFilter.
