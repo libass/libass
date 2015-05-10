@@ -961,9 +961,6 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.effect_type = EF_NONE;
     render_priv->state.effect_timing = 0;
     render_priv->state.effect_skip_timing = 0;
-    ass_drawing_free(render_priv->state.drawing);
-    render_priv->state.drawing = ass_drawing_new(render_priv->library,
-            render_priv->ftlibrary);
 
     apply_transition_effects(render_priv, event);
 }
@@ -971,11 +968,9 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
 static void free_render_context(ASS_Renderer *render_priv)
 {
     free(render_priv->state.family);
-    ass_drawing_free(render_priv->state.drawing);
     ass_drawing_free(render_priv->state.clip_drawing);
 
     render_priv->state.family = NULL;
-    render_priv->state.drawing = NULL;
     render_priv->state.clip_drawing = NULL;
 }
 
@@ -1870,12 +1865,11 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_pr
 static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
 {
     TextInfo *text_info = &render_priv->text_info;
-    ASS_Drawing *drawing;
+    ASS_Drawing *drawing = NULL;
     unsigned code;
     char *p, *q;
     int i;
 
-    drawing = render_priv->state.drawing;
     p = event->Text;
 
     // Event parsing.
@@ -1895,6 +1889,12 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
                     q++;
                 while ((*q != '{') && (*q != 0))
                     q++;
+                if (!drawing) {
+                    drawing = ass_drawing_new(render_priv->library,
+                                              render_priv->ftlibrary);
+                    if (!drawing)
+                        return 1;
+                }
                 ass_drawing_set_text(drawing, p, q - p);
                 code = 0xfffc; // object replacement character
                 p = q;
@@ -1907,6 +1907,13 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
 
         if (code == 0)
             break;
+
+        // face could have been changed in get_next_char
+        if (!render_priv->state.font) {
+            free_render_context(render_priv);
+            ass_drawing_free(drawing);
+            return 1;
+        }
 
         if (text_info->length >= text_info->max_glyphs) {
             // Raise maximum number of glyphs
@@ -1922,7 +1929,7 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         memset(info, 0, sizeof(GlyphInfo));
 
         // Parse drawing
-        if (drawing->text) {
+        if (drawing && drawing->text) {
             drawing->scale_x = render_priv->state.scale_x *
                                      render_priv->font_scale;
             drawing->scale_y = render_priv->state.scale_y *
@@ -1930,12 +1937,7 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
             drawing->scale = render_priv->state.drawing_scale;
             drawing->pbo = render_priv->state.pbo;
             info->drawing = drawing;
-        }
-
-        // face could have been changed in get_next_char
-        if (!render_priv->state.font) {
-            free_render_context(render_priv);
-            return 1;
+            drawing = NULL;
         }
 
         // Fill glyph information
@@ -1972,12 +1974,8 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         info->fax = render_priv->state.fax;
         info->fay = render_priv->state.fay;
 
-        if (info->drawing) {
-            drawing = render_priv->state.drawing =
-                ass_drawing_new(render_priv->library, render_priv->ftlibrary);
-        } else {
+        if (!info->drawing)
             fix_glyph_scaling(render_priv, info);
-        }
 
         text_info->length++;
 
@@ -1985,6 +1983,8 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         render_priv->state.effect_timing = 0;
         render_priv->state.effect_skip_timing = 0;
     }
+
+    ass_drawing_free(drawing);
 
     return 0;
 }

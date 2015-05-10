@@ -247,7 +247,6 @@ typedef struct {
     double shadow_y;
     int drawing_scale;          // currently reading: regular text if 0, drawing otherwise
     double pbo;                 // drawing baseline offset
-    ASS_Drawing *drawing;       // current drawing
     ASS_Drawing *clip_drawing;  // clip vector
     int clip_drawing_mode;      // 0 = regular clip, 1 = inverse clip
 
