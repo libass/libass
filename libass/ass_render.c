@@ -972,6 +972,11 @@ static void free_render_context(ASS_Renderer *render_priv)
 
     render_priv->state.family = NULL;
     render_priv->state.clip_drawing = NULL;
+
+    TextInfo *text_info = &render_priv->text_info;
+    for (int n = 0; n < text_info->length; n++)
+        ass_drawing_free(text_info->glyphs[n].drawing);
+    text_info->length = 0;
 }
 
 /*
@@ -2450,8 +2455,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         return 1;
     }
 
+    free_render_context(render_priv);
     init_render_context(render_priv, event);
-    text_info->length = 0;
 
     if (parse_events(render_priv, event))
         return 1;
