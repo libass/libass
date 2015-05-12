@@ -53,3 +53,4 @@ Other ASS/SSA implementations:
 - [ffdshow](http://ffdshow-tryout.sourceforge.net/)
 - [Perian](https://github.com/MaddTheSane/perian)
 - [asa](http://git.spaceboyz.net/asa.git) (defunct)
+- [libjass](https://github.com/Arnavion/libjass)
