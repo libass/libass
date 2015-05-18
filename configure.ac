@@ -174,6 +174,26 @@ AC_LINK_IFELSE([
   ])
 fi
 
+if test x$enable_directwrite != xno; then
+OLDLIBS="$LIBS"
+# Linking to DirectWrite directly only works from Windows
+LIBS="$LIBS -ldwrite"
+AC_MSG_CHECKING([for DIRECTWRITE])
+AC_LINK_IFELSE([
+  AC_LANG_PROGRAM(
+    [[#include <dwrite.h>]],
+    [[DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), NULL);]],)
+  ], [
+    AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite])
+    directwrite=true
+    AC_MSG_RESULT([yes])
+  ], [
+    LIBS="$OLDLIBS"
+    directwrite=false
+    AC_MSG_RESULT([no])
+  ])
+fi
+
 if test x$enable_harfbuzz != xno; then
 PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
     CFLAGS="$CFLAGS $HARFBUZZ_CFLAGS"
