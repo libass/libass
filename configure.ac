@@ -10,6 +10,7 @@ AC_CONFIG_HEADER([config.h])
 
 # Checks for programs.
 AC_PROG_CC
+AC_PROG_CXX
 AC_PROG_CPP
 AM_PROG_CC_C_O
 AM_PROG_AS
@@ -174,7 +175,10 @@ AC_LINK_IFELSE([
   ])
 fi
 
+
+
 if test x$enable_directwrite != xno; then
+AC_LANG_PUSH([C++])
 OLDLIBS="$LIBS"
 # Linking to DirectWrite directly only works from Windows
 LIBS="$LIBS -ldwrite"
@@ -192,6 +196,7 @@ AC_LINK_IFELSE([
     directwrite=false
     AC_MSG_RESULT([no])
   ])
+AC_LANG_POP()
 fi
 
 if test x$enable_harfbuzz != xno; then
