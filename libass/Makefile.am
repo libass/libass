@@ -11,7 +11,7 @@ yasm_verbose_ = $(yasm_verbose_$(AM_DEFAULT_VERBOSITY))
 yasm_verbose_0 = @echo "  YASM    " $@;
 
 .asm.lo:
-	$(yasm_verbose)$(LIBTOOL) $(AM_V_lt) --mode=compile $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
+	$(yasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
 
 SRC_INTEL = x86/blend_bitmaps.asm x86/blur.asm x86/cpuid.asm x86/cpuid.h
 SRC_INTEL64 = x86/be_blur.asm
@@ -27,7 +27,7 @@ libass_la_SOURCES = ass.c ass_cache.c ass_font.c ass_fontselect.c ass_render.c \
                     ass_drawing.h ass_cache_template.h ass_render.h \
                     ass_parse.c ass_parse.h ass_render_api.c ass_shaper.c \
                     ass_shaper.h ass_strtod.c ass_fontconfig.c ass_fontconfig.h \
-                    ass_coretext.c ass_coretext.h
+                    ass_coretext.c ass_coretext.h ass_directwrite.cpp ass_directwrite.h
 
 libass_la_LDFLAGS = -no-undefined -version-info $(LIBASS_LT_CURRENT):$(LIBASS_LT_REVISION):$(LIBASS_LT_AGE)
 libass_la_LDFLAGS += -export-symbols $(srcdir)/libass.sym

@@ -1,8 +1,7 @@
 AC_INIT(libass, 0.12.3)
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([m4])
-# Disable C++/Fortran checks
-define([AC_LIBTOOL_LANG_CXX_CONFIG], [:])
+# Disable Fortran checks
 define([AC_LIBTOOL_LANG_F77_CONFIG], [:])
 LT_INIT
 AC_CONFIG_SRCDIR([libass/ass.c])
@@ -196,7 +195,7 @@ AC_LINK_IFELSE([
     directwrite=false
     AC_MSG_RESULT([no])
   ])
-AC_LANG_POP()
+AC_LANG_POP([C++])
 fi
 
 if test x$enable_harfbuzz != xno; then
