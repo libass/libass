@@ -171,6 +171,7 @@ char *font_provider_labels[] = {
     [ASS_FONTPROVIDER_AUTODETECT] = "Autodetect",
     [ASS_FONTPROVIDER_CORETEXT]   = "CoreText",
     [ASS_FONTPROVIDER_FONTCONFIG] = "Fontconfig",
+    [ASS_FONTPROVIDER_DIRECTWRITE]= "DirectWrite",
 };
 
 static void print_font_providers(ASS_Library *ass_library)

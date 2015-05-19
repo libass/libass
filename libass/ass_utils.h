@@ -184,7 +184,7 @@ static inline int rot_key(double a)
 
 static inline unsigned fnv_32a_buf(void *buf, size_t len, unsigned hval)
 {
-    unsigned char *bp = buf;
+    unsigned char *bp = (unsigned char*)buf;
     size_t n = (len + 3) / 4;
 
     switch (len % 4) {

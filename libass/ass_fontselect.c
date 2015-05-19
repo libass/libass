@@ -38,6 +38,7 @@
 #include "ass_fontselect.h"
 #include "ass_fontconfig.h"
 #include "ass_coretext.h"
+#include "ass_directwrite.h"
 #include "ass_font.h"
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
@@ -235,6 +236,24 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     int weight, slant, width;
     ASS_FontSelector *selector = provider->parent;
     ASS_FontInfo *info;
+
+#if 0
+    int j;
+    printf("new font:\n");
+    printf("  families: ");
+    for (j = 0; j < meta->n_family; j++)
+        printf("'%s' ", meta->families[j]);
+    printf("\n");
+    printf("  fullnames: ");
+    for (j = 0; j < meta->n_fullname; j++)
+        printf("'%s' ", meta->fullnames[j]);
+    printf("\n");
+    printf("  slant: %d\n", meta->slant);
+    printf("  weight: %d\n", meta->weight);
+    printf("  width: %d\n", meta->width);
+    printf("  path: %s\n", path);
+    printf("  index: %d\n", index);
+#endif
 
     weight = meta->weight;
     slant  = meta->slant;
@@ -803,6 +822,9 @@ struct font_constructors font_constructors[] = {
 #endif
 #ifdef CONFIG_FONTCONFIG
     { ASS_FONTPROVIDER_FONTCONFIG, &ass_fontconfig_add_provider },
+#endif
+#ifdef CONFIG_DIRECTWRITE
+    { ASS_FONTPROVIDER_DIRECTWRITE, &ass_directwrite_add_provider },
 #endif
     { ASS_FONTPROVIDER_NONE, NULL },
 };
