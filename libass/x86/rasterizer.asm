@@ -1,5 +1,5 @@
 ;******************************************************************************
-;* rasterizer.asm: SSE2 tile rasterization functions
+;* rasterizer.asm: SSE2/AVX2 tile rasterization
 ;******************************************************************************
 ;* Copyright (C) 2014 Vabishchevich Nikolay <vabnick@gmail.com>
 ;*
@@ -33,7 +33,7 @@ words_tile32: dw 512,512,512,512,512,512,512,512,512,512,512,512,512,512,512,512
 SECTION .text
 
 ;------------------------------------------------------------------------------
-; MUL reg, num
+; MUL 1:reg, 2:num
 ; Multiply by constant
 ;------------------------------------------------------------------------------
 
@@ -69,7 +69,7 @@ SECTION .text
 %endmacro
 
 ;------------------------------------------------------------------------------
-; BCASTW m_dst, r_src
+; BCASTW 1:m_dst, 2:r_src
 ;------------------------------------------------------------------------------
 
 %macro BCASTW 2
@@ -83,7 +83,7 @@ SECTION .text
 %endmacro
 
 ;------------------------------------------------------------------------------
-; PABSW m_reg, m_tmp
+; PABSW 1:m_reg, 2:m_tmp
 ;------------------------------------------------------------------------------
 
 %macro PABSW 2
@@ -97,7 +97,7 @@ SECTION .text
 %endmacro
 
 ;------------------------------------------------------------------------------
-; FILL_LINE r_dst, src, size
+; FILL_LINE 1:dst, 2:m_src, 3:size
 ;------------------------------------------------------------------------------
 
 %macro FILL_LINE 3
@@ -115,7 +115,7 @@ SECTION .text
 %endmacro
 
 ;------------------------------------------------------------------------------
-; FILL_SOLID_TILE tile_order, suffix
+; FILL_SOLID_TILE 1:tile_order, 2:suffix
 ; void fill_solid_tile%2(uint8_t *buf, ptrdiff_t stride, int set);
 ;------------------------------------------------------------------------------
 
@@ -147,7 +147,8 @@ FILL_SOLID_TILE 4,16
 FILL_SOLID_TILE 5,32
 
 ;------------------------------------------------------------------------------
-; CALC_LINE tile_order, m_dst, m_src, m_delta, m_zero, m_full, m_tmp
+; CALC_LINE 1:tile_order, 2:m_dst, 3:m_src, 4:m_delta,
+;           5:m_zero, 6:m_full, 7:m_tmp
 ; Calculate line using antialiased halfplane algorithm
 ;------------------------------------------------------------------------------
 
@@ -162,7 +163,7 @@ FILL_SOLID_TILE 5,32
 %endmacro
 
 ;------------------------------------------------------------------------------
-; DEF_A_SHIFT tile_order
+; DEF_A_SHIFT 1:tile_order
 ; If single mm-register is enough to store the whole line
 ; then sets a_shift = 0,
 ; else sets a_shift = log2(mmsize / sizeof(int16_t)).
@@ -181,7 +182,7 @@ FILL_SOLID_TILE 5,32
 %endmacro
 
 ;------------------------------------------------------------------------------
-; FILL_HALFPLANE_TILE tile_order, suffix
+; FILL_HALFPLANE_TILE 1:tile_order, 2:suffix
 ; void fill_halfplane_tile%2(uint8_t *buf, ptrdiff_t stride,
 ;                            int32_t a, int32_t b, int64_t c, int32_t scale);
 ;------------------------------------------------------------------------------
@@ -346,7 +347,7 @@ struc line
 endstruc
 
 ;------------------------------------------------------------------------------
-; ZEROFILL dst, size, tmp1
+; ZEROFILL 1:dst, 2:size, 3:tmp
 ;------------------------------------------------------------------------------
 
 %macro ZEROFILL 3
@@ -369,7 +370,7 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; CALC_DELTA_FLAG res, line, tmp1, tmp2
+; CALC_DELTA_FLAG 1:res, 2:line, 3-4:tmp
 ; Set bits of result register (res):
 ; bit 3 - for nonzero up_delta,
 ; bit 2 - for nonzero dn_delta.
@@ -392,7 +393,7 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; UPDATE_DELTA dn/up, dst, flag, pos, tmp
+; UPDATE_DELTA 1:dn/up, 2:dst, 3:flag, 4:pos, 5:tmp
 ; Update delta array
 ;------------------------------------------------------------------------------
 
@@ -419,7 +420,7 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; CALC_VBA tile_order, b
+; CALC_VBA 1:tile_order, 2:b
 ; Calculate b - (tile_size - (mmsize / sizeof(int16_t))) * a
 ;------------------------------------------------------------------------------
 
@@ -431,8 +432,8 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; FILL_BORDER_LINE tile_order, res, abs_a(abs_ab), b, [abs_b], size, sum,
-;                  tmp8, tmp9, mt10, mt11, mt12, mt13, mt14, [mt15]
+; FILL_BORDER_LINE 1:tile_order, 2:res, 3:abs_a[abs_ab], 4:b, 5:[abs_b],
+;                  6:size, 7:sum, 8-9:tmp, 10-14:m_tmp, 15:[m_tmp]
 ; Render top/bottom line of the trapezium with antialiasing
 ;------------------------------------------------------------------------------
 
@@ -508,8 +509,8 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; SAVE_RESULT tile_order, buf, stride, src, delta,
-;             tmp6, tmp7, mt8, mt9, mt10, mt11
+; SAVE_RESULT 1:tile_order, 2:buf, 3:stride, 4:src, 5:delta,
+;             6-7:tmp, 8-11:m_tmp
 ; Convert and store internal buffer (with delta array) in the result buffer
 ;------------------------------------------------------------------------------
 
@@ -549,8 +550,8 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; GET_RES_ADDR dst
-; CALC_RES_ADDR tile_order, dst/index, tmp, [skip_calc]
+; GET_RES_ADDR 1:dst
+; CALC_RES_ADDR 1:tile_order, 2:dst/index, 3:tmp, 4:[skip_calc]
 ; Calculate position of line in the internal buffer
 ;------------------------------------------------------------------------------
 
@@ -577,7 +578,7 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; FILL_GENERIC_TILE tile_order, suffix
+; FILL_GENERIC_TILE 1:tile_order, 2:suffix
 ; void fill_generic_tile%2(uint8_t *buf, ptrdiff_t stride,
 ;                          const struct segment *line, size_t n_lines,
 ;                          int winding);

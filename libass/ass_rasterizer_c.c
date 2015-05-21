@@ -138,12 +138,12 @@ void ass_fill_halfplane_tile32_c(uint8_t *buf, ptrdiff_t stride,
  * Generic Filling Functions
  *
  * Used Algorithm
- * Construct trapezium from each polyline segment and its projection into left side of tile.
- * Render that trapezium into internal buffer with additive blending and correct sign.
+ * Construct trapeziod from each polyline segment and its projection into left side of tile.
+ * Render that trapeziod into internal buffer with additive blending and correct sign.
  * Store clamped absolute value from internal buffer into result buffer.
  */
 
-// Render top/bottom line of the trapezium with antialiasing
+// Render top/bottom line of the trapeziod with antialiasing
 static inline void update_border_line16(int16_t res[16],
                                         int16_t abs_a, const int16_t va[16],
                                         int16_t b, int16_t abs_b,
@@ -262,7 +262,7 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
     }
 }
 
-// Render top/bottom line of the trapezium with antialiasing
+// Render top/bottom line of the trapeziod with antialiasing
 static inline void update_border_line32(int16_t res[32],
                                         int16_t abs_a, const int16_t va[32],
                                         int16_t b, int16_t abs_b,

@@ -85,6 +85,27 @@ void rasterizer_done(ASS_Rasterizer *rst)
 }
 
 
+/*
+ * Tiled Rasterization Algorithm
+ *
+ * 1) Convert splines into polylines using recursive subdivision.
+ *
+ * 2) Determine which segments of resulting polylines fall into each tile.
+ * That's done through recursive splitting of segment array with horizontal or vertical lines.
+ * Each individual segment can lie fully left(top) or right(bottom) from the splitting line or cross it.
+ * In the latter case copies of such segment go to both output arrays. Also winding count
+ * of the top-left corner of the second result rectangle gets calculated simultaneously with splitting.
+ * Winding count of the first result rectangle is the same as of the source rectangle.
+ *
+ * 3) When the splitting is done to the tile level, there are 3 possible outcome:
+ * - Tile doesn't have segments at all--fill it with solid color in accordance with winding count.
+ * - Tile have only 1 segment--use simple half-plane filling algorithm.
+ * - Generic case with 2 or more segments.
+ * In the latter case each segment gets rasterized as right trapezoid into buffer
+ * with additive or subtractive blending.
+ */
+
+
 typedef struct {
     int32_t x, y;
 } OutlinePoint;
@@ -169,7 +190,7 @@ static inline int add_line(ASS_Rasterizer *rst, OutlinePoint pt0, OutlinePoint p
 
 /**
  * \brief Add quadratic spline to polyline
- * Preforms recursive subdivision if necessary.
+ * Performs recursive subdivision if necessary.
  */
 static int add_quadratic(ASS_Rasterizer *rst,
                          OutlinePoint pt0, OutlinePoint pt1, OutlinePoint pt2)
@@ -195,7 +216,7 @@ static int add_quadratic(ASS_Rasterizer *rst,
 
 /**
  * \brief Add cubic spline to polyline
- * Preforms recursive subdivision if necessary.
+ * Performs recursive subdivision if necessary.
  */
 static int add_cubic(ASS_Rasterizer *rst,
                      OutlinePoint pt0, OutlinePoint pt1, OutlinePoint pt2, OutlinePoint pt3)
