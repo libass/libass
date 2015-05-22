@@ -36,7 +36,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv);
 unsigned get_next_char(ASS_Renderer *render_priv, char **str);
 char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr);
 int event_has_hard_overrides(char *str);
-extern void change_alpha(uint32_t *var, uint32_t new, double pwr);
+extern void change_alpha(uint32_t *var, int32_t new, double pwr);
 extern uint32_t mult_alpha(uint32_t a, uint32_t b);
 
 

@@ -165,13 +165,6 @@ int mystrtoll(char **p, long long *res)
     return *p != start;
 }
 
-int mystrtou32(char **p, int base, uint32_t *res)
-{
-    char *start = *p;
-    *res = strtoll(*p, p, base);
-    return *p != start;
-}
-
 int mystrtod(char **p, double *res)
 {
     char *start = *p;
@@ -179,36 +172,110 @@ int mystrtod(char **p, double *res)
     return *p != start;
 }
 
-uint32_t string2color(ASS_Library *library, char *p, int hex)
+int mystrtoi32(char **p, int base, int32_t *res)
+{
+    char *start = *p;
+    long long temp_res = strtoll(*p, p, base);
+    *res = FFMINMAX(temp_res, INT32_MIN, INT32_MAX);
+    return *p != start;
+}
+
+static int read_digits(char **str, int base, uint32_t *res)
+{
+    char *p = *str;
+    char *start = p;
+    uint32_t val = 0;
+
+    while (1) {
+        int digit;
+        if (*p >= '0' && *p < base + '0')
+            digit = *p - '0';
+        else if (*p >= 'a' && *p < base - 10 + 'a')
+            digit = *p - 'a' + 10;
+        else if (*p >= 'A' && *p < base - 10 + 'A')
+            digit = *p - 'A' + 10;
+        else
+            break;
+        val = val * base + digit;
+        ++p;
+    }
+
+    *res = val;
+    *str = p;
+    return p != start;
+}
+
+/**
+ * \brief Convert a string to an integer reduced modulo 2**32
+ * Follows the rules for strtoul but reduces the number modulo 2**32
+ * instead of saturating it to 2**32 - 1.
+ */
+static int mystrtou32_modulo(char **p, int base, uint32_t *res)
+{
+    // This emulates scanf with %d or %x format as it works on
+    // Windows, because that's what is used by VSFilter. In practice,
+    // scanf works the same way on other platforms too, but
+    // the standard leaves its behavior on overflow undefined.
+
+    // Unlike scanf and like strtoul, produce 0 for invalid inputs.
+
+    char *start = *p;
+    int sign = 1;
+
+    skip_spaces(p);
+
+    if (**p == '+')
+        ++*p;
+    else if (**p == '-')
+        sign = -1, ++*p;
+
+    if (base == 16 && !strncasecmp(*p, "0x", 2))
+        *p += 2;
+
+    if (read_digits(p, base, res)) {
+        *res *= sign;
+        return 1;
+    } else {
+        *p = start;
+        return 0;
+    }
+}
+
+int32_t parse_alpha_tag(char *str)
+{
+    int32_t alpha = 0;
+
+    while (*str == '&' || *str == 'H')
+        ++str;
+
+    mystrtoi32(&str, 16, &alpha);
+    return alpha;
+}
+
+uint32_t parse_color_tag(char *str)
+{
+    int32_t color = 0;
+
+    while (*str == '&' || *str == 'H')
+        ++str;
+
+    mystrtoi32(&str, 16, &color);
+    return ass_bswap32((uint32_t) color);
+}
+
+uint32_t parse_color_header(char *str)
 {
     uint32_t color = 0;
-    int base = hex ? 16 : 10;
+    int base;
 
-    if (*p == '&')
-        while (*p == '&')
-            ++p;
-    else
-        ass_msg(library, MSGL_DBG2, "suspicious color format: \"%s\"\n", p);
-
-    if (*p == 'H' || *p == 'h') {
-        ++p;
-        mystrtou32(&p, 16, &color);
+    if (!strncasecmp(str, "&h", 2) || !strncasecmp(str, "0x", 2)) {
+        str += 2;
+        base = 16;
     } else
-        mystrtou32(&p, base, &color);
+        base = 10;
 
-    while (*p == '&' || *p == 'H')
-        ++p;
-
-    unsigned char *tmp = (unsigned char *) (&color);
-    unsigned char b;
-    b = tmp[0];
-    tmp[0] = tmp[3];
-    tmp[3] = b;
-    b = tmp[1];
-    tmp[1] = tmp[2];
-    tmp[2] = b;
-
-    return color;
+    mystrtou32_modulo(&str, base, &color);
+    return ass_bswap32(color);
 }
 
 // Return a boolean value for a string

@@ -85,9 +85,11 @@ void skip_spaces(char **str);
 void rskip_spaces(char **str, char *limit);
 int mystrtoi(char **p, int *res);
 int mystrtoll(char **p, long long *res);
-int mystrtou32(char **p, int base, uint32_t *res);
 int mystrtod(char **p, double *res);
-uint32_t string2color(ASS_Library *library, char *p, int hex);
+int mystrtoi32(char **p, int base, int32_t *res);
+int32_t parse_alpha_tag(char *str);
+uint32_t parse_color_tag(char *str);
+uint32_t parse_color_header(char *str);
 char parse_bool(char *str);
 int parse_ycbcr_matrix(char *str);
 unsigned ass_utf8_get_char(char **str);
@@ -109,6 +111,16 @@ static inline size_t ass_align(size_t alignment, size_t s)
     if (s > SIZE_MAX - (alignment - 1))
         return s;
     return (s + (alignment - 1)) & ~(alignment - 1);
+}
+
+static inline uint32_t ass_bswap32(uint32_t x)
+{
+#ifdef _MSC_VER
+    return _byteswap_ulong(x);
+#else
+    return (x & 0x000000FF) << 24 | (x & 0x0000FF00) <<  8 |
+           (x & 0x00FF0000) >>  8 | (x & 0xFF000000) >> 24;
+#endif
 }
 
 static inline int d6_to_int(int x)

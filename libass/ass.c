@@ -242,10 +242,7 @@ static int numpad2align(int val)
         while (*token == '*') ++token; \
         target->name = strdup(token);
 
-#define COLORVAL(name) \
-	} else if (strcasecmp(tname, #name) == 0) { \
-		target->name = string2color(track->library, token, 0);
-
+#define COLORVAL(name) ANYVAL(name,parse_color_header)
 #define INTVAL(name) ANYVAL(name,atoi)
 #define FPVAL(name) ANYVAL(name,ass_atof)
 #define TIMEVAL(name) \
