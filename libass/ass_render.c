@@ -1950,8 +1950,10 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         info->font = render_priv->state.font;
         for (i = 0; i < 4; ++i) {
             uint32_t clr = render_priv->state.c[i];
-            change_alpha(&clr,
-                         mult_alpha(_a(clr), render_priv->state.fade), 1.);
+            // VSFilter compatibility: apply fade only when it's positive
+            if (render_priv->state.fade > 0)
+                change_alpha(&clr,
+                             mult_alpha(_a(clr), render_priv->state.fade), 1.);
             info->c[i] = clr;
         }
 

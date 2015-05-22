@@ -207,11 +207,11 @@ inline uint32_t mult_alpha(uint32_t a, uint32_t b)
  * \brief Calculate alpha value by piecewise linear function
  * Used for \fad, \fade implementation.
  */
-static unsigned
+static int
 interpolate_alpha(long long now, long long t1, long long t2, long long t3,
-                  long long t4, unsigned a1, unsigned a2, unsigned a3)
+                  long long t4, int a1, int a2, int a3)
 {
-    unsigned a;
+    int a;
     double cf;
 
     if (now < t1) {

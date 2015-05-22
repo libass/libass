@@ -240,7 +240,7 @@ typedef struct {
     int clip_x0, clip_y0, clip_x1, clip_y1;
     char clip_mode;             // 1 = iclip
     char detect_collisions;
-    uint32_t fade;              // alpha from \fad
+    int fade;                   // alpha from \fad
     char be;                    // blur edges
     double blur;                // gaussian blur
     double shadow_x;
