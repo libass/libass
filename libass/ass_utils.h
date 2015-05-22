@@ -160,7 +160,7 @@ static inline int double_to_d22(double x)
     return (int) (x * 0x400000);
 }
 
-// Calculate cache key for a rotational angle in degrees
+// Calculate cache key for a rotational angle in radians
 static inline int rot_key(double a)
 {
     return double_to_d22(remainder(a, 2 * M_PI));
