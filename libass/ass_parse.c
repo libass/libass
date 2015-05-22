@@ -711,60 +711,62 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
             if (parse_vector_clip(render_priv, args, nargs))
                 render_priv->state.clip_drawing_mode = 0;
         }
-    } else if (tag("c")) {
+    } else if (tag("c") || tag("1c")) {
         if (nargs) {
             uint32_t val = parse_color_tag(args->start);
             change_color(&render_priv->state.c[0], val, pwr);
         } else
             change_color(&render_priv->state.c[0],
                          render_priv->state.style->PrimaryColour, 1);
-    } else if ((*p >= '1') && (*p <= '4') && (++p)
-               && (tag("c") || tag("a"))) {
-        char n = *(p - 2);
-        int cidx = n - '1';
-        char cmd = *(p - 1);
-        int32_t alpha;
-        uint32_t color;
-        assert((n >= '1') && (n <= '4'));
+    } else if (tag("2c")) {
         if (nargs) {
-            if (cmd == 'a')
-                alpha = parse_alpha_tag(args->start);
-            else
-                color = parse_color_tag(args->start);
-        } else {
-            switch (n) {
-            case '1':
-                color = render_priv->state.style->PrimaryColour;
-                break;
-            case '2':
-                color = render_priv->state.style->SecondaryColour;
-                break;
-            case '3':
-                color = render_priv->state.style->OutlineColour;
-                break;
-            case '4':
-                color = render_priv->state.style->BackColour;
-                break;
-            default:
-                color = 0;
-                break;          // impossible due to assert; avoid compilation warning
-            }
-            if (cmd == 'a')
-                alpha = _a(color);
-            pwr = 1;
-        }
-        switch (cmd) {
-        case 'c':
-            change_color(render_priv->state.c + cidx, color, pwr);
-            break;
-        case 'a':
-            change_alpha(render_priv->state.c + cidx, alpha, pwr);
-            break;
-        default:
-            ass_msg(render_priv->library, MSGL_WARN, "Bad command: %c%c",
-                    n, cmd);
-            break;
-        }
+            uint32_t val = parse_color_tag(args->start);
+            change_color(&render_priv->state.c[1], val, pwr);
+        } else
+            change_color(&render_priv->state.c[1],
+                         render_priv->state.style->SecondaryColour, 1);
+    } else if (tag("3c")) {
+        if (nargs) {
+            uint32_t val = parse_color_tag(args->start);
+            change_color(&render_priv->state.c[2], val, pwr);
+        } else
+            change_color(&render_priv->state.c[2],
+                         render_priv->state.style->OutlineColour, 1);
+    } else if (tag("4c")) {
+        if (nargs) {
+            uint32_t val = parse_color_tag(args->start);
+            change_color(&render_priv->state.c[3], val, pwr);
+        } else
+            change_color(&render_priv->state.c[3],
+                         render_priv->state.style->BackColour, 1);
+    } else if (tag("1a")) {
+        if (nargs) {
+            uint32_t val = parse_alpha_tag(args->start);
+            change_alpha(&render_priv->state.c[0], val, pwr);
+        } else
+            change_alpha(&render_priv->state.c[0],
+                         _a(render_priv->state.style->PrimaryColour), 1);
+    } else if (tag("2a")) {
+        if (nargs) {
+            uint32_t val = parse_alpha_tag(args->start);
+            change_alpha(&render_priv->state.c[1], val, pwr);
+        } else
+            change_alpha(&render_priv->state.c[1],
+                         _a(render_priv->state.style->SecondaryColour), 1);
+    } else if (tag("3a")) {
+        if (nargs) {
+            uint32_t val = parse_alpha_tag(args->start);
+            change_alpha(&render_priv->state.c[2], val, pwr);
+        } else
+            change_alpha(&render_priv->state.c[2],
+                         _a(render_priv->state.style->OutlineColour), 1);
+    } else if (tag("4a")) {
+        if (nargs) {
+            uint32_t val = parse_alpha_tag(args->start);
+            change_alpha(&render_priv->state.c[3], val, pwr);
+        } else
+            change_alpha(&render_priv->state.c[3],
+                         _a(render_priv->state.style->BackColour), 1);
     } else if (tag("r")) {
         if (nargs) {
             int len = args->end - args->start;
