@@ -148,6 +148,11 @@ static void destroy_font(void *data)
 	free(priv);
 }
 
+static int map_width(int stretch)
+{
+	return stretch * (100 / DWRITE_FONT_STRETCH_MEDIUM);
+}
+
 static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 {
 	HRESULT hr = S_OK;
@@ -187,6 +192,7 @@ static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 				return;
 			
 			meta.weight = font->GetWeight();
+			meta.width = map_width(font->GetStretch());
 			font->GetMetrics(&metrics);
 			style = font->GetStyle();
 			meta.slant =	(style==DWRITE_FONT_STYLE_NORMAL)? FONT_SLANT_NONE:
