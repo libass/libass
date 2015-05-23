@@ -76,7 +76,7 @@ static bool init_font_private(FontPrivate *priv)
 	if (FAILED(hr) || !stream) {
 		file->Release();
 		face->Release();
-		return false;
+		return false; 
 	}
 
 	priv->stream = stream;
@@ -213,6 +213,8 @@ static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 				psName = (char*)malloc(size_needed);
 				WideCharToMultiByte(CP_UTF8, 0, localeName, -1, psName, size_needed, NULL, NULL);
 			}
+
+			psNames->Release();
 		
 			hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_FULL_NAME, &fontNames, &exists);
 			if (FAILED(hr))
@@ -231,6 +233,7 @@ static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 				WideCharToMultiByte(CP_UTF8, 0, localeName, -1, mbName, size_needed, NULL, NULL);
 				meta.fullnames[k] = mbName;
 			}
+			fontNames->Release();
 
 			hr = fontFamily->GetFamilyNames(&familyNames);
 			if (FAILED(hr))
@@ -249,6 +252,7 @@ static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 				WideCharToMultiByte(CP_UTF8, 0, localeName, -1, mbName, size_needed, NULL, NULL);
 				meta.families[k] = mbName;
 			}
+			familyNames->Release();
 
 			FontPrivate *font_priv = (FontPrivate *)calloc(1, sizeof(*font_priv));
 			font_priv->font = font;
