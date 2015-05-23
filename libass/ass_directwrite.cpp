@@ -28,77 +28,106 @@ extern "C"
 #include "ass_utils.h"
 }
 
-static size_t get_data(void * priv, unsigned char* buf, size_t offset, size_t length)
+typedef struct {
+	IDWriteFont *font;
+	IDWriteFontFileStream *stream;
+} FontPrivate;
+
+static bool init_font_private(FontPrivate *priv)
 {
 	HRESULT hr = S_OK;
+	IDWriteFont* font = priv->font;
 	IDWriteFontFace* face = NULL;
-	IDWriteFont* font = (IDWriteFont*)priv;
-	IDWriteFontFile* files = NULL;
+	IDWriteFontFile* file = NULL;
 	IDWriteFontFileStream* stream = NULL;
 	IDWriteFontFileLoader* loader = NULL;
-	UINT32 n_files = 0;
-	UINT64 fileSize;
-	const void* fileBuf = NULL;
-
-	hr = font->CreateFontFace(&face);
+	UINT32 n_files = 1;
 	const void* refKey = NULL;
 	UINT32 keySize = 0;
-	void* fragContext = NULL;
 
+	if (priv->stream != NULL)
+		return true;
+
+	hr = font->CreateFontFace(&face);
 	if (FAILED(hr) || !face)
+		return false;
+
+	hr = face->GetFiles(&n_files, &file);
+	if (FAILED(hr) || !file) {
+		face->Release();
+		return false;
+	}
+
+	hr = file->GetReferenceKey(&refKey, &keySize);
+	if (FAILED(hr)) {
+		file->Release();
+		face->Release();
+		return false;
+	}
+
+	hr = file->GetLoader(&loader);
+	if (FAILED(hr) || !loader) {
+		file->Release();
+		face->Release();
+		return false;
+	}
+
+	hr = loader->CreateStreamFromKey(refKey, keySize, &stream);
+	if (FAILED(hr) || !stream) {
+		file->Release();
+		face->Release();
+		return false;
+	}
+
+	priv->stream = stream;
+	file->Release();
+	face->Release();
+
+	return true;
+}
+
+static size_t get_data(void *data, unsigned char* buf, size_t offset, size_t length)
+{
+	HRESULT hr = S_OK;
+	FontPrivate *priv = (FontPrivate *)data;
+	const void *fileBuf = NULL;
+	void *fragContext = NULL;
+
+	if (!init_font_private(priv))
 		return 0;
 
-	hr = face->GetFiles(&n_files, NULL);
-	if (FAILED(hr))
-		return 0;
-
-	hr = face->GetFiles(&n_files, &files);
-	if (FAILED(hr) || !files)
-		return 0;
-
-	hr = files[0].GetReferenceKey(&refKey, &keySize);
-	if (FAILED(hr))
-		return 0;
-
-	hr = files[0].GetLoader(&loader);
-	if (FAILED(hr) || !loader)
-		return 0;
-
-	hr = loader->CreateStreamFromKey(refKey,keySize,&stream);
-	if (FAILED(hr) || !stream)
-		return 0;
-
-	if (buf == NULL)
-	{
-		hr = stream->GetFileSize(&fileSize);
+	if (buf == NULL) {
+		UINT64 fileSize;
+		hr = priv->stream->GetFileSize(&fileSize);
 		if (FAILED(hr))
 			return 0;
 
 		return fileSize;
 	}
-	
-	hr = stream->ReadFileFragment(&fileBuf, offset, length, &fragContext);
+
+	hr = priv->stream->ReadFileFragment(&fileBuf, offset, length, &fragContext);
 	if (FAILED(hr) || !fileBuf)
 		return 0;
 
 	memcpy(buf, fileBuf, length);
 
-	stream->ReleaseFileFragment(fragContext);
+	priv->stream->ReleaseFileFragment(fragContext);
 
 	return length;
 }
 
-static int check_glyph(void *priv, uint32_t code)
+static int check_glyph(void *data, uint32_t code)
 {
-	//TODO: use IDWriteFont::HasCharacter method 
-	//see: https://msdn.microsoft.com/en-us/library/windows/desktop/dd371165(v=vs.85).aspx
 	HRESULT hr = S_OK;
+	FontPrivate *priv = (FontPrivate *)data;
 	BOOL exists = FALSE;
 
-	((IDWriteFont*)priv)->HasCharacter(code, &exists);
+	if (code == 0)
+		return 1;
 
+	priv->font->HasCharacter(code, &exists);
 	if (FAILED(hr))
-		return FALSE;
+		return 0;
 
 	return exists;
 }
@@ -106,6 +135,17 @@ static int check_glyph(void *priv, uint32_t code)
 static void destroy(void* priv)
 {
 	((IDWriteFactory*)priv)->Release();
+}
+
+static void destroy_font(void *data)
+{
+	FontPrivate *priv = (FontPrivate *)data;
+
+	priv->font->Release();
+	if (priv->stream != NULL)
+		priv->stream->Release();
+
+	free(priv);
 }
 
 static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
@@ -204,9 +244,18 @@ static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 				meta.families[k] = mbName;
 			}
 
-			ass_font_provider_add_font(provider, &meta, NULL, j, psName, font);
+			FontPrivate *font_priv = (FontPrivate *)calloc(1, sizeof(*font_priv));
+			font_priv->font = font;
+
+			ass_font_provider_add_font(provider, &meta, NULL, 0, psName, font_priv);
+
+			for (UINT32 k = 0; k < meta.n_family; ++k)
+				free(meta.families[k]);
+			for (UINT32 k = 0; k < meta.n_fullname; ++k)
+				free(meta.fullnames[k]);
 			free(meta.fullnames);
 			free(meta.families);
+			free(psName);
 		}   	
     }
 }
