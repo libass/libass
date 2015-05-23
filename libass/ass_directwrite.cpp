@@ -132,7 +132,7 @@ static int check_glyph(void *data, uint32_t code)
 	return exists;
 }
 
-static void destroy(void* priv)
+static void destroy_provider(void *priv)
 {
 	((IDWriteFactory*)priv)->Release();
 }
@@ -263,9 +263,9 @@ static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 static ASS_FontProviderFuncs directwrite_callbacks = {
     get_data,
 	check_glyph,
+    destroy_font,
+    destroy_provider,
     NULL,
-    destroy,
-    NULL
 };
 
 ASS_FontProvider *
