@@ -210,7 +210,7 @@ static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 					return;
 
 				size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
-				psName = (char*)ass_aligned_alloc(32, size_needed);
+				psName = (char*)malloc(size_needed);
 				WideCharToMultiByte(CP_UTF8, 0, localeName, -1, psName, size_needed, NULL, NULL);
 			}
 		
