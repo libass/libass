@@ -178,17 +178,15 @@ void change_border(ASS_Renderer *render_priv, double border_x, double border_y)
  */
 static void change_color(uint32_t *var, uint32_t new, double pwr)
 {
-    (*var) = ((uint32_t) (_r(*var) * (1 - pwr) + _r(new) * pwr) << 24) +
-        ((uint32_t) (_g(*var) * (1 - pwr) + _g(new) * pwr) << 16) +
-        ((uint32_t) (_b(*var) * (1 - pwr) + _b(new) * pwr) << 8) + _a(*var);
+    (*var) = ((uint32_t) (_r(*var) * (1 - pwr) + _r(new) * pwr) << 24) |
+        ((uint32_t) (_g(*var) * (1 - pwr) + _g(new) * pwr) << 16) |
+        ((uint32_t) (_b(*var) * (1 - pwr) + _b(new) * pwr) << 8) | _a(*var);
 }
 
 // like change_color, but for alpha component only
 inline void change_alpha(uint32_t *var, int32_t new, double pwr)
 {
-    *var =
-        (_r(*var) << 24) + (_g(*var) << 16) + (_b(*var) << 8) +
-        (uint8_t) (_a(*var) * (1 - pwr) + new * pwr);
+    *var = (*var & 0xFFFFFF00) | (uint8_t) (_a(*var) * (1 - pwr) + new * pwr);
 }
 
 /**
