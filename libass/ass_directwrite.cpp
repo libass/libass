@@ -201,14 +201,22 @@ static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 
 			hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_POSTSCRIPT_NAME, &psNames, &exists);
 			if (FAILED(hr))
+			{
+				font->Release();
 				continue;
+			}
+				
 
 			if (exists)
 			{
 				hr = psNames->GetString(0, localeName, LOCALE_NAME_MAX_LENGTH + 1);
 				if (FAILED(hr))
-					continue;
-
+				{
+					psNames->Release();
+					font->Release();
+					continue;					
+				}
+					
 				size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
 				psName = (char*)malloc(size_needed);
 				WideCharToMultiByte(CP_UTF8, 0, localeName, -1, psName, size_needed, NULL, NULL);
@@ -218,7 +226,11 @@ static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 		
 			hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_FULL_NAME, &fontNames, &exists);
 			if (FAILED(hr))
+			{
+				font->Release();
 				continue;
+			}
+				
 
 			meta.n_fullname = fontNames->GetCount();
 			meta.fullnames = (char **)calloc(meta.n_fullname, sizeof(char *));
@@ -226,8 +238,10 @@ static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 			{
 				hr = fontNames->GetString(k,localeName, LOCALE_NAME_MAX_LENGTH + 1);
 				if (FAILED(hr))
+				{
 					continue;
-
+				}
+					
 				size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
 				char* mbName = (char *)malloc(size_needed);
 				WideCharToMultiByte(CP_UTF8, 0, localeName, -1, mbName, size_needed, NULL, NULL);
@@ -237,7 +251,11 @@ static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 
 			hr = fontFamily->GetFamilyNames(&familyNames);
 			if (FAILED(hr))
+			{
+				font->Release();
 				continue;
+			}
+				
 			
 			meta.n_family = familyNames->GetCount();
 			meta.families = (char **)calloc(meta.n_family, sizeof(char *));
@@ -245,8 +263,10 @@ static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
 			{
 				hr = familyNames->GetString(k, localeName, LOCALE_NAME_MAX_LENGTH + 1);
 				if (FAILED(hr))
+				{
 					continue;
-
+				}
+					
 				size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
 				char* mbName = (char *)malloc(size_needed);
 				WideCharToMultiByte(CP_UTF8, 0, localeName, -1, mbName, size_needed, NULL, NULL);
