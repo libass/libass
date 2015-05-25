@@ -2631,6 +2631,19 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             y2scr_pos(render_priv, render_priv->state.clip_y1);
     }
 
+    if (render_priv->state.explicit) {
+        // we still need to clip against screen boundaries
+        double zx = x2scr_pos_scaled(render_priv, 0);
+        double zy = y2scr_pos(render_priv, 0);
+        double sx = x2scr_pos_scaled(render_priv, render_priv->track->PlayResX);
+        double sy = y2scr_pos(render_priv, render_priv->track->PlayResY);
+
+        render_priv->state.clip_x0 = render_priv->state.clip_x0 < zx ? zx : render_priv->state.clip_x0;
+        render_priv->state.clip_y0 = render_priv->state.clip_y0 < zy ? zy : render_priv->state.clip_y0;
+        render_priv->state.clip_x1 = render_priv->state.clip_x1 > sx ? sx : render_priv->state.clip_x1;
+        render_priv->state.clip_y1 = render_priv->state.clip_y1 > sy ? sy : render_priv->state.clip_y1;
+    }
+
     calculate_rotation_params(render_priv, &bbox, device_x, device_y);
 
     render_and_combine_glyphs(render_priv, device_x, device_y);
