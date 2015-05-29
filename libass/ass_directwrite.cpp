@@ -22,305 +22,340 @@
 
 #include <dwrite.h>
 
-extern "C"
-{
+extern "C" {
 #include "ass_directwrite.h"
 #include "ass_utils.h"
 }
 
+/*
+ * The private data stored for every font, detected by this backend.
+ */
 typedef struct {
-	IDWriteFont *font;
-	IDWriteFontFileStream *stream;
+    IDWriteFont *font;
+    IDWriteFontFileStream *stream;
 } FontPrivate;
 
+/*
+ * This function is called whenever a font is used for the first
+ * time. It will create a FontStream for memory reading, which
+ * will be stored within the private data.
+ */
 static bool init_font_private(FontPrivate *priv)
 {
-	HRESULT hr = S_OK;
-	IDWriteFont* font = priv->font;
-	IDWriteFontFace* face = NULL;
-	IDWriteFontFile* file = NULL;
-	IDWriteFontFileStream* stream = NULL;
-	IDWriteFontFileLoader* loader = NULL;
-	UINT32 n_files = 1;
-	const void* refKey = NULL;
-	UINT32 keySize = 0;
+    HRESULT hr = S_OK;
+    IDWriteFont *font = priv->font;
+    IDWriteFontFace *face = NULL;
+    IDWriteFontFile *file = NULL;
+    IDWriteFontFileStream *stream = NULL;
+    IDWriteFontFileLoader *loader = NULL;
+    UINT32 n_files = 1;
+    const void *refKey = NULL;
+    UINT32 keySize = 0;
 
-	if (priv->stream != NULL)
-		return true;
+    if (priv->stream != NULL)
+        return true;
 
-	hr = font->CreateFontFace(&face);
-	if (FAILED(hr) || !face)
-		return false;
+    hr = font->CreateFontFace(&face);
+    if (FAILED(hr) || !face)
+        return false;
 
-	hr = face->GetFiles(&n_files, &file);
-	if (FAILED(hr) || !file) {
-		face->Release();
-		return false;
-	}
+    /* DirectWrite only supports one file per face */
+    hr = face->GetFiles(&n_files, &file);
+    if (FAILED(hr) || !file) {
+        face->Release();
+        return false;
+    }
 
-	hr = file->GetReferenceKey(&refKey, &keySize);
-	if (FAILED(hr)) {
-		file->Release();
-		face->Release();
-		return false;
-	}
+    hr = file->GetReferenceKey(&refKey, &keySize);
+    if (FAILED(hr)) {
+        file->Release();
+        face->Release();
+        return false;
+    }
 
-	hr = file->GetLoader(&loader);
-	if (FAILED(hr) || !loader) {
-		file->Release();
-		face->Release();
-		return false;
-	}
+    hr = file->GetLoader(&loader);
+    if (FAILED(hr) || !loader) {
+        file->Release();
+        face->Release();
+        return false;
+    }
 
-	hr = loader->CreateStreamFromKey(refKey, keySize, &stream);
-	if (FAILED(hr) || !stream) {
-		file->Release();
-		face->Release();
-		return false; 
-	}
+    hr = loader->CreateStreamFromKey(refKey, keySize, &stream);
+    if (FAILED(hr) || !stream) {
+        file->Release();
+        face->Release();
+        return false;
+    }
 
-	priv->stream = stream;
-	file->Release();
-	face->Release();
+    priv->stream = stream;
+    file->Release();
+    face->Release();
 
-	return true;
+    return true;
 }
 
-static size_t get_data(void *data, unsigned char* buf, size_t offset, size_t length)
+/*
+ * Read a specified part of a fontfile into memory.
+ * If the font wasn't used before first creates a
+ * FontStream and save it into the private data for later usage.
+ * If the parameter "buf" is NULL libass wants to know the
+ * size of the Fontfile
+ */
+static size_t get_data(void *data, unsigned char *buf, size_t offset,
+                       size_t length)
 {
-	HRESULT hr = S_OK;
-	FontPrivate *priv = (FontPrivate *)data;
-	const void *fileBuf = NULL;
-	void *fragContext = NULL;
+    HRESULT hr = S_OK;
+    FontPrivate *priv = (FontPrivate *) data;
+    const void *fileBuf = NULL;
+    void *fragContext = NULL;
 
-	if (!init_font_private(priv))
-		return 0;
+    if (!init_font_private(priv))
+        return 0;
 
-	if (buf == NULL) {
-		UINT64 fileSize;
-		hr = priv->stream->GetFileSize(&fileSize);
-		if (FAILED(hr))
-			return 0;
+    if (buf == NULL) {
+        UINT64 fileSize;
+        hr = priv->stream->GetFileSize(&fileSize);
+        if (FAILED(hr))
+            return 0;
 
-		return fileSize;
-	}
+        return fileSize;
+    }
 
-	hr = priv->stream->ReadFileFragment(&fileBuf, offset, length, &fragContext);
-	if (FAILED(hr) || !fileBuf)
-		return 0;
+    hr = priv->stream->ReadFileFragment(&fileBuf, offset, length, &fragContext);
 
-	memcpy(buf, fileBuf, length);
+    if (FAILED(hr) || !fileBuf)
+        return 0;
 
-	priv->stream->ReleaseFileFragment(fragContext);
+    memcpy(buf, fileBuf, length);
 
-	return length;
+    priv->stream->ReleaseFileFragment(fragContext);
+
+    return length;
 }
 
+/*
+ * Checks if the passed font has a specific unicode
+ * character. Returns 0 for failure and 1 for success
+ */
 static int check_glyph(void *data, uint32_t code)
 {
-	HRESULT hr = S_OK;
-	FontPrivate *priv = (FontPrivate *)data;
-	BOOL exists = FALSE;
+    HRESULT hr = S_OK;
+    FontPrivate *priv = (FontPrivate *) data;
+    BOOL exists = FALSE;
 
-	if (code == 0)
-		return 1;
+    if (code == 0)
+        return 1;
 
-	priv->font->HasCharacter(code, &exists);
-	if (FAILED(hr))
-		return 0;
+    priv->font->HasCharacter(code, &exists);
+    if (FAILED(hr))
+        return 0;
 
-	return exists;
+    return exists;
 }
 
+/*
+ * This will release the directwrite backend
+ */
 static void destroy_provider(void *priv)
 {
-	((IDWriteFactory*)priv)->Release();
+    ((IDWriteFactory *) priv)->Release();
 }
+
+/*
+ * This will destroy a specific font and it's
+ * Fontstream (in case it does exist)
+ */
 
 static void destroy_font(void *data)
 {
-	FontPrivate *priv = (FontPrivate *)data;
+    FontPrivate *priv = (FontPrivate *) data;
 
-	priv->font->Release();
-	if (priv->stream != NULL)
-		priv->stream->Release();
+    priv->font->Release();
+    if (priv->stream != NULL)
+        priv->stream->Release();
 
-	free(priv);
+    free(priv);
 }
 
 static int map_width(int stretch)
 {
-	return stretch * (100 / DWRITE_FONT_STRETCH_MEDIUM);
+    return stretch * (100 / DWRITE_FONT_STRETCH_MEDIUM);
 }
 
-static void scan_fonts(IDWriteFactory *factory, ASS_FontProvider *provider)
+/*
+ * Scan every system font on the current machine and add it
+ * to the libass lookup. Stores the FontPrivate as private data
+ * for later memory reading
+ */
+static void scan_fonts(IDWriteFactory *factory,
+                       ASS_FontProvider *provider)
 {
-	HRESULT hr = S_OK;
-	IDWriteFontCollection* fontCollection = NULL;
-	IDWriteFont* font = NULL;
-	DWRITE_FONT_METRICS metrics;
-	DWRITE_FONT_STYLE style;
-	ASS_FontProviderMetaData meta = ASS_FontProviderMetaData();
-	hr = factory->GetSystemFontCollection(&fontCollection,FALSE);
-	wchar_t localeName[LOCALE_NAME_MAX_LENGTH];
-	int size_needed = 0;
+    HRESULT hr = S_OK;
+    IDWriteFontCollection *fontCollection = NULL;
+    IDWriteFont *font = NULL;
+    DWRITE_FONT_METRICS metrics;
+    DWRITE_FONT_STYLE style;
+    ASS_FontProviderMetaData meta = ASS_FontProviderMetaData();
+    hr = factory->GetSystemFontCollection(&fontCollection, FALSE);
+    wchar_t localeName[LOCALE_NAME_MAX_LENGTH];
+    int size_needed = 0;
 
-	if(FAILED(hr)||!fontCollection)
-		return;
+    if (FAILED(hr) || !fontCollection)
+        return;
 
-	UINT32 familyCount = fontCollection->GetFontFamilyCount();
+    UINT32 familyCount = fontCollection->GetFontFamilyCount();
 
-	for (UINT32 i = 0; i < familyCount; ++i)
-    {
-		IDWriteFontFamily* fontFamily = NULL;
-		IDWriteLocalizedStrings* familyNames = NULL;
-		IDWriteLocalizedStrings* fontNames = NULL;
-		IDWriteLocalizedStrings* psNames = NULL;
-		BOOL exists = FALSE;
-		char* psName = NULL;
+    for (UINT32 i = 0; i < familyCount; ++i) {
+        IDWriteFontFamily *fontFamily = NULL;
+        IDWriteLocalizedStrings *familyNames = NULL;
+        IDWriteLocalizedStrings *fontNames = NULL;
+        IDWriteLocalizedStrings *psNames = NULL;
+        BOOL exists = FALSE;
+        char *psName = NULL;
 
-		// Get the font family.
-		hr = fontCollection->GetFontFamily(i, &fontFamily);
-		if (FAILED(hr))
-			return;
+        hr = fontCollection->GetFontFamily(i, &fontFamily);
+        if (FAILED(hr))
+            return;
 
-		UINT32 fontCount = fontFamily->GetFontCount();
-		for (UINT32 j = 0; j < fontCount; ++j)
-		{
-			hr = fontFamily->GetFont(j, &font);
-			if (FAILED(hr))
-				continue;
-			
-			meta.weight = font->GetWeight();
-			meta.width = map_width(font->GetStretch());
-			font->GetMetrics(&metrics);
-			style = font->GetStyle();
-			meta.slant =	(style==DWRITE_FONT_STYLE_NORMAL)? FONT_SLANT_NONE:
-							(style==DWRITE_FONT_STYLE_OBLIQUE)? FONT_SLANT_OBLIQUE: 
-							(style==DWRITE_FONT_STYLE_ITALIC)? FONT_SLANT_ITALIC : FONT_SLANT_NONE;
+        UINT32 fontCount = fontFamily->GetFontCount();
+        for (UINT32 j = 0; j < fontCount; ++j) {
+            hr = fontFamily->GetFont(j, &font);
+            if (FAILED(hr))
+                continue;
 
-			hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_POSTSCRIPT_NAME, &psNames, &exists);
-			if (FAILED(hr))
-			{
-				font->Release();
-				continue;
-			}
-				
+            meta.weight = font->GetWeight();
+            meta.width = map_width(font->GetStretch());
+            font->GetMetrics(&metrics);
+            style = font->GetStyle();
+            meta.slant = (style == DWRITE_FONT_STYLE_NORMAL) ? FONT_SLANT_NONE :
+                         (style == DWRITE_FONT_STYLE_OBLIQUE)? FONT_SLANT_OBLIQUE :
+                         (style == DWRITE_FONT_STYLE_ITALIC) ? FONT_SLANT_ITALIC : FONT_SLANT_NONE;
 
-			if (exists)
-			{
-				hr = psNames->GetString(0, localeName, LOCALE_NAME_MAX_LENGTH + 1);
-				if (FAILED(hr))
-				{
-					psNames->Release();
-					font->Release();
-					continue;					
-				}
-					
-				size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
-				psName = (char*)malloc(size_needed);
-				WideCharToMultiByte(CP_UTF8, 0, localeName, -1, psName, size_needed, NULL, NULL);
-			}
+            hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_POSTSCRIPT_NAME, &psNames,&exists);
 
-			psNames->Release();
-		
-			hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_FULL_NAME, &fontNames, &exists);
-			if (FAILED(hr))
-			{
-				font->Release();
-				continue;
-			}
-				
+            if (FAILED(hr)) {
+                font->Release();
+                continue;
+            }
 
-			meta.n_fullname = fontNames->GetCount();
-			meta.fullnames = (char **)calloc(meta.n_fullname, sizeof(char *));
-			for (UINT32 k = 0; k < meta.n_fullname; ++k)
-			{
-				hr = fontNames->GetString(k,localeName, LOCALE_NAME_MAX_LENGTH + 1);
-				if (FAILED(hr))
-				{
-					continue;
-				}
-					
-				size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
-				char* mbName = (char *)malloc(size_needed);
-				WideCharToMultiByte(CP_UTF8, 0, localeName, -1, mbName, size_needed, NULL, NULL);
-				meta.fullnames[k] = mbName;
-			}
-			fontNames->Release();
+            if (exists) {
+                hr = psNames->GetString(0, localeName, LOCALE_NAME_MAX_LENGTH + 1);
+                if (FAILED(hr)) {
+                    psNames->Release();
+                    font->Release();
+                    continue;
+                }
 
-			hr = fontFamily->GetFamilyNames(&familyNames);
-			if (FAILED(hr))
-			{
-				font->Release();
-				continue;
-			}
-				
-			
-			meta.n_family = familyNames->GetCount();
-			meta.families = (char **)calloc(meta.n_family, sizeof(char *));
-			for (UINT32 k = 0; k < meta.n_family; ++k)
-			{
-				hr = familyNames->GetString(k, localeName, LOCALE_NAME_MAX_LENGTH + 1);
-				if (FAILED(hr))
-				{
-					continue;
-				}
-					
-				size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
-				char* mbName = (char *)malloc(size_needed);
-				WideCharToMultiByte(CP_UTF8, 0, localeName, -1, mbName, size_needed, NULL, NULL);
-				meta.families[k] = mbName;
-			}
-			familyNames->Release();
+                size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0,NULL, NULL);
+                psName = (char *) malloc(size_needed);
+                WideCharToMultiByte(CP_UTF8, 0, localeName, -1, psName,size_needed, NULL, NULL);
+            }
 
-			FontPrivate *font_priv = (FontPrivate *)calloc(1, sizeof(*font_priv));
-			font_priv->font = font;
+            psNames->Release();
 
-			ass_font_provider_add_font(provider, &meta, NULL, 0, psName, font_priv);
+            hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_FULL_NAME, &fontNames,&exists);
+            if (FAILED(hr)) {
+                font->Release();
+                continue;
+            }
 
-			for (UINT32 k = 0; k < meta.n_family; ++k)
-				free(meta.families[k]);
-			for (UINT32 k = 0; k < meta.n_fullname; ++k)
-				free(meta.fullnames[k]);
-			free(meta.fullnames);
-			free(meta.families);
-			free(psName);
-		}   	
+            meta.n_fullname = fontNames->GetCount();
+            meta.fullnames = (char **) calloc(meta.n_fullname, sizeof(char *));
+            for (UINT32 k = 0; k < meta.n_fullname; ++k) {
+                hr = fontNames->GetString(k, localeName,LOCALE_NAME_MAX_LENGTH + 1);
+
+                if (FAILED(hr)) {
+                    continue;
+                }
+
+                size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
+                char *mbName = (char *) malloc(size_needed);
+                WideCharToMultiByte(CP_UTF8, 0, localeName, -1, mbName,size_needed, NULL, NULL);
+                meta.fullnames[k] = mbName;
+            }
+            fontNames->Release();
+
+            hr = fontFamily->GetFamilyNames(&familyNames);
+            if (FAILED(hr)) {
+                font->Release();
+                continue;
+            }
+
+
+            meta.n_family = familyNames->GetCount();
+            meta.families = (char **) calloc(meta.n_family, sizeof(char *));
+            for (UINT32 k = 0; k < meta.n_family; ++k) {
+                hr = familyNames->GetString(k, localeName, LOCALE_NAME_MAX_LENGTH + 1);
+
+                if (FAILED(hr)) {
+                    continue;
+                }
+
+                size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0,NULL, NULL);
+                char *mbName = (char *) malloc(size_needed);
+                WideCharToMultiByte(CP_UTF8, 0, localeName, -1, mbName,size_needed, NULL, NULL);
+                meta.families[k] = mbName;
+            }
+            familyNames->Release();
+
+            FontPrivate *font_priv = (FontPrivate *) calloc(1, sizeof(*font_priv));
+            font_priv->font = font;
+
+            ass_font_provider_add_font(provider, &meta, NULL, 0, psName, font_priv);
+
+            for (UINT32 k = 0; k < meta.n_family; ++k)
+                free(meta.families[k]);
+            for (UINT32 k = 0; k < meta.n_fullname; ++k)
+                free(meta.fullnames[k]);
+            free(meta.fullnames);
+            free(meta.families);
+            free(psName);
+        }
     }
 }
 
+/*
+ * Called by libass when the provider should perform the
+ * specified task
+ */
 static ASS_FontProviderFuncs directwrite_callbacks = {
     get_data,
-	check_glyph,
+    check_glyph,
     destroy_font,
     destroy_provider,
     NULL,
+    NULL,
+    NULL
 };
 
-ASS_FontProvider *
-ass_directwrite_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
-                          const char *config)
+
+/*
+ * Register the directwrite provider. Upon registering
+ * scans all system fonts. The private data for this
+ * provider is IDWriteFactory
+ * On failure returns NULL
+ */
+ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
+                                               ASS_FontSelector *selector,
+                                               const char *config)
 {
-	HRESULT hr = S_OK;
-	IDWriteFactory* dwFactory = NULL;
-	ASS_FontProvider *provider = NULL;
+    HRESULT hr = S_OK;
+    IDWriteFactory *dwFactory = NULL;
+    ASS_FontProvider *provider = NULL;
 
-	hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,
-            __uuidof(IDWriteFactory),
-            (IUnknown**)(&dwFactory));
+    hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,
+                             __uuidof(IDWriteFactory),
+                             (IUnknown **) (&dwFactory));
 
-	if(FAILED(hr))
-	{
-		ass_msg(lib, MSGL_WARN, "Failed to initialize directwrite.");
-		goto exit;
-	}	
-	
+    if (FAILED(hr)) {
+        ass_msg(lib, MSGL_WARN, "Failed to initialize directwrite.");
+        return NULL;
+    }
 
     provider = ass_font_provider_new(selector, &directwrite_callbacks, dwFactory);
 
-    scan_fonts(dwFactory,provider);
-exit: 
+    scan_fonts(dwFactory, provider);
+
     return provider;
 }
 
