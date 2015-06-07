@@ -2275,7 +2275,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             }
             last_info = info;
 
-            if (!info->image)
+            if (!info->image || !current_info)
                 continue;
 
             if (current_info->bitmap_count >= current_info->max_bitmap_count) {
