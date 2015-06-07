@@ -1018,7 +1018,6 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
 out:
     if (icdsc != (iconv_t) (-1)) {
         (void) iconv_close(icdsc);
-        icdsc = (iconv_t) (-1);
         ass_msg(library, MSGL_V, "Closed iconv descriptor");
     }
 
