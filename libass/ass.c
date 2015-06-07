@@ -1229,12 +1229,13 @@ int ass_read_styles(ASS_Track *track, char *fname, char *codepage)
         buf = tmpbuf;
     }
     if (!buf)
-        return 0;
+        return 1;
 #endif
 
     old_state = track->parser_priv->state;
     track->parser_priv->state = PST_STYLES;
     process_text(track, buf);
+    free(buf);
     track->parser_priv->state = old_state;
 
     return 0;
