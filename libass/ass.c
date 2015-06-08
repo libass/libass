@@ -1018,7 +1018,6 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
 out:
     if (icdsc != (iconv_t) (-1)) {
         (void) iconv_close(icdsc);
-        icdsc = (iconv_t) (-1);
         ass_msg(library, MSGL_V, "Closed iconv descriptor");
     }
 
@@ -1229,12 +1228,13 @@ int ass_read_styles(ASS_Track *track, char *fname, char *codepage)
         buf = tmpbuf;
     }
     if (!buf)
-        return 0;
+        return 1;
 #endif
 
     old_state = track->parser_priv->state;
     track->parser_priv->state = PST_STYLES;
     process_text(track, buf);
+    free(buf);
     track->parser_priv->state = old_state;
 
     return 0;

@@ -1559,7 +1559,7 @@ static void
 wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
 {
     int i;
-    GlyphInfo *cur, *s1, *e1, *s2, *s3, *w;
+    GlyphInfo *cur, *s1, *e1, *s2, *s3;
     int last_space;
     int break_type;
     int exit;
@@ -1611,7 +1611,6 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
                 text_info->glyphs[lead].linebreak = break_type;
                 last_space = -1;
                 s1 = text_info->glyphs + lead;
-                s_offset = d6_to_double(s1->bbox.xMin + s1->pos.x);
                 text_info->n_lines++;
             }
         }
@@ -1620,7 +1619,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     exit = 0;
     while (!exit && render_priv->state.wrap_style != 1) {
         exit = 1;
-        w = s3 = text_info->glyphs;
+        s3 = text_info->glyphs;
         s1 = s2 = 0;
         for (i = 0; i <= text_info->length; ++i) {
             cur = text_info->glyphs + i;
@@ -1630,8 +1629,8 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
                 s3 = cur;
                 if (s1 && (s2->linebreak == 1)) {       // have at least 2 lines, and linebreak is 'soft'
                     double l1, l2, l1_new, l2_new;
+                    GlyphInfo *w = s2;
 
-                    w = s2;
                     do {
                         --w;
                     } while ((w > s1) && (w->symbol == ' '));
@@ -1674,8 +1673,6 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     measure_text(render_priv);
     trim_whitespace(render_priv);
 
-    pen_shift_x = 0.;
-    pen_shift_y = 0.;
     cur_line = 1;
     run_offset = 0;
 
@@ -1684,6 +1681,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     while (i < text_info->length && cur->skip)
         cur = text_info->glyphs + ++i;
     pen_shift_x = d6_to_double(-cur->pos.x);
+    pen_shift_y = 0.;
 
     for (i = 0; i < text_info->length; ++i) {
         cur = text_info->glyphs + i;
@@ -2275,7 +2273,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             }
             last_info = info;
 
-            if (!info->image)
+            if (!info->image || !current_info)
                 continue;
 
             if (current_info->bitmap_count >= current_info->max_bitmap_count) {
