@@ -131,6 +131,8 @@ static ASS_FontProviderFuncs fontconfig_callbacks = {
     NULL,
     destroy,
     NULL,
+    NULL,
+    NULL
 };
 
 ASS_FontProvider *

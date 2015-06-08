@@ -47,8 +47,8 @@ typedef struct parser_priv ASS_ParserPriv;
 typedef struct ass_library ASS_Library;
 typedef struct font_provider ASS_FontProvider;
 
-
 /* Font Provider */
+typedef struct font_provider_meta_data ASS_FontProviderMetaData;
 
 /**
  * Get font data. This is a stream interface which can be used as an
@@ -104,13 +104,55 @@ typedef void    (*MatchFontsFunc)(ASS_Library *lib,
                                   ASS_FontProvider *provider,
                                   char *name);
 
+/**
+ * Substitute font name by another. This implements generic font family
+ * substitutions (e.g. sans-serif, serif, monospace) as well as font aliases.
+ *
+ * The generic families should map to sensible platform-specific font families.
+ * Aliases are sometimes used to map from common fonts that don't exist on
+ * a particular platform to similar alternatives. For example, a Linux
+ * system with fontconfig may map "Arial" to "Liberation Sans" and Windows
+ * maps "Helvetica" to "Arial".
+ *
+ * This is called by fontselect when a new logical font is created. The font
+ * provider set as default is used.
+ *
+ * \param priv font provider private data
+ * \param name input string for substitution, as specified in the script
+ * \return output string for substitution, allocated with malloc(), must be
+ *         freed by caller, can be NULL if no substitution was done.
+ */
+typedef char   *(*SubstituteFontFunc)(void *priv, const char *name);
+
+/**
+ * Get an appropriate fallback font for a given codepoint.
+ *
+ * This is called by fontselect whenever a glyph is not found in the
+ * physical font list of a logical font. fontselect will try to add the
+ * font family with match_fonts if it does not exist in the font list
+ * add match_fonts is not NULL. Note that the returned font family should
+ * contain the requested codepoint.
+ *
+ * Note that fontselect uses the font provider set as default to determine
+ * fallbacks.
+ *
+ * \param font_priv font private data
+ * \param codepoint Unicode codepoint (UTF-32)
+ * \return output font family, allocated with malloc(), must be freed
+ *         by caller.
+ */
+typedef char   *(*GetFallbackFunc)(void *font_priv,
+                                   ASS_FontProviderMetaData *meta,
+                                   uint32_t codepoint);
+
 typedef struct font_provider_funcs {
-    GetDataFunc     get_data;
-    CheckGlyphFunc  check_glyph;
-    DestroyFontFunc destroy_font;
-    DestroyProviderFunc destroy_provider;
-    MatchFontsFunc  match_fonts;
-    // XXX: add function for alias handling
+    GetDataFunc     get_data;       /* optional/mandatory */
+    CheckGlyphFunc  check_glyph;    /* mandatory */
+    DestroyFontFunc destroy_font;   /* optional */
+    DestroyProviderFunc destroy_provider; /* optional */
+    MatchFontsFunc  match_fonts;    /* optional */
+    SubstituteFontFunc subst_font;  /* optional */
+    GetFallbackFunc fallback_font;  /* optional */
 } ASS_FontProviderFuncs;
 
 /*

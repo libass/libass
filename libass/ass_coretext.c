@@ -270,10 +270,12 @@ static ASS_FontProviderFuncs coretext_callbacks = {
     destroy_font,
     NULL,
 #if CT_FONTS_EAGER_LOAD
-    NULL
+    NULL,
 #else
-    match_fonts
+    match_fonts,
 #endif
+    NULL,
+    NULL
 };
 
 ASS_FontProvider *

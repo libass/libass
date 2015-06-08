@@ -195,6 +195,8 @@ static ASS_FontProviderFuncs ft_funcs = {
     destroy_font_ft,
     NULL,
     NULL,
+    NULL,
+    NULL
 };
 
 /**
