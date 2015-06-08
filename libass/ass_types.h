@@ -49,35 +49,94 @@ typedef struct font_provider ASS_FontProvider;
 
 
 /* Font Provider */
-typedef size_t  (*GetDataFunc)(void *, unsigned char*, size_t, size_t);
-typedef int     (*CheckGlyphFunc)(void *, uint32_t);
-typedef void    (*DestroyFontFunc)(void *);
-typedef void    (*DestroyProviderFunc)(void *);
+
+/**
+ * Get font data. This is a stream interface which can be used as an
+ * alternative to providing a font path (which may not be available).
+ *
+ * This is called by fontselect if a given font was added without a
+ * font path (i.e. the path was set to NULL).
+ *
+ * \param font_priv font private data
+ * \param output buffer; set to NULL to query stream size
+ * \param offset stream offset
+ * \param len bytes to read into output buffer from stream
+ * \return actual number of bytes read, or stream size if data == NULL
+ */
+typedef size_t  (*GetDataFunc)(void *font_priv, unsigned char *data,
+                               size_t offset, size_t len);
+
+/**
+ * Check if a glyph is supported by a font.
+ *
+ * \param font_priv font private data
+ * \param codepont Unicode codepoint (UTF-32)
+ * \return non-zero value if codepoint is supported by the font
+ */
+typedef int     (*CheckGlyphFunc)(void *font_priv, uint32_t codepoint);
+
+/**
+ * Destroy a font's private data.
+ *
+ *  \param font_priv font private data
+ */
+typedef void    (*DestroyFontFunc)(void *font_priv);
+
+/**
+ * Destroy a font provider's private data.
+ *
+ * \param priv font provider private data
+ */
+typedef void    (*DestroyProviderFunc)(void *priv);
+
+/**
+ * Add fonts for a given font name; this should add all fonts matching the
+ * given name to the fontselect database.
+ *
+ * This is called by fontselect whenever a new logical font is created. The
+ * font provider set as default is used.
+ *
+ * \param lib ASS_Library instance
+ * \param provider font provider instance
+ * \param name font name (as specified in script)
+ */
 typedef void    (*MatchFontsFunc)(ASS_Library *lib,
                                   ASS_FontProvider *provider,
                                   char *name);
 
 typedef struct font_provider_funcs {
-    GetDataFunc     get_data;       // callback for memory fonts
-    CheckGlyphFunc  check_glyph;    // test codepoint for coverage
-    DestroyFontFunc destroy_font;   // destroy a single font
-    DestroyProviderFunc destroy_provider;   // destroy provider only
-    MatchFontsFunc  match_fonts;    // match fonts against some name
+    GetDataFunc     get_data;
+    CheckGlyphFunc  check_glyph;
+    DestroyFontFunc destroy_font;
+    DestroyProviderFunc destroy_provider;
+    MatchFontsFunc  match_fonts;
     // XXX: add function for alias handling
 } ASS_FontProviderFuncs;
 
 /*
  * Basic font metadata. All strings must be encoded with UTF-8.
- * At minimum `family' is required.
+ * At minimum one family is required.
  */
 typedef struct font_provider_meta_data {
-    char **families;    // list of family names, e.g. "Arial"
-    char **fullnames;   // list of localized full names, e.g. "Arial Bold"
-    int n_family;       // list of family names
-    int n_fullname;     // number of localized full names
-    int slant;          // uses the above scale (NONE/ITALIC/OBLIQUE)
-    int weight;         // TrueType scale, 100-900
-    int width;          // in percent, normally 100
+
+    /**
+     * List of localized font family names, e.g. "Arial".
+     */
+    char **families;
+
+    /**
+     * List of localized full names, e.g. "Arial Bold".
+     * The English name should be listed first to speed up typical matching.
+     */
+    char **fullnames;
+    int n_family;       // Number of localized family names
+    int n_fullname;     // Number of localized full names
+
+    int slant;          // Font slant value from FONT_SLANT_*
+    int weight;         // Font weight in TrueType scale, 100-900
+                        // See FONT_WEIGHT_*
+    int width;          // Font weight in percent, normally 100
+                        // See FONT_WIDTH_*
 } ASS_FontProviderMetaData;
 
 
