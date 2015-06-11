@@ -21,6 +21,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <limits.h>
 #include <assert.h>
 #include <string.h>
 #include <strings.h>
@@ -73,9 +74,6 @@ struct font_info {
     int index;             // font index inside font collections
     char *postscript_name; // can be used as an alternative to index to
                            // identify a font inside a collection
-
-    // similarity score
-    unsigned score;
 
     // font source
     ASS_FontProvider *provider;
@@ -391,48 +389,39 @@ void ass_font_provider_free(ASS_FontProvider *provider)
  */
 static unsigned font_info_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
 {
-    int i, j;
-    unsigned similarity = 0;
+    int i;
+    int family_match = 0;
 
-    // compare fullnames
-    // a matching fullname is very nice and instantly drops the score to zero
-    similarity = 10000;
-    for (i = 0; i < a->n_fullname; i++)
-        for (j = 0; j < req->n_fullname; j++) {
-            if (strcasecmp(a->fullnames[i], req->fullnames[j]) == 0)
-                similarity = 0;
+    // Compare family name first; sometimes family name equals fullname,
+    // but we want to be able to match against the different variants
+    // in case a family name match occurs.
+    for (i = 0; i < a->n_family; i++) {
+        if (strcasecmp(a->families[i], req->fullnames[0]) == 0) {
+            family_match = 1;
+            break;
         }
-
-    // if we don't have any match, compare fullnames against family
-    // sometimes the family name is used similarly
-    if (similarity > 0) {
-        for (i = 0; i < a->n_family; i++)
-            for (j = 0; j < req->n_fullname; j++) {
-                if (strcasecmp(a->families[i], req->fullnames[j]) == 0)
-                    similarity = 0;
-            }
     }
 
-    // compare slant
-    similarity += ABS(a->slant - req->slant);
+    // If there's a family match, compare font attributes
+    // to determine best match in that particular family
+    if (family_match) {
+        unsigned similarity = 0;
+        similarity += ABS(a->weight - req->weight);
+        similarity += ABS(a->slant - req->slant);
+        similarity += ABS(a->width - req->width);
 
-    // compare weight
-    similarity += ABS(a->weight - req->weight);
+        return similarity;
+    }
 
-    // compare width
-    similarity += ABS(a->width - req->width);
+    // If we don't have any match, compare fullnames against request
+    // if there is a match now, assign lowest score possible. This means
+    // the font should be chosen instantly, without further search.
+    for (i = 0; i < a->n_fullname; i++) {
+        if (strcasecmp(a->fullnames[i], req->fullnames[0]) == 0)
+            return 0;
+    }
 
-    return similarity;
-}
-
-// calculate scores
-static void font_info_req_similarity(ASS_FontInfo *font_infos, size_t len,
-                                     ASS_FontInfo *req)
-{
-    int i;
-
-    for (i = 0; i < len; i++)
-        font_infos[i].score = font_info_similarity(&font_infos[i], req);
+    return UINT_MAX;
 }
 
 #if 0
@@ -462,21 +451,12 @@ static void font_info_dump(ASS_FontInfo *font_infos, size_t len)
 }
 #endif
 
-static int font_info_compare(const void *av, const void *bv)
-{
-    const ASS_FontInfo *a = av;
-    const ASS_FontInfo *b = bv;
-
-    return a->score - b->score;
-}
-
 static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                          const char *family, unsigned bold, unsigned italic,
                          int *index, char **postscript_name, int *uid,
                          ASS_FontStream *stream, uint32_t code)
 {
-    int num_fonts = priv->n_font;
-    int idx = 0;
+    int idx = -1;
     ASS_FontInfo req;
     char *req_fullname;
     char *tfamily = trim_space(strdup(family));
@@ -500,36 +480,47 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     req.fullnames    = &req_fullname;
     req.fullnames[0] = tfamily;
 
-    // calculate similarities
-    font_info_req_similarity(font_infos, num_fonts, &req);
+    // match font
+    unsigned score_min = UINT_MAX;
+    for (int i = 0; i < priv->n_font; i++) {
+        unsigned score = font_info_similarity(&priv->font_infos[i], &req);
 
-    // sort
-    qsort(font_infos, num_fonts, sizeof(ASS_FontInfo),
-            font_info_compare);
-
-    // check glyph coverage
-    while (idx < priv->n_font) {
-        ASS_FontProvider *provider = font_infos[idx].provider;
-        if (!provider || !provider->funcs.check_glyph) {
-            idx++;
-            continue;
-        }
-        if (provider->funcs.check_glyph(font_infos[idx].priv, code) > 0)
+        // lowest possible score instantly matches
+        if (score == 0) {
+            idx = i;
             break;
-        idx++;
+        }
+
+        // update idx if score is better
+        if (score < score_min) {
+            score_min = score;
+            idx = i;
+        }
     }
 
+    // free font request
     free(req.fullnames[0]);
 
+    // found anything?
+    if (idx < 0) {
+        return NULL;
+    }
+
+    // check glyph coverage
+    ASS_FontProvider *provider = font_infos[idx].provider;
+    if (!provider || !provider->funcs.check_glyph) {
+        return NULL;
+    }
+    if (provider->funcs.check_glyph(font_infos[idx].priv, code) == 0) {
+        return NULL;
+    }
+
+    // successfully matched, set up return values
     *postscript_name = font_infos[idx].postscript_name;
     *index = font_infos[idx].index;
     *uid   = font_infos[idx].uid;
 
-    // nothing found
-    if (idx == priv->n_font)
-        return NULL;
-
-    // if there is no valid path, this is a memory stream font
+    // set up memory stream if there is no path
     if (font_infos[idx].path == NULL) {
         ASS_FontProvider *provider = font_infos[idx].provider;
         stream->func = provider->funcs.get_data;
