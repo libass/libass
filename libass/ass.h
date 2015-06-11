@@ -402,7 +402,12 @@ void ass_set_line_spacing(ASS_Renderer *priv, double line_spacing);
 void ass_set_line_position(ASS_Renderer *priv, double line_position);
 
 /**
- * \brief Get the list of available font providers.
+ * \brief Get the list of available font providers. The output array
+ * is allocated with malloc and can be released with free(). If an
+ * allocation error occurs, size is set to (size_t)-1.
+ * \param priv library handle
+ * \param providers output, list of default providers (malloc'ed array)
+ * \param size output, number of providers
  * \return list of available font providers (user owns the returned array)
  */
 void ass_get_available_font_providers(ASS_Library *priv,
