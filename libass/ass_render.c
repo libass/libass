@@ -2549,6 +2549,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 y2scr(render_priv, render_priv->track->PlayResY / 2.0);
             device_y = scr_y - (bbox.yMax + bbox.yMin) / 2.0;
         } else {                // subtitle
+            double line_pos = render_priv->state.explicit ?
+                0 : render_priv->settings.line_position;
             double scr_top, scr_bottom, scr_y0;
             if (valign != VALIGN_SUB)
                 ass_msg(render_priv->library, MSGL_V,
@@ -2557,15 +2559,14 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 y2scr_sub(render_priv,
                           render_priv->track->PlayResY - MarginV);
             scr_top = y2scr_top(render_priv, 0); //xxx not always 0?
-            device_y = scr_bottom + (scr_top - scr_bottom) *
-                       render_priv->settings.line_position / 100.0;
+            device_y = scr_bottom + (scr_top - scr_bottom) * line_pos / 100.0;
             device_y -= text_info->height;
             device_y += text_info->lines[0].asc;
             // clip to top to avoid confusion if line_position is very high,
             // turning the subtitle into a toptitle
             // also, don't change behavior if line_position is not used
             scr_y0 = scr_top + text_info->lines[0].asc;
-            if (device_y < scr_y0 && render_priv->settings.line_position > 0) {
+            if (device_y < scr_y0 && line_pos > 0) {
                 device_y = scr_y0;
             }
         }
