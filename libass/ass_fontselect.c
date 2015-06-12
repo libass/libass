@@ -110,7 +110,6 @@ typedef struct font_data_ft FontDataFT;
 struct font_data_ft {
     ASS_Library *lib;
     FT_Face face;
-    char *name;
     int idx;
 };
 
@@ -129,22 +128,7 @@ static void destroy_font_ft(void *data)
     FontDataFT *fd = (FontDataFT *)data;
 
     FT_Done_Face(fd->face);
-    free(fd->name);
     free(fd);
-}
-
-/**
- * \brief find a memory font by name
- * \param library ASS library
- * \param name font name
- */
-static int find_font(ASS_Library *library, char *name)
-{
-    int i;
-    for (i = 0; i < library->num_fontdata; ++i)
-        if (strcasecmp(name, library->fontdata[i].name) == 0)
-            return i;
-    return -1;
 }
 
 static size_t
@@ -153,9 +137,6 @@ get_data_embedded(void *data, unsigned char *buf, size_t offset, size_t len)
     FontDataFT *ft = (FontDataFT *)data;
     ASS_Fontdata *fd = ft->lib->fontdata;
     int i = ft->idx;
-
-    if (ft->idx < 0)
-        ft->idx = i = find_font(ft->lib, ft->name);
 
     if (buf == NULL)
         return fd[i].size;
@@ -792,10 +773,9 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
             continue;
         }
 
-        ft->lib      = library;
-        ft->face     = face;
-        ft->name     = strdup(name);
-        ft->idx      = -1;
+        ft->lib  = library;
+        ft->face = face;
+        ft->idx  = idx;
 
         if (ass_font_provider_add_font(priv, &info, NULL, face_index,
                     NULL, ft)) {
