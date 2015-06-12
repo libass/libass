@@ -242,6 +242,9 @@ fi
 if test x$harfbuzz = xtrue; then
     pkg_requires="harfbuzz >= 0.9.5, ${pkg_requires}"
 fi
+if test x$directwrite = xtrue; then
+    pkg_libs="${pkg_libs} -ldwrite"
+fi
 
 AC_SUBST([PKG_LIBS_DEFAULT], [$(test x$enable_shared = xno && echo ${pkg_libs})])
 AC_SUBST([PKG_REQUIRES_DEFAULT], [$(test x$enable_shared = xno && echo ${pkg_requires})])
