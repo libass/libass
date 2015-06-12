@@ -645,14 +645,14 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
             *bufptr = '\0';
 
             if (name.name_id == 4) {
-                fullnames[num_fullname] = strdup(buf);
+                fullnames[num_fullname] = strdup_trimmed(buf);
                 if (fullnames[num_fullname] == NULL)
                     goto error;
                 num_fullname++;
             }
 
             if (name.name_id == 1) {
-                families[num_family] = strdup(buf);
+                families[num_family] = strdup_trimmed(buf);
                 if (families[num_family] == NULL)
                     goto error;
                 num_family++;
