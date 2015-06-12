@@ -277,10 +277,14 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     info->width       = width;
     info->n_fullname  = meta->n_fullname;
     info->n_family    = meta->n_family;
-    info->fullnames   = calloc(meta->n_fullname, sizeof(char *));
     info->families    = calloc(meta->n_family, sizeof(char *));
+    if (meta->n_fullname) {
+        info->fullnames = calloc(meta->n_fullname, sizeof(char *));
+        if (info->fullnames == NULL)
+            goto error;
+    }
 
-    if (info->fullnames == NULL || info->families == NULL)
+    if (info->families == NULL)
         goto error;
 
     for (i = 0; i < info->n_family; i++) {
@@ -664,6 +668,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 
     }
     iconv_close(utf16to8);
+    utf16to8 = (iconv_t)-1;
 
     // check if we got a valid family - if not use whatever FreeType gives us
     if (num_family == 0 && face->family_name) {
@@ -672,6 +677,10 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
             goto error;
         num_family++;
     }
+
+    // we absolutely need a name
+    if (num_family == 0)
+        goto error;
 
     // calculate sensible slant and weight from style attributes
     slant  = 110 * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
@@ -682,13 +691,20 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     info->weight = weight;
     info->width  = 100;     // FIXME, should probably query the OS/2 table
     info->families  = calloc(sizeof(char *), num_family);
-    info->fullnames = calloc(sizeof(char *), num_fullname);
-    if (info->families == NULL || info->fullnames == NULL)
+
+    if (info->families == NULL)
         goto error;
+
     memcpy(info->families, &families, sizeof(char *) * num_family);
-    memcpy(info->fullnames, &fullnames, sizeof(char *) * num_fullname);
-    info->n_family   = num_family;
-    info->n_fullname = num_fullname;
+    info->n_family = num_family;
+
+    if (num_fullname) {
+        info->fullnames = calloc(sizeof(char *), num_fullname);
+        if (info->fullnames == NULL)
+            goto error;
+        memcpy(info->fullnames, &fullnames, sizeof(char *) * num_fullname);
+        info->n_fullname = num_fullname;
+    }
 
     return 0;
 
