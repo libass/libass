@@ -455,11 +455,14 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     int idx = -1;
     ASS_FontInfo req;
     char *req_fullname;
-    char *tfamily = trim_space(strdup(family));
+    char *family_trim = strdup_trimmed(family);
+
+    if (family_trim == NULL)
+        return NULL;
 
     ASS_FontProvider *default_provider = priv->default_provider;
     if (default_provider && default_provider->funcs.match_fonts)
-        default_provider->funcs.match_fonts(library, default_provider, tfamily);
+        default_provider->funcs.match_fonts(library, default_provider, family_trim);
 
     ASS_FontInfo *font_infos = priv->font_infos;
 
@@ -474,7 +477,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     req.width   = 100;
     req.n_fullname   = 1;
     req.fullnames    = &req_fullname;
-    req.fullnames[0] = tfamily;
+    req.fullnames[0] = family_trim;
 
     // match font
     unsigned score_min = UINT_MAX;
@@ -494,8 +497,8 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
         }
     }
 
-    // free font request
-    free(req.fullnames[0]);
+    // free font name
+    free(family_trim);
 
     // found anything?
     if (idx < 0) {
