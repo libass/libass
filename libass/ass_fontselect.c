@@ -31,6 +31,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_SFNT_NAMES_H
+#include FT_TRUETYPE_IDS_H
 #include <iconv.h>
 
 #include "ass_utils.h"
@@ -632,7 +633,9 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
         if (FT_Get_Sfnt_Name(face, i, &name))
             continue;
 
-        if (name.platform_id == 3 && (name.name_id == 4 || name.name_id == 1)) {
+        if (name.platform_id == TT_PLATFORM_MICROSOFT &&
+                (name.name_id == TT_NAME_ID_FULL_NAME ||
+                 name.name_id == TT_NAME_ID_FONT_FAMILY)) {
             char buf[1024];
             char *bufptr = buf;
             size_t inbytes = name.string_len;
@@ -644,14 +647,14 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 
             *bufptr = '\0';
 
-            if (name.name_id == 4) {
+            if (name.name_id == TT_NAME_ID_FULL_NAME) {
                 fullnames[num_fullname] = strdup_trimmed(buf);
                 if (fullnames[num_fullname] == NULL)
                     goto error;
                 num_fullname++;
             }
 
-            if (name.name_id == 1) {
+            if (name.name_id == TT_NAME_ID_FONT_FAMILY) {
                 families[num_family] = strdup_trimmed(buf);
                 if (families[num_family] == NULL)
                     goto error;
