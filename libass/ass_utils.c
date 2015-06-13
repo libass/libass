@@ -323,7 +323,7 @@ int parse_ycbcr_matrix(char *str)
     return YCBCR_UNKNOWN;
 }
 
-void ass_msg(ASS_Library *priv, int lvl, char *fmt, ...)
+void ass_msg(ASS_Library *priv, int lvl, const char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
