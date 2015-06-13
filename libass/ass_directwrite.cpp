@@ -27,6 +27,8 @@ extern "C" {
 #include "ass_utils.h"
 }
 
+#define NAME_MAX_LENGTH 256
+
 /*
  * The private data stored for every font, detected by this backend.
  */
@@ -177,9 +179,21 @@ static void destroy_font(void *data)
     free(priv);
 }
 
-static int map_width(int stretch)
+static int map_width(enum DWRITE_FONT_STRETCH stretch)
 {
-    return stretch * (100 / DWRITE_FONT_STRETCH_MEDIUM);
+    switch (stretch) {
+    case DWRITE_FONT_STRETCH_ULTRA_CONDENSED: return 50;
+    case DWRITE_FONT_STRETCH_EXTRA_CONDENSED: return 63;
+    case DWRITE_FONT_STRETCH_CONDENSED:       return FONT_WIDTH_CONDENSED;
+    case DWRITE_FONT_STRETCH_SEMI_CONDENSED:  return 88;
+    case DWRITE_FONT_STRETCH_MEDIUM:          return FONT_WIDTH_NORMAL;
+    case DWRITE_FONT_STRETCH_SEMI_EXPANDED:   return 113;
+    case DWRITE_FONT_STRETCH_EXPANDED:        return FONT_WIDTH_EXPANDED;
+    case DWRITE_FONT_STRETCH_EXTRA_EXPANDED:  return 150;
+    case DWRITE_FONT_STRETCH_ULTRA_EXPANDED:  return 200;
+    default:
+        assert(0);
+    }
 }
 
 /*
@@ -197,7 +211,7 @@ static void scan_fonts(IDWriteFactory *factory,
     DWRITE_FONT_STYLE style;
     ASS_FontProviderMetaData meta = ASS_FontProviderMetaData();
     hr = factory->GetSystemFontCollection(&fontCollection, FALSE);
-    wchar_t localeName[LOCALE_NAME_MAX_LENGTH];
+    wchar_t temp_name[NAME_MAX_LENGTH];
     int size_needed = 0;
 
     if (FAILED(hr) || !fontCollection)
@@ -215,13 +229,20 @@ static void scan_fonts(IDWriteFactory *factory,
 
         hr = fontCollection->GetFontFamily(i, &fontFamily);
         if (FAILED(hr))
-            return;
+            continue;
 
         UINT32 fontCount = fontFamily->GetFontCount();
         for (UINT32 j = 0; j < fontCount; ++j) {
             hr = fontFamily->GetFont(j, &font);
             if (FAILED(hr))
                 continue;
+
+            // Simulations for bold or oblique are sometimes synthesized by
+            // DirectWrite. We are only interested in physical fonts.
+            if (font->GetSimulations() != 0) {
+                font->Release();
+                continue;
+            }
 
             meta.weight = font->GetWeight();
             meta.width = map_width(font->GetStretch());
@@ -232,26 +253,25 @@ static void scan_fonts(IDWriteFactory *factory,
                          (style == DWRITE_FONT_STYLE_ITALIC) ? FONT_SLANT_ITALIC : FONT_SLANT_NONE;
 
             hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_POSTSCRIPT_NAME, &psNames,&exists);
-
             if (FAILED(hr)) {
                 font->Release();
                 continue;
             }
 
             if (exists) {
-                hr = psNames->GetString(0, localeName, LOCALE_NAME_MAX_LENGTH + 1);
+                hr = psNames->GetString(0, temp_name, NAME_MAX_LENGTH);
                 if (FAILED(hr)) {
                     psNames->Release();
                     font->Release();
                     continue;
                 }
 
-                size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0,NULL, NULL);
+                temp_name[NAME_MAX_LENGTH-1] = 0;
+                size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0,NULL, NULL);
                 psName = (char *) malloc(size_needed);
-                WideCharToMultiByte(CP_UTF8, 0, localeName, -1, psName,size_needed, NULL, NULL);
+                WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, psName, size_needed, NULL, NULL);
+                psNames->Release();
             }
-
-            psNames->Release();
 
             hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_FULL_NAME, &fontNames,&exists);
             if (FAILED(hr)) {
@@ -259,41 +279,44 @@ static void scan_fonts(IDWriteFactory *factory,
                 continue;
             }
 
-            meta.n_fullname = fontNames->GetCount();
-            meta.fullnames = (char **) calloc(meta.n_fullname, sizeof(char *));
-            for (UINT32 k = 0; k < meta.n_fullname; ++k) {
-                hr = fontNames->GetString(k, localeName,LOCALE_NAME_MAX_LENGTH + 1);
+            if (exists) {
+                meta.n_fullname = fontNames->GetCount();
+                meta.fullnames = (char **) calloc(meta.n_fullname, sizeof(char *));
+                for (UINT32 k = 0; k < meta.n_fullname; ++k) {
+                    hr = fontNames->GetString(k, temp_name, NAME_MAX_LENGTH);
+                    if (FAILED(hr)) {
+                        continue;
+                    }
 
-                if (FAILED(hr)) {
-                    continue;
+                    temp_name[NAME_MAX_LENGTH-1] = 0;
+                    size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
+                    char *mbName = (char *) malloc(size_needed);
+                    WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
+                    meta.fullnames[k] = mbName;
                 }
-
-                size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0, NULL, NULL);
-                char *mbName = (char *) malloc(size_needed);
-                WideCharToMultiByte(CP_UTF8, 0, localeName, -1, mbName,size_needed, NULL, NULL);
-                meta.fullnames[k] = mbName;
+                fontNames->Release();
             }
-            fontNames->Release();
 
-            hr = fontFamily->GetFamilyNames(&familyNames);
+            hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES, &familyNames, &exists);
+            if (!exists)
+                hr = fontFamily->GetFamilyNames(&familyNames);
             if (FAILED(hr)) {
                 font->Release();
                 continue;
             }
 
-
             meta.n_family = familyNames->GetCount();
             meta.families = (char **) calloc(meta.n_family, sizeof(char *));
             for (UINT32 k = 0; k < meta.n_family; ++k) {
-                hr = familyNames->GetString(k, localeName, LOCALE_NAME_MAX_LENGTH + 1);
-
+                hr = familyNames->GetString(k, temp_name, NAME_MAX_LENGTH);
                 if (FAILED(hr)) {
                     continue;
                 }
 
-                size_needed = WideCharToMultiByte(CP_UTF8, 0, localeName, -1, NULL, 0,NULL, NULL);
+                temp_name[NAME_MAX_LENGTH-1] = 0;
+                size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0,NULL, NULL);
                 char *mbName = (char *) malloc(size_needed);
-                WideCharToMultiByte(CP_UTF8, 0, localeName, -1, mbName,size_needed, NULL, NULL);
+                WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
                 meta.families[k] = mbName;
             }
             familyNames->Release();
