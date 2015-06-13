@@ -121,7 +121,7 @@ void update_font(ASS_Renderer *render_priv)
 
     val = render_priv->state.italic;
     if (val == 1)
-        val = 110;              // italic
+        val = 100;              // italic
     else if (val <= 0)
         val = 0;                // normal
     desc.italic = val;
