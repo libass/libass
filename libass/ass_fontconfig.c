@@ -33,6 +33,12 @@
 
 #define MAX_NAME 100
 
+typedef struct fc_private {
+    FcConfig *config;
+    FcFontSet *fallbacks;
+    FcCharSet *fallback_chars;
+} ProviderPrivate;
+
 static int check_glyph(void *priv, uint32_t code)
 {
     FcPattern *pat = (FcPattern *)priv;
@@ -54,8 +60,14 @@ static int check_glyph(void *priv, uint32_t code)
 
 static void destroy(void *priv)
 {
-    FcConfig *config = (FcConfig *)priv;
-    FcConfigDestroy(config);
+    ProviderPrivate *fc = (ProviderPrivate *)priv;
+
+    if (fc->fallback_chars)
+        FcCharSetDestroy(fc->fallback_chars);
+    if (fc->fallbacks)
+        FcFontSetDestroy(fc->fallbacks);
+    FcConfigDestroy(fc->config);
+    free(fc);
 }
 
 static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
@@ -125,6 +137,73 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
     }
 }
 
+static void cache_fallbacks(ProviderPrivate *fc)
+{
+    FcResult result;
+
+    if (fc->fallbacks)
+        return;
+
+    // Create a suitable pattern
+    FcPattern *pat = FcPatternCreate();
+    FcPatternAddString(pat, FC_FAMILY, (FcChar8 *)"sans-serif");
+    FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
+    FcConfigSubstitute (fc->config, pat, FcMatchPattern);
+    FcDefaultSubstitute (pat);
+
+    // FC_LANG is automatically set according to locale, but this results
+    // in strange sorting sometimes, so remove the attribute completely.
+    FcPatternDel(pat, FC_LANG);
+
+    // Sort installed fonts and eliminate duplicates; this can be very
+    // expensive.
+    fc->fallbacks = FcFontSort(fc->config, pat, FcTrue, &fc->fallback_chars,
+            &result);
+
+    // If this fails, just add an empty set
+    if (result != FcResultMatch)
+        fc->fallbacks = FcFontSetCreate();
+
+    FcPatternDestroy(pat);
+}
+
+static char *get_fallback(void *priv, ASS_FontProviderMetaData *meta,
+                          uint32_t codepoint)
+{
+    ProviderPrivate *fc = (ProviderPrivate *)priv;
+    FcResult result;
+
+    cache_fallbacks(fc);
+
+    if (!fc->fallbacks || fc->fallbacks->nfont == 0)
+        return NULL;
+
+    // fallback_chars is the union of all available charsets, so
+    // if we can't find the glyph in there, the system does not
+    // have any font to render this glyph.
+    if (FcCharSetHasChar(fc->fallback_chars, codepoint) == FcFalse)
+        return NULL;
+
+    for (int j = 0; j < fc->fallbacks->nfont; j++) {
+        FcPattern *pattern = fc->fallbacks->fonts[j];
+
+        FcCharSet *charset;
+        result = FcPatternGetCharSet(pattern, FC_CHARSET, 0, &charset);
+
+        if (result == FcResultMatch && FcCharSetHasChar(charset,
+                    codepoint)) {
+            char *family = NULL;
+            result = FcPatternGetString(pattern, FC_FAMILY, 0,
+                    (FcChar8 **)&family);
+            family = strdup(family);
+            return family;
+        }
+    }
+
+    // we shouldn't get here
+    return NULL;
+}
+
 static ASS_FontProviderFuncs fontconfig_callbacks = {
     NULL,
     check_glyph,
@@ -132,7 +211,7 @@ static ASS_FontProviderFuncs fontconfig_callbacks = {
     destroy,
     NULL,
     NULL,
-    NULL
+    get_fallback
 };
 
 ASS_FontProvider *
@@ -140,37 +219,39 @@ ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
                             const char *config)
 {
     int rc;
-    FcConfig *fc_config;
+    ProviderPrivate *fc = NULL;
     ASS_FontProvider *provider = NULL;
 
+    fc = calloc(1, sizeof(ProviderPrivate));
+    if (fc == NULL)
+        return NULL;
+
     // build and load fontconfig configuration
-    fc_config = FcConfigCreate();
-    rc = FcConfigParseAndLoad(fc_config, (unsigned char *) config, FcTrue);
+    fc->config = FcConfigCreate();
+    rc = FcConfigParseAndLoad(fc->config, (unsigned char *) config, FcTrue);
     if (!rc) {
         ass_msg(lib, MSGL_WARN, "No usable fontconfig configuration "
                 "file found, using fallback.");
-        FcConfigDestroy(fc_config);
-        fc_config = FcInitLoadConfig();
+        FcConfigDestroy(fc->config);
+        fc->config = FcInitLoadConfig();
         rc++;
     }
     if (rc)
-        FcConfigBuildFonts(fc_config);
+        FcConfigBuildFonts(fc->config);
 
-    if (!rc || !fc_config) {
+    if (!rc || !fc->config) {
         ass_msg(lib, MSGL_FATAL,
                 "No valid fontconfig configuration found!");
-        FcConfigDestroy(fc_config);
-        goto exit;
+        FcConfigDestroy(fc->config);
+        return NULL;
     }
 
     // create font provider
-    provider = ass_font_provider_new(selector, &fontconfig_callbacks,
-            (void *)fc_config);
+    provider = ass_font_provider_new(selector, &fontconfig_callbacks, fc);
 
-    // scan fonts
-    scan_fonts(fc_config, provider);
+    // build database from system fonts
+    scan_fonts(fc->config, provider);
 
-exit:
     return provider;
 }
 
