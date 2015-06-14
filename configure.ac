@@ -179,6 +179,7 @@ fi
 
 if test x$enable_directwrite != xno; then
 AC_LANG_PUSH([C++])
+CXXFLAGS="$CXXFLAGS -fno-rtti -fno-exceptions"
 OLDLIBS="$LIBS"
 # Linking to DirectWrite directly only works from Windows
 LIBS="$LIBS -ldwrite"
