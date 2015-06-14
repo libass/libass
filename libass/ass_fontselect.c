@@ -452,6 +452,14 @@ static void font_info_dump(ASS_FontInfo *font_infos, size_t len)
 }
 #endif
 
+static int check_glyph(ASS_FontInfo *fi, uint32_t code)
+{
+    ASS_FontProvider *provider = fi->provider;
+    assert(provider && provider->funcs.check_glyph);
+
+    return provider->funcs.check_glyph(fi->priv, code);
+}
+
 static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                          const char *family, unsigned bold, unsigned italic,
                          int *index, char **postscript_name, int *uid,
@@ -484,22 +492,33 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     req.fullnames    = &req_fullname;
     req.fullnames[0] = family_trim;
 
-    // match font
+    // Match font family name against font list
     unsigned score_min = UINT_MAX;
     for (int i = 0; i < priv->n_font; i++) {
         unsigned score = font_info_similarity(&priv->font_infos[i], &req);
 
-        // lowest possible score instantly matches
-        if (score == 0) {
-            idx = i;
-            break;
-        }
-
-        // update idx if score is better
+        // Consider updating idx if score is better than current minimum
         if (score < score_min) {
+            // Check if the font has the requested glyph.
+            // We are doing this here, for every font face, because
+            // coverage might differ between the variants of a font
+            // family. In practice, it is common that the regular
+            // style has the best coverage while bold/italic/etc
+            // variants cover less (e.g. FreeSans family).
+            // We want to be able to match even if the closest variant
+            // does not have the requested glyph, but another member
+            // of the family has the glyph.
+            if (!check_glyph(&priv->font_infos[i], code))
+                continue;
+
             score_min = score;
             idx = i;
         }
+
+        // Lowest possible score instantly matches; this is typical
+        // for fullname matches, but can also occur with family matches.
+        if (score == 0)
+            break;
     }
 
     // free font name
@@ -507,15 +526,6 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
 
     // found anything?
     if (idx < 0) {
-        return NULL;
-    }
-
-    // check glyph coverage
-    ASS_FontProvider *provider = font_infos[idx].provider;
-    if (!provider || !provider->funcs.check_glyph) {
-        return NULL;
-    }
-    if (provider->funcs.check_glyph(font_infos[idx].priv, code) == 0) {
         return NULL;
     }
 
