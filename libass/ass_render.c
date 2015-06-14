@@ -1102,7 +1102,7 @@ static void stroke_outline(ASS_Renderer *render_priv, ASS_Outline *outline,
         outline->n_points = n_points;
         outline->n_contours = n_contours;
         for (size_t i = 0; i < n_contours; ++i)
-            outline->contours[i] = contours[i];
+            outline->contours[i] = (unsigned short) contours[i];
 
     // "Stroke" with the outline emboldener (in two passes if needed).
     // The outlines look uglier, but the emboldening never adds any points
