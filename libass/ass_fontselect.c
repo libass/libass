@@ -566,6 +566,7 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
     const char *family = font->desc.family;
     unsigned bold = font->desc.bold;
     unsigned italic = font->desc.italic;
+    ASS_FontProvider *default_provider = priv->default_provider;
 
     if (family && *family)
         res = select_font(priv, library, family, bold, italic, index,
@@ -580,6 +581,22 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
                     family, bold, italic, res, *index, *postscript_name);
     }
 
+    if (!res && default_provider && default_provider->funcs.fallback_font) {
+        ASS_FontProviderMetaData meta;
+        meta.families = &family;
+        meta.weight = bold;
+        meta.slant = italic;
+        meta.width = 100;
+        char *fallback_family = default_provider->funcs.fallback_font(
+                default_provider->priv, &meta, code);
+
+        if (fallback_family) {
+            res = select_font(priv, library, fallback_family, bold, italic,
+                    index, postscript_name, uid, data, code);
+            free(fallback_family);
+        }
+    }
+
     if (!res && priv->path_default) {
         res = strdup(priv->path_default);
         *index = priv->index_default;
@@ -592,6 +609,8 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
         // This code path is reached when the script uses glyphs not
         // available in the previous fonts (or no font is matched), and
         // the ASS_FontProvider used provides only the MatchFontsFunc callback
+        // and no GetFallbackFunc callback. As a last resort, try a builtin
+        // list of fallback families.
         for (int i = 0; fallback_fonts[i] && !res; i++) {
             res = select_font(priv, library, fallback_fonts[i], bold,
                     italic, index, postscript_name, uid, data, code);
