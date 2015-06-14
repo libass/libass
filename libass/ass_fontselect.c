@@ -871,11 +871,11 @@ struct font_constructors font_constructors[] = {
 #ifdef CONFIG_CORETEXT
     { ASS_FONTPROVIDER_CORETEXT,   &ass_coretext_add_provider },
 #endif
-#ifdef CONFIG_FONTCONFIG
-    { ASS_FONTPROVIDER_FONTCONFIG, &ass_fontconfig_add_provider },
-#endif
 #ifdef CONFIG_DIRECTWRITE
     { ASS_FONTPROVIDER_DIRECTWRITE, &ass_directwrite_add_provider },
+#endif
+#ifdef CONFIG_FONTCONFIG
+    { ASS_FONTPROVIDER_FONTCONFIG, &ass_fontconfig_add_provider },
 #endif
     { ASS_FONTPROVIDER_NONE, NULL },
 };
