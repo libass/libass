@@ -126,7 +126,8 @@ static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
 {
     if (w >= INT_MAX || (w + 1) > SIZE_MAX / 2 / sizeof(unsigned) / FFMAX(h, 1))
         return false;
-    size_t needed = sizeof(unsigned) * (w + 1) * h;
+    size_t needed = FFMAX(sizeof(unsigned) * (w + 1) * h,
+                          sizeof(uint16_t) * ass_align(32, w) * 2);
     if (priv->tmp && priv->tmp_allocated >= needed)
         return true;
 
@@ -146,41 +147,6 @@ void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
             return;
     }
 
-    // Apply box blur (multiple passes, if requested)
-    if (be) {
-        uint16_t* tmp = priv_blur->tmp;
-        if (bm_o) {
-            unsigned passes = be;
-            unsigned w = bm_o->w;
-            unsigned h = bm_o->h;
-            unsigned stride = bm_o->stride;
-            unsigned char *buf = bm_o->buffer;
-            if(w && h){
-                while(passes--){
-                    memset(tmp, 0, stride * 2);
-                    if(w < 16){
-                        be_blur_c(buf, w, h, stride, tmp);
-                    }else{
-                        priv_blur->be_blur_func(buf, w, h, stride, tmp);
-                    }
-                }
-            }
-        }
-        if (!bm_o || opaque_box) {
-            unsigned passes = be;
-            unsigned w = bm_g->w;
-            unsigned h = bm_g->h;
-            unsigned stride = bm_g->stride;
-            unsigned char *buf = bm_g->buffer;
-            if(w && h){
-                while(passes--){
-                    memset(tmp, 0, stride * 2);
-                    priv_blur->be_blur_func(buf, w, h, stride, tmp);
-                }
-            }
-        }
-    }
-
     // Apply gaussian blur
     if (blur_radius > 0.0 && generate_tables(priv_blur, blur_radius)) {
         if (bm_o)
@@ -193,6 +159,57 @@ void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
                            bm_g->w, bm_g->h, bm_g->stride,
                            priv_blur->gt2, priv_blur->g_r,
                            priv_blur->g_w);
+    }
+
+    // Apply box blur (multiple passes, if requested)
+    if (be) {
+        uint16_t* tmp = priv_blur->tmp;
+        if (bm_o) {
+            unsigned passes = be;
+            unsigned w = bm_o->w;
+            unsigned h = bm_o->h;
+            unsigned stride = bm_o->stride;
+            unsigned char *buf = bm_o->buffer;
+            if(w && h){
+                if(passes > 1){
+                    be_blur_pre(buf, w, h, stride);
+                    while(--passes){
+                        memset(tmp, 0, stride * 2);
+                        if(w < 16){
+                            be_blur_c(buf, w, h, stride, tmp);
+                        }else{
+                            priv_blur->be_blur_func(buf, w, h, stride, tmp);
+                        }
+                    }
+                    be_blur_post(buf, w, h, stride);
+                }
+                memset(tmp, 0, stride * 2);
+                if(w < 16){
+                    be_blur_c(buf, w, h, stride, tmp);
+                }else{
+                    priv_blur->be_blur_func(buf, w, h, stride, tmp);
+                }
+            }
+        }
+        if (!bm_o || opaque_box) {
+            unsigned passes = be;
+            unsigned w = bm_g->w;
+            unsigned h = bm_g->h;
+            unsigned stride = bm_g->stride;
+            unsigned char *buf = bm_g->buffer;
+            if(w && h){
+                if(passes > 1){
+                    be_blur_pre(buf, w, h, stride);
+                    while(--passes){
+                        memset(tmp, 0, stride * 2);
+                        priv_blur->be_blur_func(buf, w, h, stride, tmp);
+                    }
+                    be_blur_post(buf, w, h, stride);
+                }
+                memset(tmp, 0, stride * 2);
+                priv_blur->be_blur_func(buf, w, h, stride, tmp);
+            }
+        }
     }
 }
 
@@ -630,7 +647,7 @@ void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
 }
 
 /**
- * \brief Blur with [[1,2,1]. [2,4,2], [1,2,1]] kernel
+ * \brief Blur with [[1,2,1], [2,4,2], [1,2,1]] kernel
  * This blur is the same as the one employed by vsfilter.
  * Pure C implementation.
  */
@@ -638,55 +655,40 @@ void be_blur_c(uint8_t *buf, intptr_t w,
                intptr_t h, intptr_t stride,
                uint16_t *tmp)
 {
-    unsigned short *col_pix_buf = tmp;
-    unsigned short *col_sum_buf = tmp + w * sizeof(unsigned short);
+    uint16_t *col_pix_buf = tmp;
+    uint16_t *col_sum_buf = tmp + w;
     unsigned x, y, old_pix, old_sum, temp1, temp2;
-    unsigned char *src, *dst;
-    memset(col_pix_buf, 0, w * sizeof(unsigned short));
-    memset(col_sum_buf, 0, w * sizeof(unsigned short));
+    uint8_t *src, *dst;
+    memset(tmp, 0, sizeof(uint16_t) * w * 2);
+    y = 0;
+
     {
-        y = 0;
         src=buf+y*stride;
 
-        x = 2;
+        x = 1;
         old_pix = src[x-1];
-        old_sum = old_pix + src[x-2];
+        old_sum = old_pix;
         for ( ; x < w; x++) {
             temp1 = src[x];
             temp2 = old_pix + temp1;
             old_pix = temp1;
             temp1 = old_sum + temp2;
             old_sum = temp2;
-            col_pix_buf[x] = temp1;
+            col_pix_buf[x-1] = temp1;
+            col_sum_buf[x-1] = temp1;
         }
-    }
-    {
-        y = 1;
-        src=buf+y*stride;
-
-        x = 2;
-        old_pix = src[x-1];
-        old_sum = old_pix + src[x-2];
-        for ( ; x < w; x++) {
-            temp1 = src[x];
-            temp2 = old_pix + temp1;
-            old_pix = temp1;
-            temp1 = old_sum + temp2;
-            old_sum = temp2;
-
-            temp2 = col_pix_buf[x] + temp1;
-            col_pix_buf[x] = temp1;
-            col_sum_buf[x] = temp2;
-        }
+        temp1 = old_sum + old_pix;
+        col_pix_buf[x-1] = temp1;
+        col_sum_buf[x-1] = temp1;
     }
 
-    for (y = 2; y < h; y++) {
+    for (y++; y < h; y++) {
         src=buf+y*stride;
         dst=buf+(y-1)*stride;
 
-        x = 2;
+        x = 1;
         old_pix = src[x-1];
-        old_sum = old_pix + src[x-2];
+        old_sum = old_pix;
         for ( ; x < w; x++) {
             temp1 = src[x];
             temp2 = old_pix + temp1;
@@ -694,12 +696,81 @@ void be_blur_c(uint8_t *buf, intptr_t w,
             temp1 = old_sum + temp2;
             old_sum = temp2;
 
-            temp2 = col_pix_buf[x] + temp1;
-            col_pix_buf[x] = temp1;
-            dst[x-1] = (col_sum_buf[x] + temp2) >> 4;
-            col_sum_buf[x] = temp2;
+            temp2 = col_pix_buf[x-1] + temp1;
+            col_pix_buf[x-1] = temp1;
+            dst[x-1] = (col_sum_buf[x-1] + temp2) >> 4;
+            col_sum_buf[x-1] = temp2;
+        }
+        temp1 = old_sum + old_pix;
+        temp2 = col_pix_buf[x-1] + temp1;
+        col_pix_buf[x-1] = temp1;
+        dst[x-1] = (col_sum_buf[x-1] + temp2) >> 4;
+        col_sum_buf[x-1] = temp2;
+    }
+
+    {
+        dst=buf+(y-1)*stride;
+        for (x = 0; x < w; x++)
+            dst[x] = (col_sum_buf[x] + col_pix_buf[x]) >> 4;
+    }
+}
+
+void be_blur_pre(uint8_t *buf, intptr_t w, intptr_t h, intptr_t stride)
+{
+    for (int y = 0; y < h; ++y)
+    {
+        for (int x = 0; x < w; ++x)
+        {
+            // This is equivalent to (value * 64 + 127) / 255 for all
+            // values from 0 to 256 inclusive. Assist vectorizing
+            // compilers by noting that all temporaries fit in 8 bits.
+            buf[y * stride + x] =
+                (uint8_t) ((buf[y * stride + x] >> 1) + 1) >> 1;
         }
     }
+}
+
+void be_blur_post(uint8_t *buf, intptr_t w, intptr_t h, intptr_t stride)
+{
+    for (int y = 0; y < h; ++y)
+    {
+        for (int x = 0; x < w; ++x)
+        {
+            // This is equivalent to (value * 255 + 32) / 64 for all values
+            // from 0 to 96 inclusive, and we only care about 0 to 64.
+            uint8_t value = buf[y * stride + x];
+            buf[y * stride + x] = (value << 2) - (value > 32);
+        }
+    }
+}
+
+/*
+ * To find these values, simulate blur on the border between two
+ * half-planes, one zero-filled (background) and the other filled
+ * with the maximum supported value (foreground). Keep incrementing
+ * the \be argument. The necessary padding is the distance by which
+ * the blurred foreground image extends beyond the original border
+ * and into the background. Initially it increases along with \be,
+ * but very soon it grinds to a halt. At some point, the blurred
+ * image actually reaches a stationary point and stays unchanged
+ * forever after, simply _shifting_ by one pixel for each \be
+ * step--moving in the direction of the non-zero half-plane and
+ * thus decreasing the necessary padding (although the large
+ * padding is still needed for intermediate results). In practice,
+ * images are finite rather than infinite like half-planes, but
+ * this can only decrease the required padding. Half-planes filled
+ * with extreme values are the theoretical limit of the worst case.
+ * Make sure to use the right pixel value range in the simulation!
+ */
+int be_padding(int be)
+{
+    if (be <= 3)
+        return be;
+    if (be <= 7)
+        return 4;
+    if (be <= 123)
+        return 5;
+    return FFMAX(128 - be, 0);
 }
 
 int outline_to_bitmap2(ASS_Renderer *render_priv,
