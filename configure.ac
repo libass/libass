@@ -52,7 +52,7 @@ AC_ARG_ENABLE([rasterizer], AS_HELP_STRING([--disable-rasterizer],
 AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
     [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
 
-AS_IF([test x$enable_asm != xno], [
+AS_IF([test "$enable_asm" != "no"], [
     AS_CASE([$host],
         [i?86-*], [
             INTEL=true
@@ -74,15 +74,15 @@ AS_IF([test x$enable_asm != xno], [
             ASFLAGS="$ASFLAGS -f elf -DHAVE_ALIGNED_STACK=1" ],
         [*cygwin*|*mingw*], [
             ASFLAGS="$ASFLAGS -f win$BITS"
-            AS_IF([test x$BITS = x64], [
+            AS_IF([test "$BITS" = "64"], [
                 ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=1"
             ], [
                 ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0 -DPREFIX"
             ])
         ])
-    AS_IF([test x$INTEL = xtrue], [
+    AS_IF([test "$INTEL" = "true"], [
         AC_CHECK_PROG([yasm_check], [$AS], [yes])
-        AS_IF([test x$yasm_check != xyes], [
+        AS_IF([test "$yasm_check" != "yes"], [
             AC_MSG_WARN(yasm was not found; ASM functions are disabled.)
             AC_MSG_WARN(Install yasm for a significantly faster libass build.)
             enable_asm=no
@@ -106,24 +106,24 @@ AS_IF([test x$enable_asm != xno], [
 AC_SUBST([ASFLAGS], ["$ASFLAGS"])
 AC_SUBST([AS], ["$AS"])
 
-AM_CONDITIONAL([ASM], [test x$enable_asm != xno])
-AM_CONDITIONAL([INTEL], [test x$INTEL = xtrue])
-AM_CONDITIONAL([X86], [test x$X86 = xtrue])
-AM_CONDITIONAL([X64], [test x$X64 = xtrue])
+AM_CONDITIONAL([ASM], [test "$enable_asm" != "no"])
+AM_CONDITIONAL([INTEL], [test "$INTEL" = "true"])
+AM_CONDITIONAL([X86], [test "$X86" = "true"])
+AM_CONDITIONAL([X64], [test "$X64" = "true"])
 
 AM_COND_IF([ASM],
     [AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])],
     [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])]
     )
 
-AM_CONDITIONAL([RASTERIZER], [test x$enable_rasterizer != xno])
+AM_CONDITIONAL([RASTERIZER], [test "$enable_rasterizer" != "no"])
 
 AM_COND_IF([RASTERIZER],
     [AC_DEFINE(CONFIG_RASTERIZER, 1, [rasterizer enabled])],
     [AC_DEFINE(CONFIG_RASTERIZER, 0, [rasterizer enabled])]
     )
 
-AM_CONDITIONAL([ENABLE_LARGE_TILES], [test x$enable_large_tiles = xyes])
+AM_CONDITIONAL([ENABLE_LARGE_TILES], [test "$enable_large_tiles" = "yes"])
 
 AM_COND_IF([ENABLE_LARGE_TILES],
     [AC_DEFINE(CONFIG_LARGE_TILES, 1, [use large tiles])]
@@ -142,7 +142,7 @@ PKG_CHECK_MODULES([FRIBIDI], fribidi >= 0.19.0, [
     AC_DEFINE(CONFIG_FRIBIDI, 1, [found fribidi via pkg-config])
     ])
 
-if test x$enable_fontconfig != xno; then
+if test "$enable_fontconfig" != "no"; then
 PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.4.2, [
     CFLAGS="$CFLAGS $FONTCONFIG_CFLAGS"
     LIBS="$LIBS $FONTCONFIG_LIBS"
@@ -151,7 +151,7 @@ PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.4.2, [
     ])
 fi
 
-if test x$enable_harfbuzz != xno; then
+if test "$enable_harfbuzz" != "no"; then
 PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
     CFLAGS="$CFLAGS $HARFBUZZ_CFLAGS"
     LIBS="$LIBS $HARFBUZZ_LIBS"
@@ -160,7 +160,7 @@ PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
     ], [harfbuzz=false])
 fi
 
-if test x$enable_enca != xno; then
+if test "$enable_enca" != "no"; then
 PKG_CHECK_MODULES([ENCA], enca, [
     CFLAGS="$CFLAGS $ENCA_CFLAGS"
     LIBS="$LIBS $ENCA_LIBS"
@@ -170,35 +170,35 @@ PKG_CHECK_MODULES([ENCA], enca, [
 fi
 
 libpng=false
-if test x$enable_test = xyes; then
+if test "$enable_test" = "yes"; then
 PKG_CHECK_MODULES([LIBPNG], libpng >= 1.2.0, [
     CFLAGS="$CFLAGS $LIBPNG_CFLAGS"
     AC_DEFINE(CONFIG_LIBPNG, 1, [found libpng via pkg-config])
     libpng=true])
 fi
 
-AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
+AM_CONDITIONAL([HAVE_LIBPNG], [test "$libpng" = "true"])
 
-AM_CONDITIONAL([ENABLE_PROFILE], [test x$enable_profile = xyes])
+AM_CONDITIONAL([ENABLE_PROFILE], [test "$enable_profile" = "yes"])
 
 # add libraries/packages to pkg-config for static linking
 pkg_libs="-lm"
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
-if test x$enca = xtrue; then
+if test "$enca" = "true"; then
     pkg_requires="enca, ${pkg_requires}"
 fi
-if test x$fontconfig = xtrue; then
+if test "$fontconfig" = "true"; then
     pkg_requires="fontconfig >= 2.4.2, ${pkg_requires}"
 fi
-if test x$harfbuzz = xtrue; then
+if test "$harfbuzz" = "true"; then
     pkg_requires="harfbuzz >= 0.9.5, ${pkg_requires}"
 fi
 
-AC_SUBST([PKG_LIBS_DEFAULT], [$(test x$enable_shared = xno && echo ${pkg_libs})])
-AC_SUBST([PKG_REQUIRES_DEFAULT], [$(test x$enable_shared = xno && echo ${pkg_requires})])
-AC_SUBST([PKG_LIBS_PRIVATE], [$(test x$enable_shared = xno || echo ${pkg_libs})])
-AC_SUBST([PKG_REQUIRES_PRIVATE], [$(test x$enable_shared = xno || echo ${pkg_requires})])
+AC_SUBST([PKG_LIBS_DEFAULT], [$(test "$enable_shared" = "no" && echo ${pkg_libs})])
+AC_SUBST([PKG_REQUIRES_DEFAULT], [$(test "$enable_shared" = "no" && echo ${pkg_requires})])
+AC_SUBST([PKG_LIBS_PRIVATE], [$(test "$enable_shared" = "no" || echo ${pkg_libs})])
+AC_SUBST([PKG_REQUIRES_PRIVATE], [$(test "$enable_shared" = "no" || echo ${pkg_requires})])
 
 # Setup output beautifier.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
