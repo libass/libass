@@ -45,6 +45,49 @@ void DECORATE(mul_bitmaps)(uint8_t *dst, intptr_t dst_stride,
 void DECORATE(be_blur)(uint8_t *buf, intptr_t w, intptr_t h,
                        intptr_t stride, uint16_t *tmp);
 
+void DECORATE(stripe_unpack)(int16_t *dst, const uint8_t *src, ptrdiff_t src_stride,
+                             uintptr_t width, uintptr_t height);
+void DECORATE(stripe_pack)(uint8_t *dst, ptrdiff_t dst_stride, const int16_t *src,
+                           uintptr_t width, uintptr_t height);
+void DECORATE(shrink_horz)(int16_t *dst, const int16_t *src,
+                           uintptr_t src_width, uintptr_t src_height);
+void DECORATE(shrink_vert)(int16_t *dst, const int16_t *src,
+                           uintptr_t src_width, uintptr_t src_height);
+void DECORATE(expand_horz)(int16_t *dst, const int16_t *src,
+                           uintptr_t src_width, uintptr_t src_height);
+void DECORATE(expand_vert)(int16_t *dst, const int16_t *src,
+                           uintptr_t src_width, uintptr_t src_height);
+void DECORATE(pre_blur1_horz)(int16_t *dst, const int16_t *src,
+                              uintptr_t src_width, uintptr_t src_height);
+void DECORATE(pre_blur1_vert)(int16_t *dst, const int16_t *src,
+                              uintptr_t src_width, uintptr_t src_height);
+void DECORATE(pre_blur2_horz)(int16_t *dst, const int16_t *src,
+                              uintptr_t src_width, uintptr_t src_height);
+void DECORATE(pre_blur2_vert)(int16_t *dst, const int16_t *src,
+                              uintptr_t src_width, uintptr_t src_height);
+void DECORATE(pre_blur3_horz)(int16_t *dst, const int16_t *src,
+                              uintptr_t src_width, uintptr_t src_height);
+void DECORATE(pre_blur3_vert)(int16_t *dst, const int16_t *src,
+                              uintptr_t src_width, uintptr_t src_height);
+void DECORATE(blur1234_horz)(int16_t *dst, const int16_t *src,
+                             uintptr_t src_width, uintptr_t src_height,
+                             const int16_t *param);
+void DECORATE(blur1234_vert)(int16_t *dst, const int16_t *src,
+                             uintptr_t src_width, uintptr_t src_height,
+                             const int16_t *param);
+void DECORATE(blur1235_horz)(int16_t *dst, const int16_t *src,
+                             uintptr_t src_width, uintptr_t src_height,
+                             const int16_t *param);
+void DECORATE(blur1235_vert)(int16_t *dst, const int16_t *src,
+                             uintptr_t src_width, uintptr_t src_height,
+                             const int16_t *param);
+void DECORATE(blur1246_horz)(int16_t *dst, const int16_t *src,
+                             uintptr_t src_width, uintptr_t src_height,
+                             const int16_t *param);
+void DECORATE(blur1246_vert)(int16_t *dst, const int16_t *src,
+                             uintptr_t src_width, uintptr_t src_height,
+                             const int16_t *param);
+
 
 const BitmapEngine DECORATE(bitmap_engine) = {
     .align_order = ALIGN,
@@ -77,4 +120,15 @@ const BitmapEngine DECORATE(bitmap_engine) = {
 #else
     .be_blur = ass_be_blur_c,
 #endif
+
+    .stripe_unpack = DECORATE(stripe_unpack),
+    .stripe_pack = DECORATE(stripe_pack),
+    .shrink_horz = DECORATE(shrink_horz),
+    .shrink_vert = DECORATE(shrink_vert),
+    .expand_horz = DECORATE(expand_horz),
+    .expand_vert = DECORATE(expand_vert),
+    .pre_blur_horz = { DECORATE(pre_blur1_horz), DECORATE(pre_blur2_horz), DECORATE(pre_blur3_horz) },
+    .pre_blur_vert = { DECORATE(pre_blur1_vert), DECORATE(pre_blur2_vert), DECORATE(pre_blur3_vert) },
+    .main_blur_horz = { DECORATE(blur1234_horz), DECORATE(blur1235_horz), DECORATE(blur1246_horz) },
+    .main_blur_vert = { DECORATE(blur1234_vert), DECORATE(blur1235_vert), DECORATE(blur1246_vert) },
 };

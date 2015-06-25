@@ -13,7 +13,7 @@ yasm_verbose_0 = @echo "  YASM    " $@;
 .asm.lo:
 	$(yasm_verbose)$(LIBTOOL) $(AM_V_lt) --mode=compile $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
 
-SRC_INTEL = x86/blend_bitmaps.asm x86/cpuid.asm x86/cpuid.h
+SRC_INTEL = x86/blend_bitmaps.asm x86/blur.asm x86/cpuid.asm x86/cpuid.h
 SRC_INTEL64 = x86/be_blur.asm
 SRC_INTEL_RASTERIZER = x86/rasterizer.asm
 
@@ -21,7 +21,7 @@ SRC_RASTERIZER = ass_rasterizer.h ass_rasterizer.c ass_rasterizer_c.c
 
 lib_LTLIBRARIES = libass.la
 libass_la_SOURCES = ass.c ass_cache.c ass_font.c ass_fontconfig.c ass_render.c \
-                    ass_utils.c ass_bitmap.c ass_library.c ass_bitmap.h \
+                    ass_utils.c ass_bitmap.c ass_blur.c ass_library.c ass_bitmap.h \
                     ass_cache.h ass_fontconfig.h ass_font.h ass.h \
                     ass_library.h ass_types.h ass_utils.h ass_drawing.c \
                     ass_drawing.h ass_cache_template.h ass_render.h \

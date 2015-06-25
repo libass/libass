@@ -297,7 +297,6 @@ struct ass_renderer {
     FCInstance *fontconfig_priv;
     ASS_Settings settings;
     int render_id;
-    ASS_SynthPriv *synth_priv;
     ASS_Shaper *shaper;
 
     ASS_Image *images_root;     // rendering result is stored here
