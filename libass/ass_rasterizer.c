@@ -47,8 +47,9 @@ static inline int ilog2(uint32_t n)  // XXX: different compilers
 }
 
 
-void rasterizer_init(ASS_Rasterizer *rst)
+void rasterizer_init(RasterizerData *rst, int outline_error)
 {
+    rst->outline_error = outline_error;
     rst->linebuf[0] = rst->linebuf[1] = NULL;
     rst->size[0] = rst->capacity[0] = 0;
     rst->size[1] = rst->capacity[1] = 0;
@@ -60,7 +61,7 @@ void rasterizer_init(ASS_Rasterizer *rst)
  * \param delta requested size increase
  * \return zero on error
  */
-static inline int check_capacity(ASS_Rasterizer *rst, int index, size_t delta)
+static inline int check_capacity(RasterizerData *rst, int index, size_t delta)
 {
     delta += rst->size[index];
     if (rst->capacity[index] >= delta)
@@ -78,7 +79,7 @@ static inline int check_capacity(ASS_Rasterizer *rst, int index, size_t delta)
     return 1;
 }
 
-void rasterizer_done(ASS_Rasterizer *rst)
+void rasterizer_done(RasterizerData *rst)
 {
     free(rst->linebuf[0]);
     free(rst->linebuf[1]);
@@ -145,7 +146,7 @@ static inline int segment_subdivide(const OutlineSegment *seg,
 /**
  * \brief Add new segment to polyline
  */
-static inline int add_line(ASS_Rasterizer *rst, OutlinePoint pt0, OutlinePoint pt1)
+static inline int add_line(RasterizerData *rst, OutlinePoint pt0, OutlinePoint pt1)
 {
     int32_t x = pt1.x - pt0.x;
     int32_t y = pt1.y - pt0.y;
@@ -192,7 +193,7 @@ static inline int add_line(ASS_Rasterizer *rst, OutlinePoint pt0, OutlinePoint p
  * \brief Add quadratic spline to polyline
  * Performs recursive subdivision if necessary.
  */
-static int add_quadratic(ASS_Rasterizer *rst,
+static int add_quadratic(RasterizerData *rst,
                          OutlinePoint pt0, OutlinePoint pt1, OutlinePoint pt2)
 {
     OutlineSegment seg;
@@ -218,7 +219,7 @@ static int add_quadratic(ASS_Rasterizer *rst,
  * \brief Add cubic spline to polyline
  * Performs recursive subdivision if necessary.
  */
-static int add_cubic(ASS_Rasterizer *rst,
+static int add_cubic(RasterizerData *rst,
                      OutlinePoint pt0, OutlinePoint pt1, OutlinePoint pt2, OutlinePoint pt3)
 {
     OutlineSegment seg;
@@ -251,7 +252,7 @@ static int add_cubic(ASS_Rasterizer *rst,
 }
 
 
-int rasterizer_set_outline(ASS_Rasterizer *rst, const ASS_Outline *path)
+int rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
 {
     enum Status {
         S_ON, S_Q, S_C1, S_C2
@@ -612,56 +613,56 @@ static int polyline_split_vert(const struct segment *src, size_t n_src,
 }
 
 
-static inline void rasterizer_fill_solid(ASS_Rasterizer *rst,
+static inline void rasterizer_fill_solid(const BitmapEngine *engine,
                                          uint8_t *buf, int width, int height, ptrdiff_t stride,
                                          int set)
 {
-    assert(!(width  & ((1 << rst->tile_order) - 1)));
-    assert(!(height & ((1 << rst->tile_order) - 1)));
+    assert(!(width  & ((1 << engine->tile_order) - 1)));
+    assert(!(height & ((1 << engine->tile_order) - 1)));
 
     int i, j;
-    ptrdiff_t step = 1 << rst->tile_order;
-    ptrdiff_t tile_stride = stride * (1 << rst->tile_order);
-    width  >>= rst->tile_order;
-    height >>= rst->tile_order;
+    ptrdiff_t step = 1 << engine->tile_order;
+    ptrdiff_t tile_stride = stride * (1 << engine->tile_order);
+    width  >>= engine->tile_order;
+    height >>= engine->tile_order;
     for (j = 0; j < height; ++j) {
         for (i = 0; i < width; ++i)
-            rst->fill_solid(buf + i * step, stride, set);
+            engine->fill_solid(buf + i * step, stride, set);
         buf += tile_stride;
     }
 }
 
-static inline void rasterizer_fill_halfplane(ASS_Rasterizer *rst,
+static inline void rasterizer_fill_halfplane(const BitmapEngine *engine,
                                              uint8_t *buf, int width, int height, ptrdiff_t stride,
                                              int32_t a, int32_t b, int64_t c, int32_t scale)
 {
-    assert(!(width  & ((1 << rst->tile_order) - 1)));
-    assert(!(height & ((1 << rst->tile_order) - 1)));
-    if (width == 1 << rst->tile_order && height == 1 << rst->tile_order) {
-        rst->fill_halfplane(buf, stride, a, b, c, scale);
+    assert(!(width  & ((1 << engine->tile_order) - 1)));
+    assert(!(height & ((1 << engine->tile_order) - 1)));
+    if (width == 1 << engine->tile_order && height == 1 << engine->tile_order) {
+        engine->fill_halfplane(buf, stride, a, b, c, scale);
         return;
     }
 
     uint32_t abs_a = a < 0 ? -a : a;
     uint32_t abs_b = b < 0 ? -b : b;
-    int64_t size = (int64_t)(abs_a + abs_b) << (rst->tile_order + 5);
-    int64_t offs = ((int64_t)a + b) * (1 << (rst->tile_order + 5));
+    int64_t size = (int64_t)(abs_a + abs_b) << (engine->tile_order + 5);
+    int64_t offs = ((int64_t)a + b) * (1 << (engine->tile_order + 5));
 
     int i, j;
-    ptrdiff_t step = 1 << rst->tile_order;
-    ptrdiff_t tile_stride = stride * (1 << rst->tile_order);
-    width  >>= rst->tile_order;
-    height >>= rst->tile_order;
+    ptrdiff_t step = 1 << engine->tile_order;
+    ptrdiff_t tile_stride = stride * (1 << engine->tile_order);
+    width  >>= engine->tile_order;
+    height >>= engine->tile_order;
     for (j = 0; j < height; ++j) {
         for (i = 0; i < width; ++i) {
-            int64_t cc = c - (a * (int64_t)i + b * (int64_t)j) * (1 << (rst->tile_order + 6));
+            int64_t cc = c - (a * (int64_t)i + b * (int64_t)j) * (1 << (engine->tile_order + 6));
             int64_t offs_c = offs - cc;
             int64_t abs_c = offs_c < 0 ? -offs_c : offs_c;
             if (abs_c < size)
-                rst->fill_halfplane(buf + i * step, stride, a, b, cc, scale);
+                engine->fill_halfplane(buf + i * step, stride, a, b, cc, scale);
             else
-                rst->fill_solid(buf + i * step, stride,
-                                ((uint32_t)(offs_c >> 32) ^ scale) & 0x80000000);
+                engine->fill_solid(buf + i * step, stride,
+                                   ((uint32_t)(offs_c >> 32) ^ scale) & 0x80000000);
         }
         buf += tile_stride;
     }
@@ -676,18 +677,19 @@ static inline void rasterizer_fill_halfplane(ASS_Rasterizer *rst,
  * Rasterizes (possibly recursive) one quad-tree level.
  * Truncates used input buffer.
  */
-static int rasterizer_fill_level(ASS_Rasterizer *rst,
-    uint8_t *buf, int width, int height, ptrdiff_t stride, int index, size_t offs, int winding)
+static int rasterizer_fill_level(const BitmapEngine *engine, RasterizerData *rst,
+                                 uint8_t *buf, int width, int height, ptrdiff_t stride,
+                                 int index, size_t offs, int winding)
 {
     assert(width > 0 && height > 0);
     assert((unsigned)index < 2u && offs <= rst->size[index]);
-    assert(!(width  & ((1 << rst->tile_order) - 1)));
-    assert(!(height & ((1 << rst->tile_order) - 1)));
+    assert(!(width  & ((1 << engine->tile_order) - 1)));
+    assert(!(height & ((1 << engine->tile_order) - 1)));
 
     size_t n = rst->size[index] - offs;
     struct segment *line = rst->linebuf[index] + offs;
     if (!n) {
-        rasterizer_fill_solid(rst, buf, width, height, stride, winding);
+        rasterizer_fill_solid(engine, buf, width, height, stride, winding);
         return 1;
     }
     if (n == 1) {
@@ -701,16 +703,16 @@ static int rasterizer_fill_level(ASS_Rasterizer *rst,
         if (winding - 1)
             flag ^= 3;
         if (flag & 1)
-            rasterizer_fill_halfplane(rst, buf, width, height, stride,
+            rasterizer_fill_halfplane(engine, buf, width, height, stride,
                                       line->a, line->b, line->c,
                                       flag & 2 ? -line->scale : line->scale);
         else
-            rasterizer_fill_solid(rst, buf, width, height, stride, flag & 2);
+            rasterizer_fill_solid(engine, buf, width, height, stride, flag & 2);
         rst->size[index] = offs;
         return 1;
     }
-    if (width == 1 << rst->tile_order && height == 1 << rst->tile_order) {
-        rst->fill_generic(buf, stride, line, rst->size[index] - offs, winding);
+    if (width == 1 << engine->tile_order && height == 1 << engine->tile_order) {
+        engine->fill_generic(buf, stride, line, rst->size[index] - offs, winding);
         rst->size[index] = offs;
         return 1;
     }
@@ -739,21 +741,21 @@ static int rasterizer_fill_level(ASS_Rasterizer *rst,
     rst->size[index ^ 0] = dst0 - rst->linebuf[index ^ 0];
     rst->size[index ^ 1] = dst1 - rst->linebuf[index ^ 1];
 
-    if (!rasterizer_fill_level(rst, buf,  width,  height,  stride, index ^ 0, offs,  winding))
+    if (!rasterizer_fill_level(engine, rst, buf,  width,  height,  stride, index ^ 0, offs,  winding))
         return 0;
     assert(rst->size[index ^ 0] == offs);
-    if (!rasterizer_fill_level(rst, buf1, width1, height1, stride, index ^ 1, offs1, winding1))
+    if (!rasterizer_fill_level(engine, rst, buf1, width1, height1, stride, index ^ 1, offs1, winding1))
         return 0;
     assert(rst->size[index ^ 1] == offs1);
     return 1;
 }
 
-int rasterizer_fill(ASS_Rasterizer *rst,
+int rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
                     uint8_t *buf, int x0, int y0, int width, int height, ptrdiff_t stride)
 {
     assert(width > 0 && height > 0);
-    assert(!(width  & ((1 << rst->tile_order) - 1)));
-    assert(!(height & ((1 << rst->tile_order) - 1)));
+    assert(!(width  & ((1 << engine->tile_order) - 1)));
+    assert(!(height & ((1 << engine->tile_order) - 1)));
     x0 *= 1 << 6;  y0 *= 1 << 6;
 
     size_t n = rst->size[0];
@@ -805,6 +807,6 @@ int rasterizer_fill(ASS_Rasterizer *rst,
     }
     rst->size[index] = n;
     rst->size[index ^ 1] = 0;
-    return rasterizer_fill_level(rst, buf, width, height, stride,
+    return rasterizer_fill_level(engine, rst, buf, width, height, stride,
                                  index, 0, winding);
 }

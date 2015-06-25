@@ -34,12 +34,6 @@
 #define SUBPIXEL_MASK 63
 #define SUBPIXEL_ACCURACY 7
 
-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
-
-#include "x86/blend_bitmaps.h"
-#include "x86/rasterizer.h"
-
-#endif // ASM
 
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
 {
@@ -70,56 +64,19 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->ftlibrary = ft;
     // images_root and related stuff is zero-filled in calloc
 
-    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
-        int sse2 = has_sse2();
-        int avx2 = has_avx2();
-        priv->add_bitmaps_func = avx2 ? ass_add_bitmaps_avx2 :
-            (sse2 ? ass_add_bitmaps_sse2 : ass_add_bitmaps_x86);
-        #ifdef __x86_64__
-            priv->mul_bitmaps_func = avx2 ? ass_mul_bitmaps_avx2 : ass_mul_bitmaps_sse2;
-            priv->sub_bitmaps_func = avx2 ? ass_sub_bitmaps_avx2 : ass_sub_bitmaps_sse2;
-        #else
-            priv->mul_bitmaps_func = mul_bitmaps_c;
-            priv->sub_bitmaps_func = ass_sub_bitmaps_x86;
-        #endif
-    #else
-        priv->add_bitmaps_func = add_bitmaps_c;
-        priv->sub_bitmaps_func = sub_bitmaps_c;
-        priv->mul_bitmaps_func = mul_bitmaps_c;
-    #endif
+#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+    if (has_avx2())
+        priv->engine = &ass_bitmap_engine_avx2;
+    else if (has_sse2())
+        priv->engine = &ass_bitmap_engine_sse2;
+    else
+        priv->engine = &ass_bitmap_engine_c;
+#else
+    priv->engine = &ass_bitmap_engine_c;
+#endif
 
 #if CONFIG_RASTERIZER
-#if CONFIG_LARGE_TILES
-    priv->rasterizer.tile_order = 5;
-    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
-        priv->rasterizer.fill_solid = avx2 ? ass_fill_solid_tile32_avx2 :
-            (sse2 ? ass_fill_solid_tile32_sse2 : ass_fill_solid_tile32_c);
-        priv->rasterizer.fill_halfplane = avx2 ? ass_fill_halfplane_tile32_avx2 :
-            (sse2 ? ass_fill_halfplane_tile32_sse2 : ass_fill_halfplane_tile32_c);
-        priv->rasterizer.fill_generic = avx2 ? ass_fill_generic_tile32_avx2 :
-            (sse2 ? ass_fill_generic_tile32_sse2 : ass_fill_generic_tile32_c);
-    #else
-        priv->rasterizer.fill_solid = ass_fill_solid_tile32_c;
-        priv->rasterizer.fill_halfplane = ass_fill_halfplane_tile32_c;
-        priv->rasterizer.fill_generic = ass_fill_generic_tile32_c;
-    #endif
-#else
-    priv->rasterizer.tile_order = 4;
-    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
-        priv->rasterizer.fill_solid = avx2 ? ass_fill_solid_tile16_avx2 :
-            (sse2 ? ass_fill_solid_tile16_sse2 : ass_fill_solid_tile16_c);
-        priv->rasterizer.fill_halfplane = avx2 ? ass_fill_halfplane_tile16_avx2 :
-            (sse2 ? ass_fill_halfplane_tile16_sse2 : ass_fill_halfplane_tile16_c);
-        priv->rasterizer.fill_generic = avx2 ? ass_fill_generic_tile16_avx2 :
-            (sse2 ? ass_fill_generic_tile16_sse2 : ass_fill_generic_tile16_c);
-    #else
-        priv->rasterizer.fill_solid = ass_fill_solid_tile16_c;
-        priv->rasterizer.fill_halfplane = ass_fill_halfplane_tile16_c;
-        priv->rasterizer.fill_generic = ass_fill_generic_tile16_c;
-    #endif
-#endif
-    priv->rasterizer.outline_error = 16;
-    rasterizer_init(&priv->rasterizer);
+    rasterizer_init(&priv->rasterizer, 16);
 #endif
 
     priv->cache.font_cache = ass_font_cache_create();
@@ -633,9 +590,9 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
 
             // Blend together
             memcpy(nbuffer, abuffer, ((ah - 1) * as) + aw);
-            render_priv->sub_bitmaps_func(nbuffer + atop * as + aleft, as,
-                                          bbuffer + btop * bs + bleft, bs,
-                                          h, w);
+            render_priv->engine->sub_bitmaps(nbuffer + atop * as + aleft, as,
+                                             bbuffer + btop * bs + bleft, bs,
+                                             h, w);
         } else {
             // Regular clip
             if (ax + aw < bx || ay + ah < by || ax > bx + bw ||
@@ -654,10 +611,10 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             }
 
             // Blend together
-            render_priv->mul_bitmaps_func(nbuffer, ns,
-                                          abuffer + atop * as + aleft, as,
-                                          bbuffer + btop * bs + bleft, bs,
-                                          w, h);
+            render_priv->engine->mul_bitmaps(nbuffer, ns,
+                                             abuffer + atop * as + aleft, as,
+                                             bbuffer + btop * bs + bleft, bs,
+                                             w, h);
             cur->dst_x += aleft;
             cur->dst_y += atop;
             cur->w = w;
@@ -1843,15 +1800,15 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_pr
 
     // Create shadow and fix outline as needed
     if (info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
-        info->bm_s = copy_bitmap(info->bm_o);
+        info->bm_s = copy_bitmap(render_priv->engine, info->bm_o);
         fix_outline(info->bm, info->bm_o);
     } else if (info->bm_o && (info->filter.flags & FILTER_NONZERO_BORDER)) {
-        info->bm_s = copy_bitmap(info->bm_o);
+        info->bm_s = copy_bitmap(render_priv->engine, info->bm_o);
     } else if (info->bm_o) {
         info->bm_s = info->bm_o;
         info->bm_o = 0;
     } else
-        info->bm_s = copy_bitmap(info->bm);
+        info->bm_s = copy_bitmap(render_priv->engine, info->bm);
 
     if (!info->bm_s)
         return;
@@ -2328,7 +2285,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             for (int j = 0; j < info->bitmap_count; ++j) {
                 if (!info->bitmaps[j].image->bm)
                     continue;
-                info->bm = copy_bitmap(info->bitmaps[j].image->bm);
+                info->bm = copy_bitmap(render_priv->engine, info->bitmaps[j].image->bm);
                 if (info->bm) {
                     info->bm->left += info->bitmaps[j].x;
                     info->bm->top  += info->bitmaps[j].y;
@@ -2336,7 +2293,8 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 break;
             }
         } else if (info->n_bm) {
-            info->bm = alloc_bitmap(info->rect.x_max - info->rect.x_min + 2 * bord,
+            info->bm = alloc_bitmap(render_priv->engine,
+                                    info->rect.x_max - info->rect.x_min + 2 * bord,
                                     info->rect.y_max - info->rect.y_min + 2 * bord);
             Bitmap *dst = info->bm;
             if (dst) {
@@ -2351,9 +2309,9 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                     assert(x >= 0 && x + src->w <= dst->w);
                     assert(y >= 0 && y + src->h <= dst->h);
                     unsigned char *buf = dst->buffer + y * dst->stride + x;
-                    render_priv->add_bitmaps_func(buf, dst->stride,
-                                                  src->buffer, src->stride,
-                                                  src->h, src->w);
+                    render_priv->engine->add_bitmaps(buf, dst->stride,
+                                                     src->buffer, src->stride,
+                                                     src->h, src->w);
                 }
             }
         }
@@ -2361,7 +2319,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             for (int j = 0; j < info->bitmap_count; ++j) {
                 if (!info->bitmaps[j].image->bm_o)
                     continue;
-                info->bm_o = copy_bitmap(info->bitmaps[j].image->bm_o);
+                info->bm_o = copy_bitmap(render_priv->engine, info->bitmaps[j].image->bm_o);
                 if (info->bm_o) {
                     info->bm_o->left += info->bitmaps[j].x;
                     info->bm_o->top  += info->bitmaps[j].y;
@@ -2369,7 +2327,8 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 break;
             }
         } else if (info->n_bm_o) {
-            info->bm_o = alloc_bitmap(info->rect_o.x_max - info->rect_o.x_min + 2 * bord,
+            info->bm_o = alloc_bitmap(render_priv->engine,
+                                      info->rect_o.x_max - info->rect_o.x_min + 2 * bord,
                                       info->rect_o.y_max - info->rect_o.y_min + 2 * bord);
             Bitmap *dst = info->bm_o;
             if (dst) {
@@ -2384,15 +2343,16 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                     assert(x >= 0 && x + src->w <= dst->w);
                     assert(y >= 0 && y + src->h <= dst->h);
                     unsigned char *buf = dst->buffer + y * dst->stride + x;
-                    render_priv->add_bitmaps_func(buf, dst->stride,
-                                                  src->buffer, src->stride,
-                                                  src->h, src->w);
+                    render_priv->engine->add_bitmaps(buf, dst->stride,
+                                                     src->buffer, src->stride,
+                                                     src->h, src->w);
                 }
             }
         }
 
         if(info->bm || info->bm_o){
-            ass_synth_blur(render_priv->synth_priv, info->filter.flags & FILTER_BORDER_STYLE_3,
+            ass_synth_blur(render_priv->engine,
+                           render_priv->synth_priv, info->filter.flags & FILTER_BORDER_STYLE_3,
                            info->filter.be, info->filter.blur, info->bm, info->bm_o);
             if (info->filter.flags & FILTER_DRAW_SHADOW)
                 make_shadow_bitmap(info, render_priv);
