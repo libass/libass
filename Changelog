@@ -1,3 +1,13 @@
+libass (0.12.3)
+ * VSFilter blur compatibility changes
+ * VSFilter color/alpha parsing compatibility changes
+ * Bugfixes
+   * Fix some potential memory leaks and crashes
+   * Fix large timestamps (larger than about 600 hours)
+   * Fix a potential crash with the new rasterizer and complex fonts
+   * Do not apply user-configured line position to non-dialog events
+   * Strictly clip non-dialog events to the video rectangle
+
 libass (0.12.2)
  * Add extern "C" guards to the public headers for C++ compatibility
  * Improvements to style override API and implementation
