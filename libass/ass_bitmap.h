@@ -25,10 +25,6 @@
 
 #include "ass.h"
 
-typedef struct ass_synth_priv ASS_SynthPriv;
-
-ASS_SynthPriv *ass_synth_init(double);
-void ass_synth_done(ASS_SynthPriv *priv);
 
 struct segment;
 typedef void (*FillSolidTileFunc)(uint8_t *buf, ptrdiff_t stride, int set);
@@ -49,6 +45,17 @@ typedef void (*BitmapMulFunc)(uint8_t *dst, intptr_t dst_stride,
 typedef void (*BeBlurFunc)(uint8_t *buf, intptr_t w, intptr_t h,
                            intptr_t stride, uint16_t *tmp);
 
+// intermediate bitmaps represented as sets of verical stripes of int16_t[alignment / 2]
+typedef void (*Convert8to16Func)(int16_t *dst, const uint8_t *src, ptrdiff_t src_stride,
+                                 uintptr_t width, uintptr_t height);
+typedef void (*Convert16to8Func)(uint8_t *dst, ptrdiff_t dst_stride, const int16_t *src,
+                                 uintptr_t width, uintptr_t height);
+typedef void (*FilterFunc)(int16_t *dst, const int16_t *src,
+                           uintptr_t src_width, uintptr_t src_height);
+typedef void (*ParamFilterFunc)(int16_t *dst, const int16_t *src,
+                                uintptr_t src_width, uintptr_t src_height,
+                                const int16_t *param);
+
 #define C_ALIGN_ORDER 5
 
 typedef struct {
@@ -68,6 +75,14 @@ typedef struct {
 
     // be blur function
     BeBlurFunc be_blur;
+
+    // gaussian blur functions
+    Convert8to16Func stripe_unpack;
+    Convert16to8Func stripe_pack;
+    FilterFunc shrink_horz, shrink_vert;
+    FilterFunc expand_horz, expand_vert;
+    FilterFunc pre_blur_horz[3], pre_blur_vert[3];
+    ParamFilterFunc main_blur_horz[3], main_blur_vert[3];
 } BitmapEngine;
 
 extern const BitmapEngine ass_bitmap_engine_c;
@@ -93,14 +108,14 @@ typedef struct {
 } Bitmap;
 
 Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h);
+bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int w, int h);
 Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src);
 void ass_free_bitmap(Bitmap *bm);
 
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           ASS_Outline *outline, int bord);
 
-void ass_synth_blur(const BitmapEngine *engine,
-                    ASS_SynthPriv *priv_blur, int opaque_box, int be,
+void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
                     double blur_radius, Bitmap *bm_g, Bitmap *bm_o);
 
 /**
@@ -114,14 +129,12 @@ int outline_to_bitmap2(ASS_Renderer *render_priv,
                        ASS_Outline *outline, ASS_Outline *border,
                        Bitmap **bm_g, Bitmap **bm_o);
 
-void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
-                    int width, int height, int stride,
-                    unsigned *m2, int r, int mwidth);
 int be_padding(int be);
 void be_blur_pre(uint8_t *buf, intptr_t w,
                  intptr_t h, intptr_t stride);
 void be_blur_post(uint8_t *buf, intptr_t w,
                   intptr_t h, intptr_t stride);
+bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2);
 void shift_bitmap(Bitmap *bm, int shift_x, int shift_y);
 void fix_outline(Bitmap *bm_g, Bitmap *bm_o);
 

@@ -57,132 +57,29 @@
 #endif
 
 
-static const unsigned base = 256;
-
-struct ass_synth_priv {
-    size_t tmp_allocated;
-    void *tmp;
-
-    int g_r;
-    int g_w;
-
-    double *g0;
-    unsigned *g;
-    unsigned *gt2;
-
-    double radius;
-};
-
-static bool generate_tables(ASS_SynthPriv *priv, double radius)
-{
-    double A = log(1.0 / base) / (radius * radius * 2);
-    int mx, i;
-    double volume_diff, volume_factor = 0;
-    unsigned volume;
-
-    if (radius < 0)
-        return false;
-    if (radius + 2.0 > INT_MAX / 2)
-        radius = INT_MAX / 2;
-
-    if (priv->radius == radius)
-        return true;
-    else
-        priv->radius = radius;
-
-    priv->g_r = ceil(radius);
-    priv->g_w = 2 * priv->g_r + 1;
-
-    if (priv->g_r) {
-        priv->g0 = ass_realloc_array(priv->g0, priv->g_w, sizeof(double));
-        priv->g = ass_realloc_array(priv->g, priv->g_w, sizeof(unsigned));
-        priv->gt2 = ass_realloc_array(priv->gt2, priv->g_w, 256 * sizeof(unsigned));
-        if (!priv->g || !priv->g0 || !priv->gt2) {
-            free(priv->g0);
-            free(priv->g);
-            free(priv->gt2);
-            return false;
-        }
-    }
-
-    if (priv->g_r) {
-        // exact gaussian curve
-        for (i = 0; i < priv->g_w; ++i) {
-            priv->g0[i] = exp(A * (i - priv->g_r) * (i - priv->g_r));
-        }
-
-        // integer gaussian curve with volume = 65536
-        for (volume_diff = 10000000; volume_diff > 0.0000001;
-             volume_diff *= 0.5) {
-            volume_factor += volume_diff;
-            volume = 0;
-            for (i = 0; i < priv->g_w; ++i) {
-                priv->g[i] = (unsigned) (priv->g0[i] * volume_factor + .5);
-                volume += priv->g[i];
-            }
-            if (volume > 65536)
-                volume_factor -= volume_diff;
-        }
-        volume = 0;
-        for (i = 0; i < priv->g_w; ++i) {
-            priv->g[i] = (unsigned) (priv->g0[i] * volume_factor + .5);
-            volume += priv->g[i];
-        }
-
-        // gauss table:
-        for (mx = 0; mx < priv->g_w; mx++) {
-            for (i = 0; i < 256; i++) {
-                priv->gt2[mx + i * priv->g_w] = i * priv->g[mx];
-            }
-        }
-    }
-
-    return true;
-}
-
-static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
-{
-    if (w >= INT_MAX || (w + 1) > SIZE_MAX / 2 / sizeof(unsigned) / FFMAX(h, 1))
-        return false;
-    size_t needed = FFMAX(sizeof(unsigned) * (w + 1) * h,
-                          sizeof(uint16_t) * ass_align(32, w) * 2);
-    if (priv->tmp && priv->tmp_allocated >= needed)
-        return true;
-
-    ass_aligned_free(priv->tmp);
-    priv->tmp_allocated = FFMAX(needed, priv->tmp_allocated * 2);
-    priv->tmp = ass_aligned_alloc(32, priv->tmp_allocated);
-    return !!priv->tmp;
-}
-
-void ass_synth_blur(const BitmapEngine *engine,
-                    ASS_SynthPriv *priv_blur, int opaque_box, int be,
+void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
                     double blur_radius, Bitmap *bm_g, Bitmap *bm_o)
 {
-    if(blur_radius > 0.0 || be){
-        if (bm_o && !resize_tmp(priv_blur, bm_o->w, bm_o->h))
-            return;
-        if ((!bm_o || opaque_box) && !resize_tmp(priv_blur, bm_g->w, bm_g->h))
-            return;
-    }
-
     // Apply gaussian blur
-    if (blur_radius > 0.0 && generate_tables(priv_blur, blur_radius)) {
+    double r2 = blur_radius * blur_radius / log(256);
+    if (r2 > 0.001) {
         if (bm_o)
-            ass_gauss_blur(bm_o->buffer, priv_blur->tmp,
-                           bm_o->w, bm_o->h, bm_o->stride,
-                           priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
+            ass_gaussian_blur(engine, bm_o, r2);
         if (!bm_o || opaque_box)
-            ass_gauss_blur(bm_g->buffer, priv_blur->tmp,
-                           bm_g->w, bm_g->h, bm_g->stride,
-                           priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
+            ass_gaussian_blur(engine, bm_g, r2);
     }
 
     // Apply box blur (multiple passes, if requested)
     if (be) {
-        uint16_t* tmp = priv_blur->tmp;
+        size_t size_o = 0, size_g = 0;
+        if (bm_o)
+            size_o = sizeof(uint16_t) * bm_o->stride * 2;
+        if (!bm_o || opaque_box)
+            size_g = sizeof(uint16_t) * bm_g->stride * 2;
+        size_t size = FFMAX(size_o, size_g);
+        uint16_t *tmp = size ? ass_aligned_alloc(32, size) : NULL;
+        if (!tmp)
+            return;
         if (bm_o) {
             unsigned passes = be;
             unsigned w = bm_o->w;
@@ -221,26 +118,8 @@ void ass_synth_blur(const BitmapEngine *engine,
                 engine->be_blur(buf, w, h, stride, tmp);
             }
         }
+        ass_aligned_free(tmp);
     }
-}
-
-ASS_SynthPriv *ass_synth_init(double radius)
-{
-    ASS_SynthPriv *priv = calloc(1, sizeof(ASS_SynthPriv));
-    if (!priv || !generate_tables(priv, radius)) {
-        free(priv);
-        return NULL;
-    }
-    return priv;
-}
-
-void ass_synth_done(ASS_SynthPriv *priv)
-{
-    ass_aligned_free(priv->tmp);
-    free(priv->g0);
-    free(priv->g);
-    free(priv->gt2);
-    free(priv);
 }
 
 static bool alloc_bitmap_buffer(const BitmapEngine *engine, Bitmap *bm, int w, int h)
@@ -280,6 +159,15 @@ Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h)
     memset(bm->buffer, 0, bm->stride * bm->h + 32);
     bm->left = bm->top = 0;
     return bm;
+}
+
+bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int w, int h)
+{
+    uint8_t *old = bm->buffer;
+    if (!alloc_bitmap_buffer(engine, bm, w, h))
+        return false;
+    ass_aligned_free(old);
+    return true;
 }
 
 void ass_free_bitmap(Bitmap *bm)
@@ -528,128 +416,6 @@ void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
             buf[x + (y - 1) * s] -= b;
             buf[x + y * s] += b;
         }
-    }
-}
-
-/*
- * Gaussian blur.  An fast pure C implementation from MPlayer.
- */
-void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
-                    int width, int height, int stride,
-                    unsigned *m2, int r, int mwidth)
-{
-
-    int x, y;
-
-    unsigned char *s = buffer;
-    unsigned *t = tmp2 + 1;
-    for (y = 0; y < height; y++) {
-        memset(t - 1, 0, (width + 1) * sizeof(unsigned));
-        t[-1] = 32768;
-
-        for (x = 0; x < r; x++) {
-            const int src = s[x];
-            if (src) {
-                register unsigned *dstp = t + x - r;
-                int mx;
-                unsigned *m3 = m2 + src * mwidth;
-                for (mx = r - x; mx < mwidth; mx++) {
-                    dstp[mx] += m3[mx];
-                }
-            }
-        }
-
-        for (; x < width - r; x++) {
-            const int src = s[x];
-            if (src) {
-                register unsigned *dstp = t + x - r;
-                int mx;
-                unsigned *m3 = m2 + src * mwidth;
-                for (mx = 0; mx < mwidth; mx++) {
-                    dstp[mx] += m3[mx];
-                }
-            }
-        }
-
-        for (; x < width; x++) {
-            const int src = s[x];
-            if (src) {
-                register unsigned *dstp = t + x - r;
-                int mx;
-                const int x2 = r + width - x;
-                unsigned *m3 = m2 + src * mwidth;
-                for (mx = 0; mx < x2; mx++) {
-                    dstp[mx] += m3[mx];
-                }
-            }
-        }
-
-        s += stride;
-        t += width + 1;
-    }
-
-    t = tmp2;
-    for (x = 0; x < width; x++) {
-        for (y = 0; y < r; y++) {
-            unsigned *srcp = t + y * (width + 1) + 1;
-            int src = *srcp;
-            if (src) {
-                register unsigned *dstp = srcp - 1 - y * (width + 1);
-                const int src2 = (src + 32768) >> 16;
-                unsigned *m3 = m2 + src2 * mwidth;
-
-                int mx;
-                *srcp = 32768;
-                for (mx = r - y; mx < mwidth; mx++) {
-                    *dstp += m3[mx];
-                    dstp += width + 1;
-                }
-            }
-        }
-        for (; y < height - r; y++) {
-            unsigned *srcp = t + y * (width + 1) + 1;
-            int src = *srcp;
-            if (src) {
-                register unsigned *dstp = srcp - 1 - r * (width + 1);
-                const int src2 = (src + 32768) >> 16;
-                unsigned *m3 = m2 + src2 * mwidth;
-
-                int mx;
-                *srcp = 32768;
-                for (mx = 0; mx < mwidth; mx++) {
-                    *dstp += m3[mx];
-                    dstp += width + 1;
-                }
-            }
-        }
-        for (; y < height; y++) {
-            unsigned *srcp = t + y * (width + 1) + 1;
-            int src = *srcp;
-            if (src) {
-                const int y2 = r + height - y;
-                register unsigned *dstp = srcp - 1 - r * (width + 1);
-                const int src2 = (src + 32768) >> 16;
-                unsigned *m3 = m2 + src2 * mwidth;
-
-                int mx;
-                *srcp = 32768;
-                for (mx = 0; mx < y2; mx++) {
-                    *dstp += m3[mx];
-                    dstp += width + 1;
-                }
-            }
-        }
-        t++;
-    }
-
-    t = tmp2;
-    s = buffer;
-    for (y = 0; y < height; y++) {
-        for (x = 0; x < width; x++) {
-            s[x] = t[x] >> 16;
-        }
-        s += stride;
-        t += width + 1;
     }
 }
 
