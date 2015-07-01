@@ -373,7 +373,7 @@ static Bitmap *outline_to_bitmap_ft(ASS_Renderer *render_priv,
 
     FT_Outline_Get_CBox(outline, &bbox);
     if (bbox.xMin >= bbox.xMax || bbox.yMin >= bbox.yMax) {
-        bm = alloc_bitmap(2 * bord, 2 * bord);
+        bm = alloc_bitmap(render_priv->engine, 2 * bord, 2 * bord);
         if (!bm)
             return NULL;
         bm->left = bm->top = -bord;
@@ -403,7 +403,7 @@ static Bitmap *outline_to_bitmap_ft(ASS_Renderer *render_priv,
     }
 
     // allocate and set up bitmap
-    bm = alloc_bitmap(w + 2 * bord, h + 2 * bord);
+    bm = alloc_bitmap(render_priv->engine, w + 2 * bord, h + 2 * bord);
     if (!bm)
         return NULL;
     bm->left = bbox.xMin - bord;
