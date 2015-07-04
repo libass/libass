@@ -58,8 +58,6 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         goto ass_init_exit;
     }
 
-    priv->synth_priv = ass_synth_init(BLUR_MAX_RADIUS);
-
     priv->library = library;
     priv->ftlibrary = ft;
     // images_root and related stuff is zero-filled in calloc
@@ -151,8 +149,6 @@ void ass_renderer_done(ASS_Renderer *render_priv)
         FT_Done_FreeType(render_priv->ftlibrary);
     if (render_priv->fontconfig_priv)
         fontconfig_done(render_priv->fontconfig_priv);
-    if (render_priv->synth_priv)
-        ass_synth_done(render_priv->synth_priv);
     ass_shaper_free(render_priv->shaper);
     free(render_priv->eimg);
     free(render_priv->text_info.glyphs);
@@ -2277,10 +2273,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             continue;
         }
 
-        int bbord = be_padding(info->filter.be);
-        int gbord = info->filter.blur > 0.0 ? FFMIN(info->filter.blur + 1, INT_MAX) : 0;
-        int bord = FFMAX(bbord, gbord);
-
+        int bord = be_padding(info->filter.be);
         if (!bord && info->n_bm == 1) {
             for (int j = 0; j < info->bitmap_count; ++j) {
                 if (!info->bitmaps[j].image->bm)
@@ -2351,8 +2344,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
         }
 
         if(info->bm || info->bm_o){
-            ass_synth_blur(render_priv->engine,
-                           render_priv->synth_priv, info->filter.flags & FILTER_BORDER_STYLE_3,
+            ass_synth_blur(render_priv->engine, info->filter.flags & FILTER_BORDER_STYLE_3,
                            info->filter.be, info->filter.blur, info->bm, info->bm_o);
             if (info->filter.flags & FILTER_DRAW_SHADOW)
                 make_shadow_bitmap(info, render_priv);

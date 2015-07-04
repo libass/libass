@@ -18,83 +18,15 @@
 ;* OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ;******************************************************************************
 
-%include "x86inc.asm"
-
-%if ARCH_X86_64
-DEFAULT REL
-%endif
+%include "utils.asm"
 
 SECTION_RODATA 32
 
 words_index: dw 0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F
-words_tile16: dw 1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024
-words_tile32: dw 512,512,512,512,512,512,512,512,512,512,512,512,512,512,512,512
+words_tile16: times 16 dw 1024
+words_tile32: times 16 dw 512
 
 SECTION .text
-
-;------------------------------------------------------------------------------
-; MUL 1:reg, 2:num
-; Multiply by constant
-;------------------------------------------------------------------------------
-
-%macro MUL 2
-%if (%2) == 0
-    xor %1, %1
-%elif (%2) == 1
-%elif (%2) == 2
-    add %1, %1  ; lea %1, [%1 + %1]
-%elif (%2) == 3
-    lea %1, [%1 + 2 * %1]
-%elif (%2) == 4
-    lea %1, [4 * %1]  ; shl %1, 2
-%elif (%2) == 5
-    lea %1, [%1 + 4 * %1]
-%elif (%2) == 8
-    lea %1, [8 * %1]  ; shl %1, 3
-%elif (%2) == 9
-    lea %1, [%1 + 8 * %1]
-%elif (%2) == 16
-    shl %1, 4
-%elif (%2) == 32
-    shl %1, 5
-%elif (%2) == 64
-    shl %1, 6
-%elif (%2) == 128
-    shl %1, 7
-%elif (%2) == 256
-    shl %1, 8
-%else
-    imul %1, %2
-%endif
-%endmacro
-
-;------------------------------------------------------------------------------
-; BCASTW 1:m_dst, 2:r_src
-;------------------------------------------------------------------------------
-
-%macro BCASTW 2
-    movd xm%1, %2
-%if mmsize == 32
-    vpbroadcastw m%1, xm%1
-%elif mmsize == 16
-    punpcklwd m%1, m%1
-    pshufd m%1, m%1, q0000
-%endif
-%endmacro
-
-;------------------------------------------------------------------------------
-; PABSW 1:m_reg, 2:m_tmp
-;------------------------------------------------------------------------------
-
-%macro PABSW 2
-%if cpuflag(ssse3)
-    pabsw m%1, m%1
-%else
-    pxor m%2, m%2
-    psubw m%2, m%1
-    pmaxsw m%1, m%2
-%endif
-%endmacro
 
 ;------------------------------------------------------------------------------
 ; FILL_LINE 1:dst, 2:m_src, 3:size
