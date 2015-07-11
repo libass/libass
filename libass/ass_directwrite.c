@@ -475,7 +475,7 @@ static int map_width(enum DWRITE_FONT_STRETCH stretch)
     case DWRITE_FONT_STRETCH_EXTRA_EXPANDED:  return 150;
     case DWRITE_FONT_STRETCH_ULTRA_EXPANDED:  return 200;
     default:
-        assert(0);
+        return FONT_WIDTH_NORMAL;
     }
 }
 
