@@ -1,0 +1,293 @@
+--- /mnt/ssd/mxe/./usr/i686-w64-mingw32.static/include/dwrite.h	2015-06-24 14:42:38.197360516 +0200
++++ libass/dwrite.h	2015-07-11 21:29:54.004831430 +0200
+@@ -662,8 +662,8 @@
+ #define IDWriteBitmapRenderTarget_Release(This) (This)->lpVtbl->Release(This)
+ #define IDWriteBitmapRenderTarget_DrawGlyphRun(This,baselineOriginX,baselineOriginY,measuringMode,glyphRun,renderingParams,textColor,blackBoxRect) (This)->lpVtbl->DrawGlyphRun(This,baselineOriginX,baselineOriginY,measuringMode,glyphRun,renderingParams,textColor,blackBoxRect)
+ #define IDWriteBitmapRenderTarget_GetCurrentTransform(This,transform) (This)->lpVtbl->GetCurrentTransform(This,transform)
+-#define IDWriteBitmapRenderTarget_GetMemoryDC() (This)->lpVtbl->GetMemoryDC(This)
+-#define IDWriteBitmapRenderTarget_GetPixelsPerDip() (This)->lpVtbl->GetPixelsPerDip(This)
++#define IDWriteBitmapRenderTarget_GetMemoryDC(This) (This)->lpVtbl->GetMemoryDC(This)
++#define IDWriteBitmapRenderTarget_GetPixelsPerDip(This) (This)->lpVtbl->GetPixelsPerDip(This)
+ #define IDWriteBitmapRenderTarget_GetSize(This,size) (This)->lpVtbl->GetSize(This,size)
+ #define IDWriteBitmapRenderTarget_Resize(This,width,height) (This)->lpVtbl->Resize(This,width,height)
+ #define IDWriteBitmapRenderTarget_SetCurrentTransform(This,transform) (This)->lpVtbl->SetCurrentTransform(This,transform)
+@@ -880,12 +880,12 @@
+ #define IDWriteFont_GetFontFamily(This,fontFamily) (This)->lpVtbl->GetFontFamily(This,fontFamily)
+ #define IDWriteFont_GetInformationalStrings(This,informationalStringID,informationalStrings,exists) (This)->lpVtbl->GetInformationalStrings(This,informationalStringID,informationalStrings,exists)
+ #define IDWriteFont_GetMetrics(This,fontMetrics) (This)->lpVtbl->GetMetrics(This,fontMetrics)
+-#define IDWriteFont_GetSimulations() (This)->lpVtbl->GetSimulations(This)
+-#define IDWriteFont_GetStretch() (This)->lpVtbl->GetStretch(This)
+-#define IDWriteFont_GetStyle() (This)->lpVtbl->GetStyle(This)
+-#define IDWriteFont_GetWeight() (This)->lpVtbl->GetWeight(This)
++#define IDWriteFont_GetSimulations(This) (This)->lpVtbl->GetSimulations(This)
++#define IDWriteFont_GetStretch(This) (This)->lpVtbl->GetStretch(This)
++#define IDWriteFont_GetStyle(This) (This)->lpVtbl->GetStyle(This)
++#define IDWriteFont_GetWeight(This) (This)->lpVtbl->GetWeight(This)
+ #define IDWriteFont_HasCharacter(This,unicodeValue,exists) (This)->lpVtbl->HasCharacter(This,unicodeValue,exists)
+-#define IDWriteFont_IsSymbolFont() (This)->lpVtbl->IsSymbolFont(This)
++#define IDWriteFont_IsSymbolFont(This) (This)->lpVtbl->IsSymbolFont(This)
+ #endif /*COBJMACROS*/
+ 
+ #undef  INTERFACE
+@@ -925,7 +925,7 @@
+ #define IDWriteFontCollection_Release(This) (This)->lpVtbl->Release(This)
+ #define IDWriteFontCollection_FindFamilyName(This,familyName,index,exists) (This)->lpVtbl->FindFamilyName(This,familyName,index,exists)
+ #define IDWriteFontCollection_GetFontFamily(This,index,fontFamily) (This)->lpVtbl->GetFontFamily(This,index,fontFamily)
+-#define IDWriteFontCollection_GetFontFamilyCount() (This)->lpVtbl->GetFontFamilyCount(This)
++#define IDWriteFontCollection_GetFontFamilyCount(This) (This)->lpVtbl->GetFontFamilyCount(This)
+ #define IDWriteFontCollection_GetFontFromFontFace(This,fontFace,font) (This)->lpVtbl->GetFontFromFontFace(This,fontFace,font)
+ #endif /*COBJMACROS*/
+ 
+@@ -1020,18 +1020,18 @@
+ #define IDWriteFontFace_AddRef(This) (This)->lpVtbl->AddRef(This)
+ #define IDWriteFontFace_Release(This) (This)->lpVtbl->Release(This)
+ #define IDWriteFontFace_GetDesignGlyphMetrics(This,glyphIndices,glyphCount,glyphMetrics,isSideways) (This)->lpVtbl->GetDesignGlyphMetrics(This,glyphIndices,glyphCount,glyphMetrics,isSideways)
+-#define IDWriteFontFace_GetFiles(This,fontFiles) (This)->lpVtbl->GetFiles(This,fontFiles)
++#define IDWriteFontFace_GetFiles(This,fontFiles,b) (This)->lpVtbl->GetFiles(This,fontFiles,b)
+ #define IDWriteFontFace_GetGdiCompatibleMetrics(This,emSize,pixelsPerDip,transform,fontFaceMetrics) (This)->lpVtbl->GetGdiCompatibleMetrics(This,emSize,pixelsPerDip,transform,fontFaceMetrics)
+ #define IDWriteFontFace_GetGdiCompatibleGlyphMetrics(This,emSize,pixelsPerDip,transform,useGdiNatural,glyphIndices,glyphCount,glyphMetrics,isSideways) (This)->lpVtbl->GetGdiCompatibleGlyphMetrics(This,emSize,pixelsPerDip,transform,useGdiNatural,glyphIndices,glyphCount,glyphMetrics,isSideways)
+-#define IDWriteFontFace_GetGlyphCount() (This)->lpVtbl->GetGlyphCount(This)
++#define IDWriteFontFace_GetGlyphCount(This) (This)->lpVtbl->GetGlyphCount(This)
+ #define IDWriteFontFace_GetGlyphIndices(This,codePoints,codePointCount,glyphIndices) (This)->lpVtbl->GetGlyphIndices(This,codePoints,codePointCount,glyphIndices)
+ #define IDWriteFontFace_GetGlyphRunOutline(This,emSize,glyphIndices,glyphOffsets,glyphCount,isSideways,isRightToLeft,geometrySink) (This)->lpVtbl->GetGlyphRunOutline(This,emSize,glyphIndices,glyphOffsets,glyphCount,isSideways,isRightToLeft,geometrySink)
+-#define IDWriteFontFace_GetIndex() (This)->lpVtbl->GetIndex(This)
++#define IDWriteFontFace_GetIndex(This) (This)->lpVtbl->GetIndex(This)
+ #define IDWriteFontFace_GetMetrics(This,fontFaceMetrics) (This)->lpVtbl->GetMetrics(This,fontFaceMetrics)
+ #define IDWriteFontFace_GetRecommendedRenderingMode(This,emSize,pixelsPerDip,measuringMode,renderingParams,renderingMode) (This)->lpVtbl->GetRecommendedRenderingMode(This,emSize,pixelsPerDip,measuringMode,renderingParams,renderingMode)
+-#define IDWriteFontFace_GetSimulations() (This)->lpVtbl->GetSimulations(This)
+-#define IDWriteFontFace_GetType() (This)->lpVtbl->GetType(This)
+-#define IDWriteFontFace_IsSymbolFont() (This)->lpVtbl->IsSymbolFont(This)
++#define IDWriteFontFace_GetSimulations(This) (This)->lpVtbl->GetSimulations(This)
++#define IDWriteFontFace_GetType(This) (This)->lpVtbl->GetType(This)
++#define IDWriteFontFace_IsSymbolFont(This) (This)->lpVtbl->IsSymbolFont(This)
+ #define IDWriteFontFace_ReleaseFontTable(This,tableContext) (This)->lpVtbl->ReleaseFontTable(This,tableContext)
+ #define IDWriteFontFace_TryGetFontTable(This,openTypeTableTag,tableData,tableSize,tableContext,exists) (This)->lpVtbl->TryGetFontTable(This,openTypeTableTag,tableData,tableSize,tableContext,exists)
+ #endif /*COBJMACROS*/
+@@ -1067,7 +1067,7 @@
+ #define IDWriteFontList_Release(This) (This)->lpVtbl->Release(This)
+ #define IDWriteFontList_GetFont(This,index,font) (This)->lpVtbl->GetFont(This,index,font)
+ #define IDWriteFontList_GetFontCollection(This,fontCollection) (This)->lpVtbl->GetFontCollection(This,fontCollection)
+-#define IDWriteFontList_GetFontCount() (This)->lpVtbl->GetFontCount(This)
++#define IDWriteFontList_GetFontCount(This) (This)->lpVtbl->GetFontCount(This)
+ #endif /*COBJMACROS*/
+ 
+ #undef  INTERFACE
+@@ -1117,7 +1117,7 @@
+ #define IDWriteFontFamily_Release(This) (This)->lpVtbl->Release(This)
+ #define IDWriteFontFamily_GetFont(This,index,font) (This)->lpVtbl->GetFont(This,index,font)
+ #define IDWriteFontFamily_GetFontCollection(This,fontCollection) (This)->lpVtbl->GetFontCollection(This,fontCollection)
+-#define IDWriteFontFamily_GetFontCount() (This)->lpVtbl->GetFontCount(This)
++#define IDWriteFontFamily_GetFontCount(This) (This)->lpVtbl->GetFontCount(This)
+ #define IDWriteFontFamily_GetFamilyNames(This,names) (This)->lpVtbl->GetFamilyNames(This,names)
+ #define IDWriteFontFamily_GetFirstMatchingFont(This,weight,stretch,style,matchingFont) (This)->lpVtbl->GetFirstMatchingFont(This,weight,stretch,style,matchingFont)
+ #define IDWriteFontFamily_GetMatchingFonts(This,weight,stretch,style,matchingFonts) (This)->lpVtbl->GetMatchingFonts(This,weight,stretch,style,matchingFonts)
+@@ -1175,7 +1175,7 @@
+ #endif
+ 
+     /* IDWriteFontFileLoader methods */
+-    STDMETHOD(CreateStreamFromKey)(
++    STDMETHOD(CreateStreamFromKey)(THIS_
+         void const *fontFileReferenceKey,
+         UINT32 fontFileReferenceKeySize,
+         IDWriteFontFileStream **fontFileStream) PURE;
+@@ -1490,7 +1490,7 @@
+ #define IDWriteLocalizedStrings_AddRef(This) (This)->lpVtbl->AddRef(This)
+ #define IDWriteLocalizedStrings_Release(This) (This)->lpVtbl->Release(This)
+ #define IDWriteLocalizedStrings_FindLocaleName(This,localeName,index,exists) (This)->lpVtbl->FindLocaleName(This,localeName,index,exists)
+-#define IDWriteLocalizedStrings_GetCount() (This)->lpVtbl->GetCount(This)
++#define IDWriteLocalizedStrings_GetCount(This) (This)->lpVtbl->GetCount(This)
+ #define IDWriteLocalizedStrings_GetLocaleName(This,index,localeName,size) (This)->lpVtbl->GetLocaleName(This,index,localeName,size)
+ #define IDWriteLocalizedStrings_GetLocaleNameLength(This,index,length) (This)->lpVtbl->GetLocaleNameLength(This,index,length)
+ #define IDWriteLocalizedStrings_GetString(This,index,stringBuffer,size) (This)->lpVtbl->GetString(This,index,stringBuffer,size)
+@@ -1581,11 +1581,11 @@
+ #define IDWriteRenderingParams_QueryInterface(This,riid,ppvObject) (This)->lpVtbl->QueryInterface(This,riid,ppvObject)
+ #define IDWriteRenderingParams_AddRef(This) (This)->lpVtbl->AddRef(This)
+ #define IDWriteRenderingParams_Release(This) (This)->lpVtbl->Release(This)
+-#define IDWriteRenderingParams_GetClearTypeLevel() (This)->lpVtbl->GetClearTypeLevel(This)
+-#define IDWriteRenderingParams_GetEnhancedContrast() (This)->lpVtbl->GetEnhancedContrast(This)
+-#define IDWriteRenderingParams_GetGamma() (This)->lpVtbl->GetGamma(This)
+-#define IDWriteRenderingParams_GetPixelGeometry() (This)->lpVtbl->GetPixelGeometry(This)
+-#define IDWriteRenderingParams_GetRenderingMode() (This)->lpVtbl->GetRenderingMode(This)
++#define IDWriteRenderingParams_GetClearTypeLevel(This) (This)->lpVtbl->GetClearTypeLevel(This)
++#define IDWriteRenderingParams_GetEnhancedContrast(This) (This)->lpVtbl->GetEnhancedContrast(This)
++#define IDWriteRenderingParams_GetGamma(This) (This)->lpVtbl->GetGamma(This)
++#define IDWriteRenderingParams_GetPixelGeometry(This) (This)->lpVtbl->GetPixelGeometry(This)
++#define IDWriteRenderingParams_GetRenderingMode(This) (This)->lpVtbl->GetRenderingMode(This)
+ #endif /*COBJMACROS*/
+ 
+ #undef  INTERFACE
+@@ -1679,7 +1679,7 @@
+ #define IDWriteTextAnalysisSource_Release(This) (This)->lpVtbl->Release(This)
+ #define IDWriteTextAnalysisSource_GetLocaleName(This,textPosition,textLength,localeName) (This)->lpVtbl->GetLocaleName(This,textPosition,textLength,localeName)
+ #define IDWriteTextAnalysisSource_GetNumberSubstitution(This,textPosition,textLength,numberSubstitution) (This)->lpVtbl->GetNumberSubstitution(This,textPosition,textLength,numberSubstitution)
+-#define IDWriteTextAnalysisSource_GetParagraphReadingDirection() (This)->lpVtbl->GetParagraphReadingDirection(This)
++#define IDWriteTextAnalysisSource_GetParagraphReadingDirection(This) (This)->lpVtbl->GetParagraphReadingDirection(This)
+ #define IDWriteTextAnalysisSource_GetTextAtPosition(This,textPosition,textString,textLength) (This)->lpVtbl->GetTextAtPosition(This,textPosition,textString,textLength)
+ #define IDWriteTextAnalysisSource_GetTextBeforePosition(This,textPosition,textString,textLength) (This)->lpVtbl->GetTextBeforePosition(This,textPosition,textString,textLength)
+ #endif /*COBJMACROS*/
+@@ -1866,23 +1866,23 @@
+ #define IDWriteTextFormat_QueryInterface(This,riid,ppvObject) (This)->lpVtbl->QueryInterface(This,riid,ppvObject)
+ #define IDWriteTextFormat_AddRef(This) (This)->lpVtbl->AddRef(This)
+ #define IDWriteTextFormat_Release(This) (This)->lpVtbl->Release(This)
+-#define IDWriteTextFormat_GetFlowDirection() (This)->lpVtbl->GetFlowDirection(This)
++#define IDWriteTextFormat_GetFlowDirection(This) (This)->lpVtbl->GetFlowDirection(This)
+ #define IDWriteTextFormat_GetFontCollection(This,fontCollection) (This)->lpVtbl->GetFontCollection(This,fontCollection)
+ #define IDWriteTextFormat_GetFontFamilyName(This,fontFamilyName,nameSize) (This)->lpVtbl->GetFontFamilyName(This,fontFamilyName,nameSize)
+-#define IDWriteTextFormat_GetFontFamilyNameLength() (This)->lpVtbl->GetFontFamilyNameLength(This)
+-#define IDWriteTextFormat_GetFontSize() (This)->lpVtbl->GetFontSize(This)
+-#define IDWriteTextFormat_GetFontStretch() (This)->lpVtbl->GetFontStretch(This)
+-#define IDWriteTextFormat_GetFontStyle() (This)->lpVtbl->GetFontStyle(This)
+-#define IDWriteTextFormat_GetFontWeight() (This)->lpVtbl->GetFontWeight(This)
+-#define IDWriteTextFormat_GetIncrementalTabStop() (This)->lpVtbl->GetIncrementalTabStop(This)
++#define IDWriteTextFormat_GetFontFamilyNameLength(This) (This)->lpVtbl->GetFontFamilyNameLength(This)
++#define IDWriteTextFormat_GetFontSize(This) (This)->lpVtbl->GetFontSize(This)
++#define IDWriteTextFormat_GetFontStretch(This) (This)->lpVtbl->GetFontStretch(This)
++#define IDWriteTextFormat_GetFontStyle(This) (This)->lpVtbl->GetFontStyle(This)
++#define IDWriteTextFormat_GetFontWeight(This) (This)->lpVtbl->GetFontWeight(This)
++#define IDWriteTextFormat_GetIncrementalTabStop(This) (This)->lpVtbl->GetIncrementalTabStop(This)
+ #define IDWriteTextFormat_GetLineSpacing(This,lineSpacingMethod,lineSpacing,baseline) (This)->lpVtbl->GetLineSpacing(This,lineSpacingMethod,lineSpacing,baseline)
+ #define IDWriteTextFormat_GetLocaleName(This,localeName,nameSize) (This)->lpVtbl->GetLocaleName(This,localeName,nameSize)
+-#define IDWriteTextFormat_GetLocaleNameLength() (This)->lpVtbl->GetLocaleNameLength(This)
+-#define IDWriteTextFormat_GetParagraphAlignment() (This)->lpVtbl->GetParagraphAlignment(This)
+-#define IDWriteTextFormat_GetReadingDirection() (This)->lpVtbl->GetReadingDirection(This)
+-#define IDWriteTextFormat_GetTextAlignment() (This)->lpVtbl->GetTextAlignment(This)
++#define IDWriteTextFormat_GetLocaleNameLength(This) (This)->lpVtbl->GetLocaleNameLength(This)
++#define IDWriteTextFormat_GetParagraphAlignment(This) (This)->lpVtbl->GetParagraphAlignment(This)
++#define IDWriteTextFormat_GetReadingDirection(This) (This)->lpVtbl->GetReadingDirection(This)
++#define IDWriteTextFormat_GetTextAlignment(This) (This)->lpVtbl->GetTextAlignment(This)
+ #define IDWriteTextFormat_GetTrimming(This,trimmingOptions,trimmingSign) (This)->lpVtbl->GetTrimming(This,trimmingOptions,trimmingSign)
+-#define IDWriteTextFormat_GetWordWrapping() (This)->lpVtbl->GetWordWrapping(This)
++#define IDWriteTextFormat_GetWordWrapping(This) (This)->lpVtbl->GetWordWrapping(This)
+ #define IDWriteTextFormat_SetFlowDirection(This,flowDirection) (This)->lpVtbl->SetFlowDirection(This,flowDirection)
+ #define IDWriteTextFormat_SetIncrementalTabStop(This,incrementalTabStop) (This)->lpVtbl->SetIncrementalTabStop(This,incrementalTabStop)
+ #define IDWriteTextFormat_SetLineSpacing(This,lineSpacingMethod,lineSpacing,baseline) (This)->lpVtbl->SetLineSpacing(This,lineSpacingMethod,lineSpacing,baseline)
+@@ -1997,32 +1997,32 @@
+             DWRITE_TEXT_RANGE textRange) PURE;
+     STDMETHOD_(FLOAT, GetMaxWidth)(THIS) PURE;
+     STDMETHOD_(FLOAT, GetMaxHeight)(THIS) PURE;
+-    STDMETHOD(GetFontCollection)(THIS_
++    STDMETHOD(GetFontCollection2)(THIS_
+             UINT32 currentPosition,
+             IDWriteFontCollection** fontCollection,
+             DWRITE_TEXT_RANGE *textRange __MINGW_DEF_ARG_VAL(NULL)) PURE;
+-    STDMETHOD(GetFontFamilyNameLength)(THIS_
++    STDMETHOD(GetFontFamilyNameLength2)(THIS_
+             UINT32 currentPosition,
+             UINT32 *nameLength,
+             DWRITE_TEXT_RANGE *textRange __MINGW_DEF_ARG_VAL(NULL)) PURE;
+-    STDMETHOD(GetFontFamilyName)(THIS_
++    STDMETHOD(GetFontFamilyName2)(THIS_
+             UINT32 currentPosition,
+             WCHAR *fontFamilyName,
+             UINT32 nameSize,
+             DWRITE_TEXT_RANGE *textRange __MINGW_DEF_ARG_VAL(NULL)) PURE;
+-    STDMETHOD(GetFontWeight)(THIS_
++    STDMETHOD(GetFontWeight2)(THIS_
+             UINT32 currentPosition,
+             DWRITE_FONT_WEIGHT *fontWeight,
+             DWRITE_TEXT_RANGE* textRange __MINGW_DEF_ARG_VAL(NULL)) PURE;
+-    STDMETHOD(GetFontStyle)(THIS_
++    STDMETHOD(GetFontStyle2)(THIS_
+             UINT32 currentPosition,
+             DWRITE_FONT_STYLE *fontStyle,
+             DWRITE_TEXT_RANGE *textRange __MINGW_DEF_ARG_VAL(NULL)) PURE;
+-    STDMETHOD(GetFontStretch)(THIS_
++    STDMETHOD(GetFontStretch2)(THIS_
+             UINT32 currentPosition,
+             DWRITE_FONT_STRETCH* fontStretch,
+             DWRITE_TEXT_RANGE *textRange __MINGW_DEF_ARG_VAL(NULL)) PURE;
+-    STDMETHOD(GetFontSize)(THIS_
++    STDMETHOD(GetFontSize2)(THIS_
+             UINT32 currentPosition,
+             FLOAT *fontSize,
+             DWRITE_TEXT_RANGE *textRange __MINGW_DEF_ARG_VAL(NULL)) PURE;
+@@ -2046,11 +2046,11 @@
+             UINT32 currentPosition,
+             IDWriteTypography **typography,
+             DWRITE_TEXT_RANGE *textRange __MINGW_DEF_ARG_VAL(NULL)) PURE;
+-    STDMETHOD(GetLocaleNameLength)(THIS_
++    STDMETHOD(GetLocaleNameLength2)(THIS_
+             UINT32 currentPosition,
+             UINT32 *nameLength,
+             DWRITE_TEXT_RANGE *textRange __MINGW_DEF_ARG_VAL(NULL)) PURE;
+-    STDMETHOD(GetLocaleName)(THIS_
++    STDMETHOD(GetLocaleName2)(THIS_
+             UINT32 currentPosition,
+             WCHAR *localeName,
+             UINT32 nameSize,
+@@ -2101,23 +2101,23 @@
+ #define IDWriteTextLayout_QueryInterface(This,riid,ppvObject) (This)->lpVtbl->QueryInterface(This,riid,ppvObject)
+ #define IDWriteTextLayout_AddRef(This) (This)->lpVtbl->AddRef(This)
+ #define IDWriteTextLayout_Release(This) (This)->lpVtbl->Release(This)
+-#define IDWriteTextLayout_GetFlowDirection() (This)->lpVtbl->GetFlowDirection(This)
++#define IDWriteTextLayout_GetFlowDirection(This) (This)->lpVtbl->GetFlowDirection(This)
+ #define IDWriteTextLayout_GetFontCollection(This,fontCollection) (This)->lpVtbl->GetFontCollection(This,fontCollection)
+ #define IDWriteTextLayout_GetFontFamilyName(This,fontFamilyName,nameSize) (This)->lpVtbl->GetFontFamilyName(This,fontFamilyName,nameSize)
+-#define IDWriteTextLayout_GetFontFamilyNameLength() (This)->lpVtbl->GetFontFamilyNameLength(This)
+-#define IDWriteTextLayout_GetFontSize() (This)->lpVtbl->GetFontSize(This)
+-#define IDWriteTextLayout_GetFontStretch() (This)->lpVtbl->GetFontStretch(This)
+-#define IDWriteTextLayout_GetFontStyle() (This)->lpVtbl->GetFontStyle(This)
+-#define IDWriteTextLayout_GetFontWeight() (This)->lpVtbl->GetFontWeight(This)
+-#define IDWriteTextLayout_GetIncrementalTabStop() (This)->lpVtbl->GetIncrementalTabStop(This)
++#define IDWriteTextLayout_GetFontFamilyNameLength(This) (This)->lpVtbl->GetFontFamilyNameLength(This)
++#define IDWriteTextLayout_GetFontSize(This) (This)->lpVtbl->GetFontSize(This)
++#define IDWriteTextLayout_GetFontStretch(This) (This)->lpVtbl->GetFontStretch(This)
++#define IDWriteTextLayout_GetFontStyle(This) (This)->lpVtbl->GetFontStyle(This)
++#define IDWriteTextLayout_GetFontWeight(This) (This)->lpVtbl->GetFontWeight(This)
++#define IDWriteTextLayout_GetIncrementalTabStop(This) (This)->lpVtbl->GetIncrementalTabStop(This)
+ #define IDWriteTextLayout_GetLineSpacing(This,lineSpacingMethod,lineSpacing,baseline) (This)->lpVtbl->GetLineSpacing(This,lineSpacingMethod,lineSpacing,baseline)
+ #define IDWriteTextLayout_GetLocaleName(This,localeName,nameSize) (This)->lpVtbl->GetLocaleName(This,localeName,nameSize)
+-#define IDWriteTextLayout_GetLocaleNameLength() (This)->lpVtbl->GetLocaleNameLength(This)
+-#define IDWriteTextLayout_GetParagraphAlignment() (This)->lpVtbl->GetParagraphAlignment(This)
+-#define IDWriteTextLayout_GetReadingDirection() (This)->lpVtbl->GetReadingDirection(This)
+-#define IDWriteTextLayout_GetTextAlignment() (This)->lpVtbl->GetTextAlignment(This)
++#define IDWriteTextLayout_GetLocaleNameLength(This) (This)->lpVtbl->GetLocaleNameLength(This)
++#define IDWriteTextLayout_GetParagraphAlignment(This) (This)->lpVtbl->GetParagraphAlignment(This)
++#define IDWriteTextLayout_GetReadingDirection(This) (This)->lpVtbl->GetReadingDirection(This)
++#define IDWriteTextLayout_GetTextAlignment(This) (This)->lpVtbl->GetTextAlignment(This)
+ #define IDWriteTextLayout_GetTrimming(This,trimmingOptions,trimmingSign) (This)->lpVtbl->GetTrimming(This,trimmingOptions,trimmingSign)
+-#define IDWriteTextLayout_GetWordWrapping() (This)->lpVtbl->GetWordWrapping(This)
++#define IDWriteTextLayout_GetWordWrapping(This) (This)->lpVtbl->GetWordWrapping(This)
+ #define IDWriteTextLayout_SetFlowDirection(This,flowDirection) (This)->lpVtbl->SetFlowDirection(This,flowDirection)
+ #define IDWriteTextLayout_SetIncrementalTabStop(This,incrementalTabStop) (This)->lpVtbl->SetIncrementalTabStop(This,incrementalTabStop)
+ #define IDWriteTextLayout_SetLineSpacing(This,lineSpacingMethod,lineSpacing,baseline) (This)->lpVtbl->SetLineSpacing(This,lineSpacingMethod,lineSpacing,baseline)
+@@ -2130,19 +2130,19 @@
+ #define IDWriteTextLayout_GetClusterMetrics(This,clusterMetrics,maxClusterCount,actualClusterCount) (This)->lpVtbl->GetClusterMetrics(This,clusterMetrics,maxClusterCount,actualClusterCount)
+ #define IDWriteTextLayout_DetermineMinWidth(This,minWidth) (This)->lpVtbl->DetermineMinWidth(This,minWidth)
+ #define IDWriteTextLayout_GetDrawingEffect(This,currentPosition,drawingEffect,textRange) (This)->lpVtbl->GetDrawingEffect(This,currentPosition,drawingEffect,textRange)
+-#define IDWriteTextLayout_GetFontCollection(This,currentPosition,fontCollection,textRange) (This)->lpVtbl->GetFontCollection(This,currentPosition,fontCollection,textRange)
+-#define IDWriteTextLayout_GetFontFamilyName(This,currentPosition,fontFamilyName,nameSize,textRange) (This)->lpVtbl->GetFontFamilyName(This,currentPosition,fontFamilyName,nameSize,textRange)
+-#define IDWriteTextLayout_GetFontFamilyNameLength(This,currentPosition,nameLength,textRange) (This)->lpVtbl->GetFontFamilyNameLength(This,currentPosition,nameLength,textRange)
+-#define IDWriteTextLayout_GetFontSize(This,currentPosition,fontSize,textRange) (This)->lpVtbl->GetFontSize(This,currentPosition,fontSize,textRange)
+-#define IDWriteTextLayout_GetFontStretch(This,currentPosition,fontStretch,textRange) (This)->lpVtbl->GetFontStretch(This,currentPosition,fontStretch,textRange)
+-#define IDWriteTextLayout_GetFontStyle(This,currentPosition,fontStyle,textRange) (This)->lpVtbl->GetFontStyle(This,currentPosition,fontStyle,textRange)
+-#define IDWriteTextLayout_GetFontWeight(This,currentPosition,fontWeight,textRange) (This)->lpVtbl->GetFontWeight(This,currentPosition,fontWeight,textRange)
++#define IDWriteTextLayout_GetFontCollection2(This,currentPosition,fontCollection,textRange) (This)->lpVtbl->GetFontCollection(This,currentPosition,fontCollection,textRange)
++#define IDWriteTextLayout_GetFontFamilyName2(This,currentPosition,fontFamilyName,nameSize,textRange) (This)->lpVtbl->GetFontFamilyName2(This,currentPosition,fontFamilyName,nameSize,textRange)
++#define IDWriteTextLayout_GetFontFamilyNameLength2(This,currentPosition,nameLength,textRange) (This)->lpVtbl->GetFontFamilyNameLength2(This,currentPosition,nameLength,textRange)
++#define IDWriteTextLayout_GetFontSize2(This,currentPosition,fontSize,textRange) (This)->lpVtbl->GetFontSize2(This,currentPosition,fontSize,textRange)
++#define IDWriteTextLayout_GetFontStretch2(This,currentPosition,fontStretch,textRange) (This)->lpVtbl->GetFontStretch2(This,currentPosition,fontStretch,textRange)
++#define IDWriteTextLayout_GetFontStyle2(This,currentPosition,fontStyle,textRange) (This)->lpVtbl->GetFontStyle2(This,currentPosition,fontStyle,textRange)
++#define IDWriteTextLayout_GetFontWeight2(This,currentPosition,fontWeight,textRange) (This)->lpVtbl->GetFontWeight2(This,currentPosition,fontWeight,textRange)
+ #define IDWriteTextLayout_GetInlineObject(This,currentPosition,inlineObject,textRange) (This)->lpVtbl->GetInlineObject(This,currentPosition,inlineObject,textRange)
+ #define IDWriteTextLayout_GetLineMetrics(This,lineMetrics,maxLineCount,actualLineCount) (This)->lpVtbl->GetLineMetrics(This,lineMetrics,maxLineCount,actualLineCount)
+-#define IDWriteTextLayout_GetLocaleName(This,currentPosition,localeName,nameSize,textRange) (This)->lpVtbl->GetLocaleName(This,currentPosition,localeName,nameSize,textRange)
+-#define IDWriteTextLayout_GetLocaleNameLength(This,currentPosition,nameLength,textRange) (This)->lpVtbl->GetLocaleNameLength(This,currentPosition,nameLength,textRange)
+-#define IDWriteTextLayout_GetMaxHeight() (This)->lpVtbl->GetMaxHeight(This)
+-#define IDWriteTextLayout_GetMaxWidth() (This)->lpVtbl->GetMaxWidth(This)
++#define IDWriteTextLayout_GetLocaleName2(This,currentPosition,localeName,nameSize,textRange) (This)->lpVtbl->GetLocaleName2(This,currentPosition,localeName,nameSize,textRange)
++#define IDWriteTextLayout_GetLocaleNameLength2(This,currentPosition,nameLength,textRange) (This)->lpVtbl->GetLocaleNameLength2(This,currentPosition,nameLength,textRange)
++#define IDWriteTextLayout_GetMaxHeight(This) (This)->lpVtbl->GetMaxHeight(This)
++#define IDWriteTextLayout_GetMaxWidth(This) (This)->lpVtbl->GetMaxWidth(This)
+ #define IDWriteTextLayout_GetMetrics(This,textMetrics) (This)->lpVtbl->GetMetrics(This,textMetrics)
+ #define IDWriteTextLayout_GetOverhangMetrics(This,overhangs) (This)->lpVtbl->GetOverhangMetrics(This,overhangs)
+ #define IDWriteTextLayout_GetStrikethrough(This,currentPosition,hasStrikethrough,textRange) (This)->lpVtbl->GetStrikethrough(This,currentPosition,hasStrikethrough,textRange)
+@@ -2262,7 +2262,7 @@
+ #define IDWriteTypography_Release(This) (This)->lpVtbl->Release(This)
+ #define IDWriteTypography_AddFontFeature(This,fontFeature) (This)->lpVtbl->AddFontFeature(This,fontFeature)
+ #define IDWriteTypography_GetFontFeature(This,fontFeatureIndex,fontFeature) (This)->lpVtbl->GetFontFeature(This,fontFeatureIndex,fontFeature)
+-#define IDWriteTypography_GetFontFeatureCount() (This)->lpVtbl->GetFontFeatureCount(This)
++#define IDWriteTypography_GetFontFeatureCount(This) (This)->lpVtbl->GetFontFeatureCount(This)
+ #endif /*COBJMACROS*/
+ 
+ #ifdef __cplusplus

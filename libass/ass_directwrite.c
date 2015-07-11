@@ -15,15 +15,22 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#define COBJMACROS
 
 #include "config.h"
 
-#include <dwrite.h>
+#include <initguid.h>
+#include <ole2.h>
+#include <shobjidl.h>
 
-extern "C" {
+#include "dwrite.h"
+
+DEFINE_GUID(IID_IDWriteFactory, 0xb859ee5a,0xd838,0x4b5b,0xa2,0xe8,0x1a,0xdc,0x7d,0x93,0xdb,0x48);
+DEFINE_GUID(IID_IDWritePixelSnapping, 0xeaf3a2da,0xecf4,0x4d24,0xb6,0x44,0xb3,0x4f,0x68,0x42,0x02,0x4b);
+DEFINE_GUID(IID_IDWriteTextRenderer, 0xef8a8135,0x5cc6,0x45fe,0x88,0x25,0xc5,0xa0,0x72,0x4e,0xb8,0x19);
+
 #include "ass_directwrite.h"
 #include "ass_utils.h"
-}
 
 #define NAME_MAX_LENGTH 256
 #define FALLBACK_DEFAULT_FONT L"Arial"
@@ -45,137 +52,173 @@ typedef struct {
  * Custom text renderer class for logging the fonts used. It does not
  * actually render anything or do anything apart from that.
  */
-class FallbackLogTextRenderer : public IDWriteTextRenderer {
-public:
-    FallbackLogTextRenderer(IDWriteFactory *factory)
-        : dw_factory(factory), ref_count(0)
-    {}
 
-    IFACEMETHOD(IsPixelSnappingDisabled)(
-        _In_opt_ void* clientDrawingContext,
-        _Out_ BOOL* isDisabled
-        )
-    {
-        *isDisabled = true;
-        return S_OK;
+typedef struct FallbackLogTextRenderer {
+    IDWriteTextRenderer iface;
+    IDWriteTextRendererVtbl vtbl;
+    IDWriteFactory *dw_factory;
+    LONG ref_count;
+} FallbackLogTextRenderer;
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_IsPixelSnappingDisabled(
+    IDWriteTextRenderer *This,
+    _In_opt_ void* clientDrawingContext,
+    _Out_ BOOL* isDisabled
+    )
+{
+    *isDisabled = true;
+    return S_OK;
+}
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_GetCurrentTransform(
+    IDWriteTextRenderer *This,
+    _In_opt_ void* clientDrawingContext,
+    _Out_ DWRITE_MATRIX* transform
+    )
+{
+    return E_NOTIMPL;
+}
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_GetPixelsPerDip(
+    IDWriteTextRenderer *This,
+    _In_opt_ void* clientDrawingContext,
+    _Out_ FLOAT* pixelsPerDip
+    )
+{
+    return E_NOTIMPL;
+}
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_DrawGlyphRun(
+    IDWriteTextRenderer *This,
+    _In_opt_ void* clientDrawingContext,
+    FLOAT baselineOriginX,
+    FLOAT baselineOriginY,
+    DWRITE_MEASURING_MODE measuringMode,
+    _In_ DWRITE_GLYPH_RUN const* glyphRun,
+    _In_ DWRITE_GLYPH_RUN_DESCRIPTION const* glyphRunDescription,
+    IUnknown* clientDrawingEffect
+    )
+{
+    FallbackLogTextRenderer *this = (FallbackLogTextRenderer *)This;
+    HRESULT hr;
+    IDWriteFontCollection *font_coll = NULL;
+    IDWriteFont **font = (IDWriteFont **)clientDrawingContext;
+
+    hr = IDWriteFactory_GetSystemFontCollection(this->dw_factory, &font_coll, FALSE);
+    if (FAILED(hr))
+        return E_FAIL;
+
+    hr = IDWriteFontCollection_GetFontFromFontFace(font_coll, glyphRun->fontFace,
+                                                   font);
+    if (FAILED(hr))
+        return E_FAIL;
+
+    return S_OK;
+}
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_DrawUnderline(
+    IDWriteTextRenderer *This,
+    _In_opt_ void* clientDrawingContext,
+    FLOAT baselineOriginX,
+    FLOAT baselineOriginY,
+    _In_ DWRITE_UNDERLINE const* underline,
+    IUnknown* clientDrawingEffect
+    )
+{
+    return S_OK;
+}
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_DrawStrikethrough(
+    IDWriteTextRenderer *This,
+    _In_opt_ void* clientDrawingContext,
+    FLOAT baselineOriginX,
+    FLOAT baselineOriginY,
+    _In_ DWRITE_STRIKETHROUGH const* strikethrough,
+    IUnknown* clientDrawingEffect
+    )
+{
+    return S_OK;
+}
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_DrawInlineObject(
+    IDWriteTextRenderer *This,
+    void *clientDrawingContext,
+    FLOAT originX,
+    FLOAT originY,
+    IDWriteInlineObject *inlineObject,
+    WINBOOL isSideways,
+    WINBOOL isRightToLeft,
+    IUnknown *clientDrawingEffect
+    )
+{
+    return S_OK;
+}
+
+// IUnknown methods
+
+static ULONG STDMETHODCALLTYPE FallbackLogTextRenderer_AddRef(
+    IDWriteTextRenderer *This
+    )
+{
+    FallbackLogTextRenderer *this = (FallbackLogTextRenderer *)This;
+    return InterlockedIncrement(&this->ref_count);
+}
+
+static ULONG STDMETHODCALLTYPE FallbackLogTextRenderer_Release(
+    IDWriteTextRenderer *This
+    )
+{
+    FallbackLogTextRenderer *this = (FallbackLogTextRenderer *)This;
+    unsigned long new_count = InterlockedDecrement(&this->ref_count);
+    if (new_count == 0) {
+        free(this);
+        return 0;
     }
 
-    IFACEMETHOD(GetCurrentTransform)(
-        _In_opt_ void* clientDrawingContext,
-        _Out_ DWRITE_MATRIX* transform
-        )
-    {
-        return E_NOTIMPL;
+    return new_count;
+}
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_QueryInterface(
+    IDWriteTextRenderer *This,
+    REFIID riid,
+    void **ppvObject
+    )
+{
+    if (IsEqualGUID(riid, &IID_IDWriteTextRenderer)
+        || IsEqualGUID(riid, &IID_IDWritePixelSnapping)
+        || IsEqualGUID(riid, &IID_IUnknown)) {
+        *ppvObject = This;
+    } else {
+        *ppvObject = NULL;
+        return E_FAIL;
     }
 
-    IFACEMETHOD(GetPixelsPerDip)(
-        _In_opt_ void* clientDrawingContext,
-        _Out_ FLOAT* pixelsPerDip
-        )
-    {
-        return E_NOTIMPL;
-    }
+    This->lpVtbl->AddRef(This);
+    return S_OK;
+}
 
-    IFACEMETHOD(DrawGlyphRun)(
-        _In_opt_ void* clientDrawingContext,
-        FLOAT baselineOriginX,
-        FLOAT baselineOriginY,
-        DWRITE_MEASURING_MODE measuringMode,
-        _In_ DWRITE_GLYPH_RUN const* glyphRun,
-        _In_ DWRITE_GLYPH_RUN_DESCRIPTION const* glyphRunDescription,
-        IUnknown* clientDrawingEffect
-        )
-    {
-        HRESULT hr;
-        IDWriteFontCollection *font_coll = NULL;
-        IDWriteFont **font = static_cast<IDWriteFont **>(clientDrawingContext);
-
-        hr = dw_factory->GetSystemFontCollection(&font_coll);
-        if (FAILED(hr))
-            return E_FAIL;
-
-        hr = font_coll->GetFontFromFontFace(glyphRun->fontFace, font);
-        if (FAILED(hr))
-            return E_FAIL;
-
-        return S_OK;
-    }
-
-    IFACEMETHOD(DrawUnderline)(
-        _In_opt_ void* clientDrawingContext,
-        FLOAT baselineOriginX,
-        FLOAT baselineOriginY,
-        _In_ DWRITE_UNDERLINE const* underline,
-        IUnknown* clientDrawingEffect
-        )
-    {
-        return S_OK;
-    }
-
-    IFACEMETHOD(DrawStrikethrough)(
-        _In_opt_ void* clientDrawingContext,
-        FLOAT baselineOriginX,
-        FLOAT baselineOriginY,
-        _In_ DWRITE_STRIKETHROUGH const* strikethrough,
-        IUnknown* clientDrawingEffect
-        )
-    {
-        return S_OK;
-    }
-
-    IFACEMETHOD(DrawInlineObject)(
-        _In_opt_ void* clientDrawingContext,
-        FLOAT originX,
-        FLOAT originY,
-        IDWriteInlineObject* inlineObject,
-        BOOL isSideways,
-        BOOL isRightToLeft,
-        IUnknown* clientDrawingEffect
-        )
-    {
-        return S_OK;
-    }
-
-    // IUnknown methods
-
-    IFACEMETHOD_(unsigned long, AddRef)()
-    {
-        return InterlockedIncrement(&ref_count);
-    }
-
-    IFACEMETHOD_(unsigned long, Release)()
-    {
-        unsigned long new_count = InterlockedDecrement(&ref_count);
-        if (new_count == 0) {
-            free(this);
-            return 0;
-        }
-
-        return new_count;
-    }
-
-    IFACEMETHOD(QueryInterface)(
-        IID const& riid,
-        void** ppvObject
-        )
-    {
-        if (__uuidof(IDWriteTextRenderer) == riid
-            || __uuidof(IDWritePixelSnapping) == riid
-            || __uuidof(IUnknown) == riid) {
-            *ppvObject = this;
-        } else {
-            *ppvObject = NULL;
-            return E_FAIL;
-        }
-
-        this->AddRef();
-        return S_OK;
-    }
-
-private:
-    IDWriteFactory * const dw_factory;
-    unsigned long ref_count;
-};
+static void init_FallbackLogTextRenderer(FallbackLogTextRenderer *r,
+                                         IDWriteFactory *factory)
+{
+    *r = (FallbackLogTextRenderer){
+        .iface = {
+            .lpVtbl = &r->vtbl,
+        },
+        .vtbl = {
+            FallbackLogTextRenderer_QueryInterface,
+            FallbackLogTextRenderer_AddRef,
+            FallbackLogTextRenderer_Release,
+            FallbackLogTextRenderer_IsPixelSnappingDisabled,
+            FallbackLogTextRenderer_GetCurrentTransform,
+            FallbackLogTextRenderer_GetPixelsPerDip,
+            FallbackLogTextRenderer_DrawGlyphRun,
+            FallbackLogTextRenderer_DrawUnderline,
+            FallbackLogTextRenderer_DrawStrikethrough,
+            FallbackLogTextRenderer_DrawInlineObject,
+        },
+        .dw_factory = factory,
+    };
+}
 
 /*
  * This function is called whenever a font is used for the first
@@ -197,41 +240,41 @@ static bool init_font_private(FontPrivate *priv)
     if (priv->stream != NULL)
         return true;
 
-    hr = font->CreateFontFace(&face);
+    hr = IDWriteFont_CreateFontFace(font, &face);
     if (FAILED(hr) || !face)
         return false;
 
     /* DirectWrite only supports one file per face */
-    hr = face->GetFiles(&n_files, &file);
+    hr = IDWriteFontFace_GetFiles(face, &n_files, &file);
     if (FAILED(hr) || !file) {
-        face->Release();
+        IDWriteFontFace_Release(face);
         return false;
     }
 
-    hr = file->GetReferenceKey(&refKey, &keySize);
+    hr = IDWriteFontFile_GetReferenceKey(file, &refKey, &keySize);
     if (FAILED(hr)) {
-        file->Release();
-        face->Release();
+        IDWriteFontFile_Release(file);
+        IDWriteFontFace_Release(face);
         return false;
     }
 
-    hr = file->GetLoader(&loader);
+    hr = IDWriteFontFile_GetLoader(file, &loader);
     if (FAILED(hr) || !loader) {
-        file->Release();
-        face->Release();
+        IDWriteFontFile_Release(file);
+        IDWriteFontFace_Release(face);
         return false;
     }
 
-    hr = loader->CreateStreamFromKey(refKey, keySize, &stream);
+    hr = IDWriteFontFileLoader_CreateStreamFromKey(loader, refKey, keySize, &stream);
     if (FAILED(hr) || !stream) {
-        file->Release();
-        face->Release();
+        IDWriteFontFile_Release(file);
+        IDWriteFontFace_Release(face);
         return false;
     }
 
     priv->stream = stream;
-    file->Release();
-    face->Release();
+    IDWriteFontFile_Release(file);
+    IDWriteFontFace_Release(face);
 
     return true;
 }
@@ -256,21 +299,22 @@ static size_t get_data(void *data, unsigned char *buf, size_t offset,
 
     if (buf == NULL) {
         UINT64 fileSize;
-        hr = priv->stream->GetFileSize(&fileSize);
+        hr = IDWriteFontFileStream_GetFileSize(priv->stream, &fileSize);
         if (FAILED(hr))
             return 0;
 
         return fileSize;
     }
 
-    hr = priv->stream->ReadFileFragment(&fileBuf, offset, length, &fragContext);
+    hr = IDWriteFontFileStream_ReadFileFragment(priv->stream, &fileBuf, offset,
+                                                length, &fragContext);
 
     if (FAILED(hr) || !fileBuf)
         return 0;
 
     memcpy(buf, fileBuf, length);
 
-    priv->stream->ReleaseFileFragment(fragContext);
+    IDWriteFontFileStream_ReleaseFileFragment(priv->stream, fragContext);
 
     return length;
 }
@@ -288,7 +332,7 @@ static int check_glyph(void *data, uint32_t code)
     if (code == 0)
         return 1;
 
-    priv->font->HasCharacter(code, &exists);
+    IDWriteFont_HasCharacter(priv->font, code, &exists);
     if (FAILED(hr))
         return 0;
 
@@ -301,7 +345,7 @@ static int check_glyph(void *data, uint32_t code)
 static void destroy_provider(void *priv)
 {
     ProviderPrivate *provider_priv = (ProviderPrivate *)priv;
-    provider_priv->factory->Release();
+    provider_priv->factory->lpVtbl->Release(provider_priv->factory);
     FreeLibrary(provider_priv->directwrite_lib);
     free(provider_priv);
 }
@@ -315,9 +359,9 @@ static void destroy_font(void *data)
 {
     FontPrivate *priv = (FontPrivate *) data;
 
-    priv->font->Release();
+    IDWriteFont_Release(priv->font);
     if (priv->stream != NULL)
-        priv->stream->Release();
+        IDWriteFontFileStream_Release(priv->stream);
 
     free(priv);
 }
@@ -342,9 +386,11 @@ static char *get_fallback(void *priv, ASS_FontProviderMetaData *meta,
     IDWriteFactory *dw_factory = provider_priv->factory;
     IDWriteTextFormat *text_format = NULL;
     IDWriteTextLayout *text_layout = NULL;
-    FallbackLogTextRenderer renderer(dw_factory);
+    FallbackLogTextRenderer renderer;
 
-    hr = dw_factory->CreateTextFormat(FALLBACK_DEFAULT_FONT, NULL,
+    init_FallbackLogTextRenderer(&renderer, dw_factory);
+
+    hr = IDWriteFactory_CreateTextFormat(dw_factory, FALLBACK_DEFAULT_FONT, NULL,
             DWRITE_FONT_WEIGHT_MEDIUM, DWRITE_FONT_STYLE_NORMAL,
             DWRITE_FONT_STRETCH_NORMAL, 1.0f, L"", &text_format);
     if (FAILED(hr)) {
@@ -357,53 +403,53 @@ static char *get_fallback(void *priv, ASS_FontProviderMetaData *meta,
 
     // Create a text_layout, a high-level text rendering facility, using
     // the given codepoint and dummy format.
-    hr = dw_factory->CreateTextLayout(char_string, char_len, text_format,
+    hr = IDWriteFactory_CreateTextLayout(dw_factory, char_string, char_len, text_format,
         0.0f, 0.0f, &text_layout);
     if (FAILED(hr)) {
-        text_format->Release();
+        IDWriteTextFormat_Release(text_format);
         return NULL;
     }
 
     // Draw the layout with a dummy renderer, which logs the
     // font used and stores it.
     IDWriteFont *font = NULL;
-    hr = text_layout->Draw(&font, &renderer, 0.0f, 0.0f);
+    hr = IDWriteTextLayout_Draw(text_layout, &font, &renderer.iface, 0.0f, 0.0f);
     if (FAILED(hr) || font == NULL) {
-        text_layout->Release();
-        text_format->Release();
+        IDWriteTextLayout_Release(text_layout);
+        IDWriteTextFormat_Release(text_format);
         return NULL;
     }
 
     // We're done with these now
-    text_layout->Release();
-    text_format->Release();
+    IDWriteTextLayout_Release(text_layout);
+    IDWriteTextFormat_Release(text_format);
 
     // Now, just extract the first family name
     BOOL exists = FALSE;
     IDWriteLocalizedStrings *familyNames = NULL;
-    hr = font->GetInformationalStrings(
+    hr = IDWriteFont_GetInformationalStrings(font,
             DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES,
             &familyNames, &exists);
     if (FAILED(hr) || !exists) {
-        font->Release();
+        IDWriteFont_Release(font);
         return NULL;
     }
 
     wchar_t temp_name[NAME_MAX_LENGTH];
-    hr = familyNames->GetString(0, temp_name, NAME_MAX_LENGTH);
+    hr = IDWriteLocalizedStrings_GetString(familyNames, 0, temp_name, NAME_MAX_LENGTH);
     if (FAILED(hr)) {
-        familyNames->Release();
-        font->Release();
+        IDWriteLocalizedStrings_Release(familyNames);
+        IDWriteFont_Release(font);
         return NULL;
     }
     temp_name[NAME_MAX_LENGTH-1] = 0;
 
     // DirectWrite may not have found a valid fallback, so check that
     // the selected font actually has the requested glyph.
-    hr = font->HasCharacter(codepoint, &exists);
+    hr = IDWriteFont_HasCharacter(font, codepoint, &exists);
     if (FAILED(hr) || !exists) {
-        familyNames->Release();
-        font->Release();
+        IDWriteLocalizedStrings_Release(familyNames);
+        IDWriteFont_Release(font);
         return NULL;
     }
 
@@ -411,8 +457,8 @@ static char *get_fallback(void *priv, ASS_FontProviderMetaData *meta,
     char *family = (char *) malloc(size_needed);
     WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, family, size_needed, NULL, NULL);
 
-    familyNames->Release();
-    font->Release();
+    IDWriteLocalizedStrings_Release(familyNames);
+    IDWriteFont_Release(font);
     return family;
 }
 
@@ -446,15 +492,15 @@ static void scan_fonts(IDWriteFactory *factory,
     IDWriteFont *font = NULL;
     DWRITE_FONT_METRICS metrics;
     DWRITE_FONT_STYLE style;
-    ASS_FontProviderMetaData meta = ASS_FontProviderMetaData();
-    hr = factory->GetSystemFontCollection(&fontCollection, FALSE);
+    ASS_FontProviderMetaData meta = {0};
+    hr = IDWriteFactory_GetSystemFontCollection(factory, &fontCollection, FALSE);
     wchar_t temp_name[NAME_MAX_LENGTH];
     int size_needed = 0;
 
     if (FAILED(hr) || !fontCollection)
         return;
 
-    UINT32 familyCount = fontCollection->GetFontFamilyCount();
+    UINT32 familyCount = IDWriteFontCollection_GetFontFamilyCount(fontCollection);
 
     for (UINT32 i = 0; i < familyCount; ++i) {
         IDWriteFontFamily *fontFamily = NULL;
@@ -464,42 +510,43 @@ static void scan_fonts(IDWriteFactory *factory,
         BOOL exists = FALSE;
         char *psName = NULL;
 
-        hr = fontCollection->GetFontFamily(i, &fontFamily);
+        hr = IDWriteFontCollection_GetFontFamily(fontCollection, i, &fontFamily);
         if (FAILED(hr))
             continue;
 
-        UINT32 fontCount = fontFamily->GetFontCount();
+        UINT32 fontCount = IDWriteFontFamily_GetFontCount(fontFamily);
         for (UINT32 j = 0; j < fontCount; ++j) {
-            hr = fontFamily->GetFont(j, &font);
+            hr = IDWriteFontFamily_GetFont(fontFamily, j, &font);
             if (FAILED(hr))
                 continue;
 
             // Simulations for bold or oblique are sometimes synthesized by
             // DirectWrite. We are only interested in physical fonts.
-            if (font->GetSimulations() != 0) {
-                font->Release();
+            if (IDWriteFont_GetSimulations(font) != 0) {
+                IDWriteFont_Release(font);
                 continue;
             }
 
-            meta.weight = font->GetWeight();
-            meta.width = map_width(font->GetStretch());
-            font->GetMetrics(&metrics);
-            style = font->GetStyle();
+            meta.weight = IDWriteFont_GetWeight(font);
+            meta.width = map_width(IDWriteFont_GetStretch(font));
+            IDWriteFont_GetMetrics(font, &metrics);
+            style = IDWriteFont_GetStyle(font);
             meta.slant = (style == DWRITE_FONT_STYLE_NORMAL) ? FONT_SLANT_NONE :
                          (style == DWRITE_FONT_STYLE_OBLIQUE)? FONT_SLANT_OBLIQUE :
                          (style == DWRITE_FONT_STYLE_ITALIC) ? FONT_SLANT_ITALIC : FONT_SLANT_NONE;
 
-            hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_POSTSCRIPT_NAME, &psNames,&exists);
+            hr = IDWriteFont_GetInformationalStrings(font,
+                    DWRITE_INFORMATIONAL_STRING_POSTSCRIPT_NAME, &psNames,&exists);
             if (FAILED(hr)) {
-                font->Release();
+                IDWriteFont_Release(font);
                 continue;
             }
 
             if (exists) {
-                hr = psNames->GetString(0, temp_name, NAME_MAX_LENGTH);
+                hr = IDWriteLocalizedStrings_GetString(psNames, 0, temp_name, NAME_MAX_LENGTH);
                 if (FAILED(hr)) {
-                    psNames->Release();
-                    font->Release();
+                    IDWriteLocalizedStrings_Release(psNames);
+                    IDWriteFont_Release(font);
                     continue;
                 }
 
@@ -507,20 +554,23 @@ static void scan_fonts(IDWriteFactory *factory,
                 size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0,NULL, NULL);
                 psName = (char *) malloc(size_needed);
                 WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, psName, size_needed, NULL, NULL);
-                psNames->Release();
+                IDWriteLocalizedStrings_Release(psNames);
             }
 
-            hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_FULL_NAME, &fontNames,&exists);
+            hr = IDWriteFont_GetInformationalStrings(font,
+                    DWRITE_INFORMATIONAL_STRING_FULL_NAME, &fontNames,&exists);
             if (FAILED(hr)) {
-                font->Release();
+                IDWriteFont_Release(font);
                 continue;
             }
 
             if (exists) {
-                meta.n_fullname = fontNames->GetCount();
+                meta.n_fullname = IDWriteLocalizedStrings_GetCount(fontNames);
                 meta.fullnames = (char **) calloc(meta.n_fullname, sizeof(char *));
                 for (UINT32 k = 0; k < meta.n_fullname; ++k) {
-                    hr = fontNames->GetString(k, temp_name, NAME_MAX_LENGTH);
+                    hr = IDWriteLocalizedStrings_GetString(fontNames, k,
+                                                           temp_name,
+                                                           NAME_MAX_LENGTH);
                     if (FAILED(hr)) {
                         continue;
                     }
@@ -531,21 +581,24 @@ static void scan_fonts(IDWriteFactory *factory,
                     WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
                     meta.fullnames[k] = mbName;
                 }
-                fontNames->Release();
+                IDWriteLocalizedStrings_Release(fontNames);
             }
 
-            hr = font->GetInformationalStrings(DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES, &familyNames, &exists);
+            hr = IDWriteFont_GetInformationalStrings(font,
+                    DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES, &familyNames, &exists);
             if (!exists)
-                hr = fontFamily->GetFamilyNames(&familyNames);
+                hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &familyNames);
             if (FAILED(hr)) {
-                font->Release();
+                IDWriteFont_Release(font);
                 continue;
             }
 
-            meta.n_family = familyNames->GetCount();
+            meta.n_family = IDWriteLocalizedStrings_GetCount(familyNames);
             meta.families = (char **) calloc(meta.n_family, sizeof(char *));
             for (UINT32 k = 0; k < meta.n_family; ++k) {
-                hr = familyNames->GetString(k, temp_name, NAME_MAX_LENGTH);
+                hr = IDWriteLocalizedStrings_GetString(familyNames, k,
+                                                       temp_name,
+                                                       NAME_MAX_LENGTH);
                 if (FAILED(hr)) {
                     continue;
                 }
@@ -556,7 +609,7 @@ static void scan_fonts(IDWriteFactory *factory,
                 WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
                 meta.families[k] = mbName;
             }
-            familyNames->Release();
+            IDWriteLocalizedStrings_Release(familyNames);
 
             FontPrivate *font_priv = (FontPrivate *) calloc(1, sizeof(*font_priv));
             font_priv->font = font;
@@ -620,7 +673,7 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
         goto cleanup;
 
     hr = DWriteCreateFactoryPtr(DWRITE_FACTORY_TYPE_SHARED,
-                                __uuidof(IDWriteFactory),
+                                &IID_IDWriteFactory,
                                 (IUnknown **) (&dwFactory));
     if (FAILED(hr) || !dwFactory) {
         ass_msg(lib, MSGL_WARN, "Failed to initialize directwrite.");
@@ -645,7 +698,7 @@ cleanup:
 
     free(priv);
     if (dwFactory)
-        dwFactory->Release();
+        dwFactory->lpVtbl->Release(dwFactory);
     if (directwrite_lib)
         FreeLibrary(directwrite_lib);
 
