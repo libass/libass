@@ -24,12 +24,8 @@
 #ifndef ASS_DIRECTWRITE_H
 #define ASS_DIRECTWRITE_H
 
-#ifdef CONFIG_DIRECTWRITE
-
 ASS_FontProvider *
 ass_directwrite_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
                           const char *config);
-
-#endif
 
 #endif

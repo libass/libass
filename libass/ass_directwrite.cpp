@@ -18,8 +18,6 @@
 
 #include "config.h"
 
-#ifdef CONFIG_DIRECTWRITE
-
 #include <dwrite.h>
 
 extern "C" {
@@ -611,5 +609,3 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
 
     return provider;
 }
-
-#endif

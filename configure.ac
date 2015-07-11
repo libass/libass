@@ -199,6 +199,7 @@ AC_LINK_IFELSE([
   ])
 AC_LANG_POP([C++])
 fi
+AM_CONDITIONAL([DIRECTWRITE], [test x$directwrite = xtrue])
 
 if test x$enable_harfbuzz != xno; then
 PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
