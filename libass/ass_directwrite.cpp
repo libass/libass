@@ -36,6 +36,11 @@ typedef struct {
     IDWriteFontFileStream *stream;
 } FontPrivate;
 
+typedef struct {
+    HMODULE directwrite_lib;
+    IDWriteFactory *factory;
+} ProviderPrivate;
+
 /**
  * Custom text renderer class for logging the fonts used. It does not
  * actually render anything or do anything apart from that.
@@ -295,7 +300,10 @@ static int check_glyph(void *data, uint32_t code)
  */
 static void destroy_provider(void *priv)
 {
-    ((IDWriteFactory *) priv)->Release();
+    ProviderPrivate *provider_priv = (ProviderPrivate *)priv;
+    provider_priv->factory->Release();
+    FreeLibrary(provider_priv->directwrite_lib);
+    free(provider_priv);
 }
 
 /*
@@ -330,7 +338,8 @@ static char *get_fallback(void *priv, ASS_FontProviderMetaData *meta,
                           uint32_t codepoint)
 {
     HRESULT hr;
-    IDWriteFactory *dw_factory = static_cast<IDWriteFactory *>(priv);
+    ProviderPrivate *provider_priv = (ProviderPrivate *)priv;
+    IDWriteFactory *dw_factory = provider_priv->factory;
     IDWriteTextFormat *text_format = NULL;
     IDWriteTextLayout *text_layout = NULL;
     FallbackLogTextRenderer renderer(dw_factory);
@@ -579,6 +588,11 @@ static ASS_FontProviderFuncs directwrite_callbacks = {
     get_fallback
 };
 
+typedef HRESULT WINAPI (*DWriteCreateFactoryFn)(
+  _In_  DWRITE_FACTORY_TYPE factoryType,
+  _In_  REFIID              iid,
+  _Out_ IUnknown            **factory
+);
 
 /*
  * Register the directwrite provider. Upon registering
@@ -593,19 +607,47 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
     HRESULT hr = S_OK;
     IDWriteFactory *dwFactory = NULL;
     ASS_FontProvider *provider = NULL;
+    DWriteCreateFactoryFn DWriteCreateFactoryPtr = NULL;
+    ProviderPrivate *priv = NULL;
 
-    hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,
-                             __uuidof(IDWriteFactory),
-                             (IUnknown **) (&dwFactory));
+    HMODULE directwrite_lib = LoadLibraryW(L"Dwrite.dll");
+    if (!directwrite_lib)
+        goto cleanup;
 
-    if (FAILED(hr)) {
+    DWriteCreateFactoryPtr = (DWriteCreateFactoryFn)GetProcAddress(directwrite_lib,
+                                                                   "DWriteCreateFactory");
+    if (!DWriteCreateFactoryPtr)
+        goto cleanup;
+
+    hr = DWriteCreateFactoryPtr(DWRITE_FACTORY_TYPE_SHARED,
+                                __uuidof(IDWriteFactory),
+                                (IUnknown **) (&dwFactory));
+    if (FAILED(hr) || !dwFactory) {
         ass_msg(lib, MSGL_WARN, "Failed to initialize directwrite.");
-        return NULL;
+        dwFactory = NULL;
+        goto cleanup;
     }
 
-    provider = ass_font_provider_new(selector, &directwrite_callbacks, dwFactory);
+    priv = (ProviderPrivate *)calloc(sizeof(*priv), 1);
+    if (!priv)
+        goto cleanup;
+
+    priv->directwrite_lib = directwrite_lib;
+    priv->factory = dwFactory;
+    provider = ass_font_provider_new(selector, &directwrite_callbacks, priv);
+    if (!provider)
+        goto cleanup;
 
     scan_fonts(dwFactory, provider);
-
     return provider;
+
+cleanup:
+
+    free(priv);
+    if (dwFactory)
+        dwFactory->Release();
+    if (directwrite_lib)
+        FreeLibrary(directwrite_lib);
+
+    return NULL;
 }
