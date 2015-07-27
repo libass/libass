@@ -15,10 +15,11 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
- 
+
 #ifndef INTEL_CPUID_H
 #define INTEL_CPUID_H
- 
+
 void ass_get_cpuid( uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx);
- 
+void ass_get_xgetbv( uint32_t op, uint32_t *eax, uint32_t *edx );
+
 #endif

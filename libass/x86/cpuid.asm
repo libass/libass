@@ -46,3 +46,19 @@ cglobal get_cpuid, 4, 5, 0
     mov [r4], edx
     pop rbx
     RET
+
+;-----------------------------------------------------------------------------
+; void get_xgetbv( uint32_t op, uint32_t *eax, uint32_t *edx )
+;-----------------------------------------------------------------------------
+
+INIT_XMM
+cglobal get_xgetbv, 3, 7, 0
+    push  r2
+    push  r1
+    mov  ecx, r0d
+    xgetbv
+    pop   r4
+    mov [r4], eax
+    pop   r4
+    mov [r4], edx
+    RET
