@@ -48,7 +48,7 @@ typedef struct ass_library ASS_Library;
 typedef struct font_provider ASS_FontProvider;
 
 /* Font Provider */
-typedef struct font_provider_meta_data ASS_FontProviderMetaData;
+typedef struct ass_font_provider_meta_data ASS_FontProviderMetaData;
 
 /**
  * Get font data. This is a stream interface which can be used as an
@@ -159,7 +159,7 @@ typedef struct font_provider_funcs {
  * Basic font metadata. All strings must be encoded with UTF-8.
  * At minimum one family is required.
  */
-typedef struct font_provider_meta_data {
+struct ass_font_provider_meta_data {
 
     /**
      * List of localized font family names, e.g. "Arial".
@@ -179,7 +179,7 @@ typedef struct font_provider_meta_data {
                         // See FONT_WEIGHT_*
     int width;          // Font weight in percent, normally 100
                         // See FONT_WIDTH_*
-} ASS_FontProviderMetaData;
+};
 
 
 /* ASS Style: line */
