@@ -4,7 +4,8 @@
  * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 /**
- * Stripped version. Only definitions needed by libass.
+ * Stripped version. Only definitions needed by libass. Contains fixes to
+ * make it compile with C. Also needed on MSVC.
  */
 #ifndef __INC_DWRITE__
 #define __INC_DWRITE__
@@ -664,5 +665,9 @@ DECLARE_INTERFACE_(IDWriteTextRenderer,IDWritePixelSnapping)
 
     END_INTERFACE
 };
+
+DEFINE_GUID(IID_IDWriteFactory, 0xb859ee5a,0xd838,0x4b5b,0xa2,0xe8,0x1a,0xdc,0x7d,0x93,0xdb,0x48);
+DEFINE_GUID(IID_IDWritePixelSnapping, 0xeaf3a2da,0xecf4,0x4d24,0xb6,0x44,0xb3,0x4f,0x68,0x42,0x02,0x4b);
+DEFINE_GUID(IID_IDWriteTextRenderer, 0xef8a8135,0x5cc6,0x45fe,0x88,0x25,0xc5,0xa0,0x72,0x4e,0xb8,0x19);
 
 #endif /* __INC_DWRITE__ */

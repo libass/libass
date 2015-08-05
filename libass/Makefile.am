@@ -19,7 +19,7 @@ SRC_INTEL_RASTERIZER = x86/rasterizer.asm
 
 SRC_RASTERIZER = ass_rasterizer.h ass_rasterizer.c ass_rasterizer_c.c
 
-SRC_DIRECTWRITE = ass_directwrite.c ass_directwrite.h dwrite.h
+SRC_DIRECTWRITE = ass_directwrite.c ass_directwrite.h dwrite_c.h
 
 lib_LTLIBRARIES = libass.la
 libass_la_SOURCES = ass.c ass_cache.c ass_font.c ass_fontselect.c ass_render.c \
