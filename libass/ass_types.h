@@ -119,10 +119,10 @@ typedef void    (*MatchFontsFunc)(ASS_Library *lib,
  *
  * \param priv font provider private data
  * \param name input string for substitution, as specified in the script
- * \return output string for substitution, allocated with malloc(), must be
- *         freed by caller, can be NULL if no substitution was done.
+ * \param meta metadata (fullnames and n_fullname) to be filled in
  */
-typedef char   *(*SubstituteFontFunc)(void *priv, const char *name);
+typedef void    (*SubstituteFontFunc)(void *priv, const char *name,
+                                      ASS_FontProviderMetaData *meta);
 
 /**
  * Get an appropriate fallback font for a given codepoint.

@@ -204,13 +204,50 @@ static char *get_fallback(void *priv, ASS_FontProviderMetaData *meta,
     return NULL;
 }
 
+static void get_substitutions(void *priv, const char *name,
+                              ASS_FontProviderMetaData *meta)
+{
+    ProviderPrivate *fc = (ProviderPrivate *)priv;
+
+    FcPattern *pat = FcPatternCreate();
+    if (!pat)
+        return;
+
+    FcPatternAddString(pat, FC_FAMILY, (FcChar8 *)name);
+    FcPatternAddString(pat, FC_FAMILY, (FcChar8 *)"__libass_delimiter");
+    FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
+    if (!FcConfigSubstitute(fc->config, pat, FcMatchPattern))
+        goto cleanup;
+
+    // read and strdup fullnames
+    meta->n_fullname = 0;
+    meta->fullnames = calloc(MAX_NAME, sizeof(char *));
+    if (!meta->fullnames)
+        goto cleanup;
+
+    char *alias = NULL;
+    while (FcPatternGetString(pat, FC_FAMILY, meta->n_fullname,
+                (FcChar8 **)&alias) == FcResultMatch
+                && meta->n_fullname < MAX_NAME
+                && strcmp(alias, "__libass_delimiter") != 0) {
+        alias = strdup(alias);
+        if (!alias)
+            goto cleanup;
+        meta->fullnames[meta->n_fullname] = alias;
+        meta->n_fullname++;
+    }
+
+cleanup:
+    FcPatternDestroy(pat);
+}
+
 static ASS_FontProviderFuncs fontconfig_callbacks = {
     NULL,
     check_glyph,
     NULL,
     destroy,
     NULL,
-    NULL,
+    get_substitutions,
     get_fallback
 };
 

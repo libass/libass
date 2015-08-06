@@ -390,16 +390,18 @@ void ass_font_provider_free(ASS_FontProvider *provider)
  */
 static unsigned font_info_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
 {
-    int i;
+    int i, j;
     int family_match = 0;
 
     // Compare family name first; sometimes family name equals fullname,
     // but we want to be able to match against the different variants
     // in case a family name match occurs.
-    for (i = 0; i < a->n_family; i++) {
-        if (strcasecmp(a->families[i], req->fullnames[0]) == 0) {
-            family_match = 1;
-            break;
+    for (j = 0; j < req->n_fullname; j++) {
+        for (i = 0; i < a->n_family; i++) {
+            if (strcasecmp(a->families[i], req->fullnames[j]) == 0) {
+                family_match = 1;
+                break;
+            }
         }
     }
 
@@ -417,9 +419,11 @@ static unsigned font_info_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
     // If we don't have any match, compare fullnames against request
     // if there is a match now, assign lowest score possible. This means
     // the font should be chosen instantly, without further search.
-    for (i = 0; i < a->n_fullname; i++) {
-        if (strcasecmp(a->fullnames[i], req->fullnames[0]) == 0)
-            return 0;
+    for (j = 0; j < req->n_fullname; j++) {
+        for (i = 0; i < a->n_fullname; i++) {
+            if (strcasecmp(a->fullnames[i], req->fullnames[j]) == 0)
+                return 0;
+        }
     }
 
     return UINT_MAX;
@@ -466,31 +470,36 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                          ASS_FontStream *stream, uint32_t code)
 {
     int idx = -1;
-    ASS_FontInfo req;
-    char *req_fullname;
+    ASS_FontInfo req = {0};
     char *family_trim = strdup_trimmed(family);
+    ASS_FontProvider *default_provider = priv->default_provider;
+    ASS_FontInfo *font_infos = priv->font_infos;
+    ASS_FontProviderMetaData meta;
 
     if (family_trim == NULL)
         return NULL;
 
-    ASS_FontProvider *default_provider = priv->default_provider;
     if (default_provider && default_provider->funcs.match_fonts)
         default_provider->funcs.match_fonts(library, default_provider, family_trim);
-
-    ASS_FontInfo *font_infos = priv->font_infos;
 
     // do we actually have any fonts?
     if (!priv->n_font)
         return NULL;
 
+    // get a list of substitutes if applicable, and use it for matching
+    if (default_provider && default_provider->funcs.subst_font) {
+        default_provider->funcs.subst_font(default_provider->priv, family_trim, &meta);
+        req.n_fullname   = meta.n_fullname;
+        req.fullnames    = meta.fullnames;
+    } else {
+        req.n_fullname   = 1;
+        req.fullnames    = &family_trim;
+    }
+
     // fill font request
-    memset(&req, 0, sizeof(ASS_FontInfo));
     req.slant   = italic;
     req.weight  = bold;
     req.width   = 100;
-    req.n_fullname   = 1;
-    req.fullnames    = &req_fullname;
-    req.fullnames[0] = family_trim;
 
     // Match font family name against font list
     unsigned score_min = UINT_MAX;
