@@ -911,16 +911,16 @@ ass_fontselect_init(ASS_Library *library,
     }
 
     if (dfp >= ASS_FONTPROVIDER_AUTODETECT) {
-        int found = 0;
-        for (int i = 0; !found && font_constructors[i].constructor; i++ )
+        for (int i = 0; font_constructors[i].constructor; i++ )
             if (dfp == font_constructors[i].id ||
                 dfp == ASS_FONTPROVIDER_AUTODETECT) {
                 priv->default_provider =
                     font_constructors[i].constructor(library, priv, config);
-                found = 1;
+                if (priv->default_provider)
+                    break;
             }
 
-        if (!found)
+        if (!priv->default_provider)
             ass_msg(library, MSGL_WARN, "can't find selected font provider");
 
     }
