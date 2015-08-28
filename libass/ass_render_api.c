@@ -135,7 +135,7 @@ void ass_set_line_position(ASS_Renderer *priv, double line_position)
 }
 
 void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
-                   const char *default_family, ASS_DefaultFontProvider dfp,
+                   const char *default_family, int dfp,
                    const char *config, int update)
 {
     free(priv->settings.default_font);

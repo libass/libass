@@ -419,7 +419,12 @@ void ass_get_available_font_providers(ASS_Library *priv,
  * \param default_font path to default font to use. Must be supplied if
  * fontconfig is disabled or unavailable.
  * \param default_family fallback font family for fontconfig, or NULL
- * \param fc whether to use fontconfig
+ * \param dfp which font provider to use (one of ASS_DefaultFontProvider). In
+ * older libass version, this could be 0 or 1, where 1 enabled fontconfig.
+ * Newer relases also accept 0 (ASS_FONTPROVIDER_NONE) and 1
+ * (ASS_FONTPROVIDER_AUTODETECT), which is almost backward-compatible.
+ * If the requested fontprovider does not exist or fails to initialize, the
+ * behavior is the same as when ASS_FONTPROVIDER_NONE was passed.
  * \param config path to fontconfig configuration file, or NULL.  Only relevant
  * if fontconfig is used.
  * \param update whether fontconfig cache should be built/updated now.  Only
@@ -428,7 +433,7 @@ void ass_get_available_font_providers(ASS_Library *priv,
  * NOTE: font lookup must be configured before an ASS_Renderer can be used.
  */
 void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
-                   const char *default_family, ASS_DefaultFontProvider dfp,
+                   const char *default_family, int dfp,
                    const char *config, int update);
 
 /**
