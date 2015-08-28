@@ -271,10 +271,9 @@ ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
                 "file found, using fallback.");
         FcConfigDestroy(fc->config);
         fc->config = FcInitLoadConfig();
-        rc++;
     }
-    if (rc)
-        FcConfigBuildFonts(fc->config);
+    if (fc->config)
+        rc = FcConfigBuildFonts(fc->config);
 
     if (!rc || !fc->config) {
         ass_msg(lib, MSGL_FATAL,
