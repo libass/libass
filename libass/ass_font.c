@@ -154,7 +154,7 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
             ass_msg(font->library, MSGL_INFO,
                     "Got a font face that already is available! Skipping.");
             free(path);
-            return -1;
+            return i;
         }
     }
 
