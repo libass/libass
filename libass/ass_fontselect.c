@@ -379,54 +379,46 @@ void ass_font_provider_free(ASS_FontProvider *provider)
     free(provider);
 }
 
-
+/**
+ * \brief Return whether the given font is in the given family.
+ */
+static bool matches_family_name(ASS_FontInfo *f, const char *family)
+{
+    for (int i = 0; i < f->n_family; i++) {
+        if (strcasecmp(f->families[i], family) == 0)
+            return true;
+    }
+    return false;
+}
 
 /**
- * \brief Compare a font (a) against a font request (b). Records
+ * \brief Return whether the given font has the given fullname.
+ */
+static bool matches_fullname(ASS_FontInfo *f, const char *fullname)
+{
+    for (int i = 0; i < f->n_fullname; i++) {
+        if (strcasecmp(f->fullnames[i], fullname) == 0)
+            return true;
+    }
+    return false;
+}
+
+/**
+ * \brief Compare attributes of font (a) against a font request (req). Returns
  * a matching score - the lower the better.
+ * Ignores font names/families!
  * \param a font
  * \param b font request
  * \return matching score
  */
-static unsigned font_info_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
+static unsigned font_attributes_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
 {
-    int i, j;
-    int family_match = 0;
+    unsigned similarity = 0;
+    similarity += ABS(a->weight - req->weight);
+    similarity += ABS(a->slant - req->slant);
+    similarity += ABS(a->width - req->width);
 
-    // Compare family name first; sometimes family name equals fullname,
-    // but we want to be able to match against the different variants
-    // in case a family name match occurs.
-    for (j = 0; j < req->n_fullname; j++) {
-        for (i = 0; i < a->n_family; i++) {
-            if (strcasecmp(a->families[i], req->fullnames[j]) == 0) {
-                family_match = 1;
-                break;
-            }
-        }
-    }
-
-    // If there's a family match, compare font attributes
-    // to determine best match in that particular family
-    if (family_match) {
-        unsigned similarity = 0;
-        similarity += ABS(a->weight - req->weight);
-        similarity += ABS(a->slant - req->slant);
-        similarity += ABS(a->width - req->width);
-
-        return similarity;
-    }
-
-    // If we don't have any match, compare fullnames against request
-    // if there is a match now, assign lowest score possible. This means
-    // the font should be chosen instantly, without further search.
-    for (j = 0; j < req->n_fullname; j++) {
-        for (i = 0; i < a->n_fullname; i++) {
-            if (strcasecmp(a->fullnames[i], req->fullnames[j]) == 0)
-                return 0;
-        }
-    }
-
-    return UINT_MAX;
+    return similarity;
 }
 
 #if 0
@@ -489,12 +481,10 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     // get a list of substitutes if applicable, and use it for matching
     if (default_provider && default_provider->funcs.subst_font) {
         default_provider->funcs.subst_font(default_provider->priv, family_trim, &meta);
-        req.n_fullname   = meta.n_fullname;
-        req.fullnames    = meta.fullnames;
     }
-    if (!req.n_fullname) {
-        req.n_fullname   = 1;
-        req.fullnames    = &family_trim;
+    if (!meta.n_fullname) {
+        meta.n_fullname = 1;
+        meta.fullnames  = &family_trim;
     }
 
     // fill font request
@@ -504,31 +494,47 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
 
     // Match font family name against font list
     unsigned score_min = UINT_MAX;
-    for (int i = 0; i < priv->n_font; i++) {
-        unsigned score = font_info_similarity(&priv->font_infos[i], &req);
+    for (int i = 0; i < meta.n_fullname; i++) {
+        const char *fullname = meta.fullnames[i];
 
-        // Consider updating idx if score is better than current minimum
-        if (score < score_min) {
-            // Check if the font has the requested glyph.
-            // We are doing this here, for every font face, because
-            // coverage might differ between the variants of a font
-            // family. In practice, it is common that the regular
-            // style has the best coverage while bold/italic/etc
-            // variants cover less (e.g. FreeSans family).
-            // We want to be able to match even if the closest variant
-            // does not have the requested glyph, but another member
-            // of the family has the glyph.
-            if (!check_glyph(&priv->font_infos[i], code))
-                continue;
+        for (int x = 0; x < priv->n_font; x++) {
+            ASS_FontInfo *font = &priv->font_infos[x];
+            unsigned score = UINT_MAX;
 
-            score_min = score;
-            idx = i;
+            if (matches_family_name(font, fullname)) {
+                // If there's a family match, compare font attributes
+                // to determine best match in that particular family
+                score = font_attributes_similarity(font, &req);
+            } else if (matches_fullname(font, fullname)) {
+                // If we don't have any match, compare fullnames against request
+                // if there is a match now, assign lowest score possible. This means
+                // the font should be chosen instantly, without further search.
+                score = 0;
+            }
+
+            // Consider updating idx if score is better than current minimum
+            if (score < score_min) {
+                // Check if the font has the requested glyph.
+                // We are doing this here, for every font face, because
+                // coverage might differ between the variants of a font
+                // family. In practice, it is common that the regular
+                // style has the best coverage while bold/italic/etc
+                // variants cover less (e.g. FreeSans family).
+                // We want to be able to match even if the closest variant
+                // does not have the requested glyph, but another member
+                // of the family has the glyph.
+                if (!check_glyph(&priv->font_infos[i], code))
+                    continue;
+
+                score_min = score;
+                idx = x;
+            }
+
+            // Lowest possible score instantly matches; this is typical
+            // for fullname matches, but can also occur with family matches.
+            if (score == 0)
+                break;
         }
-
-        // Lowest possible score instantly matches; this is typical
-        // for fullname matches, but can also occur with family matches.
-        if (score == 0)
-            break;
     }
 
     // free font name
