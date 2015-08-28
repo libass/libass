@@ -461,12 +461,11 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                          int *index, char **postscript_name, int *uid,
                          ASS_FontStream *stream, uint32_t code)
 {
-    int idx = -1;
     ASS_FontInfo req = {0};
     char *family_trim = strdup_trimmed(family);
     ASS_FontProvider *default_provider = priv->default_provider;
-    ASS_FontInfo *font_infos = priv->font_infos;
     ASS_FontProviderMetaData meta = {0};
+    ASS_FontInfo *selected = NULL;
 
     if (family_trim == NULL)
         return NULL;
@@ -527,7 +526,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                     continue;
 
                 score_min = score;
-                idx = x;
+                selected = font;
             }
 
             // Lowest possible score instantly matches; this is typical
@@ -541,25 +540,25 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     free(family_trim);
 
     // found anything?
-    if (idx < 0) {
+    if (!selected) {
         return NULL;
     }
 
     // successfully matched, set up return values
-    *postscript_name = font_infos[idx].postscript_name;
-    *index = font_infos[idx].index;
-    *uid   = font_infos[idx].uid;
+    *postscript_name = selected->postscript_name;
+    *index = selected->index;
+    *uid   = selected->uid;
 
     // set up memory stream if there is no path
-    if (font_infos[idx].path == NULL) {
-        ASS_FontProvider *provider = font_infos[idx].provider;
+    if (selected->path == NULL) {
+        ASS_FontProvider *provider = selected->provider;
         stream->func = provider->funcs.get_data;
-        stream->priv = font_infos[idx].priv;
+        stream->priv = selected->priv;
         // FIXME: we should define a default family name in some way,
         // possibly the first (or last) English name
-        return strdup(font_infos[idx].families[0]);
+        return strdup(selected->families[0]);
     } else
-        return strdup(font_infos[idx].path);
+        return strdup(selected->path);
 }
 
 
