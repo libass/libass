@@ -28,7 +28,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <ft2build.h>
+#include <sys/types.h>
+#include <dirent.h>
 #include FT_FREETYPE_H
 #include FT_SFNT_NAMES_H
 #include FT_TRUETYPE_IDS_H
@@ -155,6 +158,28 @@ static ASS_FontProviderFuncs ft_funcs = {
     NULL,
     NULL
 };
+
+static void load_fonts_from_dir(ASS_Library *library, const char *dir)
+{
+    DIR *d = opendir(dir);
+    if (!d)
+        return;
+    while (1) {
+        struct dirent *entry = readdir(d);
+        if (!entry)
+            break;
+        char fullname[PATH_MAX];
+        snprintf(fullname, sizeof(fullname), "%s/%s", dir, entry->d_name);
+        size_t bufsize = 0;
+        ass_msg(library, MSGL_WARN, "Loading font file '%s'", fullname);
+        void *data = read_file(library, fullname, &bufsize);
+        if (data) {
+            ass_add_font(library, entry->d_name, data, bufsize);
+            free(data);
+        }
+    }
+    closedir(d);
+}
 
 /**
  * \brief Create a bare font provider.
@@ -869,6 +894,10 @@ ass_embedded_fonts_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
     ASS_FontProvider *priv = ass_font_provider_new(selector, &ft_funcs, NULL);
     if (priv == NULL)
         return NULL;
+
+    if (lib->fonts_dir && lib->fonts_dir[0]) {
+        load_fonts_from_dir(lib, lib->fonts_dir);
+    }
 
     for (i = 0; i < lib->num_fontdata; ++i)
         process_fontdata(priv, lib, ftlib, i);
