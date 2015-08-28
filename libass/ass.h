@@ -463,8 +463,8 @@ void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits);
 void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style);
 
 /**
- * \brief Update/build font cache.  This needs to be called if it was
- * disabled when ass_set_fonts was set.
+ * \brief This is a stub and does nothing. Old documentation: Update/build font
+ * cache.  This needs to be called if it was disabled when ass_set_fonts was set.
  *
  * \param priv renderer handle
  * \return success
