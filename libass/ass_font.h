@@ -26,7 +26,6 @@
 
 typedef struct ass_font ASS_Font;
 typedef struct ass_font_desc ASS_FontDesc;
-typedef struct ass_font_stream ASS_FontStream;
 
 #include "ass.h"
 #include "ass_types.h"
@@ -57,11 +56,6 @@ struct ass_font {
     double scale_x, scale_y;    // current transform
     FT_Vector v;                // current shift
     double size;
-};
-
-struct ass_font_stream {
-    GetDataFunc func;
-    void *priv;
 };
 
 void charmap_magic(ASS_Library *library, FT_Face face);
