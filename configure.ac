@@ -35,6 +35,10 @@ AC_ARG_ENABLE([enca], AS_HELP_STRING([--disable-enca],
     [disable enca (charset autodetect) support @<:@default=check@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
     [disable fontconfig support @<:@default=enabled@:>@]))
+AC_ARG_ENABLE([directwrite], AS_HELP_STRING([--disable-directwrite],
+    [disable DirectWrite support (win32 only) @<:@default=check@:>@]))
+AC_ARG_ENABLE([coretext], AS_HELP_STRING([--disable-coretext],
+    [disable CoreText support (OSX only) @<:@default=check@:>@]))
 AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
     [disable HarfBuzz support @<:@default=check@:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
@@ -165,6 +169,7 @@ AC_LINK_IFELSE([
     AC_MSG_RESULT([no])
   ])
 fi
+AM_CONDITIONAL([CORETEXT], [test x$coretext = xtrue])
 
 
 

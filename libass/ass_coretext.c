@@ -18,8 +18,6 @@
 
 #include "config.h"
 
-#ifdef CONFIG_CORETEXT
-
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreText/CoreText.h>
 
@@ -291,5 +289,3 @@ ass_coretext_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
 
     return provider;
 }
-
-#endif
