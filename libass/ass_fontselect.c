@@ -522,7 +522,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                 // We want to be able to match even if the closest variant
                 // does not have the requested glyph, but another member
                 // of the family has the glyph.
-                if (!check_glyph(&priv->font_infos[i], code))
+                if (!check_glyph(font, code))
                     continue;
 
                 score_min = score;
