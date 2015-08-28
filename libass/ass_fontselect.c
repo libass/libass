@@ -474,7 +474,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     char *family_trim = strdup_trimmed(family);
     ASS_FontProvider *default_provider = priv->default_provider;
     ASS_FontInfo *font_infos = priv->font_infos;
-    ASS_FontProviderMetaData meta;
+    ASS_FontProviderMetaData meta = {0};
 
     if (family_trim == NULL)
         return NULL;
@@ -491,7 +491,8 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
         default_provider->funcs.subst_font(default_provider->priv, family_trim, &meta);
         req.n_fullname   = meta.n_fullname;
         req.fullnames    = meta.fullnames;
-    } else {
+    }
+    if (!req.n_fullname) {
         req.n_fullname   = 1;
         req.fullnames    = &family_trim;
     }
