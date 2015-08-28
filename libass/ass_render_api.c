@@ -144,6 +144,8 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
     priv->settings.default_family =
         default_family ? strdup(default_family) : 0;
 
+    ass_reconfigure(priv);
+
     if (priv->fontselect)
         ass_fontselect_free(priv->fontselect);
     priv->fontselect = ass_fontselect_init(priv->library, priv->ftlibrary,
