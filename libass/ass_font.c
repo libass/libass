@@ -179,8 +179,6 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
             ass_msg(font->library, MSGL_WARN,
                     "Error opening memory font: '%s'", path);
             free(path);
-            free(ftstream);
-            free(fs);
             return -1;
         }
 
