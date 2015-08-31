@@ -262,6 +262,30 @@ static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
 }
 #endif
 
+static char *get_fallback(void *priv, ASS_FontProviderMetaData *meta,
+                          uint32_t codepoint)
+{
+    char *failed = meta->families[0];
+    CFStringRef name = CFStringCreateWithBytes(
+        0, (UInt8 *)failed, sizeof(failed), kCFStringEncodingUTF8, false);
+    CTFontRef font = CTFontCreateWithName(name, 0, NULL);
+    uint32_t codepointle = OSSwapHostToLittleInt32(codepoint);
+    CFStringRef r = CFStringCreateWithBytes(
+        0, (UInt8*)&codepointle, sizeof(codepointle),
+        kCFStringEncodingUTF32LE, false);
+    CTFontRef fb = CTFontCreateForString(font, r, CFRangeMake(0, 1));
+    CFStringRef cffamily = CTFontCopyFamilyName(fb);
+    char *family = cfstr2buf(cffamily);
+
+    CFRelease(name);
+    CFRelease(font);
+    CFRelease(r);
+    CFRelease(fb);
+    CFRelease(cffamily);
+
+    return family;
+}
+
 static ASS_FontProviderFuncs coretext_callbacks = {
     NULL,
     check_glyph,
@@ -273,7 +297,7 @@ static ASS_FontProviderFuncs coretext_callbacks = {
     match_fonts,
 #endif
     NULL,
-    NULL
+    get_fallback
 };
 
 ASS_FontProvider *
