@@ -145,6 +145,12 @@ get_data_embedded(void *data, unsigned char *buf, size_t offset, size_t len)
     if (buf == NULL)
         return fd[i].size;
 
+    if (offset >= fd[i].size)
+        return 0;
+
+    if (len > fd[i].size - offset)
+        len = fd[i].size - offset;
+
     memcpy(buf, fd[i].data + offset, len);
     return len;
 }
