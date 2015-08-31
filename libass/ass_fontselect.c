@@ -49,16 +49,6 @@
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 #define MAX_FULLNAME 100
 
-static const char *fallback_fonts[] = {
-    // generic latin sans-serif fonts
-    "Arial",
-    "DejaVu Sans",
-    // fonts with lots of coverage
-    "Arial Unicode MS",
-    "FreeSerif",
-    NULL
-};
-
 // internal font database element
 // all strings are utf-8
 struct font_info {
@@ -655,22 +645,6 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
         ass_msg(library, MSGL_WARN, "fontselect: Using default font: "
                 "(%s, %d, %d) -> %s, %d, %s", family, bold, italic,
                 priv->path_default, *index, *postscript_name);
-    }
-
-    if (!res) {
-        // This code path is reached when the script uses glyphs not
-        // available in the previous fonts (or no font is matched), and
-        // the ASS_FontProvider used provides only the MatchFontsFunc callback
-        // and no GetFallbackFunc callback. As a last resort, try a builtin
-        // list of fallback families.
-        for (int i = 0; fallback_fonts[i] && !res; i++) {
-            res = select_font(priv, library, fallback_fonts[i], bold,
-                    italic, index, postscript_name, uid, data, code);
-            if (res)
-                ass_msg(library, MSGL_WARN, "fontselect: Using fallback "
-                        "font family: (%s, %d, %d) -> %s, %d, %s",
-                        family, bold, italic, res, *index, *postscript_name);
-        }
     }
 
     if (res)
