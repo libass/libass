@@ -502,13 +502,17 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     if (!priv->n_font)
         return NULL;
 
+    ASS_FontProviderMetaData default_meta = {
+        .n_fullname = 1,
+        .fullnames  = &family_trim,
+    };
+
     // get a list of substitutes if applicable, and use it for matching
     if (default_provider && default_provider->funcs.subst_font) {
         default_provider->funcs.subst_font(default_provider->priv, family_trim, &meta);
     }
     if (!meta.n_fullname) {
-        meta.n_fullname = 1;
-        meta.fullnames  = &family_trim;
+        meta = default_meta;
     }
 
     // fill font request
@@ -561,29 +565,32 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
         }
     }
 
-    // free font name
-    free(family_trim);
-
     // found anything?
-    if (!selected) {
-        return NULL;
+    char *result = NULL;
+    if (selected) {
+        // successfully matched, set up return values
+        *postscript_name = selected->postscript_name;
+        *index = selected->index;
+        *uid   = selected->uid;
+
+        // set up memory stream if there is no path
+        if (selected->path == NULL) {
+            ASS_FontProvider *provider = selected->provider;
+            stream->func = provider->funcs.get_data;
+            stream->priv = selected->priv;
+            // FIXME: we should define a default family name in some way,
+            // possibly the first (or last) English name
+            result = strdup(selected->families[0]);
+        } else
+            result = strdup(selected->path);
     }
 
-    // successfully matched, set up return values
-    *postscript_name = selected->postscript_name;
-    *index = selected->index;
-    *uid   = selected->uid;
+    free(family_trim);
+    if (meta.fullnames != default_meta.fullnames) {
+        free(meta.fullnames);
+    }
 
-    // set up memory stream if there is no path
-    if (selected->path == NULL) {
-        ASS_FontProvider *provider = selected->provider;
-        stream->func = provider->funcs.get_data;
-        stream->priv = selected->priv;
-        // FIXME: we should define a default family name in some way,
-        // possibly the first (or last) English name
-        return strdup(selected->families[0]);
-    } else
-        return strdup(selected->path);
+    return result;
 }
 
 
