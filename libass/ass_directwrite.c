@@ -441,11 +441,13 @@ static char *get_fallback(void *priv, const char *base, uint32_t codepoint)
 
     // DirectWrite may not have found a valid fallback, so check that
     // the selected font actually has the requested glyph.
-    hr = IDWriteFont_HasCharacter(font, codepoint, &exists);
-    if (FAILED(hr) || !exists) {
-        IDWriteLocalizedStrings_Release(familyNames);
-        IDWriteFont_Release(font);
-        return NULL;
+    if (codepoint > 0) {
+        hr = IDWriteFont_HasCharacter(font, codepoint, &exists);
+        if (FAILED(hr) || !exists) {
+            IDWriteLocalizedStrings_Release(familyNames);
+            IDWriteFont_Release(font);
+            return NULL;
+        }
     }
 
     int size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0,NULL, NULL);
