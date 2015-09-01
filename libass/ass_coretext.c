@@ -23,6 +23,8 @@
 
 #include "ass_coretext.h"
 
+#define SAFE_CFRelease(x) do { if (x) CFRelease(x); } while(0)
+
 static char *cfstr2buf(CFStringRef string)
 {
     const int encoding = kCFStringEncodingUTF8;
@@ -41,7 +43,7 @@ static char *cfstr2buf(CFStringRef string)
 static void destroy_font(void *priv)
 {
     CFCharacterSetRef set = priv;
-    CFRelease(set);
+    SAFE_CFRelease(set);
 }
 
 static int check_glyph(void *priv, uint32_t code)
@@ -62,8 +64,8 @@ static char *get_font_file(CTFontDescriptorRef fontd)
     CFURLRef url = CTFontDescriptorCopyAttribute(fontd, kCTFontURLAttribute);
     CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
     char *buffer = cfstr2buf(path);
-    CFRelease(path);
-    CFRelease(url);
+    SAFE_CFRelease(path);
+    SAFE_CFRelease(url);
     return buffer;
 }
 
@@ -74,7 +76,7 @@ static void get_name(CTFontDescriptorRef fontd, CFStringRef attr,
     CFStringRef name = CTFontDescriptorCopyAttribute(fontd, attr);
     if (name) {
         array[*idx] = cfstr2buf(name);
-        CFRelease(name);
+        SAFE_CFRelease(name);
         *idx += 1;
     }
 }
@@ -99,7 +101,7 @@ static void get_font_traits(CTFontDescriptorRef fontd,
     get_trait(traits, kCTFontSlantTrait,  &slant);
     get_trait(traits, kCTFontWidthTrait,  &width);
 
-    CFRelease(traits);
+    SAFE_CFRelease(traits);
 
     // Printed all of my system fonts (see if'deffed code below). Here is how
     // CoreText 'normalized' weights maps to CSS/libass:
@@ -230,17 +232,16 @@ static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
 
     process_descriptors(provider, fontsd);
 
-    if (fontsd)
-        CFRelease(fontsd);
-    CFRelease(ctcoll);
+    SAFE_CFRelease(fontsd);
+    SAFE_CFRelease(ctcoll);
 
     for (int i = 0; i < attributes_n; i++) {
-        CFRelease(cfattrs[i]);
-        CFRelease(ctdescrs[i]);
+        SAFE_CFRelease(cfattrs[i]);
+        SAFE_CFRelease(ctdescrs[i]);
     }
 
-    CFRelease(descriptors);
-    CFRelease(cfname);
+    SAFE_CFRelease(descriptors);
+    SAFE_CFRelease(cfname);
 }
 
 static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
@@ -256,11 +257,11 @@ static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
     CFStringRef cffamily = CTFontCopyFamilyName(fb);
     char *res_family = cfstr2buf(cffamily);
 
-    CFRelease(name);
-    CFRelease(font);
-    CFRelease(r);
-    CFRelease(fb);
-    CFRelease(cffamily);
+    SAFE_CFRelease(name);
+    SAFE_CFRelease(font);
+    SAFE_CFRelease(r);
+    SAFE_CFRelease(fb);
+    SAFE_CFRelease(cffamily);
 
     return res_family;
 }
