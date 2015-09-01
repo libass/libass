@@ -23,9 +23,6 @@
 
 #include "ass_coretext.h"
 
-#define CT_FONTS_EAGER_LOAD 0
-#define CT_FONTS_LAZY_LOAD  !CT_FONTS_EAGER_LOAD
-
 static char *cfstr2buf(CFStringRef string)
 {
     const int encoding = kCFStringEncodingUTF8;
@@ -201,21 +198,6 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
     }
 }
 
-#if CT_FONTS_EAGER_LOAD
-static void scan_fonts(ASS_Library *lib, ASS_FontProvider *provider)
-{
-
-    CTFontCollectionRef coll = CTFontCollectionCreateFromAvailableFonts(NULL);
-    CFArrayRef fontsd = CTFontCollectionCreateMatchingFontDescriptors(coll);
-
-    process_descriptors(provider, fontsd);
-
-    CFRelease(fontsd);
-    CFRelease(coll);
-}
-#endif
-
-#if CT_FONTS_LAZY_LOAD
 static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
                         char *name)
 {
@@ -260,7 +242,6 @@ static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
     CFRelease(descriptors);
     CFRelease(cfname);
 }
-#endif
 
 static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
 {
@@ -288,9 +269,7 @@ static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
 static ASS_FontProviderFuncs coretext_callbacks = {
     .check_glyph        = check_glyph,
     .destroy_font       = destroy_font,
-#if !CT_FONTS_EAGER_LOAD
     .match_fonts        = match_fonts,
-#endif
     .get_fallback       = get_fallback,
 };
 
@@ -298,12 +277,5 @@ ASS_FontProvider *
 ass_coretext_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
                           const char *config)
 {
-    ASS_FontProvider *provider =
-        ass_font_provider_new(selector, &coretext_callbacks, NULL);
-
-#if CT_FONTS_EAGER_LOAD
-    scan_fonts(lib, provider);
-#endif
-
-    return provider;
+    return ass_font_provider_new(selector, &coretext_callbacks, NULL);
 }
