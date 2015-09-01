@@ -245,9 +245,8 @@ static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
 
 static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
 {
-    char *failed = family;
     CFStringRef name = CFStringCreateWithBytes(
-        0, (UInt8 *)failed, sizeof(failed), kCFStringEncodingUTF8, false);
+        0, (UInt8 *)family, strlen(family), kCFStringEncodingUTF8, false);
     CTFontRef font = CTFontCreateWithName(name, 0, NULL);
     uint32_t codepointle = OSSwapHostToLittleInt32(codepoint);
     CFStringRef r = CFStringCreateWithBytes(
