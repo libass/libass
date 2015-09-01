@@ -589,6 +589,8 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
 
     free(family_trim);
     if (meta.fullnames != default_meta.fullnames) {
+        for (int i = 0; i < meta.n_fullname; i++)
+            free(meta.fullnames[i]);
         free(meta.fullnames);
     }
 
