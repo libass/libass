@@ -31,6 +31,12 @@
 #define NAME_MAX_LENGTH 256
 #define FALLBACK_DEFAULT_FONT L"Arial"
 
+static const ASS_FontMapping font_substitutions[] = {
+    {"sans-serif", "Arial"},
+    {"serif", "Times New Roman"},
+    {"monospace", "Courier New"}
+};
+
 /*
  * The private data stored for every font, detected by this backend.
  */
@@ -624,6 +630,13 @@ static void scan_fonts(IDWriteFactory *factory,
     }
 }
 
+static void get_substitutions(void *priv, const char *name,
+                              ASS_FontProviderMetaData *meta)
+{
+    const int n = sizeof(font_substitutions) / sizeof(font_substitutions[0]);
+    ass_map_font(font_substitutions, n, name, meta);
+}
+
 /*
  * Called by libass when the provider should perform the
  * specified task
@@ -633,6 +646,7 @@ static ASS_FontProviderFuncs directwrite_callbacks = {
     .check_glyph        = check_glyph,
     .destroy_font       = destroy_font,
     .destroy_provider   = destroy_provider,
+    .get_substitutions  = get_substitutions,
     .get_fallback       = get_fallback,
 };
 

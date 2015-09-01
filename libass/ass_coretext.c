@@ -25,6 +25,12 @@
 
 #define SAFE_CFRelease(x) do { if (x) CFRelease(x); } while(0)
 
+static const ASS_FontMapping font_substitutions[] = {
+    {"sans-serif", "Helvetica"},
+    {"serif", "Times"},
+    {"monospace", "Courier"}
+};
+
 static char *cfstr2buf(CFStringRef string)
 {
     const int encoding = kCFStringEncodingUTF8;
@@ -266,10 +272,18 @@ static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
     return res_family;
 }
 
+static void get_substitutions(void *priv, const char *name,
+                              ASS_FontProviderMetaData *meta)
+{
+    const int n = sizeof(font_substitutions) / sizeof(font_substitutions[0]);
+    ass_map_font(font_substitutions, n, name, meta);
+}
+
 static ASS_FontProviderFuncs coretext_callbacks = {
     .check_glyph        = check_glyph,
     .destroy_font       = destroy_font,
     .match_fonts        = match_fonts,
+    .get_substitutions  = get_substitutions,
     .get_fallback       = get_fallback,
 };
 
