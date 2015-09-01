@@ -560,6 +560,11 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
             if (score == 0)
                 break;
         }
+
+        // The list of names is sorted by priority. If we matched anything,
+        // we can and should stop.
+        if (selected != NULL)
+            break;
     }
 
     // found anything?
