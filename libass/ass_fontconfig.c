@@ -167,8 +167,7 @@ static void cache_fallbacks(ProviderPrivate *fc)
     FcPatternDestroy(pat);
 }
 
-static char *get_fallback(void *priv, ASS_FontProviderMetaData *meta,
-                          uint32_t codepoint)
+static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
 {
     ProviderPrivate *fc = (ProviderPrivate *)priv;
     FcResult result;

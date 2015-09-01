@@ -636,13 +636,8 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
     }
 
     if (!res && default_provider && default_provider->funcs.get_fallback) {
-        ASS_FontProviderMetaData meta;
-        meta.families = &family;
-        meta.weight = bold;
-        meta.slant = italic;
-        meta.width = 100;
         char *fallback_family = default_provider->funcs.get_fallback(
-                default_provider->priv, &meta, code);
+                default_provider->priv, family, code);
 
         if (fallback_family) {
             res = select_font(priv, library, fallback_family, bold, italic,

@@ -123,12 +123,13 @@ typedef void    (*SubstituteFontFunc)(void *priv, const char *name,
  * fallbacks.
  *
  * \param priv font provider private data
+ * \param family original font family name (try matching a similar font)
  * \param codepoint Unicode codepoint (UTF-32)
  * \return output font family, allocated with malloc(), must be freed
  *         by caller.
  */
 typedef char   *(*GetFallbackFunc)(void *priv,
-                                   ASS_FontProviderMetaData *meta,
+                                   const char *family,
                                    uint32_t codepoint);
 
 typedef struct font_provider_funcs {
