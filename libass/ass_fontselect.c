@@ -514,8 +514,9 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     };
 
     // get a list of substitutes if applicable, and use it for matching
-    if (default_provider && default_provider->funcs.subst_font) {
-        default_provider->funcs.subst_font(default_provider->priv, family_trim, &meta);
+    if (default_provider && default_provider->funcs.get_substitutions) {
+        default_provider->funcs.get_substitutions(default_provider->priv,
+                                                  family_trim, &meta);
     }
     if (!meta.n_fullname) {
         meta = default_meta;
@@ -634,13 +635,13 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
                     family, bold, italic, res, *index, *postscript_name);
     }
 
-    if (!res && default_provider && default_provider->funcs.fallback_font) {
+    if (!res && default_provider && default_provider->funcs.get_fallback) {
         ASS_FontProviderMetaData meta;
         meta.families = &family;
         meta.weight = bold;
         meta.slant = italic;
         meta.width = 100;
-        char *fallback_family = default_provider->funcs.fallback_font(
+        char *fallback_family = default_provider->funcs.get_fallback(
                 default_provider->priv, &meta, code);
 
         if (fallback_family) {

@@ -628,13 +628,11 @@ static void scan_fonts(IDWriteFactory *factory,
  * specified task
  */
 static ASS_FontProviderFuncs directwrite_callbacks = {
-    get_data,
-    check_glyph,
-    destroy_font,
-    destroy_provider,
-    NULL,
-    NULL,
-    get_fallback
+    .get_data           = get_data,
+    .check_glyph        = check_glyph,
+    .destroy_font       = destroy_font,
+    .destroy_provider   = destroy_provider,
+    .get_fallback       = get_fallback,
 };
 
 typedef HRESULT WINAPI (*DWriteCreateFactoryFn)(

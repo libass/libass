@@ -242,13 +242,10 @@ cleanup:
 }
 
 static ASS_FontProviderFuncs fontconfig_callbacks = {
-    NULL,
-    check_glyph,
-    NULL,
-    destroy,
-    NULL,
-    get_substitutions,
-    get_fallback
+    .check_glyph        = check_glyph,
+    .destroy_provider   = destroy,
+    .get_substitutions  = get_substitutions,
+    .get_fallback       = get_fallback,
 };
 
 ASS_FontProvider *

@@ -122,23 +122,23 @@ typedef void    (*SubstituteFontFunc)(void *priv, const char *name,
  * Note that fontselect uses the font provider set as default to determine
  * fallbacks.
  *
- * \param font_priv font private data
+ * \param priv font provider private data
  * \param codepoint Unicode codepoint (UTF-32)
  * \return output font family, allocated with malloc(), must be freed
  *         by caller.
  */
-typedef char   *(*GetFallbackFunc)(void *font_priv,
+typedef char   *(*GetFallbackFunc)(void *priv,
                                    ASS_FontProviderMetaData *meta,
                                    uint32_t codepoint);
 
 typedef struct font_provider_funcs {
-    GetDataFunc     get_data;       /* optional/mandatory */
-    CheckGlyphFunc  check_glyph;    /* mandatory */
-    DestroyFontFunc destroy_font;   /* optional */
-    DestroyProviderFunc destroy_provider; /* optional */
-    MatchFontsFunc  match_fonts;    /* optional */
-    SubstituteFontFunc subst_font;  /* optional */
-    GetFallbackFunc fallback_font;  /* optional */
+    GetDataFunc         get_data;               /* optional/mandatory */
+    CheckGlyphFunc      check_glyph;            /* mandatory */
+    DestroyFontFunc     destroy_font;           /* optional */
+    DestroyProviderFunc destroy_provider;       /* optional */
+    MatchFontsFunc      match_fonts;            /* optional */
+    SubstituteFontFunc  get_substitutions;      /* optional */
+    GetFallbackFunc     get_fallback;           /* optional */
 } ASS_FontProviderFuncs;
 
 /*

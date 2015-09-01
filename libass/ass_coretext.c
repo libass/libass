@@ -287,17 +287,12 @@ static char *get_fallback(void *priv, ASS_FontProviderMetaData *meta,
 }
 
 static ASS_FontProviderFuncs coretext_callbacks = {
-    NULL,
-    check_glyph,
-    destroy_font,
-    NULL,
-#if CT_FONTS_EAGER_LOAD
-    NULL,
-#else
-    match_fonts,
+    .check_glyph        = check_glyph,
+    .destroy_font       = destroy_font,
+#if !CT_FONTS_EAGER_LOAD
+    .match_fonts        = match_fonts,
 #endif
-    NULL,
-    get_fallback
+    .get_fallback       = get_fallback,
 };
 
 ASS_FontProvider *
