@@ -477,40 +477,18 @@ static int check_glyph(ASS_FontInfo *fi, uint32_t code)
     return provider->funcs.check_glyph(fi->priv, code);
 }
 
-static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
-                         const char *family, unsigned bold, unsigned italic,
-                         int *index, char **postscript_name, int *uid,
-                         ASS_FontStream *stream, uint32_t code)
+static char *
+find_font(ASS_FontSelector *priv, ASS_Library *library,
+          ASS_FontProviderMetaData meta, unsigned bold, unsigned italic,
+          int *index, char **postscript_name, int *uid, ASS_FontStream *stream,
+          uint32_t code, bool *name_match)
 {
     ASS_FontInfo req = {0};
-    char *family_trim = strdup_trimmed(family);
-    ASS_FontProvider *default_provider = priv->default_provider;
-    ASS_FontProviderMetaData meta = {0};
     ASS_FontInfo *selected = NULL;
-
-    if (family_trim == NULL)
-        return NULL;
-
-    if (default_provider && default_provider->funcs.match_fonts)
-        default_provider->funcs.match_fonts(library, default_provider, family_trim);
 
     // do we actually have any fonts?
     if (!priv->n_font)
         return NULL;
-
-    ASS_FontProviderMetaData default_meta = {
-        .n_fullname = 1,
-        .fullnames  = &family_trim,
-    };
-
-    // get a list of substitutes if applicable, and use it for matching
-    if (default_provider && default_provider->funcs.get_substitutions) {
-        default_provider->funcs.get_substitutions(default_provider->priv,
-                                                  family_trim, &meta);
-    }
-    if (!meta.n_fullname) {
-        meta = default_meta;
-    }
 
     // fill font request
     req.slant   = italic;
@@ -530,11 +508,13 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                 // If there's a family match, compare font attributes
                 // to determine best match in that particular family
                 score = font_attributes_similarity(font, &req);
+                *name_match = true;
             } else if (matches_fullname(font, fullname)) {
                 // If we don't have any match, compare fullnames against request
                 // if there is a match now, assign lowest score possible. This means
                 // the font should be chosen instantly, without further search.
                 score = 0;
+                *name_match = true;
             }
 
             // Consider updating idx if score is better than current minimum
@@ -587,6 +567,54 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
             result = strdup(selected->path);
     }
 
+    return result;
+}
+
+static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
+                         const char *family, unsigned bold, unsigned italic,
+                         int *index, char **postscript_name, int *uid,
+                         ASS_FontStream *stream, uint32_t code)
+{
+    ASS_FontProvider *default_provider = priv->default_provider;
+    ASS_FontProviderMetaData meta = {0};
+    char *family_trim = strdup_trimmed(family);
+    char *result = NULL;
+    bool name_match = false;
+
+    if (family_trim == NULL)
+        return NULL;
+
+    ASS_FontProviderMetaData default_meta = {
+        .n_fullname = 1,
+        .fullnames  = &family_trim,
+    };
+
+    // Get a list of substitutes if applicable, and use it for matching.
+    if (default_provider && default_provider->funcs.get_substitutions) {
+        default_provider->funcs.get_substitutions(default_provider->priv,
+                                                  family_trim, &meta);
+    }
+
+    if (!meta.n_fullname) {
+        meta = default_meta;
+    }
+
+    result = find_font(priv, library, meta, bold, italic, index,
+                       postscript_name, uid, stream, code, &name_match);
+
+    // If no matching font was found, it might not exist in the font list
+    // yet. Call the match_fonts callback to fill in the missing fonts
+    // on demand, and retry the search for a match.
+    if (result == NULL && name_match == false && default_provider &&
+            default_provider->funcs.match_fonts) {
+        // FIXME: what if substitution adds more than one alias?
+        default_provider->funcs.match_fonts(library, default_provider,
+                                            meta.fullnames[0]);
+        result = find_font(priv, library, meta, bold, italic, index,
+                           postscript_name, uid, stream, code, &name_match);
+    }
+
+    // cleanup
     free(family_trim);
     if (meta.fullnames != default_meta.fullnames) {
         for (int i = 0; i < meta.n_fullname; i++)
