@@ -177,6 +177,17 @@ static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
     if (!fc->fallbacks || fc->fallbacks->nfont == 0)
         return NULL;
 
+    if (codepoint == 0) {
+        char *family = NULL;
+        result = FcPatternGetString(fc->fallbacks->fonts[0], FC_FAMILY, 0,
+                (FcChar8 **)&family);
+        if (result == FcResultMatch) {
+            return strdup(family);
+        } else {
+            return NULL;
+        }
+    }
+
     // fallback_chars is the union of all available charsets, so
     // if we can't find the glyph in there, the system does not
     // have any font to render this glyph.
@@ -194,8 +205,11 @@ static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
             char *family = NULL;
             result = FcPatternGetString(pattern, FC_FAMILY, 0,
                     (FcChar8 **)&family);
-            family = strdup(family);
-            return family;
+            if (result == FcResultMatch) {
+                return strdup(family);
+            } else {
+                return NULL;
+            }
         }
     }
 
