@@ -296,7 +296,10 @@ ASS_Drawing *ass_drawing_new(ASS_Library *lib, FT_Library ftlib)
     drawing->scale_x = 1.;
     drawing->scale_y = 1.;
 
-    outline_alloc(&drawing->outline, GLYPH_INITIAL_POINTS, GLYPH_INITIAL_CONTOURS);
+    if (!outline_alloc(&drawing->outline, GLYPH_INITIAL_POINTS, GLYPH_INITIAL_CONTOURS)) {
+        free(drawing);
+        return NULL;
+    }
     return drawing;
 }
 
