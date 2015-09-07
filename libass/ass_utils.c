@@ -23,12 +23,11 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
-#include <strings.h>
-#include <ctype.h>
 
 #include "ass_library.h"
 #include "ass.h"
 #include "ass_utils.h"
+#include "ass_string.h"
 
 #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
 
@@ -232,7 +231,7 @@ static int mystrtou32_modulo(char **p, int base, uint32_t *res)
     else if (**p == '-')
         sign = -1, ++*p;
 
-    if (base == 16 && !strncasecmp(*p, "0x", 2))
+    if (base == 16 && !ass_strncasecmp(*p, "0x", 2))
         *p += 2;
 
     if (read_digits(p, base, res)) {
@@ -271,7 +270,7 @@ uint32_t parse_color_header(char *str)
     uint32_t color = 0;
     int base;
 
-    if (!strncasecmp(str, "&h", 2) || !strncasecmp(str, "0x", 2)) {
+    if (!ass_strncasecmp(str, "&h", 2) || !ass_strncasecmp(str, "0x", 2)) {
         str += 2;
         base = 16;
     } else
@@ -285,7 +284,7 @@ uint32_t parse_color_header(char *str)
 char parse_bool(char *str)
 {
     skip_spaces(&str);
-    return !strncasecmp(str, "yes", 3) || strtol(str, NULL, 10) > 0;
+    return !ass_strncasecmp(str, "yes", 3) || strtol(str, NULL, 10) > 0;
 }
 
 int parse_ycbcr_matrix(char *str)
@@ -305,23 +304,23 @@ int parse_ycbcr_matrix(char *str)
     memcpy(buffer, str, n);
     buffer[n] = '\0';
 
-    if (!strcasecmp(buffer, "none"))
+    if (!ass_strcasecmp(buffer, "none"))
         return YCBCR_NONE;
-    if (!strcasecmp(buffer, "tv.601"))
+    if (!ass_strcasecmp(buffer, "tv.601"))
         return YCBCR_BT601_TV;
-    if (!strcasecmp(buffer, "pc.601"))
+    if (!ass_strcasecmp(buffer, "pc.601"))
         return YCBCR_BT601_PC;
-    if (!strcasecmp(buffer, "tv.709"))
+    if (!ass_strcasecmp(buffer, "tv.709"))
         return YCBCR_BT709_TV;
-    if (!strcasecmp(buffer, "pc.709"))
+    if (!ass_strcasecmp(buffer, "pc.709"))
         return YCBCR_BT709_PC;
-    if (!strcasecmp(buffer, "tv.240m"))
+    if (!ass_strcasecmp(buffer, "tv.240m"))
         return YCBCR_SMPTE240M_TV;
-    if (!strcasecmp(buffer, "pc.240m"))
+    if (!ass_strcasecmp(buffer, "pc.240m"))
         return YCBCR_SMPTE240M_PC;
-    if (!strcasecmp(buffer, "tv.fcc"))
+    if (!ass_strcasecmp(buffer, "tv.fcc"))
         return YCBCR_FCC_TV;
-    if (!strcasecmp(buffer, "pc.fcc"))
+    if (!ass_strcasecmp(buffer, "pc.fcc"))
         return YCBCR_FCC_PC;
     return YCBCR_UNKNOWN;
 }
@@ -345,8 +344,8 @@ char *strdup_trimmed(const char *str)
     int right = strlen(str) - 1;
     char *out = NULL;
 
-    while (isspace(str[left])) left++;
-    while (right > left && isspace(str[right])) right--;
+    while (ass_isspace(str[left])) left++;
+    while (right > left && ass_isspace(str[right])) right--;
 
     out = calloc(1, right-left+2);
 
@@ -435,7 +434,7 @@ int lookup_style(ASS_Track *track, char *name)
         ++name;
     // VSFilter then normalizes the case of "Default"
     // (only in contexts where this function is called)
-    if (strcasecmp(name, "Default") == 0)
+    if (ass_strcasecmp(name, "Default") == 0)
         name = "Default";
     for (i = track->n_styles - 1; i >= 0; --i) {
         if (strcmp(track->styles[i].Name, name) == 0)
@@ -491,7 +490,7 @@ void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
     for (i = 0; i < langcnt; i++) {
         const char *tmp;
 
-        if (strcasecmp(languages[i], preferred_language) != 0)
+        if (ass_strcasecmp(languages[i], preferred_language) != 0)
             continue;
         analyser = enca_analyser_alloc(languages[i]);
         encoding = enca_analyse_const(analyser, buffer, buflen);

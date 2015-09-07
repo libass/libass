@@ -24,7 +24,6 @@
 #include <limits.h>
 #include <assert.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <inttypes.h>
@@ -45,6 +44,7 @@
 #include "ass_coretext.h"
 #include "ass_directwrite.h"
 #include "ass_font.h"
+#include "ass_string.h"
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 #define MAX_FULLNAME 100
@@ -408,7 +408,7 @@ void ass_font_provider_free(ASS_FontProvider *provider)
 static bool matches_family_name(ASS_FontInfo *f, const char *family)
 {
     for (int i = 0; i < f->n_family; i++) {
-        if (strcasecmp(f->families[i], family) == 0)
+        if (ass_strcasecmp(f->families[i], family) == 0)
             return true;
     }
     return false;
@@ -420,7 +420,7 @@ static bool matches_family_name(ASS_FontInfo *f, const char *family)
 static bool matches_fullname(ASS_FontInfo *f, const char *fullname)
 {
     for (int i = 0; i < f->n_fullname; i++) {
-        if (strcasecmp(f->fullnames[i], fullname) == 0)
+        if (ass_strcasecmp(f->fullnames[i], fullname) == 0)
             return true;
     }
     return false;
@@ -1054,7 +1054,7 @@ void ass_map_font(const ASS_FontMapping *map, int len, const char *name,
                   ASS_FontProviderMetaData *meta)
 {
     for (int i = 0; i < len; i++) {
-        if (strcasecmp(map[i].from, name) == 0) {
+        if (ass_strcasecmp(map[i].from, name) == 0) {
             meta->fullnames = calloc(1, sizeof(char *));
             if (meta->fullnames) {
                 meta->fullnames[0] = strdup(map[i].to);
