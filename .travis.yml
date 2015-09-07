@@ -7,6 +7,7 @@ env:
 
 os:
   - linux
+  - osx
 
 branches:
   only:
@@ -14,7 +15,7 @@ branches:
     - ci
     - coverity_scan
 
-before_install: sudo apt-get install -y fontconfig libfribidi-dev yasm && ./autogen.sh && ./configure
+before_install: (sudo apt-get install -y fontconfig libfribidi-dev yasm || brew install fontconfig freetype fribidi yasm) && ./autogen.sh && ./configure
 script:
   - make -j4
 
