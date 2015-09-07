@@ -1031,10 +1031,6 @@ void ass_fontselect_free(ASS_FontSelector *priv)
     if (priv->embedded_provider)
         ass_font_provider_free(priv->embedded_provider);
 
-    // XXX: not quite sure, maybe we should track all registered
-    // providers and free them right here. or should that be the
-    // responsibility of the library user?
-
     free(priv->font_infos);
     free(priv->path_default);
     free(priv->family_default);
