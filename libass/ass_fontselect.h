@@ -195,18 +195,8 @@ struct ass_font_mapping {
  * \param name font name to map from
  * \param meta metadata struct, mapped fonts will be stored into this
  */
-inline void ass_map_font(const ASS_FontMapping *map, int len, const char *name,
-                         ASS_FontProviderMetaData *meta)
-{
-    for (int i = 0; i < len; i++) {
-        if (strcasecmp(map[i].from, name) == 0) {
-            meta->n_fullname = 1;
-            meta->fullnames = calloc(1, sizeof(char *));
-            meta->fullnames[0] = strdup(map[i].to);
-            return;
-        }
-    }
-}
+void ass_map_font(const ASS_FontMapping *map, int len, const char *name,
+                  ASS_FontProviderMetaData *meta);
 
 ASS_FontSelector *
 ass_fontselect_init(ASS_Library *library,

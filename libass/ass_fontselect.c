@@ -1045,3 +1045,16 @@ void ass_fontselect_free(ASS_FontSelector *priv)
 
     free(priv);
 }
+
+void ass_map_font(const ASS_FontMapping *map, int len, const char *name,
+                  ASS_FontProviderMetaData *meta)
+{
+    for (int i = 0; i < len; i++) {
+        if (strcasecmp(map[i].from, name) == 0) {
+            meta->n_fullname = 1;
+            meta->fullnames = calloc(1, sizeof(char *));
+            meta->fullnames[0] = strdup(map[i].to);
+            return;
+        }
+    }
+}
