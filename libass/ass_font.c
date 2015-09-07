@@ -153,7 +153,6 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
         if (font->faces_uid[i] == uid) {
             ass_msg(font->library, MSGL_INFO,
                     "Got a font face that already is available! Skipping.");
-            free(path);
             return i;
         }
     }
@@ -178,7 +177,6 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
         if (error) {
             ass_msg(font->library, MSGL_WARN,
                     "Error opening memory font: '%s'", path);
-            free(path);
             return -1;
         }
 
@@ -187,7 +185,6 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
         if (error) {
             ass_msg(font->library, MSGL_WARN,
                     "Error opening font: '%s', %d", path, index);
-            free(path);
             return -1;
         }
 
@@ -201,7 +198,6 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
                 if (error) {
                     ass_msg(font->library, MSGL_WARN,
                             "Error opening font: '%s', %d", path, i);
-                    free(path);
                     return -1;
                 }
 
@@ -217,7 +213,6 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     font->faces[font->n_faces] = face;
     font->faces_uid[font->n_faces++] = uid;
     ass_face_set_size(face, font->size);
-    free(path);
     return font->n_faces - 1;
 }
 

@@ -477,40 +477,18 @@ static int check_glyph(ASS_FontInfo *fi, uint32_t code)
     return provider->funcs.check_glyph(fi->priv, code);
 }
 
-static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
-                         const char *family, unsigned bold, unsigned italic,
-                         int *index, char **postscript_name, int *uid,
-                         ASS_FontStream *stream, uint32_t code)
+static char *
+find_font(ASS_FontSelector *priv, ASS_Library *library,
+          ASS_FontProviderMetaData meta, unsigned bold, unsigned italic,
+          int *index, char **postscript_name, int *uid, ASS_FontStream *stream,
+          uint32_t code, bool *name_match)
 {
     ASS_FontInfo req = {0};
-    char *family_trim = strdup_trimmed(family);
-    ASS_FontProvider *default_provider = priv->default_provider;
-    ASS_FontProviderMetaData meta = {0};
     ASS_FontInfo *selected = NULL;
-
-    if (family_trim == NULL)
-        return NULL;
-
-    if (default_provider && default_provider->funcs.match_fonts)
-        default_provider->funcs.match_fonts(library, default_provider, family_trim);
 
     // do we actually have any fonts?
     if (!priv->n_font)
         return NULL;
-
-    ASS_FontProviderMetaData default_meta = {
-        .n_fullname = 1,
-        .fullnames  = &family_trim,
-    };
-
-    // get a list of substitutes if applicable, and use it for matching
-    if (default_provider && default_provider->funcs.get_substitutions) {
-        default_provider->funcs.get_substitutions(default_provider->priv,
-                                                  family_trim, &meta);
-    }
-    if (!meta.n_fullname) {
-        meta = default_meta;
-    }
 
     // fill font request
     req.slant   = italic;
@@ -530,11 +508,13 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                 // If there's a family match, compare font attributes
                 // to determine best match in that particular family
                 score = font_attributes_similarity(font, &req);
+                *name_match = true;
             } else if (matches_fullname(font, fullname)) {
                 // If we don't have any match, compare fullnames against request
                 // if there is a match now, assign lowest score possible. This means
                 // the font should be chosen instantly, without further search.
                 score = 0;
+                *name_match = true;
             }
 
             // Consider updating idx if score is better than current minimum
@@ -580,13 +560,68 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
             ASS_FontProvider *provider = selected->provider;
             stream->func = provider->funcs.get_data;
             stream->priv = selected->priv;
-            // FIXME: we should define a default family name in some way,
-            // possibly the first (or last) English name
-            result = strdup(selected->families[0]);
+            // Prefer PostScript name because it is unique. This is only
+            // used for display purposes so it doesn't matter that much,
+            // though.
+            if (selected->postscript_name)
+                result = selected->postscript_name;
+            else
+                result = selected->families[0];
         } else
-            result = strdup(selected->path);
+            result = selected->path;
     }
 
+    return result;
+}
+
+static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
+                         const char *family, unsigned bold, unsigned italic,
+                         int *index, char **postscript_name, int *uid,
+                         ASS_FontStream *stream, uint32_t code)
+{
+    ASS_FontProvider *default_provider = priv->default_provider;
+    ASS_FontProviderMetaData meta = {0};
+    char *family_trim = strdup_trimmed(family);
+    char *result = NULL;
+    bool name_match = false;
+
+    if (family_trim == NULL)
+        return NULL;
+
+    ASS_FontProviderMetaData default_meta = {
+        .n_fullname = 1,
+        .fullnames  = &family_trim,
+    };
+
+    // Get a list of substitutes if applicable, and use it for matching.
+    if (default_provider && default_provider->funcs.get_substitutions) {
+        default_provider->funcs.get_substitutions(default_provider->priv,
+                                                  family_trim, &meta);
+    }
+
+    if (!meta.n_fullname) {
+        meta = default_meta;
+    }
+
+    result = find_font(priv, library, meta, bold, italic, index,
+                       postscript_name, uid, stream, code, &name_match);
+
+    // If no matching font was found, it might not exist in the font list
+    // yet. Call the match_fonts callback to fill in the missing fonts
+    // on demand, and retry the search for a match.
+    if (result == NULL && name_match == false && default_provider &&
+            default_provider->funcs.match_fonts) {
+        // TODO: consider changing the API to make more efficient
+        // implementations possible.
+        for (int i = 0; i < meta.n_fullname; i++) {
+            default_provider->funcs.match_fonts(library, default_provider,
+                                                meta.fullnames[i]);
+        }
+        result = find_font(priv, library, meta, bold, italic, index,
+                           postscript_name, uid, stream, code, &name_match);
+    }
+
+    // cleanup
     free(family_trim);
     if (meta.fullnames != default_meta.fullnames) {
         for (int i = 0; i < meta.n_fullname; i++)
@@ -637,7 +672,7 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
         if (!search_family || !*search_family)
             search_family = "Arial";
         char *fallback_family = default_provider->funcs.get_fallback(
-                default_provider->priv, family, code);
+                default_provider->priv, search_family, code);
 
         if (fallback_family) {
             res = select_font(priv, library, fallback_family, bold, italic,
@@ -999,10 +1034,6 @@ void ass_fontselect_free(ASS_FontSelector *priv)
         ass_font_provider_free(priv->default_provider);
     if (priv->embedded_provider)
         ass_font_provider_free(priv->embedded_provider);
-
-    // XXX: not quite sure, maybe we should track all registered
-    // providers and free them right here. or should that be the
-    // responsibility of the library user?
 
     free(priv->font_infos);
     free(priv->path_default);
