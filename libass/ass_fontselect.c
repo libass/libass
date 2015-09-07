@@ -1051,9 +1051,12 @@ void ass_map_font(const ASS_FontMapping *map, int len, const char *name,
 {
     for (int i = 0; i < len; i++) {
         if (strcasecmp(map[i].from, name) == 0) {
-            meta->n_fullname = 1;
             meta->fullnames = calloc(1, sizeof(char *));
-            meta->fullnames[0] = strdup(map[i].to);
+            if (meta->fullnames) {
+                meta->fullnames[0] = strdup(map[i].to);
+                if (meta->fullnames[0])
+                    meta->n_fullname = 1;
+            }
             return;
         }
     }
