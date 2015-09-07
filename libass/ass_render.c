@@ -1785,7 +1785,7 @@ static int is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
 static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
 {
     if (!(info->filter.flags & FILTER_NONZERO_SHADOW)) {
-        if (info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
+        if (info->bm && info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
             fix_outline(info->bm, info->bm_o);
         } else if (info->bm_o && !(info->filter.flags & FILTER_NONZERO_BORDER)) {
             ass_free_bitmap(info->bm_o);
@@ -1795,7 +1795,7 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_pr
     }
 
     // Create shadow and fix outline as needed
-    if (info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
+    if (info->bm && info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
         info->bm_s = copy_bitmap(render_priv->engine, info->bm_o);
         fix_outline(info->bm, info->bm_o);
     } else if (info->bm_o && (info->filter.flags & FILTER_NONZERO_BORDER)) {
