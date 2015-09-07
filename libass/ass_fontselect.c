@@ -560,9 +560,13 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
             ASS_FontProvider *provider = selected->provider;
             stream->func = provider->funcs.get_data;
             stream->priv = selected->priv;
-            // FIXME: we should define a default family name in some way,
-            // possibly the first (or last) English name
-            result = strdup(selected->families[0]);
+            // Prefer PostScript name because it is unique. This is only
+            // used for display purposes so it doesn't matter that much,
+            // though.
+            if (selected->postscript_name)
+                result = strdup(selected->postscript_name);
+            else
+                result = strdup(selected->families[0]);
         } else
             result = strdup(selected->path);
     }
