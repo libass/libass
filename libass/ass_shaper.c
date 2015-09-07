@@ -79,7 +79,7 @@ struct ass_shaper_font_data {
  */
 void ass_shaper_info(ASS_Library *lib)
 {
-    ass_msg(lib, MSGL_V, "Shaper: FriBidi "
+    ass_msg(lib, MSGL_INFO, "Shaper: FriBidi "
             FRIBIDI_VERSION " (SIMPLE)"
 #ifdef CONFIG_HARFBUZZ
             " HarfBuzz-ng %s (COMPLEX)", hb_version_string()
