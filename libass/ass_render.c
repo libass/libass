@@ -1803,7 +1803,7 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_pr
     } else if (info->bm_o) {
         info->bm_s = info->bm_o;
         info->bm_o = 0;
-    } else
+    } else if (info->bm)
         info->bm_s = copy_bitmap(render_priv->engine, info->bm);
 
     if (!info->bm_s)
