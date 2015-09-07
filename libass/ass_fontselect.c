@@ -607,9 +607,12 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     // on demand, and retry the search for a match.
     if (result == NULL && name_match == false && default_provider &&
             default_provider->funcs.match_fonts) {
-        // FIXME: what if substitution adds more than one alias?
-        default_provider->funcs.match_fonts(library, default_provider,
-                                            meta.fullnames[0]);
+        // TODO: consider changing the API to make more efficient
+        // implementations possible.
+        for (int i = 0; i < meta.n_fullname; i++) {
+            default_provider->funcs.match_fonts(library, default_provider,
+                                                meta.fullnames[i]);
+        }
         result = find_font(priv, library, meta, bold, italic, index,
                            postscript_name, uid, stream, code, &name_match);
     }
