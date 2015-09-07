@@ -39,6 +39,8 @@ AC_ARG_ENABLE([directwrite], AS_HELP_STRING([--disable-directwrite],
     [disable DirectWrite support (win32 only) @<:@default=check@:>@]))
 AC_ARG_ENABLE([coretext], AS_HELP_STRING([--disable-coretext],
     [disable CoreText support (OSX only) @<:@default=check@:>@]))
+AC_ARG_ENABLE([require-system-font-provider], AS_HELP_STRING([--disable-require-system-font-provider],
+    [allow compilation even if no system font provider was found @<:@default=enabled:>@]))
 AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
     [disable HarfBuzz support @<:@default=check@:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
@@ -145,7 +147,7 @@ PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.4.2, [
     LIBS="$LIBS $FONTCONFIG_LIBS"
     AC_DEFINE(CONFIG_FONTCONFIG, 1, [found fontconfig via pkg-config])
 	fontconfig=true
-    ])
+    ], [fontconfig=false])
 fi
 
 if test x$enable_coretext != xno; then
@@ -236,6 +238,17 @@ if test x$harfbuzz = xtrue; then
 fi
 if test x$directwrite = xtrue; then
     pkg_libs="${pkg_libs} -ldwrite"
+fi
+
+if test x$enable_require_system_font_provider != xno &&
+   test x$fontconfig != xtrue &&
+   test x$directwrite != xtrue &&
+   test x$coretext != xtrue
+then
+    AC_MSG_ERROR([\
+Either DirectWrite (on Windows), CoreText (on OSX), or Fontconfig\
+(Linux, other) is required. If you really want to compile without\
+a system font provider, add --disable-require-system-font-provider])
 fi
 
 AC_SUBST([PKG_LIBS_DEFAULT], [$(test x$enable_shared = xno && echo ${pkg_libs})])
