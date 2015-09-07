@@ -937,19 +937,20 @@ struct font_constructors {
     ASS_DefaultFontProvider id;
     ASS_FontProvider *(*constructor)(ASS_Library *, ASS_FontSelector *,
                                      const char *);
+    const char *name;
 };
 
 struct font_constructors font_constructors[] = {
 #ifdef CONFIG_CORETEXT
-    { ASS_FONTPROVIDER_CORETEXT,   &ass_coretext_add_provider },
+    { ASS_FONTPROVIDER_CORETEXT,        &ass_coretext_add_provider,     "coretext"},
 #endif
 #ifdef CONFIG_DIRECTWRITE
-    { ASS_FONTPROVIDER_DIRECTWRITE, &ass_directwrite_add_provider },
+    { ASS_FONTPROVIDER_DIRECTWRITE,     &ass_directwrite_add_provider,  "directwrite"},
 #endif
 #ifdef CONFIG_FONTCONFIG
-    { ASS_FONTPROVIDER_FONTCONFIG, &ass_fontconfig_add_provider },
+    { ASS_FONTPROVIDER_FONTCONFIG,      &ass_fontconfig_add_provider,   "fontconfig"},
 #endif
-    { ASS_FONTPROVIDER_NONE, NULL },
+    { ASS_FONTPROVIDER_NONE, NULL, NULL },
 };
 
 /**
@@ -988,8 +989,11 @@ ass_fontselect_init(ASS_Library *library,
                 dfp == ASS_FONTPROVIDER_AUTODETECT) {
                 priv->default_provider =
                     font_constructors[i].constructor(library, priv, config);
-                if (priv->default_provider)
+                if (priv->default_provider) {
+                    ass_msg(library, MSGL_INFO, "Using font provider %s",
+                            font_constructors[i].name);
                     break;
+                }
             }
 
         if (!priv->default_provider)
