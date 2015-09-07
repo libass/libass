@@ -289,6 +289,7 @@ ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
         ass_msg(lib, MSGL_FATAL,
                 "No valid fontconfig configuration found!");
         FcConfigDestroy(fc->config);
+        free(fc);
         return NULL;
     }
 
