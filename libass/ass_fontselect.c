@@ -682,7 +682,7 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
     }
 
     if (!res && priv->path_default) {
-        res = strdup(priv->path_default);
+        res = priv->path_default;
         *index = priv->index_default;
         ass_msg(library, MSGL_WARN, "fontselect: Using default font: "
                 "(%s, %d, %d) -> %s, %d, %s", family, bold, italic,
