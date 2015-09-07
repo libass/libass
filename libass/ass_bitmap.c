@@ -60,12 +60,16 @@
 void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
                     double blur_radius, Bitmap *bm_g, Bitmap *bm_o)
 {
+    bool blur_g = !bm_o || opaque_box;
+    if (blur_g && !bm_g)
+        return;
+
     // Apply gaussian blur
     double r2 = blur_radius * blur_radius / log(256);
     if (r2 > 0.001) {
         if (bm_o)
             ass_gaussian_blur(engine, bm_o, r2);
-        if (!bm_o || opaque_box)
+        if (blur_g)
             ass_gaussian_blur(engine, bm_g, r2);
     }
 
@@ -74,7 +78,7 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
         size_t size_o = 0, size_g = 0;
         if (bm_o)
             size_o = sizeof(uint16_t) * bm_o->stride * 2;
-        if (!bm_o || opaque_box)
+        if (blur_g)
             size_g = sizeof(uint16_t) * bm_g->stride * 2;
         size_t size = FFMAX(size_o, size_g);
         uint16_t *tmp = size ? ass_aligned_alloc(32, size) : NULL;
@@ -99,7 +103,7 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
                 engine->be_blur(buf, w, h, stride, tmp);
             }
         }
-        if (!bm_o || opaque_box) {
+        if (blur_g) {
             unsigned passes = be;
             unsigned w = bm_g->w;
             unsigned h = bm_g->h;
