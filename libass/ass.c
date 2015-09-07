@@ -1031,7 +1031,7 @@ out:
  * \param bufsize out: file size
  * \return pointer to file contents. Caller is responsible for its deallocation.
  */
-static char *read_file(ASS_Library *library, char *fname, size_t *bufsize)
+char *read_file(ASS_Library *library, char *fname, size_t *bufsize)
 {
     int res;
     long sz;

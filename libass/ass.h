@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
+ * Copyright (C) 2011 Grigori Goronzy <greg@chown.ath.cx>
  *
  * This file is part of libass.
  *
@@ -173,6 +174,24 @@ typedef enum {
  * \return library version
  */
 int ass_library_version(void);
+
+/**
+ * \brief Default Font provider to load fonts in libass' database
+ *
+ * NONE don't use any default font provider for font lookup
+ * AUTODETECT use the first available font provider
+ * CORETEXT force a CoreText based font provider (OS X only)
+ * FONTCONFIG force a Fontconfig based font provider
+ *
+ * libass uses the best shaper available by default.
+ */
+typedef enum {
+    ASS_FONTPROVIDER_NONE       = 0,
+    ASS_FONTPROVIDER_AUTODETECT = 1,
+    ASS_FONTPROVIDER_CORETEXT,
+    ASS_FONTPROVIDER_FONTCONFIG,
+    ASS_FONTPROVIDER_DIRECTWRITE,
+} ASS_DefaultFontProvider;
 
 /**
  * \brief Initialize the library.
@@ -383,11 +402,29 @@ void ass_set_line_spacing(ASS_Renderer *priv, double line_spacing);
 void ass_set_line_position(ASS_Renderer *priv, double line_position);
 
 /**
+ * \brief Get the list of available font providers. The output array
+ * is allocated with malloc and can be released with free(). If an
+ * allocation error occurs, size is set to (size_t)-1.
+ * \param priv library handle
+ * \param providers output, list of default providers (malloc'ed array)
+ * \param size output, number of providers
+ * \return list of available font providers (user owns the returned array)
+ */
+void ass_get_available_font_providers(ASS_Library *priv,
+                                      ASS_DefaultFontProvider **providers,
+                                      size_t *size);
+
+/**
  * \brief Set font lookup defaults.
  * \param default_font path to default font to use. Must be supplied if
  * fontconfig is disabled or unavailable.
  * \param default_family fallback font family for fontconfig, or NULL
- * \param fc whether to use fontconfig
+ * \param dfp which font provider to use (one of ASS_DefaultFontProvider). In
+ * older libass version, this could be 0 or 1, where 1 enabled fontconfig.
+ * Newer relases also accept 0 (ASS_FONTPROVIDER_NONE) and 1
+ * (ASS_FONTPROVIDER_AUTODETECT), which is almost backward-compatible.
+ * If the requested fontprovider does not exist or fails to initialize, the
+ * behavior is the same as when ASS_FONTPROVIDER_NONE was passed.
  * \param config path to fontconfig configuration file, or NULL.  Only relevant
  * if fontconfig is used.
  * \param update whether fontconfig cache should be built/updated now.  Only
@@ -396,8 +433,8 @@ void ass_set_line_position(ASS_Renderer *priv, double line_position);
  * NOTE: font lookup must be configured before an ASS_Renderer can be used.
  */
 void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
-                   const char *default_family, int fc, const char *config,
-                   int update);
+                   const char *default_family, int dfp,
+                   const char *config, int update);
 
 /**
  * \brief Set selective style override mode.
@@ -426,8 +463,8 @@ void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits);
 void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style);
 
 /**
- * \brief Update/build font cache.  This needs to be called if it was
- * disabled when ass_set_fonts was set.
+ * \brief This is a stub and does nothing. Old documentation: Update/build font
+ * cache.  This needs to be called if it was disabled when ass_set_fonts was set.
  *
  * \param priv renderer handle
  * \return success

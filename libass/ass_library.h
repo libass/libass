@@ -38,4 +38,6 @@ struct ass_library {
     void *msg_callback_data;
 };
 
+char *read_file(struct ass_library *library, char *fname, size_t *bufsize);
+
 #endif                          /* LIBASS_LIBRARY_H */

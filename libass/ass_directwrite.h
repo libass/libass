@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Grigori Goronzy <greg@chown.ath.cx>
+ * Copyright (C) 2015 Stephan Vedder <stephan.vedder@gmail.com>
  *
  * This file is part of libass.
  *
@@ -21,15 +21,11 @@
 #include "ass_types.h"
 #include "ass_fontselect.h"
 
-#ifndef ASS_FONTCONFIG_H
-#define ASS_FONTCONFIG_H
-
-#ifdef CONFIG_FONTCONFIG
+#ifndef ASS_DIRECTWRITE_H
+#define ASS_DIRECTWRITE_H
 
 ASS_FontProvider *
-ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
-                            const char *config);
-
-#endif
+ass_directwrite_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
+                          const char *config);
 
 #endif

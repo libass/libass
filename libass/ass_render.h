@@ -38,7 +38,7 @@ typedef struct ass_shaper ASS_Shaper;
 #include "ass_bitmap.h"
 #include "ass_cache.h"
 #include "ass_utils.h"
-#include "ass_fontconfig.h"
+#include "ass_fontselect.h"
 #include "ass_library.h"
 #include "ass_drawing.h"
 #include "ass_bitmap.h"
@@ -294,7 +294,7 @@ typedef struct {
 struct ass_renderer {
     ASS_Library *library;
     FT_Library ftlibrary;
-    FCInstance *fontconfig_priv;
+    ASS_FontSelector *fontselect;
     ASS_Settings settings;
     int render_id;
     ASS_Shaper *shaper;

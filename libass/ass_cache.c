@@ -43,8 +43,6 @@ static unsigned font_hash(void *buf, size_t len)
     hval = fnv_32a_str(desc->family, FNV1_32A_INIT);
     hval = fnv_32a_buf(&desc->bold, sizeof(desc->bold), hval);
     hval = fnv_32a_buf(&desc->italic, sizeof(desc->italic), hval);
-    hval = fnv_32a_buf(&desc->treat_family_as_pattern,
-            sizeof(desc->treat_family_as_pattern), hval);
     hval = fnv_32a_buf(&desc->vertical, sizeof(desc->vertical), hval);
     return hval;
 }
@@ -58,8 +56,6 @@ static unsigned font_compare(void *key1, void *key2, size_t key_size)
     if (a->bold != b->bold)
         return 0;
     if (a->italic != b->italic)
-        return 0;
-    if (a->treat_family_as_pattern != b->treat_family_as_pattern)
         return 0;
     if (a->vertical != b->vertical)
         return 0;

@@ -31,7 +31,7 @@
 #include "ass.h"
 #include "ass_library.h"
 #include "ass_font.h"
-#include "ass_fontconfig.h"
+#include "ass_fontselect.h"
 #include "ass_utils.h"
 #include "ass_shaper.h"
 
@@ -39,7 +39,7 @@
  * Select a good charmap, prefer Microsoft Unicode charmaps.
  * Otherwise, let FreeType decide.
  */
-static void charmap_magic(ASS_Library *library, FT_Face face)
+void charmap_magic(ASS_Library *library, FT_Face face)
 {
     int i;
     int ms_cmap = -1;
@@ -92,18 +92,6 @@ uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol)
     }
 }
 
-/**
- * \brief find a memory font by name
- */
-static int find_font(ASS_Library *library, char *name)
-{
-    int i;
-    for (i = 0; i < library->num_fontdata; ++i)
-        if (strcasecmp(name, library->fontdata[i].name) == 0)
-            return i;
-    return -1;
-}
-
 static void buggy_font_workaround(FT_Face face)
 {
     // Some fonts have zero Ascender/Descender fields in 'hhea' table.
@@ -123,57 +111,108 @@ static void buggy_font_workaround(FT_Face face)
     }
 }
 
+static unsigned long
+read_stream_font(FT_Stream stream, unsigned long offset, unsigned char *buffer,
+                 unsigned long count)
+{
+    ASS_FontStream *font = (ASS_FontStream *)stream->descriptor.pointer;
+
+    font->func(font->priv, buffer, offset, count);
+    return count;
+}
+
+static void
+close_stream_font(FT_Stream stream)
+{
+    free(stream->descriptor.pointer);
+    free(stream);
+}
+
 /**
  * \brief Select a face with the given charcode and add it to ASS_Font
  * \return index of the new face in font->faces, -1 if failed
  */
-static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
+static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 {
     char *path;
-    int index;
+    char *postscript_name;
+    int i, index, uid, error;
+    ASS_FontStream stream = { NULL, NULL };
     FT_Face face;
-    int error;
-    int mem_idx;
 
     if (font->n_faces == ASS_FONT_MAX_FACES)
         return -1;
 
-    path =
-        fontconfig_select(font->library, fc_priv, font->desc.family,
-                          font->desc.treat_family_as_pattern,
-                          font->desc.bold, font->desc.italic, &index, ch);
+    path = ass_font_select(fontsel, font->library, font , &index,
+            &postscript_name, &uid, &stream, ch);
+
     if (!path)
         return -1;
 
-    mem_idx = find_font(font->library, path);
-    if (mem_idx >= 0) {
-        error =
-            FT_New_Memory_Face(font->ftlibrary,
-                               (unsigned char *) font->library->
-                               fontdata[mem_idx].data,
-                               font->library->fontdata[mem_idx].size, index,
-                               &face);
+    for (i = 0; i < font->n_faces; i++) {
+        if (font->faces_uid[i] == uid) {
+            ass_msg(font->library, MSGL_INFO,
+                    "Got a font face that already is available! Skipping.");
+            return i;
+        }
+    }
+
+    if (stream.func) {
+        FT_Open_Args args;
+        FT_Stream ftstream = calloc(1, sizeof(FT_StreamRec));
+        ASS_FontStream *fs  = calloc(1, sizeof(ASS_FontStream));
+
+        *fs = stream;
+        ftstream->size  = stream.func(stream.priv, NULL, 0, 0);
+        ftstream->read  = read_stream_font;
+        ftstream->close = close_stream_font;
+        ftstream->descriptor.pointer = (void *)fs;
+
+        memset(&args, 0, sizeof(FT_Open_Args));
+        args.flags  = FT_OPEN_STREAM;
+        args.stream = ftstream;
+
+        error = FT_Open_Face(font->ftlibrary, &args, index, &face);
+
         if (error) {
             ass_msg(font->library, MSGL_WARN,
                     "Error opening memory font: '%s'", path);
-            free(path);
             return -1;
         }
+
     } else {
         error = FT_New_Face(font->ftlibrary, path, index, &face);
         if (error) {
             ass_msg(font->library, MSGL_WARN,
                     "Error opening font: '%s', %d", path, index);
-            free(path);
             return -1;
         }
+
+        if (postscript_name && index < 0 && face->num_faces > 0) {
+            // The font provider gave us a post_script name and is not sure
+            // about the face index.. so use the postscript name to find the
+            // correct face_index in the collection!
+            for (int i = 0; face->num_faces; i++) {
+                FT_Done_Face(face);
+                error = FT_New_Face(font->ftlibrary, path, i, &face);
+                if (error) {
+                    ass_msg(font->library, MSGL_WARN,
+                            "Error opening font: '%s', %d", path, i);
+                    return -1;
+                }
+
+                if (strcmp(FT_Get_Postscript_Name(face), postscript_name) == 0)
+                    break;
+            }
+        }
     }
+
     charmap_magic(font->library, face);
     buggy_font_workaround(face);
 
-    font->faces[font->n_faces++] = face;
+    font->faces[font->n_faces] = face;
+    font->faces_uid[font->n_faces++] = uid;
     ass_face_set_size(face, font->size);
-    free(path);
     return font->n_faces - 1;
 }
 
@@ -181,7 +220,7 @@ static int add_face(void *fc_priv, ASS_Font *font, uint32_t ch)
  * \brief Create a new ASS_Font according to "desc" argument
  */
 ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
-                       FT_Library ftlibrary, void *fc_priv,
+                       FT_Library ftlibrary, ASS_FontSelector *fontsel,
                        ASS_FontDesc *desc)
 {
     int error;
@@ -197,7 +236,6 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
     font.shaper_priv = NULL;
     font.n_faces = 0;
     font.desc.family = strdup(desc->family);
-    font.desc.treat_family_as_pattern = desc->treat_family_as_pattern;
     font.desc.bold = desc->bold;
     font.desc.italic = desc->italic;
     font.desc.vertical = desc->vertical;
@@ -206,7 +244,7 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
     font.v.x = font.v.y = 0;
     font.size = 0.;
 
-    error = add_face(fc_priv, &font, 0);
+    error = add_face(fontsel, &font, 0);
     if (error == -1) {
         free(font.desc.family);
         return 0;
@@ -484,8 +522,8 @@ static void ass_glyph_embolden(FT_GlyphSlot slot)
  * Finds a face that has the requested codepoint and returns both face
  * and glyph index.
  */
-int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
-                       int *face_index, int *glyph_index)
+int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
+                       uint32_t symbol, int *face_index, int *glyph_index)
 {
     int index = 0;
     int i;
@@ -519,14 +557,13 @@ int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
             *face_index = i;
     }
 
-#ifdef CONFIG_FONTCONFIG
     if (index == 0) {
         int face_idx;
         ass_msg(font->library, MSGL_INFO,
                 "Glyph 0x%X not found, selecting one more "
                 "font for (%s, %d, %d)", symbol, font->desc.family,
                 font->desc.bold, font->desc.italic);
-        face_idx = *face_index = add_face(fcpriv, font, symbol);
+        face_idx = *face_index = add_face(fontsel, font, symbol);
         if (face_idx >= 0) {
             face = font->faces[face_idx];
             index = FT_Get_Char_Index(face, ass_font_index_magic(face, symbol));
@@ -547,7 +584,7 @@ int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
             }
         }
     }
-#endif
+
     // FIXME: make sure we have a valid face_index. this is a HACK.
     *face_index  = FFMAX(*face_index, 0);
     *glyph_index = index;
@@ -559,9 +596,8 @@ int ass_font_get_index(void *fcpriv, ASS_Font *font, uint32_t symbol,
  * \brief Get a glyph
  * \param ch character code
  **/
-FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
-                            uint32_t ch, int face_index, int index,
-                            ASS_Hinting hinting, int deco)
+FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
+                            int index, ASS_Hinting hinting, int deco)
 {
     int error;
     FT_Glyph glyph;
@@ -597,7 +633,7 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
     }
 
     if (!(face->style_flags & FT_STYLE_FLAG_BOLD) &&
-        (font->desc.bold > 80)) {
+        (font->desc.bold > 400)) {
         ass_glyph_embolden(face->glyph);
     }
     error = FT_Get_Glyph(face->glyph, &glyph);
@@ -671,9 +707,10 @@ void ass_font_free(ASS_Font *font)
     int i;
     if (font->shaper_priv)
         ass_shaper_font_data_free(font->shaper_priv);
-    for (i = 0; i < font->n_faces; ++i)
+    for (i = 0; i < font->n_faces; ++i) {
         if (font->faces[i])
             FT_Done_Face(font->faces[i]);
+    }
     free(font->desc.family);
     free(font);
 }

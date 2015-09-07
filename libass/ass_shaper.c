@@ -733,7 +733,7 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
         if (info->symbol == 0xfffc)
             continue;
         // set size and get glyph index
-        ass_font_get_index(render_priv->fontconfig_priv, info->font,
+        ass_font_get_index(render_priv->fontselect, info->font,
                 info->symbol, &info->face_index, &info->glyph_index);
         // shape runs break on: xbord, ybord, xshad, yshad,
         // all four colors, all four alphas, be, blur, fn, fs,

@@ -24,7 +24,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <strings.h>
-#include <limits.h>
+#include <ctype.h>
 
 #include "ass_library.h"
 #include "ass.h"
@@ -326,12 +326,34 @@ int parse_ycbcr_matrix(char *str)
     return YCBCR_UNKNOWN;
 }
 
-void ass_msg(ASS_Library *priv, int lvl, char *fmt, ...)
+void ass_msg(ASS_Library *priv, int lvl, const char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
     priv->msg_callback(lvl, fmt, va, priv->msg_callback_data);
     va_end(va);
+}
+
+/**
+ * Return a string with spaces trimmed at start and end.
+ * \param str input string
+ * \return output string, can be released with free()
+ */
+char *strdup_trimmed(const char *str)
+{
+    int left = 0;
+    int right = strlen(str) - 1;
+    char *out = NULL;
+
+    while (isspace(str[left])) left++;
+    while (right > left && isspace(str[right])) right--;
+
+    out = calloc(1, right-left+2);
+
+    if (out)
+        memcpy(out, str + left, right-left+1);
+
+    return out;
 }
 
 unsigned ass_utf8_get_char(char **str)
