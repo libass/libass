@@ -164,6 +164,8 @@ static void load_fonts_from_dir(ASS_Library *library, const char *dir)
         struct dirent *entry = readdir(d);
         if (!entry)
             break;
+        if (entry->d_name[0] == '.')
+            continue;
         char fullname[PATH_MAX];
         snprintf(fullname, sizeof(fullname), "%s/%s", dir, entry->d_name);
         size_t bufsize = 0;
