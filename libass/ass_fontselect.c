@@ -666,7 +666,8 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
         if (res)
             ass_msg(library, MSGL_WARN, "fontselect: Using default "
                     "font family: (%s, %d, %d) -> %s, %d, %s",
-                    family, bold, italic, res, *index, *postscript_name);
+                    family, bold, italic, res, *index,
+                    *postscript_name ? *postscript_name : "(none)");
     }
 
     if (!res && default_provider && default_provider->funcs.get_fallback) {
@@ -688,13 +689,14 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
         *index = priv->index_default;
         ass_msg(library, MSGL_WARN, "fontselect: Using default font: "
                 "(%s, %d, %d) -> %s, %d, %s", family, bold, italic,
-                priv->path_default, *index, *postscript_name);
+                priv->path_default, *index,
+                *postscript_name ? *postscript_name : "(none)");
     }
 
     if (res)
         ass_msg(library, MSGL_INFO,
                 "fontselect: (%s, %d, %d) -> %s, %d, %s", family, bold,
-                italic, res, *index, *postscript_name);
+                italic, res, *index, *postscript_name ? *postscript_name : "(none)");
 
     return res;
 }
