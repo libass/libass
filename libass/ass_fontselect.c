@@ -692,7 +692,7 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
     }
 
     if (res)
-        ass_msg(library, MSGL_V,
+        ass_msg(library, MSGL_INFO,
                 "fontselect: (%s, %d, %d) -> %s, %d, %s", family, bold,
                 italic, res, *index, *postscript_name);
 
