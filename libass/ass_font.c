@@ -25,7 +25,6 @@
 #include FT_GLYPH_H
 #include FT_TRUETYPE_TABLES_H
 #include FT_OUTLINE_H
-#include <strings.h>
 #include <limits.h>
 
 #include "ass.h"

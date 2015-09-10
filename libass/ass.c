@@ -21,14 +21,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <assert.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <inttypes.h>
-#include <ctype.h>
 
 #ifdef CONFIG_ICONV
 #include <iconv.h>
@@ -37,6 +35,7 @@
 #include "ass.h"
 #include "ass_utils.h"
 #include "ass_library.h"
+#include "ass_string.h"
 
 #define ass_atof(STR) (ass_strtod((STR),NULL))
 
@@ -212,7 +211,7 @@ static int numpad2align(int val)
 
 
 #define ALIAS(alias,name) \
-        if (strcasecmp(tname, #alias) == 0) {tname = #name;}
+        if (ass_strcasecmp(tname, #alias) == 0) {tname = #name;}
 
 /* One section started with PARSE_START and PARSE_END parses a single token
  * (contained in the variable named token) for the header indicated by the
@@ -228,16 +227,16 @@ static int numpad2align(int val)
 #define PARSE_END   }
 
 #define ANYVAL(name,func) \
-	} else if (strcasecmp(tname, #name) == 0) { \
+	} else if (ass_strcasecmp(tname, #name) == 0) { \
 		target->name = func(token);
 
 #define STRVAL(name) \
-	} else if (strcasecmp(tname, #name) == 0) { \
+	} else if (ass_strcasecmp(tname, #name) == 0) { \
 		if (target->name != NULL) free(target->name); \
 		target->name = strdup(token);
 
 #define STARREDSTRVAL(name) \
-    } else if (strcasecmp(tname, #name) == 0) { \
+    } else if (ass_strcasecmp(tname, #name) == 0) { \
         if (target->name != NULL) free(target->name); \
         while (*token == '*') ++token; \
         target->name = strdup(token);
@@ -246,11 +245,11 @@ static int numpad2align(int val)
 #define INTVAL(name) ANYVAL(name,atoi)
 #define FPVAL(name) ANYVAL(name,ass_atof)
 #define TIMEVAL(name) \
-	} else if (strcasecmp(tname, #name) == 0) { \
+	} else if (ass_strcasecmp(tname, #name) == 0) { \
 		target->name = string2timecode(track->library, token);
 
 #define STYLEVAL(name) \
-	} else if (strcasecmp(tname, #name) == 0) { \
+	} else if (ass_strcasecmp(tname, #name) == 0) { \
 		target->name = lookup_style(track, token);
 
 static char *next_token(char **str)
@@ -309,7 +308,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
 
     while (1) {
         NEXT(q, tname);
-        if (strcasecmp(tname, "Text") == 0) {
+        if (ass_strcasecmp(tname, "Text") == 0) {
             char *last;
             event->Text = strdup(p);
             if (*event->Text != 0) {
@@ -362,19 +361,19 @@ void ass_process_force_style(ASS_Track *track)
         *eq = '\0';
         token = eq + 1;
 
-        if (!strcasecmp(*fs, "PlayResX"))
+        if (!ass_strcasecmp(*fs, "PlayResX"))
             track->PlayResX = atoi(token);
-        else if (!strcasecmp(*fs, "PlayResY"))
+        else if (!ass_strcasecmp(*fs, "PlayResY"))
             track->PlayResY = atoi(token);
-        else if (!strcasecmp(*fs, "Timer"))
+        else if (!ass_strcasecmp(*fs, "Timer"))
             track->Timer = ass_atof(token);
-        else if (!strcasecmp(*fs, "WrapStyle"))
+        else if (!ass_strcasecmp(*fs, "WrapStyle"))
             track->WrapStyle = atoi(token);
-        else if (!strcasecmp(*fs, "ScaledBorderAndShadow"))
+        else if (!ass_strcasecmp(*fs, "ScaledBorderAndShadow"))
             track->ScaledBorderAndShadow = parse_bool(token);
-        else if (!strcasecmp(*fs, "Kerning"))
+        else if (!ass_strcasecmp(*fs, "Kerning"))
             track->Kerning = parse_bool(token);
-        else if (!strcasecmp(*fs, "YCbCr Matrix"))
+        else if (!ass_strcasecmp(*fs, "YCbCr Matrix"))
             track->YCbCrMatrix = parse_ycbcr_matrix(token);
 
         dt = strrchr(*fs, '.');
@@ -388,7 +387,7 @@ void ass_process_force_style(ASS_Track *track)
         }
         for (sid = 0; sid < track->n_styles; ++sid) {
             if (style == NULL
-                || strcasecmp(track->styles[sid].Name, style) == 0) {
+                || ass_strcasecmp(track->styles[sid].Name, style) == 0) {
                 target = track->styles + sid;
                 PARSE_START
                     STRVAL(FontName)
@@ -575,7 +574,7 @@ static int process_info_line(ASS_Track *track, char *str)
         track->YCbCrMatrix = parse_ycbcr_matrix(str + 13);
     } else if (!strncmp(str, "Language:", 9)) {
         char *p = str + 9;
-        while (*p && isspace(*p)) p++;
+        while (*p && ass_isspace(*p)) p++;
         track->Language = strndup(p, 2);
     }
     return 0;
@@ -743,17 +742,17 @@ static int process_fonts_line(ASS_Track *track, char *str)
 */
 static int process_line(ASS_Track *track, char *str)
 {
-    if (!strncasecmp(str, "[Script Info]", 13)) {
+    if (!ass_strncasecmp(str, "[Script Info]", 13)) {
         track->parser_priv->state = PST_INFO;
-    } else if (!strncasecmp(str, "[V4 Styles]", 11)) {
+    } else if (!ass_strncasecmp(str, "[V4 Styles]", 11)) {
         track->parser_priv->state = PST_STYLES;
         track->track_type = TRACK_TYPE_SSA;
-    } else if (!strncasecmp(str, "[V4+ Styles]", 12)) {
+    } else if (!ass_strncasecmp(str, "[V4+ Styles]", 12)) {
         track->parser_priv->state = PST_STYLES;
         track->track_type = TRACK_TYPE_ASS;
-    } else if (!strncasecmp(str, "[Events]", 8)) {
+    } else if (!ass_strncasecmp(str, "[Events]", 8)) {
         track->parser_priv->state = PST_EVENTS;
-    } else if (!strncasecmp(str, "[Fonts]", 7)) {
+    } else if (!ass_strncasecmp(str, "[Fonts]", 7)) {
         track->parser_priv->state = PST_FONTS;
     } else {
         switch (track->parser_priv->state) {

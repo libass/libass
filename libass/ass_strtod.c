@@ -13,8 +13,8 @@
  */
 
 #include <stdlib.h>
-#include <ctype.h>
 #include <errno.h>
+#include "ass_string.h"
 
 static
 const int maxExponent = 511;    /* Largest possible base 10 exponent.  Any
@@ -100,7 +100,7 @@ ass_strtod(
      */
 
     p = string;
-    while (isspace(*p)) {
+    while (ass_isspace(*p)) {
         p += 1;
     }
     if (*p == '-') {
@@ -122,7 +122,7 @@ ass_strtod(
     for (mantSize = 0; ; mantSize += 1)
     {
         c = *p;
-        if (!isdigit(c)) {
+        if (!ass_isdigit(c)) {
             if ((c != '.') || (decPt >= 0)) {
                 break;
             }
@@ -198,7 +198,7 @@ ass_strtod(
             }
             expSign = 0;
         }
-        while (isdigit(*p)) {
+        while (ass_isdigit(*p)) {
             exp = exp * 10 + (*p - '0');
             p += 1;
         }
