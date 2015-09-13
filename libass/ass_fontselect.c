@@ -166,7 +166,7 @@ static void load_fonts_from_dir(ASS_Library *library, const char *dir)
             break;
         if (entry->d_name[0] == '.')
             continue;
-        char fullname[PATH_MAX];
+        char fullname[4096];
         snprintf(fullname, sizeof(fullname), "%s/%s", dir, entry->d_name);
         size_t bufsize = 0;
         ass_msg(library, MSGL_WARN, "Loading font file '%s'", fullname);
