@@ -650,7 +650,7 @@ static ASS_FontProviderFuncs directwrite_callbacks = {
     .get_fallback       = get_fallback,
 };
 
-typedef HRESULT WINAPI (*DWriteCreateFactoryFn)(
+typedef HRESULT (WINAPI *DWriteCreateFactoryFn)(
   _In_  DWRITE_FACTORY_TYPE factoryType,
   _In_  REFIID              iid,
   _Out_ IUnknown            **factory
