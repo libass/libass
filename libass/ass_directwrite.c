@@ -148,8 +148,8 @@ static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_DrawInlineObject(
     FLOAT originX,
     FLOAT originY,
     IDWriteInlineObject *inlineObject,
-    WINBOOL isSideways,
-    WINBOOL isRightToLeft,
+    BOOL isSideways,
+    BOOL isRightToLeft,
     IUnknown *clientDrawingEffect
     )
 {

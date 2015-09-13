@@ -113,7 +113,7 @@ typedef struct DWRITE_GLYPH_RUN {
   const UINT16              *glyphIndices;
   const FLOAT               *glyphAdvances;
   const DWRITE_GLYPH_OFFSET *glyphOffsets;
-  WINBOOL                   isSideways;
+  BOOL                      isSideways;
   UINT32                    bidiLevel;
 } DWRITE_GLYPH_RUN;
 
@@ -156,7 +156,7 @@ DECLARE_INTERFACE_(IDWriteFactory,IUnknown)
     /* IDWriteFactory methods */
     STDMETHOD(GetSystemFontCollection)(THIS_
         IDWriteFontCollection **fontCollection,
-        WINBOOL checkForUpdates __MINGW_DEF_ARG_VAL(FALSE)) PURE;
+        BOOL checkForUpdates __MINGW_DEF_ARG_VAL(FALSE)) PURE;
 
     STDMETHOD(dummy1)(THIS);
     STDMETHOD(dummy2)(THIS);
@@ -223,7 +223,7 @@ DECLARE_INTERFACE_(IDWriteFont,IUnknown)
     STDMETHOD_(DWRITE_FONT_WEIGHT, GetWeight)(THIS) PURE;
     STDMETHOD_(DWRITE_FONT_STRETCH, GetStretch)(THIS) PURE;
     STDMETHOD_(DWRITE_FONT_STYLE, GetStyle)(THIS) PURE;
-    STDMETHOD_(WINBOOL, IsSymbolFont)(THIS) PURE;
+    STDMETHOD_(BOOL, IsSymbolFont)(THIS) PURE;
 
     STDMETHOD(GetFaceNames)(THIS_
         IDWriteLocalizedStrings **names) PURE;
@@ -231,7 +231,7 @@ DECLARE_INTERFACE_(IDWriteFont,IUnknown)
     STDMETHOD(GetInformationalStrings)(THIS_
         DWRITE_INFORMATIONAL_STRING_ID informationalStringID,
         IDWriteLocalizedStrings **informationalStrings,
-        WINBOOL *exists) PURE;
+        BOOL *exists) PURE;
 
     STDMETHOD_(DWRITE_FONT_SIMULATIONS, GetSimulations)(THIS) PURE;
 
@@ -240,7 +240,7 @@ DECLARE_INTERFACE_(IDWriteFont,IUnknown)
 
     STDMETHOD(HasCharacter)(THIS_
         UINT32 unicodeValue,
-        WINBOOL *exists) PURE;
+        BOOL *exists) PURE;
 
     STDMETHOD(CreateFontFace)(THIS_
         IDWriteFontFace **fontFace) PURE;
@@ -287,7 +287,7 @@ DECLARE_INTERFACE_(IDWriteFontCollection,IUnknown)
     STDMETHOD(FindFamilyName)(THIS_
         WCHAR const *familyName,
         UINT32 *index,
-        WINBOOL *exists) PURE;
+        BOOL *exists) PURE;
 
     STDMETHOD(GetFontFromFontFace)(THIS_
         IDWriteFontFace* fontFace,
@@ -624,7 +624,7 @@ DECLARE_INTERFACE_(IDWriteTextRenderer,IDWritePixelSnapping)
     /* IDWritePixelSnapping methods */
     STDMETHOD(IsPixelSnappingDisabled)(THIS_
             void *clientDrawingContext,
-            WINBOOL *isDisabled) PURE;
+            BOOL *isDisabled) PURE;
     STDMETHOD(GetCurrentTransform)(THIS_
             void *clientDrawingContext,
             DWRITE_MATRIX *transform) PURE;
@@ -659,8 +659,8 @@ DECLARE_INTERFACE_(IDWriteTextRenderer,IDWritePixelSnapping)
             FLOAT originX,
             FLOAT originY,
             IDWriteInlineObject *inlineObject,
-            WINBOOL isSideways,
-            WINBOOL isRightToLeft,
+            BOOL isSideways,
+            BOOL isRightToLeft,
             IUnknown *clientDrawingEffect) PURE;
 
     END_INTERFACE
