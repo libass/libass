@@ -18,6 +18,7 @@
 
 #include "config.h"
 
+#include "ass_compat.h"
 #include "ass_shaper.h"
 #include "ass_render.h"
 #include "ass_font.h"

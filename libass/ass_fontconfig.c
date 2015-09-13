@@ -20,6 +20,7 @@
 
 #ifdef CONFIG_FONTCONFIG
 
+#include "ass_compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>

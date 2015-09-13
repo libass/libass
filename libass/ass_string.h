@@ -18,6 +18,7 @@
 
 #include "config.h"
 
+#include "ass_compat.h"
 #include <stdlib.h>
 
 #ifndef ASS_STRING_H
