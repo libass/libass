@@ -130,10 +130,11 @@ static void free_list_clear(ASS_Renderer *render_priv)
 
 void ass_renderer_done(ASS_Renderer *render_priv)
 {
-    ass_cache_done(render_priv->cache.font_cache);
-    ass_cache_done(render_priv->cache.bitmap_cache);
     ass_cache_done(render_priv->cache.composite_cache);
+    ass_cache_done(render_priv->cache.bitmap_cache);
     ass_cache_done(render_priv->cache.outline_cache);
+    ass_shaper_free(render_priv->shaper);
+    ass_cache_done(render_priv->cache.font_cache);
 
     ass_free_images(render_priv->images_root);
     ass_free_images(render_priv->prev_images_root);
@@ -148,7 +149,6 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     }
     if (render_priv->fontselect)
         ass_fontselect_free(render_priv->fontselect);
-    ass_shaper_free(render_priv->shaper);
     if (render_priv->ftlibrary)
         FT_Done_FreeType(render_priv->ftlibrary);
     free(render_priv->eimg);
@@ -487,31 +487,34 @@ static bool free_list_add(ASS_Renderer *render_priv, void *object)
 static void blend_vector_clip(ASS_Renderer *render_priv,
                               ASS_Image *head)
 {
-    Bitmap *clip_bm = NULL;
-    ASS_Image *cur;
     ASS_Drawing *drawing = render_priv->state.clip_drawing;
-    BitmapHashKey key;
-    BitmapHashValue *val;
-
     if (!drawing)
         return;
 
     // Try to get mask from cache
+    BitmapHashKey key;
     memset(&key, 0, sizeof(key));
     key.type = BITMAP_CLIP;
     key.u.clip.text = drawing->text;
-    val = ass_cache_get(render_priv->cache.bitmap_cache, &key);
 
-    if (val) {
+    BitmapHashValue *val;
+    Bitmap *clip_bm = NULL;
+    if (ass_cache_get(render_priv->cache.bitmap_cache, &key, &val)) {
         clip_bm = val->bm;
     } else {
-        BitmapHashValue v;
-
         // Not found in cache, parse and rasterize it
         ASS_Outline *outline = ass_drawing_parse(drawing, 1);
         if (!outline) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
+            ass_cache_cancel(val);
+            return;
+        }
+
+        BitmapHashKey *new_key = ass_cache_get_key(val);
+        new_key->u.clip.text = strdup(drawing->text);
+        if (!new_key->u.clip.text) {
+            ass_cache_cancel(val);
             return;
         }
 
@@ -528,16 +531,15 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         clip_bm = outline_to_bitmap(render_priv, outline, 0);
 
         // Add to cache
-        memset(&v, 0, sizeof(v));
-        key.u.clip.text = strdup(drawing->text);
-        v.bm = clip_bm;
-        ass_cache_put(render_priv->cache.bitmap_cache, &key, &v);
+        val->bm = clip_bm;
+        val->bm_o = NULL;
+        ass_cache_commit(val);
     }
 
     if (!clip_bm) return;
 
     // Iterate through bitmaps and blend/clip them
-    for (cur = head; cur; cur = cur->next) {
+    for (ASS_Image *cur = head; cur; cur = cur->next) {
         int left, top, right, bottom, w, h;
         int ax, ay, aw, ah, as;
         int bx, by, bw, bh, bs;
@@ -1153,29 +1155,32 @@ static void fill_composite_hash(CompositeHashKey *hk, CombinedBitmapInfo *info)
 static void
 get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 {
-    OutlineHashValue *val;
-    OutlineHashKey key;
-
     memset(&info->hash_key, 0, sizeof(info->hash_key));
 
+    OutlineHashKey key;
+    OutlineHashValue *val;
     fill_glyph_hash(priv, &key, info);
-    val = ass_cache_get(priv->cache.outline_cache, &key);
-
-    if (!val) {
-        OutlineHashValue v;
-        memset(&v, 0, sizeof(v));
+    if (!ass_cache_get(priv->cache.outline_cache, &key, &val)) {
+        memset(val, 0, sizeof(*val));
 
         if (info->drawing) {
             ASS_Drawing *drawing = info->drawing;
             ass_drawing_hash(drawing);
-            if(!ass_drawing_parse(drawing, 0))
+            if(!ass_drawing_parse(drawing, 0)) {
+                ass_cache_cancel(val);
                 return;
-            v.outline = outline_copy(&drawing->outline);
-            v.advance.x = drawing->advance.x;
-            v.advance.y = drawing->advance.y;
-            v.asc = drawing->asc;
-            v.desc = drawing->desc;
-            key.u.drawing.text = strdup(drawing->text);
+            }
+            OutlineHashKey *new_key = ass_cache_get_key(val);
+            new_key->u.drawing.text = strdup(drawing->text);
+            if(!new_key->u.drawing.text) {
+                ass_cache_cancel(val);
+                return;
+            }
+            val->outline = outline_copy(&drawing->outline);
+            val->advance.x = drawing->advance.x;
+            val->advance.y = drawing->advance.y;
+            val->asc = drawing->asc;
+            val->desc = drawing->desc;
         } else {
             ass_face_set_size(info->font->faces[info->face_index],
                               info->font_size);
@@ -1186,35 +1191,37 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                         info->symbol, info->face_index, info->glyph_index,
                         priv->settings.hinting, info->flags);
             if (glyph != NULL) {
-                v.outline = outline_convert(&((FT_OutlineGlyph)glyph)->outline);
+                val->outline = outline_convert(&((FT_OutlineGlyph) glyph)->outline);
                 if (priv->settings.shaper == ASS_SHAPING_SIMPLE) {
-                    v.advance.x = d16_to_d6(glyph->advance.x);
-                    v.advance.y = d16_to_d6(glyph->advance.y);
+                    val->advance.x = d16_to_d6(glyph->advance.x);
+                    val->advance.y = d16_to_d6(glyph->advance.y);
                 }
                 FT_Done_Glyph(glyph);
                 ass_font_get_asc_desc(info->font, info->symbol,
-                        &v.asc, &v.desc);
-                v.asc  *= info->scale_y;
-                v.desc *= info->scale_y;
+                                      &val->asc, &val->desc);
+                val->asc  *= info->scale_y;
+                val->desc *= info->scale_y;
             }
         }
 
-        if (!v.outline)
+        if (!val->outline) {
+            ass_cache_cancel(val);
             return;
+        }
 
-        outline_get_cbox(v.outline, &v.bbox_scaled);
+        outline_get_cbox(val->outline, &val->bbox_scaled);
 
         if (info->border_style == 3) {
             FT_Vector advance;
 
-            v.border = calloc(1, sizeof(ASS_Outline));
+            val->border = calloc(1, sizeof(ASS_Outline));
 
             if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing)
-                advance = v.advance;
+                advance = val->advance;
             else
                 advance = info->advance;
 
-            draw_opaque_box(priv, info, v.asc, v.desc, v.border, advance,
+            draw_opaque_box(priv, info, val->asc, val->desc, val->border, advance,
                     double_to_d6(info->border_x * priv->border_scale),
                     double_to_d6(info->border_y * priv->border_scale));
 
@@ -1222,13 +1229,15 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
 
             change_border(priv, info->border_x, info->border_y);
-            v.border = outline_copy(v.outline);
-            stroke_outline(priv, v.border,
+            val->border = outline_copy(val->outline);
+            stroke_outline(priv, val->border,
                     double_to_d6(info->border_x * priv->border_scale),
                     double_to_d6(info->border_y * priv->border_scale));
         }
 
-        val = ass_cache_put(priv->cache.outline_cache, &key, &v);
+        if (!info->drawing)
+            ass_cache_inc_ref(info->font);
+        ass_cache_commit(val);
     }
 
     info->hash_key.u.outline.outline = val;
@@ -1329,22 +1338,18 @@ transform_3d(FT_Vector shift, ASS_Outline *outline, ASS_Outline *border,
 static void
 get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 {
-    BitmapHashValue *val;
-    OutlineBitmapHashKey *key = &info->hash_key.u.outline;
-
     if (!info->outline || info->symbol == '\n' || info->symbol == 0 || info->skip)
         return;
 
-    val = ass_cache_get(render_priv->cache.bitmap_cache, &info->hash_key);
-
-    if (!val) {
+    BitmapHashValue *val;
+    OutlineBitmapHashKey *key = &info->hash_key.u.outline;
+    if (!ass_cache_get(render_priv->cache.bitmap_cache, &info->hash_key, &val)) {
         FT_Vector shift;
-        BitmapHashValue hash_val;
         int error;
         double fax_scaled, fay_scaled;
         double scale_x = render_priv->font_scale_x;
 
-        hash_val.bm = hash_val.bm_o = NULL;
+        val->bm = val->bm_o = NULL;
 
         ASS_Outline *outline = outline_copy(info->outline);
         ASS_Outline *border  = outline_copy(info->border);
@@ -1379,12 +1384,13 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 
         // render glyph
         error = outline_to_bitmap2(render_priv, outline, border,
-                                   &hash_val.bm, &hash_val.bm_o);
+                                   &val->bm, &val->bm_o);
         if (error)
             info->symbol = 0;
 
-        val = ass_cache_put(render_priv->cache.bitmap_cache, &info->hash_key,
-                &hash_val);
+        assert(info->hash_key.type == BITMAP_OUTLINE);
+        ass_cache_inc_ref(info->hash_key.u.outline.outline);
+        ass_cache_commit(val);
 
         outline_free(outline);
         free(outline);
@@ -2254,8 +2260,6 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
         }
     }
 
-    CompositeHashKey hk;
-    CompositeHashValue *hv;
     for (int i = 0; i < nb_bitmaps; ++i) {
         CombinedBitmapInfo *info = &combined_info[i];
         for (int j = 0; j < info->bitmap_count; ++j) {
@@ -2263,10 +2267,10 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             info->bitmaps[j].y -= info->y;
         }
 
+        CompositeHashKey hk;
+        CompositeHashValue *hv;
         fill_composite_hash(&hk, info);
-
-        hv = ass_cache_get(render_priv->cache.composite_cache, &hk);
-        if (hv) {
+        if (ass_cache_get(render_priv->cache.composite_cache, &hk, &hv)) {
             info->bm = hv->bm;
             info->bm_o = hv->bm_o;
             info->bm_s = hv->bm_s;
@@ -2344,19 +2348,19 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             }
         }
 
-        if(info->bm || info->bm_o){
+        if (info->bm || info->bm_o) {
             ass_synth_blur(render_priv->engine, info->filter.flags & FILTER_BORDER_STYLE_3,
                            info->filter.be, info->filter.blur, info->bm, info->bm_o);
             if (info->filter.flags & FILTER_DRAW_SHADOW)
                 make_shadow_bitmap(info, render_priv);
         }
 
-        CompositeHashValue chv;
-        chv.bm = info->bm;
-        chv.bm_o = info->bm_o;
-        chv.bm_s = info->bm_s;
-
-        ass_cache_put(render_priv->cache.composite_cache, &hk, &chv);
+        hv->bm = info->bm;
+        hv->bm_o = info->bm_o;
+        hv->bm_s = info->bm_s;
+        for (int j = 0; j < info->bitmap_count; ++j)
+            ass_cache_inc_ref(info->bitmaps[j].image);
+        ass_cache_commit(hv);
     }
 
     text_info->n_bitmaps = nb_bitmaps;
@@ -2639,24 +2643,12 @@ void ass_free_images(ASS_Image *img)
  */
 static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
 {
-    if (ass_cache_empty(cache->bitmap_cache, cache->bitmap_max_size)) {
-        ass_cache_empty(cache->composite_cache, 0);
-        ass_free_images(priv->prev_images_root);
-        priv->prev_images_root = 0;
-        priv->cache_cleared = 1;
-    }
-    if (ass_cache_empty(cache->outline_cache, cache->glyph_max)) {
-        ass_cache_empty(cache->bitmap_cache, 0);
-        ass_cache_empty(cache->composite_cache, 0);
-        ass_free_images(priv->prev_images_root);
-        priv->prev_images_root = 0;
-        priv->cache_cleared = 1;
-    }
-    if (ass_cache_empty(cache->composite_cache, cache->composite_max_size)) {
-        ass_free_images(priv->prev_images_root);
-        priv->prev_images_root = 0;
-        priv->cache_cleared = 1;
-    }
+    ass_cache_cut(cache->composite_cache, cache->composite_max_size);
+    ass_cache_cut(cache->bitmap_cache, cache->bitmap_max_size);
+    ass_cache_cut(cache->outline_cache, cache->glyph_max);
+    ass_free_images(priv->prev_images_root);
+    priv->prev_images_root = 0;
+    priv->cache_cleared = 1;
 }
 
 /**

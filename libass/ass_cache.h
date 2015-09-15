@@ -106,11 +106,16 @@ typedef struct {
 Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
                         CacheItemDestructor destruct_func, ItemSize size_func,
                         size_t key_size, size_t value_size);
-void *ass_cache_put(Cache *cache, void *key, void *value);
-void *ass_cache_get(Cache *cache, void *key);
-int ass_cache_empty(Cache *cache, size_t max_size);
+bool ass_cache_get(Cache *cache, void *key, void *value_ptr);
+void *ass_cache_get_key(void *value);
+void ass_cache_commit(void *value);
+void ass_cache_cancel(void *value);
+void ass_cache_inc_ref(void *value);
+void ass_cache_dec_ref(void *value);
+void ass_cache_cut(Cache *cache, size_t max_size);
 void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
                      unsigned *misses, unsigned *count);
+void ass_cache_empty(Cache *cache);
 void ass_cache_done(Cache *cache);
 Cache *ass_font_cache_create(void);
 Cache *ass_outline_cache_create(void);

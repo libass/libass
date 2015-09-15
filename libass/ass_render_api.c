@@ -27,9 +27,9 @@ static void ass_reconfigure(ASS_Renderer *priv)
     ASS_Settings *settings = &priv->settings;
 
     priv->render_id++;
-    ass_cache_empty(priv->cache.outline_cache, 0);
-    ass_cache_empty(priv->cache.bitmap_cache, 0);
-    ass_cache_empty(priv->cache.composite_cache, 0);
+    ass_cache_empty(priv->cache.composite_cache);
+    ass_cache_empty(priv->cache.bitmap_cache);
+    ass_cache_empty(priv->cache.outline_cache);
     ass_free_images(priv->prev_images_root);
     priv->prev_images_root = 0;
 

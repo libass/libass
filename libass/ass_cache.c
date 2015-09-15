@@ -65,8 +65,7 @@ static unsigned font_compare(void *key1, void *key2, size_t key_size)
 
 static void font_destruct(void *key, void *value)
 {
-    ass_font_free(value);
-    free(key);
+    ass_font_clear(value);
 }
 
 // bitmap cache
@@ -78,10 +77,10 @@ static void bitmap_destruct(void *key, void *value)
         ass_free_bitmap(v->bm);
     if (v->bm_o)
         ass_free_bitmap(v->bm_o);
-    if (k->type == BITMAP_CLIP)
-        free(k->u.clip.text);
-    free(key);
-    free(value);
+    switch (k->type) {
+        case BITMAP_OUTLINE: ass_cache_dec_ref(k->u.outline.outline); break;
+        case BITMAP_CLIP: free(k->u.clip.text); break;
+    }
 }
 
 static size_t bitmap_size(void *value, size_t value_size)
@@ -105,7 +104,7 @@ static unsigned bitmap_hash(void *key, size_t key_size)
     }
 }
 
-static unsigned bitmap_compare (void *a, void *b, size_t key_size)
+static unsigned bitmap_compare(void *a, void *b, size_t key_size)
 {
     BitmapHashKey *ak = a;
     BitmapHashKey *bk = b;
@@ -128,9 +127,9 @@ static void composite_destruct(void *key, void *value)
         ass_free_bitmap(v->bm_o);
     if (v->bm_s)
         ass_free_bitmap(v->bm_s);
+    for (size_t i = 0; i < k->bitmap_count; i++)
+        ass_cache_dec_ref(k->bitmaps[i].image);
     free(k->bitmaps);
-    free(key);
-    free(value);
 }
 
 static size_t composite_size(void *value, size_t value_size)
@@ -150,7 +149,7 @@ static unsigned composite_hash(void *key, size_t key_size)
 {
     CompositeHashKey *k = key;
     unsigned hval = filter_hash(&k->filter, key_size);
-    for (size_t i = 0; i < k->bitmap_count; ++i) {
+    for (size_t i = 0; i < k->bitmap_count; i++) {
         hval = fnv_32a_buf(&k->bitmaps[i].image, sizeof(k->bitmaps[i].image), hval);
         hval = fnv_32a_buf(&k->bitmaps[i].x, sizeof(k->bitmaps[i].x), hval);
         hval = fnv_32a_buf(&k->bitmaps[i].y, sizeof(k->bitmaps[i].y), hval);
@@ -164,7 +163,7 @@ static unsigned composite_compare(void *a, void *b, size_t key_size)
     CompositeHashKey *bk = b;
     if (ak->bitmap_count != bk->bitmap_count)
         return 0;
-    for (size_t i = 0; i < ak->bitmap_count; ++i) {
+    for (size_t i = 0; i < ak->bitmap_count; i++) {
         if (ak->bitmaps[i].image != bk->bitmaps[i].image ||
             ak->bitmaps[i].x != bk->bitmaps[i].x ||
             ak->bitmaps[i].y != bk->bitmaps[i].y)
@@ -205,24 +204,34 @@ static void outline_destruct(void *key, void *value)
     free(v->outline);
     outline_free(v->border);
     free(v->border);
-    if (k->type == OUTLINE_DRAWING)
-        free(k->u.drawing.text);
-    free(key);
-    free(value);
+    switch (k->type) {
+        case OUTLINE_GLYPH: ass_cache_dec_ref(k->u.glyph.font); break;
+        case OUTLINE_DRAWING: free(k->u.drawing.text); break;
+    }
+}
+
+
+// glyph metric cache
+static void glyph_metric_destruct(void *key, void *value)
+{
+    GlyphMetricsHashKey *k = key;
+    ass_cache_dec_ref(k->font);
 }
 
 
 
 // Cache data
 typedef struct cache_item {
-    void *key;
-    void *value;
-    struct cache_item *next;
+    struct cache *cache;
+    struct cache_item *next, **prev;
+    struct cache_item *queue_next, **queue_prev;
+    size_t size, ref_count;
 } CacheItem;
 
 struct cache {
     unsigned buckets;
     CacheItem **map;
+    CacheItem *queue_first, **queue_last;
 
     HashFunction hash_func;
     ItemSize size_func;
@@ -236,6 +245,19 @@ struct cache {
     unsigned misses;
     unsigned items;
 };
+
+#define CACHE_ALIGN 8
+#define CACHE_ITEM_SIZE ((sizeof(CacheItem) + (CACHE_ALIGN - 1)) & ~(CACHE_ALIGN - 1))
+
+static inline size_t align_cache(size_t size)
+{
+    return (size + (CACHE_ALIGN - 1)) & ~(CACHE_ALIGN - 1);
+}
+
+static inline CacheItem *value_to_item(void *value)
+{
+    return (CacheItem *) ((char *) value - CACHE_ITEM_SIZE);
+}
 
 // Hash for a simple (single value or array) type
 static unsigned hash_simple(void *key, size_t key_size)
@@ -252,8 +274,6 @@ static unsigned compare_simple(void *a, void *b, size_t key_size)
 // Default destructor
 static void destruct_simple(void *key, void *value)
 {
-    free(key);
-    free(value);
 }
 
 
@@ -266,6 +286,7 @@ Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
     if (!cache)
         return NULL;
     cache->buckets = 0xFFFF;
+    cache->queue_last = &cache->queue_first;
     cache->hash_func = hash_simple;
     cache->compare_func = compare_simple;
     cache->destruct_func = destruct_simple;
@@ -287,73 +308,157 @@ Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
     return cache;
 }
 
-void *ass_cache_put(Cache *cache, void *key, void *value)
+bool ass_cache_get(Cache *cache, void *key, void *value_ptr)
 {
-    unsigned bucket = cache->hash_func(key, cache->key_size) % cache->buckets;
-    CacheItem **bucketptr = &cache->map[bucket];
-
-    CacheItem *item = calloc(1, sizeof(CacheItem));
-    if (!item)
-        return NULL;
-    item->key = malloc(cache->key_size);
-    item->value = malloc(cache->value_size);
-    if (!item->key || !item->value) {
-        free(item->key);
-        free(item->value);
-        free(item);
-        return NULL;
-    }
-    memcpy(item->key, key, cache->key_size);
-    memcpy(item->value, value, cache->value_size);
-
-    item->next = *bucketptr;
-    *bucketptr = item;
-
-    cache->items++;
-    if (cache->size_func)
-        cache->cache_size += cache->size_func(value, cache->value_size);
-    else
-        cache->cache_size++;
-
-    return item->value;
-}
-
-void *ass_cache_get(Cache *cache, void *key)
-{
+    char **value = (char **) value_ptr;
+    size_t key_offs = CACHE_ITEM_SIZE + align_cache(cache->value_size);
     unsigned bucket = cache->hash_func(key, cache->key_size) % cache->buckets;
     CacheItem *item = cache->map[bucket];
     while (item) {
-        if (cache->compare_func(key, item->key, cache->key_size)) {
+        if (cache->compare_func(key, (char *) item + key_offs, cache->key_size)) {
+            assert(item->size);
+            if (!item->queue_prev || item->queue_next) {
+                if (item->queue_prev) {
+                    item->queue_next->queue_prev = item->queue_prev;
+                    *item->queue_prev = item->queue_next;
+                }
+                *cache->queue_last = item;
+                item->queue_prev = cache->queue_last;
+                cache->queue_last = &item->queue_next;
+                item->queue_next = NULL;
+            }
             cache->hits++;
-            return item->value;
+            *value = (char *) item + CACHE_ITEM_SIZE;
+            return true;
         }
         item = item->next;
     }
     cache->misses++;
-    return NULL;
+
+    item = malloc(key_offs + cache->key_size);
+    if (!item) {
+        *value = NULL;
+        return 0;
+    }
+    item->size = 0;
+    item->cache = cache;
+    *value = (char *) item + CACHE_ITEM_SIZE;
+    memcpy((char *) item + key_offs, key, cache->key_size);
+
+    CacheItem **bucketptr = &cache->map[bucket];
+    if (*bucketptr)
+        (*bucketptr)->prev = &item->next;
+    item->prev = bucketptr;
+    item->next = *bucketptr;
+    *bucketptr = item;
+
+    *cache->queue_last = item;
+    item->queue_prev = cache->queue_last;
+    cache->queue_last = &item->queue_next;
+    item->queue_next = NULL;
+
+    item->ref_count = 0;
+    return false;
 }
 
-int ass_cache_empty(Cache *cache, size_t max_size)
+void *ass_cache_get_key(void *value)
 {
-    int i;
+    CacheItem *item = value_to_item(value);
+    assert(!item->size);
+    return (char *) value + align_cache(item->cache->value_size);
+}
 
-    if (cache->cache_size < max_size)
-        return 0;
+void ass_cache_commit(void *value)
+{
+    CacheItem *item = value_to_item(value);
+    assert(!item->size);
+    Cache *cache = item->cache;
 
-    for (i = 0; i < cache->buckets; i++) {
-        CacheItem *item = cache->map[i];
-        while (item) {
-            CacheItem *next = item->next;
-            cache->destruct_func(item->key, item->value);
-            free(item);
-            item = next;
+    cache->items++;
+    if (cache->size_func)
+        item->size = cache->size_func(value, cache->value_size);
+    else
+        item->size = 1;
+    cache->cache_size += item->size;
+}
+
+void ass_cache_cancel(void *value)
+{
+    CacheItem *item = value_to_item(value);
+    assert(!item->size);
+
+    if (item->queue_next)
+        item->queue_next->queue_prev = item->queue_prev;
+    *item->queue_prev = item->queue_next;
+
+    if (item->next)
+        item->next->prev = item->prev;
+    *item->prev = item->next;
+    free(item);
+}
+
+static inline void destroy_item(Cache *cache, CacheItem *item)
+{
+    assert(item->cache == cache);
+    char *value = (char *) item + CACHE_ITEM_SIZE;
+    cache->destruct_func(value + align_cache(cache->value_size), value);
+    free(item);
+}
+
+void ass_cache_inc_ref(void *value)
+{
+    CacheItem *item = value_to_item(value);
+    assert(item->size);
+    item->ref_count++;
+}
+
+void ass_cache_dec_ref(void *value)
+{
+    CacheItem *item = value_to_item(value);
+    assert(item->size && item->ref_count);
+
+    item->ref_count--;
+    if (item->ref_count || item->queue_prev)
+        return;
+
+    if (item->next)
+        item->next->prev = item->prev;
+    *item->prev = item->next;
+
+    item->cache->items--;
+    item->cache->cache_size -= item->size;
+    destroy_item(item->cache, item);
+}
+
+void ass_cache_cut(Cache *cache, size_t max_size)
+{
+    if (cache->cache_size <= max_size)
+        return;
+
+    do {
+        CacheItem *item = cache->queue_first;
+        if (!item)
+            break;
+        assert(item->size);
+
+        cache->queue_first = item->queue_next;
+        if (item->ref_count) {
+            item->queue_prev = NULL;
+            continue;
         }
-        cache->map[i] = NULL;
-    }
 
-    cache->items = cache->hits = cache->misses = cache->cache_size = 0;
+        if (item->next)
+            item->next->prev = item->prev;
+        *item->prev = item->next;
 
-    return 1;
+        cache->items--;
+        cache->cache_size -= item->size;
+        destroy_item(cache, item);
+    } while (cache->cache_size > max_size);
+    if (cache->queue_first)
+        cache->queue_first->queue_prev = &cache->queue_first;
+    else
+        cache->queue_last = &cache->queue_first;
 }
 
 void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
@@ -369,9 +474,27 @@ void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
         *count = cache->items;
 }
 
+void ass_cache_empty(Cache *cache)
+{
+    for (int i = 0; i < cache->buckets; i++) {
+        CacheItem *item = cache->map[i];
+        while (item) {
+            assert(item->size);
+            CacheItem *next = item->next;
+            destroy_item(cache, item);
+            item = next;
+        }
+        cache->map[i] = NULL;
+    }
+
+    cache->queue_first = NULL;
+    cache->queue_last = &cache->queue_first;
+    cache->items = cache->hits = cache->misses = cache->cache_size = 0;
+}
+
 void ass_cache_done(Cache *cache)
 {
-    ass_cache_empty(cache, 0);
+    ass_cache_empty(cache);
     free(cache->map);
     free(cache);
 }
@@ -391,7 +514,7 @@ Cache *ass_outline_cache_create(void)
 
 Cache *ass_glyph_metrics_cache_create(void)
 {
-    return ass_cache_create(glyph_metrics_hash, glyph_metrics_compare, NULL,
+    return ass_cache_create(glyph_metrics_hash, glyph_metrics_compare, glyph_metric_destruct,
             (ItemSize) NULL, sizeof(GlyphMetricsHashKey),
             sizeof(GlyphMetricsHashValue));
 }
