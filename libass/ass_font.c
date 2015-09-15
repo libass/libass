@@ -229,32 +229,32 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
                        ASS_FontDesc *desc)
 {
     int error;
-    ASS_Font *fontp;
-    ASS_Font font;
+    ASS_Font *font;
+    if (ass_cache_get(font_cache, desc, &font))
+        return font;
 
-    fontp = ass_cache_get(font_cache, desc);
-    if (fontp)
-        return fontp;
+    font->library = library;
+    font->ftlibrary = ftlibrary;
+    font->shaper_priv = NULL;
+    font->n_faces = 0;
+    ASS_FontDesc *new_desc = ass_cache_get_key(font);
+    font->desc.family = new_desc->family = strdup(desc->family);
+    font->desc.bold = desc->bold;
+    font->desc.italic = desc->italic;
+    font->desc.vertical = desc->vertical;
 
-    font.library = library;
-    font.ftlibrary = ftlibrary;
-    font.shaper_priv = NULL;
-    font.n_faces = 0;
-    font.desc.family = strdup(desc->family);
-    font.desc.bold = desc->bold;
-    font.desc.italic = desc->italic;
-    font.desc.vertical = desc->vertical;
+    font->scale_x = font->scale_y = 1.;
+    font->v.x = font->v.y = 0;
+    font->size = 0.;
 
-    font.scale_x = font.scale_y = 1.;
-    font.v.x = font.v.y = 0;
-    font.size = 0.;
-
-    error = add_face(fontsel, &font, 0);
+    error = add_face(fontsel, font, 0);
     if (error == -1) {
-        free(font.desc.family);
+        ass_cache_cancel(font);
+        free(font->desc.family);
         return 0;
-    } else
-        return ass_cache_put(font_cache, &font.desc, &font);
+    }
+    ass_cache_commit(font);
+    return font;
 }
 
 /**
@@ -674,9 +674,9 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
 }
 
 /**
- * \brief Deallocate ASS_Font
+ * \brief Deallocate ASS_Font internals
  **/
-void ass_font_free(ASS_Font *font)
+void ass_font_clear(ASS_Font *font)
 {
     int i;
     if (font->shaper_priv)
@@ -686,7 +686,6 @@ void ass_font_free(ASS_Font *font)
             FT_Done_Face(font->faces[i]);
     }
     free(font->desc.family);
-    free(font);
 }
 
 /**

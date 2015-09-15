@@ -207,26 +207,25 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics, FT_Face face,
                    hb_codepoint_t unicode, hb_codepoint_t glyph)
 {
     GlyphMetricsHashValue *val;
-
     metrics->hash_key.glyph_index = glyph;
-    val = ass_cache_get(metrics->metrics_cache, &metrics->hash_key);
-
-    if (!val) {
+    if (!ass_cache_get(metrics->metrics_cache, &metrics->hash_key, &val)) {
         int load_flags = FT_LOAD_DEFAULT | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
             | FT_LOAD_IGNORE_TRANSFORM;
-        GlyphMetricsHashValue new_val;
 
-        if (FT_Load_Glyph(face, glyph, load_flags))
+        if (FT_Load_Glyph(face, glyph, load_flags)) {
+            ass_cache_cancel(val);
             return NULL;
+        }
 
-        memcpy(&new_val.metrics, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
+        memcpy(&val->metrics, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
 
         // if @font rendering is enabled and the glyph should be rotated,
         // make cached_h_advance pick up the right advance later
         if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
-            new_val.metrics.horiAdvance = new_val.metrics.vertAdvance;
+            val->metrics.horiAdvance = val->metrics.vertAdvance;
 
-        val = ass_cache_put(metrics->metrics_cache, &metrics->hash_key, &new_val);
+        ass_cache_inc_ref(metrics->hash_key.font);
+        ass_cache_commit(val);
     }
 
     return val;
