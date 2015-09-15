@@ -375,7 +375,7 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
     TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
     TT_Postscript *ps = FT_Get_Sfnt_Table(face, ft_sfnt_post);
     FT_Outline *ol = &((FT_OutlineGlyph) glyph)->outline;
-    int bear, advance, y_scale, i, dir;
+    int advance, y_scale, i, dir;
 
     if (!under && !through)
         return 0;
@@ -394,11 +394,7 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
     if (!ASS_REALLOC_ARRAY(ol->contours, ol->n_contours + i))
         return 0;
 
-    // If the bearing is negative, the glyph starts left of the current
-    // pen position
-    bear = FFMIN(face->glyph->metrics.horiBearingX, 0);
-    // We're adding half a pixel to avoid small gaps
-    advance = d16_to_d6(glyph->advance.x) + 32;
+    advance = d16_to_d6(glyph->advance.x);
     y_scale = face->size->metrics.y_scale;
 
     // Reverse drawing direction for non-truetype fonts
@@ -406,24 +402,23 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
 
     // Add points to the outline
     if (under && ps) {
-        int pos = FT_MulFix(ps->underlinePosition, y_scale * font->scale_y);
-        int size = FT_MulFix(ps->underlineThickness,
-                             y_scale * font->scale_y / 2);
+        int pos = FT_MulFix(ps->underlinePosition, y_scale);
+        int size = FT_MulFix(ps->underlineThickness, y_scale / 2);
 
         if (pos > 0 || size <= 0)
             return 1;
 
-        add_line(ol, bear, advance, dir, pos, size);
+        add_line(ol, 0, advance, dir, pos, size);
     }
 
     if (through && os2) {
-        int pos = FT_MulFix(os2->yStrikeoutPosition, y_scale * font->scale_y);
-        int size = FT_MulFix(os2->yStrikeoutSize, y_scale * font->scale_y / 2);
+        int pos = FT_MulFix(os2->yStrikeoutPosition, y_scale);
+        int size = FT_MulFix(os2->yStrikeoutSize, y_scale / 2);
 
         if (pos < 0 || size <= 0)
             return 1;
 
-        add_line(ol, bear, advance, dir, pos, size);
+        add_line(ol, 0, advance, dir, pos, size);
     }
 
     return 0;
@@ -658,6 +653,9 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
         glyph->advance.x = face->glyph->linearVertAdvance;
     }
 
+    ass_strike_outline_glyph(face, font, glyph, deco & DECO_UNDERLINE,
+                             deco & DECO_STRIKETHROUGH);
+
     // Apply scaling and shift
     FT_Matrix scale = { double_to_d16(font->scale_x), 0, 0,
                         double_to_d16(font->scale_y) };
@@ -665,9 +663,6 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
     FT_Outline_Transform(outl, &scale);
     FT_Outline_Translate(outl, font->v.x, font->v.y);
     glyph->advance.x *= font->scale_x;
-
-    ass_strike_outline_glyph(face, font, glyph, deco & DECO_UNDERLINE,
-                             deco & DECO_STRIKETHROUGH);
 
     return glyph;
 }
