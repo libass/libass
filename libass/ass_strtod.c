@@ -12,6 +12,8 @@
  *
  */
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <errno.h>
 #include "ass_string.h"

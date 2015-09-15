@@ -28,8 +28,6 @@
 #include <errno.h>
 #include <math.h>
 
-#include "config.h"
-
 #ifdef CONFIG_ENCA
 #include <enca.h>
 #endif

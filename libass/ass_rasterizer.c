@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "config.h"
+
 #include "ass_utils.h"
 #include "ass_rasterizer.h"
 #include <assert.h>
