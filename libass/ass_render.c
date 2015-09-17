@@ -479,6 +479,12 @@ static bool free_list_add(ASS_Renderer *render_priv, void *object)
     return true;
 }
 
+// Calculate bitmap memory footprint
+static inline size_t bitmap_size(Bitmap *bm)
+{
+    return bm ? sizeof(Bitmap) + bm->stride * bm->h : 0;
+}
+
 /**
  * Iterate through a list of bitmaps and blend with clip vector, if
  * applicable. The blended bitmaps are added to a free list which is freed
@@ -508,7 +514,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         if (!outline) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
-            ass_cache_commit(val);
+            ass_cache_commit(val, sizeof(BitmapHashKey) + sizeof(BitmapHashValue));
             return;
         }
 
@@ -523,7 +529,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         }
 
         val->bm = outline_to_bitmap(render_priv, outline, 0);
-        ass_cache_commit(val);
+        ass_cache_commit(val, bitmap_size(val->bm) +
+                         sizeof(BitmapHashKey) + sizeof(BitmapHashValue));
     }
 
     Bitmap *clip_bm = val->bm;
@@ -1160,7 +1167,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             ASS_Drawing *drawing = info->drawing;
             ass_drawing_hash(drawing);
             if(!ass_drawing_parse(drawing, 0)) {
-                ass_cache_commit(val);
+                ass_cache_commit(val, 1);
                 return;
             }
             val->outline = outline_copy(&drawing->outline);
@@ -1192,7 +1199,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         }
 
         if (!val->outline) {
-            ass_cache_commit(val);
+            ass_cache_commit(val, 1);
             return;
         }
 
@@ -1204,7 +1211,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                 outline_free(val->outline);
                 free(val->outline);
                 val->outline = NULL;
-                ass_cache_commit(val);
+                ass_cache_commit(val, 1);
                 return;
             }
 
@@ -1228,7 +1235,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                     double_to_d6(info->border_y * priv->border_scale));
         }
 
-        ass_cache_commit(val);
+        ass_cache_commit(val, 1);
     }
 
     if (!val->outline)
@@ -1381,7 +1388,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
     if (error)
         info->symbol = 0;
 
-    ass_cache_commit(val);
+    ass_cache_commit(val, bitmap_size(val->bm) + bitmap_size(val->bm_o) +
+                     sizeof(BitmapHashKey) + sizeof(BitmapHashValue));
     info->image = val;
 
     outline_free(outline);
@@ -2349,7 +2357,9 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
         hv->bm = info->bm;
         hv->bm_o = info->bm_o;
         hv->bm_s = info->bm_s;
-        ass_cache_commit(hv);
+        ass_cache_commit(hv, bitmap_size(hv->bm) +
+                         bitmap_size(hv->bm_o) + bitmap_size(hv->bm_s) +
+                         sizeof(CompositeHashKey) + sizeof(CompositeHashValue));
     }
 
     text_info->n_bitmaps = nb_bitmaps;
