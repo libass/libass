@@ -218,7 +218,7 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics, FT_Face face,
 
     if (FT_Load_Glyph(face, glyph, load_flags)) {
         val->metrics.width = -1;
-        ass_cache_commit(val);
+        ass_cache_commit(val, 1);
         return NULL;
     }
 
@@ -229,7 +229,7 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics, FT_Face face,
     if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
         val->metrics.horiAdvance = val->metrics.vertAdvance;
 
-    ass_cache_commit(val);
+    ass_cache_commit(val, 1);
     return val;
 }
 

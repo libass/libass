@@ -248,10 +248,10 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
     int error = add_face(fontsel, font, 0);
     if (error == -1) {
         font->desc.family = NULL;
-        ass_cache_commit(font);
+        ass_cache_commit(font, 1);
         return NULL;
     }
-    ass_cache_commit(font);
+    ass_cache_commit(font, 1);
     return font;
 }
 
