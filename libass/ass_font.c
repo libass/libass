@@ -225,17 +225,18 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
                        FT_Library ftlibrary, ASS_FontSelector *fontsel,
                        ASS_FontDesc *desc)
 {
-    int error;
     ASS_Font *font;
     if (ass_cache_get(font_cache, desc, &font))
-        return font;
+        return font->desc.family ? font : NULL;
+    if (!font)
+        return NULL;
 
     font->library = library;
     font->ftlibrary = ftlibrary;
     font->shaper_priv = NULL;
     font->n_faces = 0;
     ASS_FontDesc *new_desc = ass_cache_get_key(font);
-    font->desc.family = new_desc->family = strdup(desc->family);
+    font->desc.family = new_desc->family;
     font->desc.bold = desc->bold;
     font->desc.italic = desc->italic;
     font->desc.vertical = desc->vertical;
@@ -244,11 +245,11 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
     font->v.x = font->v.y = 0;
     font->size = 0.;
 
-    error = add_face(fontsel, font, 0);
+    int error = add_face(fontsel, font, 0);
     if (error == -1) {
-        ass_cache_cancel(font);
-        free(font->desc.family);
-        return 0;
+        font->desc.family = NULL;
+        ass_cache_commit(font);
+        return NULL;
     }
     ass_cache_commit(font);
     return font;
