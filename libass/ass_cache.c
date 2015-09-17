@@ -63,12 +63,59 @@ static unsigned font_compare(void *key1, void *key2, size_t key_size)
     return 1;
 }
 
+static bool font_key_copy(void *dst, void *src, size_t key_size)
+{
+    memcpy(dst, src, key_size);
+    ASS_FontDesc *d = dst, *s = src;
+    d->family = strdup(s->family);
+    return d->family;
+}
+
 static void font_destruct(void *key, void *value)
 {
     ass_font_clear(value);
 }
 
 // bitmap cache
+static unsigned bitmap_hash(void *key, size_t key_size)
+{
+    BitmapHashKey *k = key;
+    switch (k->type) {
+        case BITMAP_OUTLINE: return outline_bitmap_hash(&k->u, key_size);
+        case BITMAP_CLIP: return clip_bitmap_hash(&k->u, key_size);
+        default: return 0;
+    }
+}
+
+static unsigned bitmap_compare(void *a, void *b, size_t key_size)
+{
+    BitmapHashKey *ak = a;
+    BitmapHashKey *bk = b;
+    if (ak->type != bk->type) return 0;
+    switch (ak->type) {
+        case BITMAP_OUTLINE: return outline_bitmap_compare(&ak->u, &bk->u, key_size);
+        case BITMAP_CLIP: return clip_bitmap_compare(&ak->u, &bk->u, key_size);
+        default: return 0;
+    }
+}
+
+static bool bitmap_key_copy(void *dst, void *src, size_t key_size)
+{
+    memcpy(dst, src, key_size);
+    BitmapHashKey *d = dst, *s = src;
+    switch (s->type) {
+    case BITMAP_OUTLINE:
+        ass_cache_inc_ref(s->u.outline.outline);
+        break;
+    case BITMAP_CLIP:
+        d->u.clip.text = strdup(s->u.clip.text);
+        if (!d->u.clip.text)
+            return false;
+        break;
+    }
+    return true;
+}
+
 static void bitmap_destruct(void *key, void *value)
 {
     BitmapHashValue *v = value;
@@ -94,29 +141,43 @@ static size_t bitmap_size(void *value, size_t value_size)
     return size;
 }
 
-static unsigned bitmap_hash(void *key, size_t key_size)
-{
-    BitmapHashKey *k = key;
-    switch (k->type) {
-        case BITMAP_OUTLINE: return outline_bitmap_hash(&k->u, key_size);
-        case BITMAP_CLIP: return clip_bitmap_hash(&k->u, key_size);
-        default: return 0;
-    }
-}
-
-static unsigned bitmap_compare(void *a, void *b, size_t key_size)
-{
-    BitmapHashKey *ak = a;
-    BitmapHashKey *bk = b;
-    if (ak->type != bk->type) return 0;
-    switch (ak->type) {
-        case BITMAP_OUTLINE: return outline_bitmap_compare(&ak->u, &bk->u, key_size);
-        case BITMAP_CLIP: return clip_bitmap_compare(&ak->u, &bk->u, key_size);
-        default: return 0;
-    }
-}
-
 // composite cache
+static unsigned composite_hash(void *key, size_t key_size)
+{
+    CompositeHashKey *k = key;
+    unsigned hval = filter_hash(&k->filter, key_size);
+    for (size_t i = 0; i < k->bitmap_count; i++) {
+        hval = fnv_32a_buf(&k->bitmaps[i].image, sizeof(k->bitmaps[i].image), hval);
+        hval = fnv_32a_buf(&k->bitmaps[i].x, sizeof(k->bitmaps[i].x), hval);
+        hval = fnv_32a_buf(&k->bitmaps[i].y, sizeof(k->bitmaps[i].y), hval);
+    }
+    return hval;
+}
+
+static unsigned composite_compare(void *a, void *b, size_t key_size)
+{
+    CompositeHashKey *ak = a;
+    CompositeHashKey *bk = b;
+    if (ak->bitmap_count != bk->bitmap_count)
+        return 0;
+    for (size_t i = 0; i < ak->bitmap_count; i++) {
+        if (ak->bitmaps[i].image != bk->bitmaps[i].image ||
+            ak->bitmaps[i].x != bk->bitmaps[i].x ||
+            ak->bitmaps[i].y != bk->bitmaps[i].y)
+            return 0;
+    }
+    return filter_compare(&ak->filter, &bk->filter, key_size);
+}
+
+static bool composite_key_copy(void *dst, void *src, size_t key_size)
+{
+    memcpy(dst, src, key_size);
+    CompositeHashKey *k = src;
+    for (size_t i = 0; i < k->bitmap_count; i++)
+        ass_cache_inc_ref(k->bitmaps[i].image);
+    return true;
+}
+
 static void composite_destruct(void *key, void *value)
 {
     CompositeHashValue *v = value;
@@ -145,35 +206,7 @@ static size_t composite_size(void *value, size_t value_size)
     return size;
 }
 
-static unsigned composite_hash(void *key, size_t key_size)
-{
-    CompositeHashKey *k = key;
-    unsigned hval = filter_hash(&k->filter, key_size);
-    for (size_t i = 0; i < k->bitmap_count; i++) {
-        hval = fnv_32a_buf(&k->bitmaps[i].image, sizeof(k->bitmaps[i].image), hval);
-        hval = fnv_32a_buf(&k->bitmaps[i].x, sizeof(k->bitmaps[i].x), hval);
-        hval = fnv_32a_buf(&k->bitmaps[i].y, sizeof(k->bitmaps[i].y), hval);
-    }
-    return hval;
-}
-
-static unsigned composite_compare(void *a, void *b, size_t key_size)
-{
-    CompositeHashKey *ak = a;
-    CompositeHashKey *bk = b;
-    if (ak->bitmap_count != bk->bitmap_count)
-        return 0;
-    for (size_t i = 0; i < ak->bitmap_count; i++) {
-        if (ak->bitmaps[i].image != bk->bitmaps[i].image ||
-            ak->bitmaps[i].x != bk->bitmaps[i].x ||
-            ak->bitmaps[i].y != bk->bitmaps[i].y)
-            return 0;
-    }
-    return filter_compare(&ak->filter, &bk->filter, key_size);
-}
-
 // outline cache
-
 static unsigned outline_hash(void *key, size_t key_size)
 {
     OutlineHashKey *k = key;
@@ -196,6 +229,23 @@ static unsigned outline_compare(void *a, void *b, size_t key_size)
     }
 }
 
+static bool outline_key_copy(void *dst, void *src, size_t key_size)
+{
+    memcpy(dst, src, key_size);
+    OutlineHashKey *d = dst, *s = src;
+    switch (s->type) {
+    case OUTLINE_GLYPH:
+        ass_cache_inc_ref(s->u.glyph.font);
+        break;
+    case OUTLINE_DRAWING:
+        d->u.drawing.text = strdup(s->u.drawing.text);
+        if (!d->u.drawing.text)
+            return false;
+        break;
+    }
+    return true;
+}
+
 static void outline_destruct(void *key, void *value)
 {
     OutlineHashValue *v = value;
@@ -212,6 +262,14 @@ static void outline_destruct(void *key, void *value)
 
 
 // glyph metric cache
+static bool glyph_metric_key_copy(void *dst, void *src, size_t key_size)
+{
+    memcpy(dst, src, key_size);
+    GlyphMetricsHashKey *k = src;
+    ass_cache_inc_ref(k->font);
+    return true;
+}
+
 static void glyph_metric_destruct(void *key, void *value)
 {
     GlyphMetricsHashKey *k = key;
@@ -236,6 +294,7 @@ struct cache {
     HashFunction hash_func;
     ItemSize size_func;
     HashCompare compare_func;
+    CacheKeyCopy copy_func;
     CacheItemDestructor destruct_func;
     size_t key_size;
     size_t value_size;
@@ -271,6 +330,13 @@ static unsigned compare_simple(void *a, void *b, size_t key_size)
     return memcmp(a, b, key_size) == 0;
 }
 
+// Default copy function
+static bool copy_simple(void *dst, void *src, size_t key_size)
+{
+    memcpy(dst, src, key_size);
+    return true;
+}
+
 // Default destructor
 static void destruct_simple(void *key, void *value)
 {
@@ -279,24 +345,19 @@ static void destruct_simple(void *key, void *value)
 
 // Create a cache with type-specific hash/compare/destruct/size functions
 Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
-                        CacheItemDestructor destruct_func, ItemSize size_func,
-                        size_t key_size, size_t value_size)
+                        CacheKeyCopy copy_func, CacheItemDestructor destruct_func,
+                        ItemSize size_func, size_t key_size, size_t value_size)
 {
     Cache *cache = calloc(1, sizeof(*cache));
     if (!cache)
         return NULL;
     cache->buckets = 0xFFFF;
     cache->queue_last = &cache->queue_first;
-    cache->hash_func = hash_simple;
-    cache->compare_func = compare_simple;
-    cache->destruct_func = destruct_simple;
+    cache->hash_func = hash_func ? hash_func : hash_simple;
+    cache->compare_func = compare_func ? compare_func : compare_simple;
+    cache->copy_func = copy_func ? copy_func : copy_simple;
+    cache->destruct_func = destruct_func ? destruct_func : destruct_simple;
     cache->size_func = size_func;
-    if (hash_func)
-        cache->hash_func = hash_func;
-    if (compare_func)
-        cache->compare_func = compare_func;
-    if (destruct_func)
-        cache->destruct_func = destruct_func;
     cache->key_size = key_size;
     cache->value_size = value_size;
     cache->map = calloc(cache->buckets, sizeof(CacheItem *));
@@ -338,12 +399,16 @@ bool ass_cache_get(Cache *cache, void *key, void *value_ptr)
     item = malloc(key_offs + cache->key_size);
     if (!item) {
         *value = NULL;
-        return 0;
+        return false;
     }
     item->size = 0;
     item->cache = cache;
+    if (!cache->copy_func((char *) item + key_offs, key, cache->key_size)) {
+        free(item);
+        *value = NULL;
+        return false;
+    }
     *value = (char *) item + CACHE_ITEM_SIZE;
-    memcpy((char *) item + key_offs, key, cache->key_size);
 
     CacheItem **bucketptr = &cache->map[bucket];
     if (*bucketptr)
@@ -364,7 +429,6 @@ bool ass_cache_get(Cache *cache, void *key, void *value_ptr)
 void *ass_cache_get_key(void *value)
 {
     CacheItem *item = value_to_item(value);
-    assert(!item->size);
     return (char *) value + align_cache(item->cache->value_size);
 }
 
@@ -380,21 +444,6 @@ void ass_cache_commit(void *value)
     else
         item->size = 1;
     cache->cache_size += item->size;
-}
-
-void ass_cache_cancel(void *value)
-{
-    CacheItem *item = value_to_item(value);
-    assert(!item->size);
-
-    if (item->queue_next)
-        item->queue_next->queue_prev = item->queue_prev;
-    *item->queue_prev = item->queue_next;
-
-    if (item->next)
-        item->next->prev = item->prev;
-    *item->prev = item->next;
-    free(item);
 }
 
 static inline void destroy_item(Cache *cache, CacheItem *item)
@@ -502,32 +551,35 @@ void ass_cache_done(Cache *cache)
 // Type-specific creation function
 Cache *ass_font_cache_create(void)
 {
-    return ass_cache_create(font_hash, font_compare, font_destruct,
-            (ItemSize)NULL, sizeof(ASS_FontDesc), sizeof(ASS_Font));
+    return ass_cache_create(font_hash, font_compare,
+                            font_key_copy, font_destruct, NULL,
+                            sizeof(ASS_FontDesc), sizeof(ASS_Font));
 }
 
 Cache *ass_outline_cache_create(void)
 {
-    return ass_cache_create(outline_hash, outline_compare, outline_destruct,
-            NULL, sizeof(OutlineHashKey), sizeof(OutlineHashValue));
+    return ass_cache_create(outline_hash, outline_compare,
+                            outline_key_copy, outline_destruct, NULL,
+                            sizeof(OutlineHashKey), sizeof(OutlineHashValue));
 }
 
 Cache *ass_glyph_metrics_cache_create(void)
 {
-    return ass_cache_create(glyph_metrics_hash, glyph_metrics_compare, glyph_metric_destruct,
-            (ItemSize) NULL, sizeof(GlyphMetricsHashKey),
-            sizeof(GlyphMetricsHashValue));
+    return ass_cache_create(glyph_metrics_hash, glyph_metrics_compare,
+                            glyph_metric_key_copy, glyph_metric_destruct, NULL,
+                            sizeof(GlyphMetricsHashKey), sizeof(GlyphMetricsHashValue));
 }
 
 Cache *ass_bitmap_cache_create(void)
 {
-    return ass_cache_create(bitmap_hash, bitmap_compare, bitmap_destruct,
-            bitmap_size, sizeof(BitmapHashKey), sizeof(BitmapHashValue));
+    return ass_cache_create(bitmap_hash, bitmap_compare,
+                            bitmap_key_copy, bitmap_destruct, bitmap_size,
+                            sizeof(BitmapHashKey), sizeof(BitmapHashValue));
 }
 
 Cache *ass_composite_cache_create(void)
 {
     return ass_cache_create(composite_hash, composite_compare,
-            composite_destruct, composite_size, sizeof(CompositeHashKey),
-            sizeof(CompositeHashValue));
+                            composite_key_copy, composite_destruct, composite_size,
+                            sizeof(CompositeHashKey), sizeof(CompositeHashValue));
 }

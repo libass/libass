@@ -498,23 +498,17 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     key.u.clip.text = drawing->text;
 
     BitmapHashValue *val;
-    Bitmap *clip_bm = NULL;
-    if (ass_cache_get(render_priv->cache.bitmap_cache, &key, &val)) {
-        clip_bm = val->bm;
-    } else {
+    if (!ass_cache_get(render_priv->cache.bitmap_cache, &key, &val)) {
+        if (!val)
+            return;
+        val->bm = val->bm_o = NULL;
+
         // Not found in cache, parse and rasterize it
         ASS_Outline *outline = ass_drawing_parse(drawing, 1);
         if (!outline) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
-            ass_cache_cancel(val);
-            return;
-        }
-
-        BitmapHashKey *new_key = ass_cache_get_key(val);
-        new_key->u.clip.text = strdup(drawing->text);
-        if (!new_key->u.clip.text) {
-            ass_cache_cancel(val);
+            ass_cache_commit(val);
             return;
         }
 
@@ -528,14 +522,11 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             outline_translate(outline, trans.x, trans.y);
         }
 
-        clip_bm = outline_to_bitmap(render_priv, outline, 0);
-
-        // Add to cache
-        val->bm = clip_bm;
-        val->bm_o = NULL;
+        val->bm = outline_to_bitmap(render_priv, outline, 0);
         ass_cache_commit(val);
     }
 
+    Bitmap *clip_bm = val->bm;
     if (!clip_bm) return;
 
     // Iterate through bitmaps and blend/clip them
@@ -1161,19 +1152,15 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
     OutlineHashValue *val;
     fill_glyph_hash(priv, &key, info);
     if (!ass_cache_get(priv->cache.outline_cache, &key, &val)) {
+        if (!val)
+            return;
         memset(val, 0, sizeof(*val));
 
         if (info->drawing) {
             ASS_Drawing *drawing = info->drawing;
             ass_drawing_hash(drawing);
             if(!ass_drawing_parse(drawing, 0)) {
-                ass_cache_cancel(val);
-                return;
-            }
-            OutlineHashKey *new_key = ass_cache_get_key(val);
-            new_key->u.drawing.text = strdup(drawing->text);
-            if(!new_key->u.drawing.text) {
-                ass_cache_cancel(val);
+                ass_cache_commit(val);
                 return;
             }
             val->outline = outline_copy(&drawing->outline);
@@ -1205,17 +1192,23 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         }
 
         if (!val->outline) {
-            ass_cache_cancel(val);
+            ass_cache_commit(val);
             return;
         }
 
         outline_get_cbox(val->outline, &val->bbox_scaled);
 
         if (info->border_style == 3) {
-            FT_Vector advance;
-
             val->border = calloc(1, sizeof(ASS_Outline));
+            if (!val->border) {
+                outline_free(val->outline);
+                free(val->outline);
+                val->outline = NULL;
+                ass_cache_commit(val);
+                return;
+            }
 
+            FT_Vector advance;
             if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing)
                 advance = val->advance;
             else
@@ -1235,10 +1228,11 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                     double_to_d6(info->border_y * priv->border_scale));
         }
 
-        if (!info->drawing)
-            ass_cache_inc_ref(info->font);
         ass_cache_commit(val);
     }
+
+    if (!val->outline)
+        return;
 
     info->hash_key.u.outline.outline = val;
     info->outline = val->outline;
@@ -1343,62 +1337,57 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 
     BitmapHashValue *val;
     OutlineBitmapHashKey *key = &info->hash_key.u.outline;
-    if (!ass_cache_get(render_priv->cache.bitmap_cache, &info->hash_key, &val)) {
-        FT_Vector shift;
-        int error;
-        double fax_scaled, fay_scaled;
-        double scale_x = render_priv->font_scale_x;
+    if (ass_cache_get(render_priv->cache.bitmap_cache, &info->hash_key, &val)) {
+        info->image = val;
+        return;
+    }
+    if (!val)
+        return;
 
-        val->bm = val->bm_o = NULL;
+    ASS_Outline *outline = outline_copy(info->outline);
+    ASS_Outline *border  = outline_copy(info->border);
 
-        ASS_Outline *outline = outline_copy(info->outline);
-        ASS_Outline *border  = outline_copy(info->border);
+    // calculating rotation shift vector (from rotation origin to the glyph basepoint)
+    FT_Vector shift = { key->shift_x, key->shift_y };
+    double scale_x = render_priv->font_scale_x;
+    double fax_scaled = info->fax / info->scale_y * info->scale_x;
+    double fay_scaled = info->fay / info->scale_x * info->scale_y;
 
-        // calculating rotation shift vector (from rotation origin to the glyph basepoint)
-        shift.x = key->shift_x;
-        shift.y = key->shift_y;
-        fax_scaled = info->fax / info->scale_y * info->scale_x;
-        fay_scaled = info->fay / info->scale_x * info->scale_y;
+    // apply rotation
+    // use blur_scale because, like blurs, VSFilter forgets to scale this
+    transform_3d(shift, outline, border,
+                 info->frx, info->fry, info->frz, fax_scaled,
+                 fay_scaled, render_priv->blur_scale, info->asc);
 
-        // apply rotation
-        // use blur_scale because, like blurs, VSFilter forgets to scale this
-        transform_3d(shift, outline, border,
-                info->frx, info->fry, info->frz, fax_scaled,
-                fay_scaled, render_priv->blur_scale, info->asc);
+    // PAR correction scaling
+    FT_Matrix m = { double_to_d16(scale_x), 0,
+                    0, double_to_d16(1.0) };
 
-        // PAR correction scaling
-        FT_Matrix m = { double_to_d16(scale_x), 0,
-            0, double_to_d16(1.0) };
-
-        // subpixel shift
-        if (outline) {
-            if (scale_x != 1.0)
-                outline_transform(outline, &m);
-            outline_translate(outline, key->advance.x, -key->advance.y);
-        }
-        if (border) {
-            if (scale_x != 1.0)
-                outline_transform(border, &m);
-            outline_translate(border, key->advance.x, -key->advance.y);
-        }
-
-        // render glyph
-        error = outline_to_bitmap2(render_priv, outline, border,
-                                   &val->bm, &val->bm_o);
-        if (error)
-            info->symbol = 0;
-
-        assert(info->hash_key.type == BITMAP_OUTLINE);
-        ass_cache_inc_ref(info->hash_key.u.outline.outline);
-        ass_cache_commit(val);
-
-        outline_free(outline);
-        free(outline);
-        outline_free(border);
-        free(border);
+    // subpixel shift
+    if (outline) {
+        if (scale_x != 1.0)
+            outline_transform(outline, &m);
+        outline_translate(outline, key->advance.x, -key->advance.y);
+    }
+    if (border) {
+        if (scale_x != 1.0)
+            outline_transform(border, &m);
+        outline_translate(border, key->advance.x, -key->advance.y);
     }
 
+    // render glyph
+    int error = outline_to_bitmap2(render_priv, outline, border,
+                                   &val->bm, &val->bm_o);
+    if (error)
+        info->symbol = 0;
+
+    ass_cache_commit(val);
     info->image = val;
+
+    outline_free(outline);
+    free(outline);
+    outline_free(border);
+    free(border);
 }
 
 /**
@@ -2277,6 +2266,8 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             free(info->bitmaps);
             continue;
         }
+        if (!hv)
+            continue;
 
         int bord = be_padding(info->filter.be);
         if (!bord && info->n_bm == 1) {
@@ -2358,8 +2349,6 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
         hv->bm = info->bm;
         hv->bm_o = info->bm_o;
         hv->bm_s = info->bm_s;
-        for (int j = 0; j < info->bitmap_count; ++j)
-            ass_cache_inc_ref(info->bitmaps[j].image);
         ass_cache_commit(hv);
     }
 
