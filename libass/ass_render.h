@@ -60,10 +60,10 @@ typedef struct {
     double y;
 } DVector;
 
-typedef struct free_list {
-    void *object;
-    struct free_list *next;
-} FreeList;
+typedef struct {
+    ASS_Image result;
+    CompositeHashValue *source;
+} ASS_ImagePriv;
 
 typedef struct {
     int frame_width;
@@ -302,7 +302,6 @@ struct ass_renderer {
 
     ASS_Image *images_root;     // rendering result is stored here
     ASS_Image *prev_images_root;
-    int cache_cleared;
 
     EventImages *eimg;          // temporary buffer for sorting rendered events
     int eimg_size;              // allocated buffer size
@@ -328,9 +327,6 @@ struct ass_renderer {
 #if CONFIG_RASTERIZER
     RasterizerData rasterizer;
 #endif
-
-    FreeList *free_head;
-    FreeList *free_tail;
 
     ASS_Style user_override_style;
 };
