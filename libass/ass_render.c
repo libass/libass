@@ -114,30 +114,16 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     return priv;
 }
 
-static void free_list_clear(ASS_Renderer *render_priv)
-{
-    if (render_priv->free_head) {
-        FreeList *item = render_priv->free_head;
-        while(item) {
-            FreeList *oi = item;
-            ass_aligned_free(item->object);
-            item = item->next;
-            free(oi);
-        }
-        render_priv->free_head = NULL;
-    }
-}
-
 void ass_renderer_done(ASS_Renderer *render_priv)
 {
+    ass_free_images(render_priv->images_root);
+    ass_free_images(render_priv->prev_images_root);
+
     ass_cache_done(render_priv->cache.composite_cache);
     ass_cache_done(render_priv->cache.bitmap_cache);
     ass_cache_done(render_priv->cache.outline_cache);
     ass_shaper_free(render_priv->shaper);
     ass_cache_done(render_priv->cache.font_cache);
-
-    ass_free_images(render_priv->images_root);
-    ass_free_images(render_priv->prev_images_root);
 
 #if CONFIG_RASTERIZER
     rasterizer_done(&render_priv->rasterizer);
@@ -162,7 +148,6 @@ void ass_renderer_done(ASS_Renderer *render_priv)
 
     free(render_priv->user_override_style.FontName);
 
-    free_list_clear(render_priv);
     free(render_priv);
 }
 
@@ -172,21 +157,28 @@ void ass_renderer_done(ASS_Renderer *render_priv)
  */
 static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
                                  int bitmap_h, int stride, int dst_x,
-                                 int dst_y, uint32_t color)
+                                 int dst_y, uint32_t color,
+                                 CompositeHashValue *source)
 {
-    ASS_Image *img = malloc(sizeof(ASS_Image));
-
-    if (img) {
-        img->w = bitmap_w;
-        img->h = bitmap_h;
-        img->stride = stride;
-        img->bitmap = bitmap;
-        img->color = color;
-        img->dst_x = dst_x;
-        img->dst_y = dst_y;
+    ASS_ImagePriv *img = malloc(sizeof(ASS_ImagePriv));
+    if (!img) {
+        if (!source)
+            ass_aligned_free(bitmap);
+        return NULL;
     }
 
-    return img;
+    img->result.w = bitmap_w;
+    img->result.h = bitmap_h;
+    img->result.stride = stride;
+    img->result.bitmap = bitmap;
+    img->result.color = color;
+    img->result.dst_x = dst_x;
+    img->result.dst_y = dst_y;
+
+    img->source = source;
+    ass_cache_inc_ref(source);
+
+    return &img->result;
 }
 
 /**
@@ -280,7 +272,8 @@ static double y2scr_sub(ASS_Renderer *render_priv, double y)
 static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
                                   Bitmap *bm, int dst_x, int dst_y,
                                   uint32_t color, uint32_t color2, int brk,
-                                  ASS_Image **tail, unsigned int type)
+                                  ASS_Image **tail, unsigned type,
+                                  CompositeHashValue *source)
 {
     int i, j, x0, y0, x1, y1, cx0, cy0, cx1, cy1, sx, sy, zx, zy;
     Rect r[4];
@@ -345,8 +338,8 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
         if (lbrk > r[j].x0) {
             if (lbrk > r[j].x1) lbrk = r[j].x1;
             img = my_draw_bitmap(bm->buffer + r[j].y0 * bm->stride + r[j].x0,
-                lbrk - r[j].x0, r[j].y1 - r[j].y0,
-                bm->stride, dst_x + r[j].x0, dst_y + r[j].y0, color);
+                                 lbrk - r[j].x0, r[j].y1 - r[j].y0, bm->stride,
+                                 dst_x + r[j].x0, dst_y + r[j].y0, color, source);
             if (!img) break;
             img->type = type;
             *tail = img;
@@ -355,8 +348,8 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
         if (lbrk < r[j].x1) {
             if (lbrk < r[j].x0) lbrk = r[j].x0;
             img = my_draw_bitmap(bm->buffer + r[j].y0 * bm->stride + lbrk,
-                r[j].x1 - lbrk, r[j].y1 - r[j].y0,
-                bm->stride, dst_x + lbrk, dst_y + r[j].y0, color2);
+                                 r[j].x1 - lbrk, r[j].y1 - r[j].y0, bm->stride,
+                                 dst_x + lbrk, dst_y + r[j].y0, color2, source);
             if (!img) break;
             img->type = type;
             *tail = img;
@@ -381,12 +374,13 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
  */
 static ASS_Image **
 render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
-             uint32_t color, uint32_t color2, int brk, ASS_Image **tail, unsigned int type)
+             uint32_t color, uint32_t color2, int brk, ASS_Image **tail,
+             unsigned type, CompositeHashValue *source)
 {
     // Inverse clipping in use?
     if (render_priv->state.clip_mode)
         return render_glyph_i(render_priv, bm, dst_x, dst_y, color, color2,
-                              brk, tail, type);
+                              brk, tail, type, source);
 
     // brk is relative to dst_x
     // color = color left of brk
@@ -439,7 +433,7 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
             brk = b_x1;
         img = my_draw_bitmap(bm->buffer + bm->stride * b_y0 + b_x0,
                              brk - b_x0, b_y1 - b_y0, bm->stride,
-                             dst_x + b_x0, dst_y + b_y0, color);
+                             dst_x + b_x0, dst_y + b_y0, color, source);
         if (!img) return tail;
         img->type = type;
         *tail = img;
@@ -450,33 +444,13 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
             brk = b_x0;
         img = my_draw_bitmap(bm->buffer + bm->stride * b_y0 + brk,
                              b_x1 - brk, b_y1 - b_y0, bm->stride,
-                             dst_x + brk, dst_y + b_y0, color2);
+                             dst_x + brk, dst_y + b_y0, color2, source);
         if (!img) return tail;
         img->type = type;
         *tail = img;
         tail = &img->next;
     }
     return tail;
-}
-
-// Return true if the object could be added, and the object is not NULL.
-static bool free_list_add(ASS_Renderer *render_priv, void *object)
-{
-    if (!object)
-        return false;
-    FreeList *l = calloc(1, sizeof(FreeList));
-    if (!l)
-        return false;
-    if (!render_priv->free_head) {
-        render_priv->free_head = l;
-        render_priv->free_head->object = object;
-        render_priv->free_tail = render_priv->free_head;
-    } else {
-        l->object = object;
-        render_priv->free_tail->next = l;
-        render_priv->free_tail = render_priv->free_tail->next;
-    }
-    return true;
 }
 
 // Calculate bitmap memory footprint
@@ -584,10 +558,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
 
             // Allocate new buffer and add to free list
             nbuffer = ass_aligned_alloc(32, as * ah);
-            if (!free_list_add(render_priv, nbuffer)) {
-                ass_aligned_free(nbuffer);
+            if (!nbuffer)
                 break;
-            }
 
             // Blend together
             memcpy(nbuffer, abuffer, ((ah - 1) * as) + aw);
@@ -606,10 +578,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             unsigned align = (w >= 16) ? 16 : ((w >= 8) ? 8 : 1);
             unsigned ns = ass_align(align, w);
             nbuffer = ass_aligned_alloc(align, ns * h);
-            if (!free_list_add(render_priv, nbuffer)) {
-                ass_aligned_free(nbuffer);
+            if (!nbuffer)
                 break;
-            }
 
             // Blend together
             render_priv->engine->mul_bitmaps(nbuffer, ns,
@@ -622,7 +592,11 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             cur->h = h;
             cur->stride = ns;
         }
+
         cur->bitmap = nbuffer;
+        ASS_ImagePriv *priv = (ASS_ImagePriv *) cur;
+        ass_cache_dec_ref(priv->source);
+        priv->source = NULL;
     }
 
     ass_cache_dec_ref(val);
@@ -636,20 +610,21 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
 {
     ASS_Image *head;
     ASS_Image **tail = &head;
-    TextInfo *text_info = &render_priv->text_info;
+    unsigned n_bitmaps = render_priv->text_info.n_bitmaps;
+    CombinedBitmapInfo *bitmaps = render_priv->text_info.combined_bitmaps;
 
-    for (int i = 0; i < text_info->n_bitmaps; ++i) {
-        CombinedBitmapInfo *info = &text_info->combined_bitmaps[i];
+    for (unsigned i = 0; i < n_bitmaps; i++) {
+        CombinedBitmapInfo *info = &bitmaps[i];
         if (!info->bm_s || render_priv->state.border_style == 4)
             continue;
 
         tail =
             render_glyph(render_priv, info->bm_s, info->x, info->y, info->c[3], 0,
-                         1000000, tail, IMAGE_TYPE_SHADOW);
+                         1000000, tail, IMAGE_TYPE_SHADOW, info->image);
     }
 
-    for (int i = 0; i < text_info->n_bitmaps; ++i) {
-        CombinedBitmapInfo *info = &text_info->combined_bitmaps[i];
+    for (unsigned i = 0; i < n_bitmaps; i++) {
+        CombinedBitmapInfo *info = &bitmaps[i];
         if (!info->bm_o)
             continue;
 
@@ -659,12 +634,12 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
         } else {
             tail =
                 render_glyph(render_priv, info->bm_o, info->x, info->y, info->c[2],
-                             0, 1000000, tail, IMAGE_TYPE_OUTLINE);
+                             0, 1000000, tail, IMAGE_TYPE_OUTLINE, info->image);
         }
     }
 
-    for (int i = 0; i < text_info->n_bitmaps; ++i) {
-        CombinedBitmapInfo *info = &text_info->combined_bitmaps[i];
+    for (unsigned i = 0; i < n_bitmaps; i++) {
+        CombinedBitmapInfo *info = &bitmaps[i];
         if (!info->bm)
             continue;
 
@@ -673,28 +648,29 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
             if (info->effect_timing > info->first_pos_x)
                 tail =
                     render_glyph(render_priv, info->bm, info->x, info->y,
-                                 info->c[0], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
+                                 info->c[0], 0, 1000000, tail,
+                                 IMAGE_TYPE_CHARACTER, info->image);
             else
                 tail =
                     render_glyph(render_priv, info->bm, info->x, info->y,
-                                 info->c[1], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
+                                 info->c[1], 0, 1000000, tail,
+                                 IMAGE_TYPE_CHARACTER, info->image);
         } else if (info->effect_type == EF_KARAOKE_KF) {
             tail =
                 render_glyph(render_priv, info->bm, info->x, info->y, info->c[0],
-                             info->c[1], info->effect_timing, tail, IMAGE_TYPE_CHARACTER);
+                             info->c[1], info->effect_timing, tail,
+                             IMAGE_TYPE_CHARACTER, info->image);
         } else
             tail =
                 render_glyph(render_priv, info->bm, info->x, info->y, info->c[0],
-                             0, 1000000, tail, IMAGE_TYPE_CHARACTER);
+                             0, 1000000, tail, IMAGE_TYPE_CHARACTER, info->image);
     }
+
+    for (unsigned i = 0; i < n_bitmaps; i++)
+        ass_cache_dec_ref(bitmaps[i].image);
 
     *tail = 0;
     blend_vector_clip(render_priv, head);
-
-    for (int i = 0; i < text_info->n_bitmaps; ++i) {
-        CombinedBitmapInfo *info = &text_info->combined_bitmaps[i];
-        ass_cache_dec_ref(info->image);  // XXX: not thread safe
-    }
 
     return head;
 }
@@ -2402,20 +2378,18 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
 {
     void *nbuffer = ass_aligned_alloc(1, event_images->width * event_images->height);
-    if (!free_list_add(render_priv, nbuffer)) {
-        ass_aligned_free(nbuffer);
-    } else {
-        memset(nbuffer, 0xFF, event_images->width * event_images->height);
-        ASS_Image *img = my_draw_bitmap(nbuffer, event_images->width,
-                                        event_images->height,
-                                        event_images->width,
-                                        event_images->left,
-                                        event_images->top,
-                                        render_priv->state.c[3]);
-        if (img) {
-            img->next = event_images->imgs;
-            event_images->imgs = img;
-        }
+    if (!nbuffer)
+        return;
+    memset(nbuffer, 0xFF, event_images->width * event_images->height);
+    ASS_Image *img = my_draw_bitmap(nbuffer, event_images->width,
+                                    event_images->height,
+                                    event_images->width,
+                                    event_images->left,
+                                    event_images->top,
+                                    render_priv->state.c[3], NULL);
+    if (img) {
+        img->next = event_images->imgs;
+        event_images->imgs = img;
     }
 }
 
@@ -2666,7 +2640,12 @@ void ass_free_images(ASS_Image *img)
 {
     while (img) {
         ASS_Image *next = img->next;
-        free(img);
+        ASS_ImagePriv *priv = (ASS_ImagePriv *) img;
+        if (priv->source)
+            ass_cache_dec_ref(priv->source);
+        else
+            ass_aligned_free(img->bitmap);
+        free(priv);
         img = next;
     }
 }
@@ -2679,9 +2658,6 @@ static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
     ass_cache_cut(cache->composite_cache, cache->composite_max_size);
     ass_cache_cut(cache->bitmap_cache, cache->bitmap_max_size);
     ass_cache_cut(cache->outline_cache, cache->glyph_max);
-    ass_free_images(priv->prev_images_root);
-    priv->prev_images_root = 0;
-    priv->cache_cleared = 1;
 }
 
 /**
@@ -2702,8 +2678,6 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
 
     if (render_priv->library != track->library)
         return 1;
-
-    free_list_clear(render_priv);
 
     if (track->n_events == 0)
         return 1;               // nothing to do
@@ -2953,7 +2927,7 @@ static int ass_detect_change(ASS_Renderer *priv)
     ASS_Image *img, *img2;
     int diff;
 
-    if (priv->cache_cleared || priv->state.has_clips)
+    if (priv->state.has_clips)
         return 2;
 
     img = priv->prev_images_root;
@@ -3056,7 +3030,6 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
     // free the previous image list
     ass_free_images(priv->prev_images_root);
     priv->prev_images_root = 0;
-    priv->cache_cleared = 0;
 
     return priv->images_root;
 }
