@@ -127,11 +127,11 @@ void update_font(ASS_Renderer *render_priv)
         val = 0;                // normal
     desc.italic = val;
 
+    ass_cache_dec_ref(render_priv->state.font);
     render_priv->state.font =
         ass_font_new(render_priv->cache.font_cache, render_priv->library,
                      render_priv->ftlibrary, render_priv->fontselect,
                      &desc);
-    free(desc.family);
 
     if (render_priv->state.font)
         change_font_size(render_priv, render_priv->state.font_size);

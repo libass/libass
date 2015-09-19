@@ -58,7 +58,7 @@ typedef struct {
 // Type-specific function pointers
 typedef unsigned(*HashFunction)(void *key, size_t key_size);
 typedef unsigned(*HashCompare)(void *a, void *b, size_t key_size);
-typedef bool(*CacheKeyCopy)(void *dst, void *src, size_t key_size);
+typedef bool(*CacheKeyMove)(void *dst, void *src, size_t key_size);
 typedef void(*CacheItemDestructor)(void *key, void *value);
 
 // cache hash keys
@@ -104,10 +104,10 @@ typedef struct {
 } CompositeHashKey;
 
 Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
-                        CacheKeyCopy copy_func, CacheItemDestructor destruct_func,
+                        CacheKeyMove copy_func, CacheItemDestructor destruct_func,
                         size_t key_size, size_t value_size);
 bool ass_cache_get(Cache *cache, void *key, void *value_ptr);
-void *ass_cache_get_key(void *value);
+void *ass_cache_key(void *value);
 void ass_cache_commit(void *value, size_t item_size);
 void ass_cache_inc_ref(void *value);
 void ass_cache_dec_ref(void *value);

@@ -125,8 +125,10 @@ typedef struct {
 
     int x, y;
     Rectangle rect, rect_o;
-    Bitmap *bm, *bm_o, *bm_s;   // glyphs, outline, shadow bitmaps
     size_t n_bm, n_bm_o;
+
+    Bitmap *bm, *bm_o, *bm_s;   // glyphs, outline, shadow bitmaps
+    CompositeHashValue *image;
 } CombinedBitmapInfo;
 
 // describes a glyph

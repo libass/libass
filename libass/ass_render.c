@@ -515,6 +515,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
             ass_cache_commit(val, sizeof(BitmapHashKey) + sizeof(BitmapHashValue));
+            ass_cache_dec_ref(val);
             return;
         }
 
@@ -534,7 +535,10 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
     }
 
     Bitmap *clip_bm = val->bm;
-    if (!clip_bm) return;
+    if (!clip_bm) {
+        ass_cache_dec_ref(val);
+        return;
+    }
 
     // Iterate through bitmaps and blend/clip them
     for (ASS_Image *cur = head; cur; cur = cur->next) {
@@ -582,7 +586,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             nbuffer = ass_aligned_alloc(32, as * ah);
             if (!free_list_add(render_priv, nbuffer)) {
                 ass_aligned_free(nbuffer);
-                return;
+                break;
             }
 
             // Blend together
@@ -604,7 +608,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             nbuffer = ass_aligned_alloc(align, ns * h);
             if (!free_list_add(render_priv, nbuffer)) {
                 ass_aligned_free(nbuffer);
-                return;
+                break;
             }
 
             // Blend together
@@ -620,6 +624,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         }
         cur->bitmap = nbuffer;
     }
+
+    ass_cache_dec_ref(val);
 }
 
 /**
@@ -684,6 +690,11 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
 
     *tail = 0;
     blend_vector_clip(render_priv, head);
+
+    for (int i = 0; i < text_info->n_bitmaps; ++i) {
+        CombinedBitmapInfo *info = &text_info->combined_bitmaps[i];
+        ass_cache_dec_ref(info->image);  // XXX: not thread safe
+    }
 
     return head;
 }
@@ -921,9 +932,11 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
 
 static void free_render_context(ASS_Renderer *render_priv)
 {
+    ass_cache_dec_ref(render_priv->state.font);
     free(render_priv->state.family);
     ass_drawing_free(render_priv->state.clip_drawing);
 
+    render_priv->state.font = NULL;
     render_priv->state.family = NULL;
     render_priv->state.clip_drawing = NULL;
 
@@ -1168,6 +1181,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             ass_drawing_hash(drawing);
             if(!ass_drawing_parse(drawing, 0)) {
                 ass_cache_commit(val, 1);
+                ass_cache_dec_ref(val);
                 return;
             }
             val->outline = outline_copy(&drawing->outline);
@@ -1200,6 +1214,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 
         if (!val->outline) {
             ass_cache_commit(val, 1);
+            ass_cache_dec_ref(val);
             return;
         }
 
@@ -1212,6 +1227,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                 free(val->outline);
                 val->outline = NULL;
                 ass_cache_commit(val, 1);
+                ass_cache_dec_ref(val);
                 return;
             }
 
@@ -1238,8 +1254,10 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         ass_cache_commit(val, 1);
     }
 
-    if (!val->outline)
+    if (!val->outline) {
+        ass_cache_dec_ref(val);
         return;
+    }
 
     info->hash_key.u.outline.outline = val;
     info->outline = val->outline;
@@ -1903,6 +1921,8 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         // Fill glyph information
         info->symbol = code;
         info->font = render_priv->state.font;
+        if (!info->drawing)
+            ass_cache_inc_ref(info->font);
         for (i = 0; i < 4; ++i) {
             uint32_t clr = render_priv->state.c[i];
             // VSFilter compatibility: apply fade only when it's positive
@@ -2166,10 +2186,14 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
     CombinedBitmapInfo *combined_info = text_info->combined_bitmaps;
     CombinedBitmapInfo *current_info = NULL;
     GlyphInfo *last_info = NULL;
-    for (int i = 0; i < text_info->length; ++i) {
+    for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + i;
         if (info->linebreak) linebreak = 1;
-        if (info->skip) continue;
+        if (info->skip) {
+            for (; info; info = info->next)
+                ass_cache_dec_ref(info->hash_key.u.outline.outline);
+            continue;
+        }
         for (; info; info = info->next) {
             OutlineBitmapHashKey *key = &info->hash_key.u.outline;
 
@@ -2185,8 +2209,10 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 last_info = NULL;
                 if (nb_bitmaps >= text_info->max_bitmaps) {
                     size_t new_size = 2 * text_info->max_bitmaps;
-                    if (!ASS_REALLOC_ARRAY(text_info->combined_bitmaps, new_size))
+                    if (!ASS_REALLOC_ARRAY(text_info->combined_bitmaps, new_size)) {
+                        ass_cache_dec_ref(info->image);
                         continue;
+                    }
                     text_info->max_bitmaps = new_size;
                     combined_info = text_info->combined_bitmaps;
                 }
@@ -2217,49 +2243,56 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 current_info->x = current_info->y = INT_MAX;
                 rectangle_reset(&current_info->rect);
                 rectangle_reset(&current_info->rect_o);
-                current_info->bm = current_info->bm_o = current_info->bm_s = NULL;
                 current_info->n_bm = current_info->n_bm_o = 0;
+                current_info->bm = current_info->bm_o = current_info->bm_s = NULL;
+                current_info->image = NULL;
 
                 current_info->bitmap_count = current_info->max_bitmap_count = 0;
                 current_info->bitmaps = malloc(MAX_SUB_BITMAPS_INITIAL * sizeof(BitmapRef));
-                if (!current_info->bitmaps)
+                if (!current_info->bitmaps) {
+                    ass_cache_dec_ref(info->image);
                     continue;
+                }
                 current_info->max_bitmap_count = MAX_SUB_BITMAPS_INITIAL;
 
-                ++nb_bitmaps;
+                nb_bitmaps++;
             }
             last_info = info;
 
-            if (!info->image || !current_info)
+            if (!info->image || !current_info) {
+                ass_cache_dec_ref(info->image);
                 continue;
+            }
 
             if (current_info->bitmap_count >= current_info->max_bitmap_count) {
                 size_t new_size = 2 * current_info->max_bitmap_count;
-                if (!ASS_REALLOC_ARRAY(current_info->bitmaps, new_size))
+                if (!ASS_REALLOC_ARRAY(current_info->bitmaps, new_size)) {
+                    ass_cache_dec_ref(info->image);
                     continue;
+                }
                 current_info->max_bitmap_count = new_size;
             }
             current_info->bitmaps[current_info->bitmap_count].image = info->image;
             current_info->bitmaps[current_info->bitmap_count].x = x;
             current_info->bitmaps[current_info->bitmap_count].y = y;
-            ++current_info->bitmap_count;
+            current_info->bitmap_count++;
 
             current_info->x = FFMIN(current_info->x, x);
             current_info->y = FFMIN(current_info->y, y);
             if (info->image->bm) {
                 rectangle_combine(&current_info->rect, info->image->bm, x, y);
-                ++current_info->n_bm;
+                current_info->n_bm++;
             }
             if (info->image->bm_o) {
                 rectangle_combine(&current_info->rect_o, info->image->bm_o, x, y);
-                ++current_info->n_bm_o;
+                current_info->n_bm_o++;
             }
         }
     }
 
-    for (int i = 0; i < nb_bitmaps; ++i) {
+    for (int i = 0; i < nb_bitmaps; i++) {
         CombinedBitmapInfo *info = &combined_info[i];
-        for (int j = 0; j < info->bitmap_count; ++j) {
+        for (int j = 0; j < info->bitmap_count; j++) {
             info->bitmaps[j].x -= info->x;
             info->bitmaps[j].y -= info->y;
         }
@@ -2271,7 +2304,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             info->bm = hv->bm;
             info->bm_o = hv->bm_o;
             info->bm_s = hv->bm_s;
-            free(info->bitmaps);
+            info->image = hv;
             continue;
         }
         if (!hv)
@@ -2279,7 +2312,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 
         int bord = be_padding(info->filter.be);
         if (!bord && info->n_bm == 1) {
-            for (int j = 0; j < info->bitmap_count; ++j) {
+            for (int j = 0; j < info->bitmap_count; j++) {
                 if (!info->bitmaps[j].image->bm)
                     continue;
                 info->bm = copy_bitmap(render_priv->engine, info->bitmaps[j].image->bm);
@@ -2297,7 +2330,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             if (dst) {
                 dst->left = info->rect.x_min - info->x - bord;
                 dst->top  = info->rect.y_min - info->y - bord;
-                for (int j = 0; j < info->bitmap_count; ++j) {
+                for (int j = 0; j < info->bitmap_count; j++) {
                     Bitmap *src = info->bitmaps[j].image->bm;
                     if (!src)
                         continue;
@@ -2313,7 +2346,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             }
         }
         if (!bord && info->n_bm_o == 1) {
-            for (int j = 0; j < info->bitmap_count; ++j) {
+            for (int j = 0; j < info->bitmap_count; j++) {
                 if (!info->bitmaps[j].image->bm_o)
                     continue;
                 info->bm_o = copy_bitmap(render_priv->engine, info->bitmaps[j].image->bm_o);
@@ -2331,7 +2364,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             if (dst) {
                 dst->left = info->rect_o.x_min - info->x - bord;
                 dst->top  = info->rect_o.y_min - info->y - bord;
-                for (int j = 0; j < info->bitmap_count; ++j) {
+                for (int j = 0; j < info->bitmap_count; j++) {
                     Bitmap *src = info->bitmaps[j].image->bm_o;
                     if (!src)
                         continue;
@@ -2360,6 +2393,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
         ass_cache_commit(hv, bitmap_size(hv->bm) +
                          bitmap_size(hv->bm_o) + bitmap_size(hv->bm_s) +
                          sizeof(CompositeHashKey) + sizeof(CompositeHashValue));
+        info->image = hv;
     }
 
     text_info->n_bitmaps = nb_bitmaps;
