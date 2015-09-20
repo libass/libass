@@ -418,6 +418,64 @@ unsigned ass_utf8_put_char(char *dest, uint32_t ch)
 }
 
 /**
+ * \brief Parse UTF-16 and return the code point of the sequence starting at src.
+ * \param src pointer to a pointer to the start of the UTF-16 data
+ *            (will be set to the start of the next code point)
+ * \return the code point
+ */
+static uint32_t ass_read_utf16be(uint8_t **src, size_t bytes)
+{
+    if (bytes < 2)
+        goto too_short;
+
+    uint32_t cp = ((*src)[0] << 8) | (*src)[1];
+    *src += 2;
+    bytes -= 2;
+
+    if (cp >= 0xD800 && cp <= 0xDBFF) {
+        if (bytes < 2)
+            goto too_short;
+
+        uint32_t cp2 = ((*src)[0] << 8) | (*src)[1];
+
+        if (cp2 < 0xDC00 || cp2 > 0xDFFF)
+            return 0xFFFD;
+
+        *src += 2;
+
+        cp = 0x10000 + ((cp - 0xD800) << 10) + (cp2 - 0xDC00);
+    }
+
+    if (cp >= 0xDC00 && cp <= 0xDFFF)
+        return 0xFFFD;
+
+    return cp;
+
+too_short:
+    *src += bytes;
+    return 0xFFFD;
+}
+
+void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_size)
+{
+    uint8_t *end = src + src_size;
+
+    if (!dst_size)
+        return;
+
+    while (src < end) {
+        uint32_t cp = ass_read_utf16be(&src, end - src);
+        if (dst_size < 5)
+            break;
+        unsigned s = ass_utf8_put_char(dst, cp);
+        dst += s;
+        dst_size -= s;
+    }
+
+    *dst = '\0';
+}
+
+/**
  * \brief find style by name
  * \param track track
  * \param name style name
