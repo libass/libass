@@ -34,7 +34,6 @@
 #include FT_FREETYPE_H
 #include FT_SFNT_NAMES_H
 #include FT_TRUETYPE_IDS_H
-#include <iconv.h>
 
 #include "ass_utils.h"
 #include "ass.h"
@@ -720,17 +719,10 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     int slant, weight;
     char *fullnames[MAX_FULLNAME];
     char *families[MAX_FULLNAME];
-    iconv_t utf16to8;
 
     // we're only interested in outlines
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
         return 0;
-
-    // scan font names
-    utf16to8 = iconv_open("UTF-8", "UTF-16BE");
-
-    if (utf16to8 == (iconv_t)-1)
-        goto error;
 
     for (i = 0; i < num_names; i++) {
         FT_SfntName name;
@@ -742,15 +734,8 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
                 (name.name_id == TT_NAME_ID_FULL_NAME ||
                  name.name_id == TT_NAME_ID_FONT_FAMILY)) {
             char buf[1024];
-            char *bufptr = buf;
-            size_t inbytes = name.string_len;
-            size_t outbytes = 1024;
-
-            if (iconv(utf16to8, (char**)&name.string, &inbytes, &bufptr,
-                        &outbytes) == (size_t)-1)
-                continue;
-
-            *bufptr = '\0';
+            ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
+                                name.string_len);
 
             if (name.name_id == TT_NAME_ID_FULL_NAME) {
                 fullnames[num_fullname] = strdup_trimmed(buf);
@@ -768,8 +753,6 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
         }
 
     }
-    iconv_close(utf16to8);
-    utf16to8 = (iconv_t)-1;
 
     // check if we got a valid family - if not use whatever FreeType gives us
     if (num_family == 0 && face->family_name) {
@@ -810,9 +793,6 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     return 0;
 
 error:
-    if (utf16to8 != (iconv_t)-1)
-        iconv_close(utf16to8);
-
     for (i = 0; i < num_family; i++)
         free(families[i]);
 
