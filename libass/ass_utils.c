@@ -423,12 +423,16 @@ unsigned ass_utf8_put_char(char *dest, uint32_t ch)
  *            (will be set to the start of the next code point)
  * \return the code point
  */
-static uint32_t ass_read_utf16be(uint8_t **src)
+static uint32_t ass_read_utf16be(uint8_t **src, size_t bytes)
 {
+    if (bytes < 2)
+        return 0;
+
     uint32_t cp = ((*src)[0] << 8) | (*src)[1];
     *src += 2;
+    bytes -= 2;
 
-    if (cp >= 0xD800 && cp <= 0xDBFF) {
+    if (cp >= 0xD800 && cp <= 0xDBFF && bytes >= 2) {
         uint32_t cp2 = ((*src)[0] << 8) | (*src)[1];
         *src += 2;
 
@@ -447,7 +451,7 @@ void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_si
     dst[0] = '\0';
 
     while (src < end) {
-        uint32_t cp = ass_read_utf16be(&src);
+        uint32_t cp = ass_read_utf16be(&src, end - src);
         if (dst_size < 5)
             break;
         unsigned s = ass_utf8_put_char(dst, cp);
