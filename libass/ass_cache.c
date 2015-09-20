@@ -78,6 +78,16 @@ static void font_destruct(void *key, void *value)
     ass_font_clear(value);
 }
 
+const CacheDesc font_cache_desc = {
+    .hash_func = font_hash,
+    .compare_func = font_compare,
+    .key_move_func = font_key_move,
+    .destruct_func = font_destruct,
+    .key_size = sizeof(ASS_FontDesc),
+    .value_size = sizeof(ASS_Font)
+};
+
+
 // bitmap cache
 static unsigned bitmap_hash(void *key, size_t key_size)
 {
@@ -129,6 +139,16 @@ static void bitmap_destruct(void *key, void *value)
         case BITMAP_CLIP: free(k->u.clip.text); break;
     }
 }
+
+const CacheDesc bitmap_cache_desc = {
+    .hash_func = bitmap_hash,
+    .compare_func = bitmap_compare,
+    .key_move_func = bitmap_key_move,
+    .destruct_func = bitmap_destruct,
+    .key_size = sizeof(BitmapHashKey),
+    .value_size = sizeof(BitmapHashValue)
+};
+
 
 // composite cache
 static unsigned composite_hash(void *key, size_t key_size)
@@ -186,6 +206,16 @@ static void composite_destruct(void *key, void *value)
     free(k->bitmaps);
 }
 
+const CacheDesc composite_cache_desc = {
+    .hash_func = composite_hash,
+    .compare_func = composite_compare,
+    .key_move_func = composite_key_move,
+    .destruct_func = composite_destruct,
+    .key_size = sizeof(CompositeHashKey),
+    .value_size = sizeof(CompositeHashValue)
+};
+
+
 // outline cache
 static unsigned outline_hash(void *key, size_t key_size)
 {
@@ -238,9 +268,18 @@ static void outline_destruct(void *key, void *value)
     }
 }
 
+const CacheDesc outline_cache_desc = {
+    .hash_func = outline_hash,
+    .compare_func = outline_compare,
+    .key_move_func = outline_key_move,
+    .destruct_func = outline_destruct,
+    .key_size = sizeof(OutlineHashKey),
+    .value_size = sizeof(OutlineHashValue)
+};
+
 
 // glyph metric cache
-static bool glyph_metric_key_move(void *dst, void *src, size_t key_size)
+static bool glyph_metrics_key_move(void *dst, void *src, size_t key_size)
 {
     if (!dst)
         return true;
@@ -250,17 +289,27 @@ static bool glyph_metric_key_move(void *dst, void *src, size_t key_size)
     return true;
 }
 
-static void glyph_metric_destruct(void *key, void *value)
+static void glyph_metrics_destruct(void *key, void *value)
 {
     GlyphMetricsHashKey *k = key;
     ass_cache_dec_ref(k->font);
 }
 
+const CacheDesc glyph_metrics_cache_desc = {
+    .hash_func = glyph_metrics_hash,
+    .compare_func = glyph_metrics_compare,
+    .key_move_func = glyph_metrics_key_move,
+    .destruct_func = glyph_metrics_destruct,
+    .key_size = sizeof(GlyphMetricsHashKey),
+    .value_size = sizeof(GlyphMetricsHashValue)
+};
+
 
 
 // Cache data
 typedef struct cache_item {
-    struct cache *cache;
+    Cache *cache;
+    const CacheDesc *desc;
     struct cache_item *next, **prev;
     struct cache_item *queue_next, **queue_prev;
     size_t size, ref_count;
@@ -271,12 +320,7 @@ struct cache {
     CacheItem **map;
     CacheItem *queue_first, **queue_last;
 
-    HashFunction hash_func;
-    HashCompare compare_func;
-    CacheKeyMove key_move_func;
-    CacheItemDestructor destruct_func;
-    size_t key_size;
-    size_t value_size;
+    const CacheDesc *desc;
 
     size_t cache_size;
     unsigned hits;
@@ -297,48 +341,16 @@ static inline CacheItem *value_to_item(void *value)
     return (CacheItem *) ((char *) value - CACHE_ITEM_SIZE);
 }
 
-// Hash for a simple (single value or array) type
-static unsigned hash_simple(void *key, size_t key_size)
-{
-    return fnv_32a_buf(key, key_size, FNV1_32A_INIT);
-}
-
-// Comparison of a simple type
-static unsigned compare_simple(void *a, void *b, size_t key_size)
-{
-    return memcmp(a, b, key_size) == 0;
-}
-
-// Default copy function
-static bool key_move_simple(void *dst, void *src, size_t key_size)
-{
-    if (dst)
-        memcpy(dst, src, key_size);
-    return true;
-}
-
-// Default destructor
-static void destruct_simple(void *key, void *value)
-{
-}
-
 
 // Create a cache with type-specific hash/compare/destruct/size functions
-Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
-                        CacheKeyMove key_move_func, CacheItemDestructor destruct_func,
-                        size_t key_size, size_t value_size)
+Cache *ass_cache_create(const CacheDesc *desc)
 {
     Cache *cache = calloc(1, sizeof(*cache));
     if (!cache)
         return NULL;
     cache->buckets = 0xFFFF;
     cache->queue_last = &cache->queue_first;
-    cache->hash_func = hash_func ? hash_func : hash_simple;
-    cache->compare_func = compare_func ? compare_func : compare_simple;
-    cache->key_move_func = key_move_func ? key_move_func : key_move_simple;
-    cache->destruct_func = destruct_func ? destruct_func : destruct_simple;
-    cache->key_size = key_size;
-    cache->value_size = value_size;
+    cache->desc = desc;
     cache->map = calloc(cache->buckets, sizeof(CacheItem *));
     if (!cache->map) {
         free(cache);
@@ -351,24 +363,26 @@ Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
 bool ass_cache_get(Cache *cache, void *key, void *value_ptr)
 {
     char **value = (char **) value_ptr;
-    size_t key_offs = CACHE_ITEM_SIZE + align_cache(cache->value_size);
-    unsigned bucket = cache->hash_func(key, cache->key_size) % cache->buckets;
+    const CacheDesc *desc = cache->desc;
+    size_t key_offs = CACHE_ITEM_SIZE + align_cache(desc->value_size);
+    unsigned bucket = desc->hash_func(key, desc->key_size) % cache->buckets;
     CacheItem *item = cache->map[bucket];
     while (item) {
-        if (cache->compare_func(key, (char *) item + key_offs, cache->key_size)) {
+        if (desc->compare_func(key, (char *) item + key_offs, desc->key_size)) {
             assert(item->size);
             if (!item->queue_prev || item->queue_next) {
                 if (item->queue_prev) {
                     item->queue_next->queue_prev = item->queue_prev;
                     *item->queue_prev = item->queue_next;
-                }
+                } else
+                    item->ref_count++;
                 *cache->queue_last = item;
                 item->queue_prev = cache->queue_last;
                 cache->queue_last = &item->queue_next;
                 item->queue_next = NULL;
             }
             cache->hits++;
-            cache->key_move_func(NULL, key, cache->key_size);
+            desc->key_move_func(NULL, key, desc->key_size);
             *value = (char *) item + CACHE_ITEM_SIZE;
             item->ref_count++;
             return true;
@@ -377,15 +391,16 @@ bool ass_cache_get(Cache *cache, void *key, void *value_ptr)
     }
     cache->misses++;
 
-    item = malloc(key_offs + cache->key_size);
+    item = malloc(key_offs + desc->key_size);
     if (!item) {
-        cache->key_move_func(NULL, key, cache->key_size);
+        desc->key_move_func(NULL, key, desc->key_size);
         *value = NULL;
         return false;
     }
     item->size = 0;
     item->cache = cache;
-    if (!cache->key_move_func((char *) item + key_offs, key, cache->key_size)) {
+    item->desc = desc;
+    if (!desc->key_move_func((char *) item + key_offs, key, desc->key_size)) {
         free(item);
         *value = NULL;
         return false;
@@ -408,7 +423,7 @@ bool ass_cache_get(Cache *cache, void *key, void *value_ptr)
 void *ass_cache_key(void *value)
 {
     CacheItem *item = value_to_item(value);
-    return (char *) value + align_cache(item->cache->value_size);
+    return (char *) value + align_cache(item->desc->value_size);
 }
 
 void ass_cache_commit(void *value, size_t item_size)
@@ -423,13 +438,14 @@ void ass_cache_commit(void *value, size_t item_size)
     *cache->queue_last = item;
     item->queue_prev = cache->queue_last;
     cache->queue_last = &item->queue_next;
+    item->ref_count++;
 }
 
-static inline void destroy_item(Cache *cache, CacheItem *item)
+static inline void destroy_item(const CacheDesc *desc, CacheItem *item)
 {
-    assert(item->cache == cache);
+    assert(item->desc == desc);
     char *value = (char *) item + CACHE_ITEM_SIZE;
-    cache->destruct_func(value + align_cache(cache->value_size), value);
+    desc->destruct_func(value + align_cache(desc->value_size), value);
     free(item);
 }
 
@@ -448,18 +464,19 @@ void ass_cache_dec_ref(void *value)
         return;
     CacheItem *item = value_to_item(value);
     assert(item->size && item->ref_count);
-
-    item->ref_count--;
-    if (item->ref_count || item->queue_prev)
+    if (--item->ref_count)
         return;
 
-    if (item->next)
-        item->next->prev = item->prev;
-    *item->prev = item->next;
+    Cache *cache = item->cache;
+    if (cache) {
+        if (item->next)
+            item->next->prev = item->prev;
+        *item->prev = item->next;
 
-    item->cache->items--;
-    item->cache->cache_size -= item->size;
-    destroy_item(item->cache, item);
+        cache->items--;
+        cache->cache_size -= item->size;
+    }
+    destroy_item(item->desc, item);
 }
 
 void ass_cache_cut(Cache *cache, size_t max_size)
@@ -474,7 +491,7 @@ void ass_cache_cut(Cache *cache, size_t max_size)
         assert(item->size);
 
         cache->queue_first = item->queue_next;
-        if (item->ref_count) {
+        if (--item->ref_count) {
             item->queue_prev = NULL;
             continue;
         }
@@ -485,7 +502,7 @@ void ass_cache_cut(Cache *cache, size_t max_size)
 
         cache->items--;
         cache->cache_size -= item->size;
-        destroy_item(cache, item);
+        destroy_item(cache->desc, item);
     } while (cache->cache_size > max_size);
     if (cache->queue_first)
         cache->queue_first->queue_prev = &cache->queue_first;
@@ -511,9 +528,14 @@ void ass_cache_empty(Cache *cache)
     for (int i = 0; i < cache->buckets; i++) {
         CacheItem *item = cache->map[i];
         while (item) {
-            assert(item->size && !item->ref_count);
+            assert(item->size);
             CacheItem *next = item->next;
-            destroy_item(cache, item);
+            if (item->queue_prev)
+                item->ref_count--;
+            if (item->ref_count)
+                item->cache = NULL;
+            else
+                destroy_item(cache->desc, item);
             item = next;
         }
         cache->map[i] = NULL;
@@ -534,35 +556,25 @@ void ass_cache_done(Cache *cache)
 // Type-specific creation function
 Cache *ass_font_cache_create(void)
 {
-    return ass_cache_create(font_hash, font_compare,
-                            font_key_move, font_destruct,
-                            sizeof(ASS_FontDesc), sizeof(ASS_Font));
+    return ass_cache_create(&font_cache_desc);
 }
 
 Cache *ass_outline_cache_create(void)
 {
-    return ass_cache_create(outline_hash, outline_compare,
-                            outline_key_move, outline_destruct,
-                            sizeof(OutlineHashKey), sizeof(OutlineHashValue));
+    return ass_cache_create(&outline_cache_desc);
 }
 
 Cache *ass_glyph_metrics_cache_create(void)
 {
-    return ass_cache_create(glyph_metrics_hash, glyph_metrics_compare,
-                            glyph_metric_key_move, glyph_metric_destruct,
-                            sizeof(GlyphMetricsHashKey), sizeof(GlyphMetricsHashValue));
+    return ass_cache_create(&glyph_metrics_cache_desc);
 }
 
 Cache *ass_bitmap_cache_create(void)
 {
-    return ass_cache_create(bitmap_hash, bitmap_compare,
-                            bitmap_key_move, bitmap_destruct,
-                            sizeof(BitmapHashKey), sizeof(BitmapHashValue));
+    return ass_cache_create(&bitmap_cache_desc);
 }
 
 Cache *ass_composite_cache_create(void)
 {
-    return ass_cache_create(composite_hash, composite_compare,
-                            composite_key_move, composite_destruct,
-                            sizeof(CompositeHashKey), sizeof(CompositeHashValue));
+    return ass_cache_create(&composite_cache_desc);
 }
