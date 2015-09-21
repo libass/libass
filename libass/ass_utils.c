@@ -426,20 +426,30 @@ unsigned ass_utf8_put_char(char *dest, uint32_t ch)
 static uint32_t ass_read_utf16be(uint8_t **src, size_t bytes)
 {
     if (bytes < 2)
-        return 0;
+        goto too_short;
 
     uint32_t cp = ((*src)[0] << 8) | (*src)[1];
     *src += 2;
     bytes -= 2;
 
-    if (cp >= 0xD800 && cp <= 0xDBFF && bytes >= 2) {
+    if (cp >= 0xD800 && cp <= 0xDBFF) {
+        if (bytes < 2)
+            goto too_short;
+
         uint32_t cp2 = ((*src)[0] << 8) | (*src)[1];
         *src += 2;
+
+        if (cp2 < 0xDC00 || cp2 > 0xDFFF)
+            return 0xFFFD;
 
         cp = 0x10000 + ((cp - 0xD800) << 10) + (cp2 - 0xDC00);
     }
 
     return cp;
+
+too_short:
+    *src += bytes;
+    return 0xFFFD;
 }
 
 void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_size)
