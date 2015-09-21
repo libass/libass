@@ -446,6 +446,9 @@ static uint32_t ass_read_utf16be(uint8_t **src, size_t bytes)
         cp = 0x10000 + ((cp - 0xD800) << 10) + (cp2 - 0xDC00);
     }
 
+    if (cp >= 0xDC00 && cp <= 0xDFFF)
+        return 0xFFFD;
+
     return cp;
 
 too_short:
