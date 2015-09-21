@@ -437,10 +437,11 @@ static uint32_t ass_read_utf16be(uint8_t **src, size_t bytes)
             goto too_short;
 
         uint32_t cp2 = ((*src)[0] << 8) | (*src)[1];
-        *src += 2;
 
         if (cp2 < 0xDC00 || cp2 > 0xDFFF)
             return 0xFFFD;
+
+        *src += 2;
 
         cp = 0x10000 + ((cp - 0xD800) << 10) + (cp2 - 0xDC00);
     }
