@@ -462,7 +462,6 @@ void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_si
 
     if (!dst_size)
         return;
-    dst[0] = '\0';
 
     while (src < end) {
         uint32_t cp = ass_read_utf16be(&src, end - src);
@@ -472,6 +471,8 @@ void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_si
         dst += s;
         dst_size -= s;
     }
+
+    dst[0] = '\0';
 }
 
 /**
