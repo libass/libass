@@ -30,9 +30,6 @@
 #include "hb.h"
 #endif
 
-// XXX: fix the inclusion mess so we can avoid doing this here
-typedef struct ass_shaper ASS_Shaper;
-
 #include "ass.h"
 #include "ass_font.h"
 #include "ass_bitmap.h"
@@ -290,6 +287,8 @@ typedef struct {
     size_t bitmap_max_size;
     size_t composite_max_size;
 } CacheStore;
+
+#include "ass_shaper.h"
 
 struct ass_renderer {
     ASS_Library *library;

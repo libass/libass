@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Grigori Goronzy <greg@chown.ath.cx>
+ * Copyright (C) 2015 Oleg Oshmyan <chortos@inbox.lv>
  *
  * This file is part of libass.
  *
@@ -16,18 +16,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "ass_types.h"
-#include "ass_fontselect.h"
+#ifndef LIBASS_COMPAT_H
+#define LIBASS_COMPAT_H
 
-#ifndef ASS_FONTCONFIG_H
-#define ASS_FONTCONFIG_H
-
-#ifdef CONFIG_FONTCONFIG
-
-ASS_FontProvider *
-ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
-                            const char *config);
-
+#ifdef _MSC_VER
+#define _CRT_NONSTDC_NO_DEPRECATE
+#define _CRT_SECURE_NO_WARNINGS
+#define _USE_MATH_DEFINES
+#define inline __inline
 #endif
 
-#endif
+#endif                          /* LIBASS_COMPAT_H */

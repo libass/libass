@@ -17,6 +17,7 @@
  */
 
 #include "config.h"
+#include "ass_compat.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreText/CoreText.h>

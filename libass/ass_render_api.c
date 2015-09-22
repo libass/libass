@@ -18,6 +18,8 @@
  */
 
 #include "config.h"
+#include "ass_compat.h"
+
 #include "ass_render.h"
 
 static void ass_reconfigure(ASS_Renderer *priv)

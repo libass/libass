@@ -19,7 +19,7 @@
 #ifndef LIBASS_SHAPER_H
 #define LIBASS_SHAPER_H
 
-#include "config.h"
+typedef struct ass_shaper ASS_Shaper;
 
 #include <fribidi.h>
 #include "ass_render.h"
