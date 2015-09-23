@@ -941,31 +941,12 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
     char *outbuf;
     assert(codepage);
 
-    {
-        const char *cp_tmp = codepage;
-#ifdef CONFIG_ENCA
-        char enca_lang[3], enca_fallback[100];
-        if (sscanf(codepage, "enca:%2s:%99s", enca_lang, enca_fallback) == 2
-            || sscanf(codepage, "ENCA:%2s:%99s", enca_lang,
-                      enca_fallback) == 2) {
-            cp_tmp =
-                ass_guess_buffer_cp(library, (unsigned char *) data, size,
-                                    enca_lang, enca_fallback);
-        }
-#endif
-        if ((icdsc = iconv_open(tocp, cp_tmp)) != (iconv_t) (-1)) {
-            ass_msg(library, MSGL_V, "Opened iconv descriptor");
-        } else
-            ass_msg(library, MSGL_ERR, "Error opening iconv descriptor");
-#ifdef CONFIG_ENCA
-        if (cp_tmp != codepage) {
-            free((void*)cp_tmp);
-        }
-#endif
-    }
-
-    if (icdsc == (iconv_t) (-1))
+    if ((icdsc = iconv_open(tocp, codepage)) != (iconv_t) (-1)) {
+        ass_msg(library, MSGL_V, "Opened iconv descriptor");
+    } else {
+        ass_msg(library, MSGL_ERR, "Error opening iconv descriptor");
         return NULL;
+    }
 
     {
         size_t osize = size;

@@ -31,8 +31,6 @@ AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
     [enable test program (requires libpng) @<:@default=no@:>@]))
 AC_ARG_ENABLE([profile], AS_HELP_STRING([--enable-profile],
     [enable profiling program @<:@default=no@:>@]))
-AC_ARG_ENABLE([enca], AS_HELP_STRING([--disable-enca],
-    [disable enca (charset autodetect) support @<:@default=check@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
     [disable fontconfig support @<:@default=enabled@:>@]))
 AC_ARG_ENABLE([directwrite], AS_HELP_STRING([--disable-directwrite],
@@ -202,15 +200,6 @@ PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
     ], [harfbuzz=false])
 fi
 
-if test x$enable_enca != xno; then
-PKG_CHECK_MODULES([ENCA], enca, [
-    CFLAGS="$CFLAGS $ENCA_CFLAGS"
-    LIBS="$LIBS $ENCA_LIBS"
-    AC_DEFINE(CONFIG_ENCA, 1, [found enca via pkg-config])
-	enca=true
-	], [enca=false])
-fi
-
 libpng=false
 if test x$enable_test = xyes; then
 PKG_CHECK_MODULES([LIBPNG], libpng >= 1.2.0, [
@@ -227,9 +216,6 @@ AM_CONDITIONAL([ENABLE_PROFILE], [test x$enable_profile = xyes])
 pkg_libs="-lm"
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
-if test x$enca = xtrue; then
-    pkg_requires="enca, ${pkg_requires}"
-fi
 if test x$fontconfig = xtrue; then
     pkg_requires="fontconfig >= 2.4.2, ${pkg_requires}"
 fi

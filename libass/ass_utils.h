@@ -28,10 +28,6 @@
 #include <errno.h>
 #include <math.h>
 
-#ifdef CONFIG_ENCA
-#include <enca.h>
-#endif
-
 #include "ass.h"
 
 #ifndef SIZE_MAX
@@ -98,11 +94,6 @@ void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_si
 void ass_msg(ASS_Library *priv, int lvl, const char *fmt, ...);
 int lookup_style(ASS_Track *track, char *name);
 ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len);
-#ifdef CONFIG_ENCA
-void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
-                          int buflen, char *preferred_language,
-                          char *fallback);
-#endif
 
 /* defined in ass_strtod.c */
 double ass_strtod(const char *string, char **endPtr);
