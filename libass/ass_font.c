@@ -192,7 +192,7 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
             // The font provider gave us a post_script name and is not sure
             // about the face index.. so use the postscript name to find the
             // correct face_index in the collection!
-            for (int i = 0; face->num_faces; i++) {
+            for (int i = 0; i < face->num_faces; i++) {
                 FT_Done_Face(face);
                 error = FT_New_Face(font->ftlibrary, path, i, &face);
                 if (error) {
