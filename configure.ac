@@ -222,9 +222,6 @@ fi
 if test x$harfbuzz = xtrue; then
     pkg_requires="harfbuzz >= 0.9.5, ${pkg_requires}"
 fi
-if test x$directwrite = xtrue; then
-    pkg_libs="${pkg_libs} -ldwrite"
-fi
 
 if test x$enable_require_system_font_provider != xno &&
    test x$fontconfig != xtrue &&
