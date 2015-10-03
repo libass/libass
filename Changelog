@@ -1,3 +1,33 @@
+libass (0.13.0)
+ * Add native font selection backends for OSX (CoreText) and Windows
+   (DirectWrite). You can now run libass without fontconfig on these
+   platforms. This fixes problems with fontconfig behaving badly on
+   these platforms (it could take minutes to scan all system fonts).
+   Even on Linux, this speeds up loading of embedded fonts (such as
+   provided by ass_add_font()).
+   The DirectWrite backend only works on Windows Vista and later. On
+   XP, fontconfig is still needed. libass can be compiled with both
+   DirectWrite and fontconfig, and then it will fallback to fontconfig
+   automatically if DirectWrite is not available at runtime.
+ * Add ass_get_available_font_providers() API function.
+ * Change the 4th parameter of ass_set_fonts(). This now selects the
+   font provider. This is somewhat backwards compatible with the old
+   behavior, but if you ever passed values other than 0 or 1, your
+   application might break with this libass release.
+ * The ass_fonts_update() function now does nothing. It's kept for
+   backward compatibility only.
+ * Much faster gaussian blur. This can bring a large speedup with big
+   blurred signs and such.
+ * Drop ENCA support
+ * Bug fixes
+   * Fix compilation of the freetype rasterizer (disabled by default)
+   * Fix rendering with some cases of consecutive line breaks (\N\N).
+   * Fix some memory allocation failure checks
+   * Avoid system locale dependent behavior by reinventing some standard
+     C functions
+   * Fix rendering errors with strikes (GH #193)
+   * MSVC compilation fixes
+
 libass (0.12.3)
  * VSFilter blur compatibility changes
  * VSFilter color/alpha parsing compatibility changes
