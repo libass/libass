@@ -6,8 +6,6 @@
         type member;
 #define STRING(member) \
         char *member;
-#define BINSTRING(member) \
-        struct { size_t size; void *data; } member;
 #define FTVECTOR(member) \
         FT_Vector member;
 #define BITMAPHASHKEY(member) \
@@ -27,9 +25,6 @@
             a->member == b->member &&
 #define STRING(member) \
             strcmp(a->member, b->member) == 0 &&
-#define BINSTRING(member) \
-            a->member.size == b->member.size && \
-            memcmp(a->member.data, b->member.data, a->member.size) == 0 &&
 #define FTVECTOR(member) \
             a->member.x == b->member.x && a->member.y == b->member.y &&
 #define BITMAPHASHKEY(member) \
@@ -49,9 +44,6 @@
         hval = fnv_32a_buf(&p->member, sizeof(p->member), hval);
 #define STRING(member) \
         hval = fnv_32a_str(p->member, hval);
-#define BINSTRING(member) \
-        hval = fnv_32a_buf(&p->member.size, sizeof(p->member.size), hval); \
-        hval = fnv_32a_buf(p->member.data, p->member.size, hval);
 #define FTVECTOR(member) GENERIC(, member.x); GENERIC(, member.y);
 #define BITMAPHASHKEY(member) { \
         unsigned temp = bitmap_hash(&p->member, sizeof(p->member)); \
@@ -139,5 +131,4 @@ END(FilterDesc)
 #undef STRING
 #undef FTVECTOR
 #undef BITMAPHASHKEY
-#undef BINSTRING
 #undef END
