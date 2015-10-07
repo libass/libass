@@ -27,7 +27,7 @@
 #include FT_GLYPH_H
 #include FT_SYNTHESIS_H
 #ifdef CONFIG_HARFBUZZ
-#include "hb.h"
+#include <hb.h>
 #endif
 
 #include "ass.h"
