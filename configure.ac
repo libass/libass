@@ -56,6 +56,12 @@ AS_IF([test x$enable_asm != xno], [
             X86=true
             BITS=32
             ASFLAGS="$ASFLAGS -DARCH_X86_64=0 -m x86" ],
+        [x86_64-*-gnux32|amd64-*-gnux32], [
+            AS=yasm
+            INTEL=true
+            X64=true
+            BITS=64
+            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -m x32" ],
         [x86_64-*|amd64-*], [
             AS=yasm
             INTEL=true
