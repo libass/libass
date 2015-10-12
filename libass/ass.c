@@ -53,6 +53,10 @@ struct parser_priv {
     char *fontdata;
     int fontdata_size;
     int fontdata_used;
+
+    // contains bitmap of ReadOrder IDs of all read events
+    uint32_t *read_order_bitmap;
+    int read_order_elems; // size in uint32_t units of read_order_bitmap
 };
 
 #define ASS_STYLES_ALLOC 20
@@ -67,6 +71,7 @@ void ass_free_track(ASS_Track *track)
     int i;
 
     if (track->parser_priv) {
+        free(track->parser_priv->read_order_bitmap);
         free(track->parser_priv->fontname);
         free(track->parser_priv->fontdata);
         free(track->parser_priv);
@@ -148,6 +153,45 @@ void ass_free_style(ASS_Track *track, int sid)
 
     free(style->Name);
     free(style->FontName);
+}
+
+static int resize_read_order_bitmap(ASS_Track *track, int max_id)
+{
+    // Don't allow malicious files to OOM us easily. Also avoids int overflows.
+    if (max_id < 0 || max_id >= 10 * 1024 * 1024 * 8)
+        goto fail;
+    if (max_id >= track->parser_priv->read_order_elems * 32) {
+        int oldelems = track->parser_priv->read_order_elems;
+        int elems = ((max_id + 31) / 32 + 1) * 2;
+        assert(elems >= oldelems);
+        track->parser_priv->read_order_elems = elems;
+        void *new_bitmap =
+            realloc(track->parser_priv->read_order_bitmap, elems * 4);
+        if (!new_bitmap)
+            goto fail;
+        track->parser_priv->read_order_bitmap = new_bitmap;
+        memset(track->parser_priv->read_order_bitmap + oldelems, 0,
+               (elems - oldelems) * 4);
+    }
+    return 0;
+
+fail:
+    free(track->parser_priv->read_order_bitmap);
+    track->parser_priv->read_order_bitmap = NULL;
+    track->parser_priv->read_order_elems = 0;
+    return -1;
+}
+
+static int test_and_set_read_order_bit(ASS_Track *track, int id)
+{
+    if (resize_read_order_bitmap(track, id) < 0)
+        return -1;
+    int index = id / 32;
+    int bit = 1 << (id % 32);
+    if (track->parser_priv->read_order_bitmap[index] & bit)
+        return 1;
+    track->parser_priv->read_order_bitmap[index] |= bit;
+    return 0;
 }
 
 // ==============================================================================================
@@ -846,8 +890,10 @@ void ass_process_codec_private(ASS_Track *track, char *data, int size)
 
 static int check_duplicate_event(ASS_Track *track, int ReadOrder)
 {
-    int i;
-    for (i = 0; i < track->n_events - 1; ++i)   // ignoring last event, it is the one we are comparing with
+    if (track->parser_priv->read_order_bitmap)
+        return test_and_set_read_order_bit(track, ReadOrder) > 0;
+    // ignoring last event, it is the one we are comparing with
+    for (int i = 0; i < track->n_events - 1; i++)
         if (track->events[i].ReadOrder == ReadOrder)
             return 1;
     return 0;
@@ -869,6 +915,13 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
     char *p;
     char *token;
     ASS_Event *event;
+
+    if (!track->parser_priv->read_order_bitmap) {
+        for (int i = 0; i < track->n_events; i++) {
+            if (test_and_set_read_order_bit(track, track->events[i].ReadOrder) < 0)
+                break;
+        }
+    }
 
     if (!track->event_format) {
         ass_msg(track->library, MSGL_WARN, "Event format header missing");
