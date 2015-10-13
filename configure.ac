@@ -22,8 +22,9 @@ AC_CHECK_HEADERS([stdint.h iconv.h])
 AC_CHECK_FUNCS([strdup strndup])
 
 # Checks for libraries.
-AC_SEARCH_LIBS([libiconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))
-AC_SEARCH_LIBS([iconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))
+use_libiconv=false
+AC_SEARCH_LIBS([libiconv_open], [iconv], use_libiconv=true)
+AC_SEARCH_LIBS([iconv_open], [iconv], use_libiconv=true)
 AC_CHECK_LIB([m], [fabs])
 
 # Check for libraries via pkg-config
@@ -220,6 +221,10 @@ AM_CONDITIONAL([ENABLE_PROFILE], [test x$enable_profile = xyes])
 
 # add libraries/packages to pkg-config for static linking
 pkg_libs="-lm"
+if test "$use_libiconv" = true; then
+    AC_DEFINE(CONFIG_ICONV, 1, [use iconv])
+    pkg_libs="${pkg_libs} -liconv"
+fi
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
 if test x$fontconfig = xtrue; then
