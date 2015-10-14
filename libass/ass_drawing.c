@@ -294,7 +294,6 @@ ASS_Drawing *ass_drawing_new(ASS_Library *lib, FT_Library ftlib)
         return NULL;
     drawing->cbox.xMin = drawing->cbox.yMin = INT_MAX;
     drawing->cbox.xMax = drawing->cbox.yMax = INT_MIN;
-    drawing->ftlibrary = ftlib;
     drawing->library   = lib;
     drawing->scale_x = 1.;
     drawing->scale_y = 1.;

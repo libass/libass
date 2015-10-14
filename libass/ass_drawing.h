@@ -56,7 +56,6 @@ typedef struct {
     int hash;           // hash value (for caching)
 
     // private
-    FT_Library ftlibrary;   // needed for font ops
     ASS_Library *library;
     ASS_DrawingToken *tokens;    // tokenized drawing
     double point_scale_x;
