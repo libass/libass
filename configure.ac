@@ -22,10 +22,15 @@ AC_CHECK_HEADERS([stdint.h iconv.h])
 AC_CHECK_FUNCS([strdup strndup])
 
 # Checks for libraries.
+# Add them to pkg-config for static linking.
+OLDLIBS="$LIBS"
+LIBS=
 use_libiconv=false
 AC_SEARCH_LIBS([libiconv_open], [iconv], use_libiconv=true)
 AC_SEARCH_LIBS([iconv_open], [iconv], use_libiconv=true)
 AC_CHECK_LIB([m], [fabs])
+pkg_libs="$LIBS"
+LIBS="$OLDLIBS $LIBS"
 
 # Check for libraries via pkg-config
 AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
@@ -219,11 +224,9 @@ AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
 
 AM_CONDITIONAL([ENABLE_PROFILE], [test x$enable_profile = xyes])
 
-# add libraries/packages to pkg-config for static linking
-pkg_libs="-lm"
+# add packages to pkg-config for static linking
 if test "$use_libiconv" = true; then
     AC_DEFINE(CONFIG_ICONV, 1, [use iconv])
-    pkg_libs="${pkg_libs} -liconv"
 fi
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
