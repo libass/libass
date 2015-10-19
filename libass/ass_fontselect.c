@@ -237,14 +237,13 @@ static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
  * \param meta basic metadata of the font
  * \param path path to the font file, or NULL
  * \param index face index inside the file (-1 to look up by PostScript name)
- * \param psname PostScript name of the face
  * \param data private data for the font
  * \return success
  */
 int
 ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
-                           int index, const char *psname, void *data)
+                           int index, void *data)
 {
     int i;
     int weight, slant, width;
@@ -322,15 +321,15 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
             goto error;
     }
 
-    if (path) {
-        info->path = strdup(path);
-        if (info->path == NULL)
+    if (meta->postscript_name) {
+        info->postscript_name = strdup(meta->postscript_name);
+        if (info->postscript_name == NULL)
             goto error;
     }
 
-    if (psname) {
-        info->postscript_name = strdup(psname);
-        if (info->postscript_name == NULL)
+    if (path) {
+        info->path = strdup(path);
+        if (info->path == NULL)
             goto error;
     }
 
@@ -881,8 +880,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         ft->face = face;
         ft->idx  = idx;
 
-        if (ass_font_provider_add_font(priv, &info, NULL, face_index,
-                    NULL, ft)) {
+        if (ass_font_provider_add_font(priv, &info, NULL, face_index, ft)) {
             ass_msg(library, MSGL_WARN, "Failed to add embedded font '%s'",
                     name);
         }

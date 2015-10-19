@@ -185,15 +185,16 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
         get_name(fontd, kCTFontFamilyNameAttribute, families, &meta.n_family);
         meta.families = families;
 
-        int zero = 0;
-        get_name(fontd, kCTFontNameAttribute, identifiers, &zero);
         get_name(fontd, kCTFontDisplayNameAttribute, fullnames, &meta.n_fullname);
         meta.fullnames = fullnames;
 
+        int zero = 0;
+        get_name(fontd, kCTFontNameAttribute, identifiers, &zero);
+        meta.postscript_name = identifiers[0];
+
         CFCharacterSetRef chset =
             CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
-        ass_font_provider_add_font(provider, &meta, path, index,
-                                   identifiers[0], (void*)chset);
+        ass_font_provider_add_font(provider, &meta, path, index, (void*)chset);
 
         for (int j = 0; j < meta.n_family; j++)
             free(meta.families[j]);
@@ -201,7 +202,7 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
         for (int j = 0; j < meta.n_fullname; j++)
             free(meta.fullnames[j]);
 
-        free(identifiers[0]);
+        free(meta.postscript_name);
 
         free(path);
     }

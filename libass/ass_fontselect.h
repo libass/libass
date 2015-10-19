@@ -147,7 +147,6 @@ typedef struct font_provider_funcs {
  * At minimum one family is required.
  */
 struct ass_font_provider_meta_data {
-
     /**
      * List of localized font family names, e.g. "Arial".
      */
@@ -158,6 +157,12 @@ struct ass_font_provider_meta_data {
      * The English name should be listed first to speed up typical matching.
      */
     char **fullnames;
+
+    /**
+     * The PostScript name, e.g. "Arial-BoldMT".
+     */
+    char *postscript_name;
+
     int n_family;       // Number of localized family names
     int n_fullname;     // Number of localized full names
 
@@ -231,7 +236,6 @@ ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
  * \param path absolute path to font, or NULL for memory-based fonts
  * \param index index inside a font collection file
  *              (-1 to look up by PostScript name)
- * \param psname PostScript name of the face
  * \param data private data for font callbacks
  * \return success
  *
@@ -239,7 +243,7 @@ ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
 int
 ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
-                           int index, const char *psname, void *data);
+                           int index, void *data);
 
 /**
  * \brief Free font provider and associated fonts.

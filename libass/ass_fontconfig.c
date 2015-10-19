@@ -133,8 +133,7 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
             meta.n_fullname++;
         meta.fullnames = fullnames;
 
-        ass_font_provider_add_font(provider, &meta, path, index, NULL,
-                                   (void *)pat);
+        ass_font_provider_add_font(provider, &meta, path, index, (void *)pat);
     }
 }
 
