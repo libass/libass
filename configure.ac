@@ -152,7 +152,7 @@ PKG_CHECK_MODULES([FRIBIDI], fribidi >= 0.19.0, [
     ])
 
 if test x$enable_fontconfig != xno; then
-PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.4.2, [
+PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.10.92, [
     CFLAGS="$CFLAGS $FONTCONFIG_CFLAGS"
     LIBS="$LIBS $FONTCONFIG_LIBS"
     AC_DEFINE(CONFIG_FONTCONFIG, 1, [found fontconfig via pkg-config])
@@ -231,7 +231,7 @@ fi
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
 if test x$fontconfig = xtrue; then
-    pkg_requires="fontconfig >= 2.4.2, ${pkg_requires}"
+    pkg_requires="fontconfig >= 2.10.92, ${pkg_requires}"
 fi
 if test x$harfbuzz = xtrue; then
     pkg_requires="harfbuzz >= 0.9.5, ${pkg_requires}"

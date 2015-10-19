@@ -117,7 +117,7 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         if (result != FcResultMatch)
             continue;
 
-        // read and strdup fullnames
+        // read family names
         meta.n_family = 0;
         while (FcPatternGetString(pat, FC_FAMILY, meta.n_family,
                     (FcChar8 **)&families[meta.n_family]) == FcResultMatch
@@ -125,13 +125,18 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
             meta.n_family++;
         meta.families = families;
 
-        // read and strdup fullnames
+        // read fullnames
         meta.n_fullname = 0;
         while (FcPatternGetString(pat, FC_FULLNAME, meta.n_fullname,
                     (FcChar8 **)&fullnames[meta.n_fullname]) == FcResultMatch
                     && meta.n_fullname < MAX_NAME)
             meta.n_fullname++;
         meta.fullnames = fullnames;
+
+        // read PostScript name
+        meta.postscript_name = NULL;
+        FcPatternGetString(pat, FC_POSTSCRIPT_NAME, 0,
+                           (FcChar8 **)&meta.postscript_name);
 
         ass_font_provider_add_font(provider, &meta, path, index, (void *)pat);
     }
