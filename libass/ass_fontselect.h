@@ -230,7 +230,8 @@ ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
  * \param meta font metadata. See struct definition for more information.
  * \param path absolute path to font, or NULL for memory-based fonts
  * \param index index inside a font collection file
- * \param psname PostScript name of the face (overrides index if present)
+ *              (-1 to look up by PostScript name)
+ * \param psname PostScript name of the face
  * \param data private data for font callbacks
  * \return success
  *
@@ -238,7 +239,7 @@ ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
 int
 ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
-                           unsigned int index, const char *psname, void *data);
+                           int index, const char *psname, void *data);
 
 /**
  * \brief Free font provider and associated fonts.

@@ -236,15 +236,15 @@ static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
  * \param provider the font provider
  * \param meta basic metadata of the font
  * \param path path to the font file, or NULL
- * \param index face index inside the file
- * \param psname PostScript name of the face (overrides index if present)
+ * \param index face index inside the file (-1 to look up by PostScript name)
+ * \param psname PostScript name of the face
  * \param data private data for the font
  * \return success
  */
 int
 ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
-                           unsigned int index, const char *psname, void *data)
+                           int index, const char *psname, void *data)
 {
     int i;
     int weight, slant, width;
