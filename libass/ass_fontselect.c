@@ -719,6 +719,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     int slant, weight;
     char *fullnames[MAX_FULLNAME];
     char *families[MAX_FULLNAME];
+    char *postscript_name = NULL;
 
     // we're only interested in outlines
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
@@ -766,6 +767,10 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     if (num_family == 0)
         goto error;
 
+    postscript_name = FT_Get_Postscript_Name(face);
+    if (postscript_name != NULL)
+        postscript_name = strdup_trimmed(postscript_name);
+
     // calculate sensible slant and weight from style attributes
     slant  = 110 * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
     weight = 300 * !!(face->style_flags & FT_STYLE_FLAG_BOLD) + 400;
@@ -774,7 +779,8 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     info->slant  = slant;
     info->weight = weight;
     info->width  = 100;     // FIXME, should probably query the OS/2 table
-    info->families  = calloc(sizeof(char *), num_family);
+    info->postscript_name = postscript_name;
+    info->families = calloc(sizeof(char *), num_family);
 
     if (info->families == NULL)
         goto error;
@@ -801,6 +807,7 @@ error:
 
     free(info->families);
     free(info->fullnames);
+    free(postscript_name);
 
     return 1;
 }
@@ -822,6 +829,7 @@ static void free_font_info(ASS_FontProviderMetaData *meta)
 
     free(meta->families);
     free(meta->fullnames);
+    free(meta->postscript_name);
 }
 
 /**
