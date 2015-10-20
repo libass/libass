@@ -335,7 +335,7 @@ static int check_glyph(void *data, uint32_t code)
     if (code == 0)
         return 1;
 
-    IDWriteFont_HasCharacter(priv->font, code, &exists);
+    hr = IDWriteFont_HasCharacter(priv->font, code, &exists);
     if (FAILED(hr))
         return 0;
 
