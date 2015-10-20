@@ -323,21 +323,20 @@ static size_t get_data(void *data, unsigned char *buf, size_t offset,
 }
 
 /*
- * Checks if the passed font has a specific unicode
- * character. Returns 0 for failure and 1 for success
+ * Check if the passed font has a specific unicode character.
  */
-static int check_glyph(void *data, uint32_t code)
+static bool check_glyph(void *data, uint32_t code)
 {
     HRESULT hr = S_OK;
     FontPrivate *priv = (FontPrivate *) data;
     BOOL exists = FALSE;
 
     if (code == 0)
-        return 1;
+        return true;
 
     hr = IDWriteFont_HasCharacter(priv->font, code, &exists);
     if (FAILED(hr))
-        return 0;
+        return false;
 
     return exists;
 }

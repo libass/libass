@@ -53,15 +53,15 @@ static void destroy_font(void *priv)
     SAFE_CFRelease(set);
 }
 
-static int check_glyph(void *priv, uint32_t code)
+static bool check_glyph(void *priv, uint32_t code)
 {
     CFCharacterSetRef set = priv;
 
     if (!set)
-        return 1;
+        return true;
 
     if (code == 0)
-        return 1;
+        return true;
 
     return CFCharacterSetIsLongCharacterMember(set, code);
 }

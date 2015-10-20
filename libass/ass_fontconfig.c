@@ -40,23 +40,23 @@ typedef struct fc_private {
     FcCharSet *fallback_chars;
 } ProviderPrivate;
 
-static int check_glyph(void *priv, uint32_t code)
+static bool check_glyph(void *priv, uint32_t code)
 {
     FcPattern *pat = (FcPattern *)priv;
     FcCharSet *charset;
 
     if (!pat)
-        return 1;
+        return true;
 
     if (code == 0)
-        return 1;
+        return true;
 
     FcResult result = FcPatternGetCharSet(pat, FC_CHARSET, 0, &charset);
     if (result != FcResultMatch)
-        return 0;
+        return false;
     if (FcCharSetHasChar(charset, code) == FcTrue)
-        return 1;
-    return 0;
+        return true;
+    return false;
 }
 
 static void destroy(void *priv)

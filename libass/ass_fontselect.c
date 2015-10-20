@@ -110,12 +110,12 @@ struct font_data_ft {
     int idx;
 };
 
-static int check_glyph_ft(void *data, uint32_t codepoint)
+static bool check_glyph_ft(void *data, uint32_t codepoint)
 {
     FontDataFT *fd = (FontDataFT *)data;
 
     if (!codepoint)
-        return 1;
+        return true;
 
     return !!FT_Get_Char_Index(fd->face, codepoint);
 }
@@ -243,7 +243,7 @@ static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
  * \param data private data for the font
  * \return success
  */
-int
+bool
 ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
                            int index, void *data)
@@ -343,11 +343,11 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     info->provider = provider;
 
     selector->n_font++;
-    return 0;
+    return false;
 
 error:
     ass_font_provider_free_fontinfo(info);
-    return 1;
+    return true;
 }
 
 /**
@@ -487,7 +487,7 @@ static void font_info_dump(ASS_FontInfo *font_infos, size_t len)
 }
 #endif
 
-static int check_glyph(ASS_FontInfo *fi, uint32_t code)
+static bool check_glyph(ASS_FontInfo *fi, uint32_t code)
 {
     ASS_FontProvider *provider = fi->provider;
     assert(provider && provider->funcs.check_glyph);
@@ -727,7 +727,7 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
  * \param info metadata, returned here
  * \return success
  */
-static int
+static bool
 get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 {
     int i;
@@ -742,7 +742,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 
     // we're only interested in outlines
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
-        return 0;
+        return false;
 
     for (i = 0; i < num_names; i++) {
         FT_SfntName name;
@@ -816,7 +816,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
         info->n_fullname = num_fullname;
     }
 
-    return 0;
+    return false;
 
 error:
     for (i = 0; i < num_family; i++)
@@ -829,7 +829,7 @@ error:
     free(info->fullnames);
     free(postscript_name);
 
-    return 1;
+    return true;
 }
 
 /**

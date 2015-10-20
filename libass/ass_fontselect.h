@@ -58,9 +58,9 @@ typedef size_t  (*GetDataFunc)(void *font_priv, unsigned char *data,
  *
  * \param font_priv font private data
  * \param codepont Unicode codepoint (UTF-32)
- * \return non-zero value if codepoint is supported by the font
+ * \return true if codepoint is supported by the font
  */
-typedef int     (*CheckGlyphFunc)(void *font_priv, uint32_t codepoint);
+typedef bool    (*CheckGlyphFunc)(void *font_priv, uint32_t codepoint);
 
 /**
  * Destroy a font's private data.
@@ -243,7 +243,7 @@ ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
  * \return success
  *
  */
-int
+bool
 ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
                            int index, void *data);
