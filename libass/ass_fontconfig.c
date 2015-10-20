@@ -86,6 +86,7 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         FcBool outline;
         int index, weight;
         char *path;
+        char *format;
         char *fullnames[MAX_NAME];
         char *families[MAX_NAME];
 
@@ -137,6 +138,13 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         meta.postscript_name = NULL;
         FcPatternGetString(pat, FC_POSTSCRIPT_NAME, 0,
                            (FcChar8 **)&meta.postscript_name);
+
+        meta.is_postscript = false;
+        if (FcPatternGetString(pat, FC_FONTFORMAT, 0,
+                               (FcChar8 **)&format) == FcResultMatch)
+            meta.is_postscript =
+                !strcmp(format, "Type 1") || !strcmp(format, "Type 42") ||
+                !strcmp(format, "CID Type 1") || !strcmp(format, "CFF");
 
         ass_font_provider_add_font(provider, &meta, path, index, (void *)pat);
     }

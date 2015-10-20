@@ -483,6 +483,24 @@ static int map_width(enum DWRITE_FONT_STRETCH stretch)
     }
 }
 
+static bool is_postscript(IDWriteFont *font)
+{
+    HRESULT hr = S_OK;
+    IDWriteFontFace *face = NULL;
+    DWRITE_FONT_FACE_TYPE type;
+
+    hr = IDWriteFont_CreateFontFace(font, &face);
+    if (FAILED(hr) || !face)
+        return false;
+
+    type = IDWriteFontFace_GetType(face);
+    IDWriteFontFace_Release(face);
+
+    return type == DWRITE_FONT_FACE_TYPE_CFF ||
+           type == DWRITE_FONT_FACE_TYPE_RAW_CFF ||
+           type == DWRITE_FONT_FACE_TYPE_TYPE1;
+}
+
 /*
  * Scan every system font on the current machine and add it
  * to the libass lookup. Stores the FontPrivate as private data
@@ -615,6 +633,8 @@ static void scan_fonts(IDWriteFactory *factory,
                 meta.families[k] = mbName;
             }
             IDWriteLocalizedStrings_Release(familyNames);
+
+            meta.is_postscript = is_postscript(font);
 
             FontPrivate *font_priv = (FontPrivate *) calloc(1, sizeof(*font_priv));
             font_priv->font = font;

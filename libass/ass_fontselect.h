@@ -19,6 +19,7 @@
 #ifndef LIBASS_FONTCONFIG_H
 #define LIBASS_FONTCONFIG_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -171,6 +172,8 @@ struct ass_font_provider_meta_data {
                         // See FONT_WEIGHT_*
     int width;          // Font weight in percent, normally 100
                         // See FONT_WIDTH_*
+
+    bool is_postscript; // Whether the font contains PostScript outlines
 };
 
 typedef struct ass_font_stream ASS_FontStream;

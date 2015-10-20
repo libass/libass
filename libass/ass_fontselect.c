@@ -35,6 +35,7 @@
 #include FT_FREETYPE_H
 #include FT_SFNT_NAMES_H
 #include FT_TRUETYPE_IDS_H
+#include FT_TYPE1_TABLES_H
 
 #include "ass_utils.h"
 #include "ass.h"
@@ -66,8 +67,10 @@ struct font_info {
     // how to access this face
     char *path;            // absolute path
     int index;             // font index inside font collections
+
     char *postscript_name; // can be used as an alternative to index to
                            // identify a font inside a collection
+    bool is_postscript;
 
     // font source
     ASS_FontProvider *provider;
@@ -294,20 +297,22 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     // set uid
     info->uid = selector->uid++;
 
-    info->slant       = slant;
-    info->weight      = weight;
-    info->width       = width;
-    info->n_fullname  = meta->n_fullname;
-    info->n_family    = meta->n_family;
-    info->families    = calloc(meta->n_family, sizeof(char *));
+    info->slant         = slant;
+    info->weight        = weight;
+    info->width         = width;
+    info->n_fullname    = meta->n_fullname;
+    info->n_family      = meta->n_family;
+    info->is_postscript = meta->is_postscript;
+
+    info->families = calloc(meta->n_family, sizeof(char *));
+    if (info->families == NULL)
+        goto error;
+
     if (meta->n_fullname) {
         info->fullnames = calloc(meta->n_fullname, sizeof(char *));
         if (info->fullnames == NULL)
             goto error;
     }
-
-    if (info->families == NULL)
-        goto error;
 
     for (i = 0; i < info->n_family; i++) {
         info->families[i] = strdup(meta->families[i]);
@@ -426,6 +431,18 @@ static bool matches_fullname(ASS_FontInfo *f, const char *fullname)
 }
 
 /**
+ * \brief Return whether the given font has the given PostScript name.
+ */
+static bool matches_postscript_name(ASS_FontInfo *f, const char *name)
+{
+    if (f->is_postscript && f->postscript_name) {
+        if (ass_strcasecmp(f->postscript_name, name) == 0)
+            return true;
+    }
+    return false;
+}
+
+/**
  * \brief Compare attributes of font (a) against a font request (req). Returns
  * a matching score - the lower the better.
  * Ignores font names/families!
@@ -510,7 +527,8 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
                 // to determine best match in that particular family
                 score = font_attributes_similarity(font, &req);
                 *name_match = true;
-            } else if (matches_fullname(font, fullname)) {
+            } else if (matches_fullname(font, fullname) ||
+                       matches_postscript_name(font, fullname)) {
                 // If we don't have any match, compare fullnames against request
                 // if there is a match now, assign lowest score possible. This means
                 // the font should be chosen instantly, without further search.
@@ -720,6 +738,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     char *fullnames[MAX_FULLNAME];
     char *families[MAX_FULLNAME];
     char *postscript_name = NULL;
+    PS_FontInfoRec postscript_info;
 
     // we're only interested in outlines
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
@@ -779,12 +798,13 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     info->slant  = slant;
     info->weight = weight;
     info->width  = 100;     // FIXME, should probably query the OS/2 table
-    info->postscript_name = postscript_name;
-    info->families = calloc(sizeof(char *), num_family);
 
+    info->postscript_name = postscript_name;
+    info->is_postscript = !FT_Get_PS_Font_Info(face, &postscript_info);
+
+    info->families = calloc(sizeof(char *), num_family);
     if (info->families == NULL)
         goto error;
-
     memcpy(info->families, &families, sizeof(char *) * num_family);
     info->n_family = num_family;
 

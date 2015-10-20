@@ -88,6 +88,19 @@ static void get_name(CTFontDescriptorRef fontd, CFStringRef attr,
     }
 }
 
+static bool is_postscript(CTFontDescriptorRef fontd)
+{
+    int format;
+    CFNumberRef cfformat =
+        CTFontDescriptorCopyAttribute(fontd, kCTFontFormatAttribute);
+
+    if (!CFNumberGetValue(cfformat, kCFNumberIntType, &format))
+        return false;
+
+    return format == kCTFontFormatOpenTypePostScript ||
+           format == kCTFontFormatPostScript;
+}
+
 static void get_trait(CFDictionaryRef traits, CFStringRef attribute,
                       float *trait)
 {
@@ -191,6 +204,8 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
         int zero = 0;
         get_name(fontd, kCTFontNameAttribute, identifiers, &zero);
         meta.postscript_name = identifiers[0];
+
+        meta.is_postscript = is_postscript(fontd);
 
         CFCharacterSetRef chset =
             CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
