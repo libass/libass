@@ -201,7 +201,9 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
                     return -1;
                 }
 
-                if (strcmp(FT_Get_Postscript_Name(face), postscript_name) == 0)
+                const char *face_psname = FT_Get_Postscript_Name(face);
+                if (face_psname != NULL &&
+                    strcmp(face_psname, postscript_name) == 0)
                     break;
             }
         }
