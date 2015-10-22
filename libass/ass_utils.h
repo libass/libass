@@ -84,8 +84,6 @@ int mystrtoi32(char **p, int base, int32_t *res);
 int32_t parse_alpha_tag(char *str);
 uint32_t parse_color_tag(char *str);
 uint32_t parse_color_header(char *str);
-char *trim_space(char *str);
-char *strdup_trimmed(const char *str);
 char parse_bool(char *str);
 int parse_ycbcr_matrix(char *str);
 unsigned ass_utf8_get_char(char **str);

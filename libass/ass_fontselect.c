@@ -595,22 +595,21 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
 {
     ASS_FontProvider *default_provider = priv->default_provider;
     ASS_FontProviderMetaData meta = {0};
-    char *family_trim = strdup_trimmed(family);
     char *result = NULL;
     bool name_match = false;
 
-    if (family_trim == NULL)
+    if (family == NULL)
         return NULL;
 
     ASS_FontProviderMetaData default_meta = {
         .n_fullname = 1,
-        .fullnames  = &family_trim,
+        .fullnames  = &family,
     };
 
     // Get a list of substitutes if applicable, and use it for matching.
     if (default_provider && default_provider->funcs.get_substitutions) {
         default_provider->funcs.get_substitutions(default_provider->priv,
-                                                  family_trim, &meta);
+                                                  family, &meta);
     }
 
     if (!meta.n_fullname) {
@@ -636,7 +635,6 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     }
 
     // cleanup
-    free(family_trim);
     if (meta.fullnames != default_meta.fullnames) {
         for (int i = 0; i < meta.n_fullname; i++)
             free(meta.fullnames[i]);
@@ -732,7 +730,6 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     int slant, weight;
     char *fullnames[MAX_FULLNAME];
     char *families[MAX_FULLNAME];
-    char *postscript_name = NULL;
     PS_FontInfoRec postscript_info;
 
     // we're only interested in outlines
@@ -753,14 +750,14 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
                                 name.string_len);
 
             if (name.name_id == TT_NAME_ID_FULL_NAME) {
-                fullnames[num_fullname] = strdup_trimmed(buf);
+                fullnames[num_fullname] = strdup(buf);
                 if (fullnames[num_fullname] == NULL)
                     goto error;
                 num_fullname++;
             }
 
             if (name.name_id == TT_NAME_ID_FONT_FAMILY) {
-                families[num_family] = strdup_trimmed(buf);
+                families[num_family] = strdup(buf);
                 if (families[num_family] == NULL)
                     goto error;
                 num_family++;
@@ -781,10 +778,6 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     if (num_family == 0)
         goto error;
 
-    postscript_name = FT_Get_Postscript_Name(face);
-    if (postscript_name != NULL)
-        postscript_name = strdup_trimmed(postscript_name);
-
     // calculate sensible slant and weight from style attributes
     slant  = 110 * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
     weight = 300 * !!(face->style_flags & FT_STYLE_FLAG_BOLD) + 400;
@@ -794,7 +787,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     info->weight = weight;
     info->width  = 100;     // FIXME, should probably query the OS/2 table
 
-    info->postscript_name = postscript_name;
+    info->postscript_name = FT_Get_Postscript_Name(face);
     info->is_postscript = !FT_Get_PS_Font_Info(face, &postscript_info);
 
     info->families = calloc(sizeof(char *), num_family);
@@ -822,7 +815,6 @@ error:
 
     free(info->families);
     free(info->fullnames);
-    free(postscript_name);
 
     return true;
 }
@@ -844,7 +836,6 @@ static void free_font_info(ASS_FontProviderMetaData *meta)
 
     free(meta->families);
     free(meta->fullnames);
-    free(meta->postscript_name);
 }
 
 /**

@@ -334,28 +334,6 @@ void ass_msg(ASS_Library *priv, int lvl, const char *fmt, ...)
     va_end(va);
 }
 
-/**
- * Return a string with spaces trimmed at start and end.
- * \param str input string
- * \return output string, can be released with free()
- */
-char *strdup_trimmed(const char *str)
-{
-    int left = 0;
-    int right = strlen(str) - 1;
-    char *out = NULL;
-
-    while (ass_isspace(str[left])) left++;
-    while (right > left && ass_isspace(str[right])) right--;
-
-    out = calloc(1, right-left+2);
-
-    if (out)
-        memcpy(out, str + left, right-left+1);
-
-    return out;
-}
-
 unsigned ass_utf8_get_char(char **str)
 {
     uint8_t *strp = (uint8_t *) * str;
