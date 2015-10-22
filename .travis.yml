@@ -9,13 +9,18 @@ os:
   - linux
   - osx
 
+sudo: required
+dist: trusty
+
 branches:
   only:
     - master
     - ci
     - coverity_scan
 
-before_install: (sudo apt-get install -y fontconfig libfribidi-dev yasm || brew install fontconfig freetype fribidi yasm) && ./autogen.sh && ./configure
+before_install:
+  - (sudo apt-get update || brew update)
+  - (sudo apt-get install -y fontconfig libfribidi-dev yasm || brew install fontconfig freetype fribidi yasm) && ./autogen.sh && ./configure
 script:
   - make -j4
 
