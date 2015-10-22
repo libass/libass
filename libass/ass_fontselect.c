@@ -419,25 +419,21 @@ static bool matches_family_name(ASS_FontInfo *f, const char *family)
 }
 
 /**
- * \brief Return whether the given font has the given fullname.
+ * \brief Return whether the given font has the given fullname or
+ * PostScript name depending on whether it has PostScript outlines.
  */
-static bool matches_fullname(ASS_FontInfo *f, const char *fullname)
+static bool matches_full_or_postscript_name(ASS_FontInfo *f,
+                                            const char *fullname)
 {
-    for (int i = 0; i < f->n_fullname; i++) {
-        if (ass_strcasecmp(f->fullnames[i], fullname) == 0)
+    if (f->is_postscript) {
+        if (f->postscript_name != NULL &&
+            ass_strcasecmp(f->postscript_name, fullname) == 0)
             return true;
-    }
-    return false;
-}
-
-/**
- * \brief Return whether the given font has the given PostScript name.
- */
-static bool matches_postscript_name(ASS_FontInfo *f, const char *name)
-{
-    if (f->is_postscript && f->postscript_name) {
-        if (ass_strcasecmp(f->postscript_name, name) == 0)
-            return true;
+    } else {
+        for (int i = 0; i < f->n_fullname; i++) {
+            if (ass_strcasecmp(f->fullnames[i], fullname) == 0)
+                return true;
+        }
     }
     return false;
 }
@@ -527,8 +523,7 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
                 // to determine best match in that particular family
                 score = font_attributes_similarity(font, &req);
                 *name_match = true;
-            } else if (matches_fullname(font, fullname) ||
-                       matches_postscript_name(font, fullname)) {
+            } else if (matches_full_or_postscript_name(font, fullname)) {
                 // If we don't have any match, compare fullnames against request
                 // if there is a match now, assign lowest score possible. This means
                 // the font should be chosen instantly, without further search.
