@@ -603,7 +603,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
 
     ASS_FontProviderMetaData default_meta = {
         .n_fullname = 1,
-        .fullnames  = &family,
+        .fullnames  = (char **)&family,
     };
 
     // Get a list of substitutes if applicable, and use it for matching.
@@ -787,7 +787,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     info->weight = weight;
     info->width  = 100;     // FIXME, should probably query the OS/2 table
 
-    info->postscript_name = FT_Get_Postscript_Name(face);
+    info->postscript_name = (char *)FT_Get_Postscript_Name(face);
     info->is_postscript = !FT_Get_PS_Font_Info(face, &postscript_info);
 
     info->families = calloc(sizeof(char *), num_family);
