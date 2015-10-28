@@ -66,7 +66,8 @@ typedef enum DWRITE_FONT_FACE_TYPE {
   DWRITE_FONT_FACE_TYPE_TYPE1,
   DWRITE_FONT_FACE_TYPE_VECTOR,
   DWRITE_FONT_FACE_TYPE_BITMAP,
-  DWRITE_FONT_FACE_TYPE_UNKNOWN 
+  DWRITE_FONT_FACE_TYPE_UNKNOWN,
+  DWRITE_FONT_FACE_TYPE_RAW_CFF
 } DWRITE_FONT_FACE_TYPE;
 
 typedef enum DWRITE_FONT_SIMULATIONS {
@@ -339,6 +340,7 @@ DECLARE_INTERFACE_(IDWriteFontFace,IUnknown)
 };
 #ifdef COBJMACROS
 #define IDWriteFontFace_Release(This) (This)->lpVtbl->Release(This)
+#define IDWriteFontFace_GetType(This) (This)->lpVtbl->GetType(This)
 #define IDWriteFontFace_GetFiles(This,fontFiles,b) (This)->lpVtbl->GetFiles(This,fontFiles,b)
 #endif /*COBJMACROS*/
 
