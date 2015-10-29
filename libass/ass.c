@@ -226,7 +226,7 @@ static long long string2timecode(ASS_Library *library, char *p)
 {
     unsigned h, m, s, ms;
     long long tm;
-    int res = sscanf(p, "%d:%d:%d.%d", &h, &m, &s, &ms);
+    int res = sscanf(p, "%u:%u:%u.%u", &h, &m, &s, &ms);
     if (res < 4) {
         ass_msg(library, MSGL_WARN, "Bad timestamp");
         return 0;
