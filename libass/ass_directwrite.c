@@ -520,22 +520,23 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
     IDWriteLocalizedStrings *psNames;
     hr = IDWriteFont_GetInformationalStrings(font,
             DWRITE_INFORMATIONAL_STRING_POSTSCRIPT_NAME, &psNames, &exists);
-    if (FAILED(hr)) {
-        IDWriteFont_Release(font);
-        return;
-    }
+    if (FAILED(hr))
+        goto cleanup;
 
     if (exists) {
         hr = IDWriteLocalizedStrings_GetString(psNames, 0, temp_name, NAME_MAX_LENGTH);
         if (FAILED(hr)) {
             IDWriteLocalizedStrings_Release(psNames);
-            IDWriteFont_Release(font);
-            return;
+            goto cleanup;
         }
 
         temp_name[NAME_MAX_LENGTH-1] = 0;
         size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
         char *mbName = (char *) malloc(size_needed);
+        if (!mbName) {
+            IDWriteLocalizedStrings_Release(psNames);
+            goto cleanup;
+        }
         WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
         meta.postscript_name = mbName;
 
@@ -545,25 +546,32 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
     IDWriteLocalizedStrings *fontNames;
     hr = IDWriteFont_GetInformationalStrings(font,
             DWRITE_INFORMATIONAL_STRING_FULL_NAME, &fontNames, &exists);
-    if (FAILED(hr)) {
-        IDWriteFont_Release(font);
-        return;
-    }
+    if (FAILED(hr))
+        goto cleanup;
 
     if (exists) {
         meta.n_fullname = IDWriteLocalizedStrings_GetCount(fontNames);
         meta.fullnames = (char **) calloc(meta.n_fullname, sizeof(char *));
+        if (!meta.fullnames) {
+            IDWriteLocalizedStrings_Release(fontNames);
+            goto cleanup;
+        }
         for (int k = 0; k < meta.n_fullname; k++) {
             hr = IDWriteLocalizedStrings_GetString(fontNames, k,
                                                    temp_name,
                                                    NAME_MAX_LENGTH);
             if (FAILED(hr)) {
-                continue;
+                IDWriteLocalizedStrings_Release(fontNames);
+                goto cleanup;
             }
 
             temp_name[NAME_MAX_LENGTH-1] = 0;
             size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
             char *mbName = (char *) malloc(size_needed);
+            if (!mbName) {
+                IDWriteLocalizedStrings_Release(fontNames);
+                goto cleanup;
+            }
             WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
             meta.fullnames[k] = mbName;
         }
@@ -573,26 +581,33 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
     IDWriteLocalizedStrings *familyNames;
     hr = IDWriteFont_GetInformationalStrings(font,
             DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES, &familyNames, &exists);
-    if (!exists)
+    if (FAILED(hr) || !exists)
         hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &familyNames);
-    if (FAILED(hr)) {
-        IDWriteFont_Release(font);
-        return;
-    }
+    if (FAILED(hr))
+        goto cleanup;
 
     meta.n_family = IDWriteLocalizedStrings_GetCount(familyNames);
     meta.families = (char **) calloc(meta.n_family, sizeof(char *));
+    if (!meta.families) {
+        IDWriteLocalizedStrings_Release(familyNames);
+        goto cleanup;
+    }
     for (int k = 0; k < meta.n_family; k++) {
         hr = IDWriteLocalizedStrings_GetString(familyNames, k,
                                                temp_name,
                                                NAME_MAX_LENGTH);
         if (FAILED(hr)) {
-            continue;
+            IDWriteLocalizedStrings_Release(familyNames);
+            goto cleanup;
         }
 
         temp_name[NAME_MAX_LENGTH-1] = 0;
         size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
         char *mbName = (char *) malloc(size_needed);
+        if (!mbName) {
+            IDWriteLocalizedStrings_Release(familyNames);
+            goto cleanup;
+        }
         WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
         meta.families[k] = mbName;
     }
@@ -601,17 +616,30 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
     meta.is_postscript = is_postscript(font);
 
     FontPrivate *font_priv = (FontPrivate *) calloc(1, sizeof(*font_priv));
+    if (!font_priv)
+        goto cleanup;
     font_priv->font = font;
+    font = NULL;
 
     ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
 
-    for (int k = 0; k < meta.n_family; k++)
-        free(meta.families[k]);
-    for (int k = 0; k < meta.n_fullname; k++)
-        free(meta.fullnames[k]);
-    free(meta.fullnames);
-    free(meta.families);
+cleanup:
+    if (meta.families) {
+        for (int k = 0; k < meta.n_family; k++)
+            free(meta.families[k]);
+        free(meta.families);
+    }
+
+    if (meta.fullnames) {
+        for (int k = 0; k < meta.n_fullname; k++)
+            free(meta.fullnames[k]);
+        free(meta.fullnames);
+    }
+
     free(meta.postscript_name);
+
+    if (font)
+        IDWriteFont_Release(font);
 }
 
 /*
