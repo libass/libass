@@ -49,13 +49,29 @@ static char *cfstr2buf(CFStringRef string)
 
 static void destroy_font(void *priv)
 {
-    CFCharacterSetRef set = priv;
-    SAFE_CFRelease(set);
+    CTFontDescriptorRef fontd = priv;
+    SAFE_CFRelease(fontd);
+}
+
+static bool check_postscript(void *priv)
+{
+    CTFontDescriptorRef fontd = priv;
+    CFNumberRef cfformat =
+        CTFontDescriptorCopyAttribute(fontd, kCTFontFormatAttribute);
+    int format;
+
+    if (!CFNumberGetValue(cfformat, kCFNumberIntType, &format))
+        return false;
+
+    return format == kCTFontFormatOpenTypePostScript ||
+           format == kCTFontFormatPostScript;
 }
 
 static bool check_glyph(void *priv, uint32_t code)
 {
-    CFCharacterSetRef set = priv;
+    CTFontDescriptorRef fontd = priv;
+    CFCharacterSetRef set =
+        CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
 
     if (!set)
         return true;
@@ -63,7 +79,9 @@ static bool check_glyph(void *priv, uint32_t code)
     if (code == 0)
         return true;
 
-    return CFCharacterSetIsLongCharacterMember(set, code);
+    bool result = CFCharacterSetIsLongCharacterMember(set, code);
+    SAFE_CFRelease(set);
+    return result;
 }
 
 static char *get_font_file(CTFontDescriptorRef fontd)
@@ -86,19 +104,6 @@ static void get_name(CTFontDescriptorRef fontd, CFStringRef attr,
         SAFE_CFRelease(name);
         *idx += 1;
     }
-}
-
-static bool is_postscript(CTFontDescriptorRef fontd)
-{
-    int format;
-    CFNumberRef cfformat =
-        CTFontDescriptorCopyAttribute(fontd, kCTFontFormatAttribute);
-
-    if (!CFNumberGetValue(cfformat, kCFNumberIntType, &format))
-        return false;
-
-    return format == kCTFontFormatOpenTypePostScript ||
-           format == kCTFontFormatPostScript;
 }
 
 static void get_trait(CFDictionaryRef traits, CFStringRef attribute,
@@ -205,11 +210,8 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
         get_name(fontd, kCTFontNameAttribute, identifiers, &zero);
         meta.postscript_name = identifiers[0];
 
-        meta.is_postscript = is_postscript(fontd);
-
-        CFCharacterSetRef chset =
-            CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
-        ass_font_provider_add_font(provider, &meta, path, index, (void*)chset);
+        CFRetain(fontd);
+        ass_font_provider_add_font(provider, &meta, path, index, (void*)fontd);
 
         for (int j = 0; j < meta.n_family; j++)
             free(meta.families[j]);
@@ -297,6 +299,7 @@ static void get_substitutions(void *priv, const char *name,
 }
 
 static ASS_FontProviderFuncs coretext_callbacks = {
+    .check_postscript   = check_postscript,
     .check_glyph        = check_glyph,
     .destroy_font       = destroy_font,
     .match_fonts        = match_fonts,

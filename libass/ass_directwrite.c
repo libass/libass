@@ -43,6 +43,7 @@ static const ASS_FontMapping font_substitutions[] = {
  */
 typedef struct {
     IDWriteFont *font;
+    IDWriteFontFace *face;
     IDWriteFontFileStream *stream;
 } FontPrivate;
 
@@ -224,15 +225,34 @@ static void init_FallbackLogTextRenderer(FallbackLogTextRenderer *r,
 }
 
 /*
+ * This function is called whenever a font is accessed for the
+ * first time. It will create a FontFace for metadata access and
+ * memory reading, which will be stored within the private data.
+ */
+static bool init_font_private_face(FontPrivate *priv)
+{
+    HRESULT hr;
+    IDWriteFontFace *face;
+
+    if (priv->face != NULL)
+        return true;
+
+    hr = IDWriteFont_CreateFontFace(priv->font, &face);
+    if (FAILED(hr) || !face)
+        return false;
+
+    priv->face = face;
+    return true;
+}
+
+/*
  * This function is called whenever a font is used for the first
  * time. It will create a FontStream for memory reading, which
  * will be stored within the private data.
  */
-static bool init_font_private(FontPrivate *priv)
+static bool init_font_private_stream(FontPrivate *priv)
 {
     HRESULT hr = S_OK;
-    IDWriteFont *font = priv->font;
-    IDWriteFontFace *face = NULL;
     IDWriteFontFile *file = NULL;
     IDWriteFontFileStream *stream = NULL;
     IDWriteFontFileLoader *loader = NULL;
@@ -243,41 +263,34 @@ static bool init_font_private(FontPrivate *priv)
     if (priv->stream != NULL)
         return true;
 
-    hr = IDWriteFont_CreateFontFace(font, &face);
-    if (FAILED(hr) || !face)
+    if (!init_font_private_face(priv))
         return false;
 
     /* DirectWrite only supports one file per face */
-    hr = IDWriteFontFace_GetFiles(face, &n_files, &file);
-    if (FAILED(hr) || !file) {
-        IDWriteFontFace_Release(face);
+    hr = IDWriteFontFace_GetFiles(priv->face, &n_files, &file);
+    if (FAILED(hr) || !file)
         return false;
-    }
 
     hr = IDWriteFontFile_GetReferenceKey(file, &refKey, &keySize);
     if (FAILED(hr)) {
         IDWriteFontFile_Release(file);
-        IDWriteFontFace_Release(face);
         return false;
     }
 
     hr = IDWriteFontFile_GetLoader(file, &loader);
     if (FAILED(hr) || !loader) {
         IDWriteFontFile_Release(file);
-        IDWriteFontFace_Release(face);
         return false;
     }
 
     hr = IDWriteFontFileLoader_CreateStreamFromKey(loader, refKey, keySize, &stream);
     if (FAILED(hr) || !stream) {
         IDWriteFontFile_Release(file);
-        IDWriteFontFace_Release(face);
         return false;
     }
 
     priv->stream = stream;
     IDWriteFontFile_Release(file);
-    IDWriteFontFace_Release(face);
 
     return true;
 }
@@ -297,7 +310,7 @@ static size_t get_data(void *data, unsigned char *buf, size_t offset,
     const void *fileBuf = NULL;
     void *fragContext = NULL;
 
-    if (!init_font_private(priv))
+    if (!init_font_private_stream(priv))
         return 0;
 
     if (buf == NULL) {
@@ -320,6 +333,22 @@ static size_t get_data(void *data, unsigned char *buf, size_t offset,
     IDWriteFontFileStream_ReleaseFileFragment(priv->stream, fragContext);
 
     return length;
+}
+
+/*
+ * Check whether the font contains PostScript outlines.
+ */
+static bool check_postscript(void *data)
+{
+    FontPrivate *priv = (FontPrivate *) data;
+
+    if (!init_font_private_face(priv))
+        return false;
+
+    DWRITE_FONT_FACE_TYPE type = IDWriteFontFace_GetType(priv->face);
+    return type == DWRITE_FONT_FACE_TYPE_CFF ||
+           type == DWRITE_FONT_FACE_TYPE_RAW_CFF ||
+           type == DWRITE_FONT_FACE_TYPE_TYPE1;
 }
 
 /*
@@ -362,6 +391,8 @@ static void destroy_font(void *data)
     FontPrivate *priv = (FontPrivate *) data;
 
     IDWriteFont_Release(priv->font);
+    if (priv->face != NULL)
+        IDWriteFontFace_Release(priv->face);
     if (priv->stream != NULL)
         IDWriteFontFileStream_Release(priv->stream);
 
@@ -482,24 +513,6 @@ static int map_width(enum DWRITE_FONT_STRETCH stretch)
     }
 }
 
-static bool is_postscript(IDWriteFont *font)
-{
-    HRESULT hr = S_OK;
-    IDWriteFontFace *face = NULL;
-    DWRITE_FONT_FACE_TYPE type;
-
-    hr = IDWriteFont_CreateFontFace(font, &face);
-    if (FAILED(hr) || !face)
-        return false;
-
-    type = IDWriteFontFace_GetType(face);
-    IDWriteFontFace_Release(face);
-
-    return type == DWRITE_FONT_FACE_TYPE_CFF ||
-           type == DWRITE_FONT_FACE_TYPE_RAW_CFF ||
-           type == DWRITE_FONT_FACE_TYPE_TYPE1;
-}
-
 static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
                      ASS_FontProvider *provider)
 {
@@ -613,8 +626,6 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
     }
     IDWriteLocalizedStrings_Release(familyNames);
 
-    meta.is_postscript = is_postscript(font);
-
     FontPrivate *font_priv = (FontPrivate *) calloc(1, sizeof(*font_priv));
     if (!font_priv)
         goto cleanup;
@@ -698,6 +709,7 @@ static void get_substitutions(void *priv, const char *name,
  */
 static ASS_FontProviderFuncs directwrite_callbacks = {
     .get_data           = get_data,
+    .check_postscript   = check_postscript,
     .check_glyph        = check_glyph,
     .destroy_font       = destroy_font,
     .destroy_provider   = destroy_provider,

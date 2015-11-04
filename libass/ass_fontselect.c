@@ -70,7 +70,6 @@ struct font_info {
 
     char *postscript_name; // can be used as an alternative to index to
                            // identify a font inside a collection
-    bool is_postscript;
 
     // font source
     ASS_FontProvider *provider;
@@ -109,6 +108,13 @@ struct font_data_ft {
     FT_Face face;
     int idx;
 };
+
+static bool check_postscript_ft(void *data)
+{
+    FontDataFT *fd = (FontDataFT *)data;
+    PS_FontInfoRec postscript_info;
+    return !FT_Get_PS_Font_Info(fd->face, &postscript_info);
+}
 
 static bool check_glyph_ft(void *data, uint32_t codepoint)
 {
@@ -149,13 +155,10 @@ get_data_embedded(void *data, unsigned char *buf, size_t offset, size_t len)
 }
 
 static ASS_FontProviderFuncs ft_funcs = {
-    get_data_embedded,
-    check_glyph_ft,
-    destroy_font_ft,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    .get_data          = get_data_embedded,
+    .check_postscript  = check_postscript_ft,
+    .check_glyph       = check_glyph_ft,
+    .destroy_font      = destroy_font_ft,
 };
 
 static void load_fonts_from_dir(ASS_Library *library, const char *dir)
@@ -302,7 +305,6 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     info->width         = width;
     info->n_fullname    = meta->n_fullname;
     info->n_family      = meta->n_family;
-    info->is_postscript = meta->is_postscript;
 
     info->families = calloc(meta->n_family, sizeof(char *));
     if (info->families == NULL)
@@ -406,6 +408,14 @@ void ass_font_provider_free(ASS_FontProvider *provider)
     free(provider);
 }
 
+static bool check_postscript(ASS_FontInfo *fi)
+{
+    ASS_FontProvider *provider = fi->provider;
+    assert(provider && provider->funcs.check_postscript);
+
+    return provider->funcs.check_postscript(fi->priv);
+}
+
 /**
  * \brief Return whether the given font is in the given family.
  */
@@ -425,17 +435,27 @@ static bool matches_family_name(ASS_FontInfo *f, const char *family)
 static bool matches_full_or_postscript_name(ASS_FontInfo *f,
                                             const char *fullname)
 {
-    if (f->is_postscript) {
-        if (f->postscript_name != NULL &&
-            ass_strcasecmp(f->postscript_name, fullname) == 0)
-            return true;
-    } else {
-        for (int i = 0; i < f->n_fullname; i++) {
-            if (ass_strcasecmp(f->fullnames[i], fullname) == 0)
-                return true;
+    bool matches_fullname = false;
+    bool matches_postscript_name = false;
+
+    for (int i = 0; i < f->n_fullname; i++) {
+        if (ass_strcasecmp(f->fullnames[i], fullname) == 0) {
+            matches_fullname = true;
+            break;
         }
     }
-    return false;
+
+    if (f->postscript_name != NULL &&
+        ass_strcasecmp(f->postscript_name, fullname) == 0)
+        matches_postscript_name = true;
+
+    if (matches_fullname == matches_postscript_name)
+        return matches_fullname;
+
+    if (check_postscript(f))
+        return matches_postscript_name;
+    else
+        return matches_fullname;
 }
 
 /**
@@ -730,7 +750,6 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     int slant, weight;
     char *fullnames[MAX_FULLNAME];
     char *families[MAX_FULLNAME];
-    PS_FontInfoRec postscript_info;
 
     // we're only interested in outlines
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
@@ -788,7 +807,6 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     info->width  = 100;     // FIXME, should probably query the OS/2 table
 
     info->postscript_name = (char *)FT_Get_Postscript_Name(face);
-    info->is_postscript = !FT_Get_PS_Font_Info(face, &postscript_info);
 
     info->families = calloc(sizeof(char *), num_family);
     if (info->families == NULL)

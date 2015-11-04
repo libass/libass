@@ -54,6 +54,14 @@ typedef size_t  (*GetDataFunc)(void *font_priv, unsigned char *data,
                                size_t offset, size_t len);
 
 /**
+ * Check whether the font contains PostScript outlines.
+ *
+ * \param font_priv font private data
+ * \return true if the font contains PostScript outlines
+ */
+typedef bool    (*CheckPostscriptFunc)(void *font_priv);
+
+/**
  * Check if a glyph is supported by a font.
  *
  * \param font_priv font private data
@@ -135,6 +143,7 @@ typedef char   *(*GetFallbackFunc)(void *priv,
 
 typedef struct font_provider_funcs {
     GetDataFunc         get_data;               /* optional/mandatory */
+    CheckPostscriptFunc check_postscript;       /* mandatory */
     CheckGlyphFunc      check_glyph;            /* mandatory */
     DestroyFontFunc     destroy_font;           /* optional */
     DestroyProviderFunc destroy_provider;       /* optional */
@@ -172,8 +181,6 @@ struct ass_font_provider_meta_data {
                         // See FONT_WEIGHT_*
     int width;          // Font weight in percent, normally 100
                         // See FONT_WIDTH_*
-
-    bool is_postscript; // Whether the font contains PostScript outlines
 };
 
 typedef struct ass_font_stream ASS_FontStream;

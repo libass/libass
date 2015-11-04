@@ -40,6 +40,20 @@ typedef struct fc_private {
     FcCharSet *fallback_chars;
 } ProviderPrivate;
 
+static bool check_postscript(void *priv)
+{
+    FcPattern *pat = (FcPattern *)priv;
+    char *format;
+
+    FcResult result =
+        FcPatternGetString(pat, FC_FONTFORMAT, 0, (FcChar8 **)&format);
+    if (result != FcResultMatch)
+        return false;
+
+    return !strcmp(format, "Type 1") || !strcmp(format, "Type 42") ||
+           !strcmp(format, "CID Type 1") || !strcmp(format, "CFF");
+}
+
 static bool check_glyph(void *priv, uint32_t code)
 {
     FcPattern *pat = (FcPattern *)priv;
@@ -86,7 +100,6 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         FcBool outline;
         int index, weight;
         char *path;
-        char *format;
         char *fullnames[MAX_NAME];
         char *families[MAX_NAME];
 
@@ -138,13 +151,6 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         meta.postscript_name = NULL;
         FcPatternGetString(pat, FC_POSTSCRIPT_NAME, 0,
                            (FcChar8 **)&meta.postscript_name);
-
-        meta.is_postscript = false;
-        if (FcPatternGetString(pat, FC_FONTFORMAT, 0,
-                               (FcChar8 **)&format) == FcResultMatch)
-            meta.is_postscript =
-                !strcmp(format, "Type 1") || !strcmp(format, "Type 42") ||
-                !strcmp(format, "CID Type 1") || !strcmp(format, "CFF");
 
         ass_font_provider_add_font(provider, &meta, path, index, (void *)pat);
     }
@@ -268,6 +274,7 @@ cleanup:
 }
 
 static ASS_FontProviderFuncs fontconfig_callbacks = {
+    .check_postscript   = check_postscript,
     .check_glyph        = check_glyph,
     .destroy_provider   = destroy,
     .get_substitutions  = get_substitutions,
