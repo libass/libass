@@ -63,6 +63,8 @@ static bool check_postscript(void *priv)
     if (!CFNumberGetValue(cfformat, kCFNumberIntType, &format))
         return false;
 
+    SAFE_CFRelease(cfformat);
+
     return format == kCTFontFormatOpenTypePostScript ||
            format == kCTFontFormatPostScript;
 }
