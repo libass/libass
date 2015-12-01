@@ -1,3 +1,24 @@
+libass (0.13.1)
+ * Much faster duplicate event check in ass_process_chunk. This can
+   bring a large speedup for embedded subtitles with lots of events.
+   To make this possible, it is now forbidden to combine calls to
+   ass_process_chunk with any other method of manipulating the event
+   list, namely, manual manipulation and calls to ass_process_data,
+   ass_read_memory and ass_read_file.
+ * Interpret negative timestamp components as actual negative numbers.
+   This change increases compatibility with VSFilter.
+ * Font matching changes for VSFilter compatibility
+   * Look up fonts that contain PostScript outlines by their PostScript
+     name instead of their full names. Family names continue to be used
+     for all fonts.
+   * Keep spaces in font names
+ * Drop support for Fontconfig < 2.10.92 to ensure correct font matching
+ * Bug fixes
+   * Fix building the assembler code for the x32 ABI (GH #200)
+   * Fix static linking against libass through pkg-config when libass
+     uses libiconv
+   * Fix some small memory leaks, potential crashes and bad data uses
+
 libass (0.13.0)
  * Add native font selection backends for OSX (CoreText) and Windows
    (DirectWrite). You can now run libass without fontconfig on these
