@@ -71,14 +71,14 @@ static bool check_postscript(void *priv)
 
 static bool check_glyph(void *priv, uint32_t code)
 {
+    if (code == 0)
+        return true;
+
     CTFontDescriptorRef fontd = priv;
     CFCharacterSetRef set =
         CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
 
     if (!set)
-        return true;
-
-    if (code == 0)
         return true;
 
     bool result = CFCharacterSetIsLongCharacterMember(set, code);
