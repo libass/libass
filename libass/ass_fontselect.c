@@ -349,6 +349,10 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
 
 error:
     ass_font_provider_free_fontinfo(info);
+
+    if (provider->funcs.destroy_font)
+        provider->funcs.destroy_font(data);
+
     return false;
 }
 
