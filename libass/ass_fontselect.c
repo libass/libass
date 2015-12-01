@@ -345,11 +345,11 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     info->provider = provider;
 
     selector->n_font++;
-    return false;
+    return true;
 
 error:
     ass_font_provider_free_fontinfo(info);
-    return true;
+    return false;
 }
 
 /**
@@ -822,7 +822,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
         info->n_fullname = num_fullname;
     }
 
-    return false;
+    return true;
 
 error:
     for (i = 0; i < num_family; i++)
@@ -834,7 +834,7 @@ error:
     free(info->families);
     free(info->fullnames);
 
-    return true;
+    return false;
 }
 
 /**
@@ -893,7 +893,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         charmap_magic(library, face);
 
         memset(&info, 0, sizeof(ASS_FontProviderMetaData));
-        if (get_font_info(ftlibrary, face, &info)) {
+        if (!get_font_info(ftlibrary, face, &info)) {
             ass_msg(library, MSGL_WARN,
                     "Error getting metadata for embedded font '%s'", name);
             FT_Done_Face(face);
@@ -912,7 +912,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         ft->face = face;
         ft->idx  = idx;
 
-        if (ass_font_provider_add_font(priv, &info, NULL, face_index, ft)) {
+        if (!ass_font_provider_add_font(priv, &info, NULL, face_index, ft)) {
             ass_msg(library, MSGL_WARN, "Failed to add embedded font '%s'",
                     name);
         }
