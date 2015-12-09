@@ -34,6 +34,8 @@ static const ASS_FontMapping font_substitutions[] = {
 
 static char *cfstr2buf(CFStringRef string)
 {
+    if (!string)
+        return NULL;
     const int encoding = kCFStringEncodingUTF8;
     const char *buf_ptr = CFStringGetCStringPtr(string, encoding);
     if (buf_ptr) {
