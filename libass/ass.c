@@ -977,6 +977,9 @@ void ass_flush_events(ASS_Track *track)
             ass_free_event(track, eid);
         track->n_events = 0;
     }
+    free(track->parser_priv->read_order_bitmap);
+    track->parser_priv->read_order_bitmap = NULL;
+    track->parser_priv->read_order_elems = 0;
 }
 
 #ifdef CONFIG_ICONV
