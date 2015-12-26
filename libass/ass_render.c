@@ -1448,18 +1448,22 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
  *   lines[].height
  *   lines[].asc
  *   lines[].desc
+ *   lines[].top_border
+ *   lines[].bottom_border
  */
 static void measure_text(ASS_Renderer *render_priv)
 {
     TextInfo *text_info = &render_priv->text_info;
     int cur_line = 0;
-    double max_asc = 0., max_desc = 0.;
+    double max_asc = 0., max_desc = 0., max_border = 0.;
     GlyphInfo *last = NULL;
     int i;
     int empty_line = 1;
     text_info->height = 0.;
     for (i = 0; i < text_info->length + 1; ++i) {
         if ((i == text_info->length) || text_info->glyphs[i].linebreak) {
+            if (cur_line == 0)
+                text_info->top_border = max_border;
             if (empty_line && cur_line > 0 && last) {
                 max_asc = d6_to_double(last->asc) / 2.0;
                 max_desc = d6_to_double(last->desc) / 2.0;
@@ -1467,8 +1471,9 @@ static void measure_text(ASS_Renderer *render_priv)
             text_info->lines[cur_line].asc = max_asc;
             text_info->lines[cur_line].desc = max_desc;
             text_info->height += max_asc + max_desc;
+            text_info->bottom_border = max_border;
             cur_line++;
-            max_asc = max_desc = 0.;
+            max_asc = max_desc = max_border = 0.;
             empty_line = 1;
         }
         if (i < text_info->length) {
@@ -1477,6 +1482,8 @@ static void measure_text(ASS_Renderer *render_priv)
                 max_asc = d6_to_double(cur->asc);
             if (d6_to_double(cur->desc) > max_desc)
                 max_desc = d6_to_double(cur->desc);
+            if (cur->border_y > max_border)
+                max_border = cur->border_y;
             if (cur->symbol != '\n' && cur->symbol != 0) {
                 empty_line = 0;
                 last = cur;
@@ -2812,7 +2819,7 @@ shift_event(ASS_Renderer *render_priv, EventImages *ei, int shift)
 
 // dir: 1 - move down
 //      -1 - move up
-static int fit_segment(Segment *s, Segment *fixed, int *cnt, int dir)
+static int fit_segment(Segment *s, Segment *fixed, int *cnt, int dir, int space)
 {
     int i;
     int shift = 0;
@@ -2822,13 +2829,14 @@ static int fit_segment(Segment *s, Segment *fixed, int *cnt, int dir)
             if (s->b + shift <= fixed[i].a || s->a + shift >= fixed[i].b ||
                 s->hb <= fixed[i].ha || s->ha >= fixed[i].hb)
                 continue;
-            shift = fixed[i].b - s->a;
-    } else                      // dir == -1, move up
+            shift = fixed[i].b - s->a + space;
+        }
+    else                        // dir == -1, move up
         for (i = *cnt - 1; i >= 0; --i) {
             if (s->b + shift <= fixed[i].a || s->a + shift >= fixed[i].b ||
                 s->hb <= fixed[i].ha || s->ha >= fixed[i].hb)
                 continue;
-            shift = fixed[i].a - s->b;
+            shift = fixed[i].a - s->b - space;
         }
 
     fixed[*cnt].a = s->a + shift;
@@ -2897,13 +2905,14 @@ fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
             continue;
         priv = get_render_priv(render_priv, imgs[i].event);
         if (priv && priv->height == 0) {        // not a fixed event
-            int shift;
+            int shift, space;
+            space = render_priv->text_info.top_border + render_priv->text_info.bottom_border;
             Segment s;
             s.a = imgs[i].top;
             s.b = imgs[i].top + imgs[i].height;
             s.ha = imgs[i].left;
             s.hb = imgs[i].left + imgs[i].width;
-            shift = fit_segment(&s, used, &cnt_used, imgs[i].shift_direction);
+            shift = fit_segment(&s, used, &cnt_used, imgs[i].shift_direction, space);
             if (shift)
                 shift_event(render_priv, imgs + i, shift);
             // make it fixed
