@@ -42,3 +42,4 @@ ass_set_line_position
 ass_set_pixel_aspect
 ass_set_selective_style_override_enabled
 ass_set_selective_style_override
+ass_set_check_readorder
