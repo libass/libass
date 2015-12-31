@@ -565,7 +565,8 @@ void ass_process_codec_private(ASS_Track *track, char *data, int size);
  * In later libass versions (since LIBASS_VERSION==0x01300001), using this
  * function means you agree not to modify events manually, or using other
  * functions manipulating the event list like ass_process_data(). If you do
- * anyway, the internal duplicate checking might break.
+ * anyway, the internal duplicate checking might break. Calling
+ * ass_flush_events() is still allowed.
  * \param track track
  * \param data string to parse
  * \param size length of data
