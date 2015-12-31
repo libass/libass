@@ -1,3 +1,9 @@
+libass (0.13.2 - unreleased)
+ * Bug fixes
+   * Fix an issue with the new duplicate checking, which could lead to
+     missing subtitles after seeking.
+   * Fix a crash with CoreText under specific circumstances
+
 libass (0.13.1)
  * Much faster duplicate event check in ass_process_chunk. This can
    bring a large speedup for embedded subtitles with lots of events.
