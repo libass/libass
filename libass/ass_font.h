@@ -74,7 +74,6 @@ uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol);
 FT_Glyph ass_font_get_glyph(ASS_Font *font,
                             uint32_t ch, int face_index, int index,
                             ASS_Hinting hinting, int deco);
-FT_Vector ass_font_get_kerning(ASS_Font *font, uint32_t c1, uint32_t c2);
 void ass_font_free(ASS_Font *font);
 
 void outline_translate(const ASS_Outline *outline, FT_Pos dx, FT_Pos dy);

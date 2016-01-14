@@ -671,32 +671,6 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
 }
 
 /**
- * \brief Get kerning for the pair of glyphs.
- **/
-FT_Vector ass_font_get_kerning(ASS_Font *font, uint32_t c1, uint32_t c2)
-{
-    FT_Vector v = { 0, 0 };
-    int i;
-
-    if (font->desc.vertical)
-        return v;
-
-    for (i = 0; i < font->n_faces; ++i) {
-        FT_Face face = font->faces[i];
-        int i1 = FT_Get_Char_Index(face, ass_font_index_magic(face, c1));
-        int i2 = FT_Get_Char_Index(face, ass_font_index_magic(face, c2));
-        if (i1 && i2) {
-            if (FT_HAS_KERNING(face))
-                FT_Get_Kerning(face, i1, i2, FT_KERNING_DEFAULT, &v);
-            return v;
-        }
-        if (i1 || i2)           // these glyphs are from different font faces, no kerning information
-            return v;
-    }
-    return v;
-}
-
-/**
  * \brief Deallocate ASS_Font
  **/
 void ass_font_free(ASS_Font *font)
