@@ -18,6 +18,8 @@ SRC_INTEL = x86/blend_bitmaps.asm x86/blur.asm x86/cpuid.asm x86/utils.asm \
 SRC_INTEL64 = x86/be_blur.asm
 SRC_INTEL_RASTERIZER = x86/rasterizer.asm
 
+SRC_ARM = arm/blend_bitmaps.S
+
 SRC_RASTERIZER = ass_rasterizer.h ass_rasterizer.c ass_rasterizer_c.c
 
 SRC_DIRECTWRITE = ass_directwrite.c ass_directwrite.h dwrite_c.h
@@ -57,6 +59,9 @@ endif
 if X64
 libass_la_SOURCES += $(SRC_INTEL64)
 endif
+endif
+if ARM
+libass_la_SOURCES += $(SRC_ARM)
 endif
 endif
 

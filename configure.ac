@@ -74,21 +74,24 @@ AS_IF([test x$enable_asm != xno], [
             X64=true
             BITS=64
             ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -m amd64" ],
+        [armv7*], [
+            ARM=true
+            BITS=32 ],
         )
-    AS_CASE([$host],
-        [*darwin*], [
-            ASFLAGS="$ASFLAGS -f macho$BITS -DPREFIX -DHAVE_ALIGNED_STACK=1" ],
-        [*linux*|*dragonfly*|*bsd*|*solaris*], [
-            ASFLAGS="$ASFLAGS -f elf -DHAVE_ALIGNED_STACK=1" ],
-        [*cygwin*|*mingw*], [
-            ASFLAGS="$ASFLAGS -f win$BITS"
-            AS_IF([test x$BITS = x64], [
-                ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=1"
-            ], [
-                ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0 -DPREFIX"
-            ])
-        ])
     AS_IF([test x$INTEL = xtrue], [
+        AS_CASE([$host],
+            [*darwin*], [
+                ASFLAGS="$ASFLAGS -f macho$BITS -DPREFIX -DHAVE_ALIGNED_STACK=1" ],
+            [*linux*|*dragonfly*|*bsd*|*solaris*], [
+                ASFLAGS="$ASFLAGS -f elf -DHAVE_ALIGNED_STACK=1" ],
+            [*cygwin*|*mingw*], [
+                ASFLAGS="$ASFLAGS -f win$BITS"
+                AS_IF([test x$BITS = x64], [
+                    ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=1"
+                ], [
+                    ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0 -DPREFIX"
+                ])
+            ])
         AC_CHECK_PROG([yasm_check], [$AS], [yes])
         AS_IF([test x$yasm_check != xyes], [
             AC_MSG_WARN(yasm was not found; ASM functions are disabled.)
@@ -116,6 +119,7 @@ AC_SUBST([AS], ["$AS"])
 
 AM_CONDITIONAL([ASM], [test x$enable_asm != xno])
 AM_CONDITIONAL([INTEL], [test x$INTEL = xtrue])
+AM_CONDITIONAL([ARM], [test x$ARM = xtrue])
 AM_CONDITIONAL([X86], [test x$X86 = xtrue])
 AM_CONDITIONAL([X64], [test x$X64 = xtrue])
 

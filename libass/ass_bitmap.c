@@ -41,7 +41,8 @@
 #undef ALIGN
 #undef DECORATE
 
-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+#if CONFIG_ASM
+#if (defined(__i386__) || defined(__x86_64__))
 
 #define ALIGN           4
 #define DECORATE(func)  ass_##func##_sse2
@@ -54,7 +55,16 @@
 #include "ass_func_template.h"
 #undef ALIGN
 #undef DECORATE
+#elif defined(__arm__)
 
+#define ALIGN           5
+#define DECORATE(func)  ass_##func##_arm // mostly not ported yet
+#define DECORATE2(func)  ass_##func##_arm // mostly not ported yet
+#include "ass_func_template.h"
+#undef ALIGN
+#undef DECORATE
+
+#endif
 #endif
 
 

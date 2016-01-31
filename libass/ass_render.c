@@ -70,6 +70,8 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         priv->engine = &ass_bitmap_engine_sse2;
     else
         priv->engine = &ass_bitmap_engine_c;
+#elif defined(__arm__) && CONFIG_ASM
+    priv->engine = &ass_bitmap_engine_arm;
 #else
     priv->engine = &ass_bitmap_engine_c;
 #endif

@@ -96,6 +96,7 @@ typedef struct {
 extern const BitmapEngine ass_bitmap_engine_c;
 extern const BitmapEngine ass_bitmap_engine_sse2;
 extern const BitmapEngine ass_bitmap_engine_avx2;
+extern const BitmapEngine ass_bitmap_engine_arm;
 
 
 typedef struct {

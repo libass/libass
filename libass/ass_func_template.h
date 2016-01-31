@@ -93,9 +93,17 @@ void DECORATE(blur1246_vert)(int16_t *dst, const int16_t *src,
                              uintptr_t src_width, uintptr_t src_height,
                              const int16_t *param);
 
-
 const BitmapEngine DECORATE(bitmap_engine) = {
     .align_order = ALIGN,
+
+#ifdef __arm__
+#undef DECORATE
+#define DECORATE(func) ass_##func##_c
+#endif
+
+#ifndef DECORATE2
+#define DECORATE2(x) DECORATE(x)
+#endif
 
 #if CONFIG_RASTERIZER
 #if CONFIG_LARGE_TILES
@@ -111,10 +119,10 @@ const BitmapEngine DECORATE(bitmap_engine) = {
 #endif
 #endif
 
-    .add_bitmaps = DECORATE(add_bitmaps),
-#ifdef __x86_64__
-    .sub_bitmaps = DECORATE(sub_bitmaps),
-    .mul_bitmaps = DECORATE(mul_bitmaps),
+    .add_bitmaps = DECORATE2(add_bitmaps),
+#if defined(__x86_64__) || defined(__arm__)
+    .sub_bitmaps = DECORATE2(sub_bitmaps),
+    .mul_bitmaps = DECORATE2(mul_bitmaps),
 #else
     .sub_bitmaps = ass_sub_bitmaps_c,
     .mul_bitmaps = ass_mul_bitmaps_c,
@@ -139,3 +147,5 @@ const BitmapEngine DECORATE(bitmap_engine) = {
     .main_blur_horz = { DECORATE(blur1234_horz), DECORATE(blur1235_horz), DECORATE(blur1246_horz) },
     .main_blur_vert = { DECORATE(blur1234_vert), DECORATE(blur1235_vert), DECORATE(blur1246_vert) },
 };
+
+#undef DECORATE2
