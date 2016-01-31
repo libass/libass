@@ -579,7 +579,7 @@ int outline_to_bitmap2(ASS_Renderer *render_priv,
  */
 void ass_add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
                        uint8_t *src, intptr_t src_stride,
-                       intptr_t height, intptr_t width)
+                       intptr_t width, intptr_t height)
 {
     unsigned out;
     uint8_t* end = dst + dst_stride * height;
@@ -595,7 +595,7 @@ void ass_add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
 
 void ass_sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
                        uint8_t *src, intptr_t src_stride,
-                       intptr_t height, intptr_t width)
+                       intptr_t width, intptr_t height)
 {
     short out;
     uint8_t* end = dst + dst_stride * height;

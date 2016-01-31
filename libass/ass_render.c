@@ -567,7 +567,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             memcpy(nbuffer, abuffer, ((ah - 1) * as) + aw);
             render_priv->engine->sub_bitmaps(nbuffer + atop * as + aleft, as,
                                              bbuffer + btop * bs + bleft, bs,
-                                             h, w);
+                                             w, h);
         } else {
             // Regular clip
             if (ax + aw < bx || ay + ah < by || ax > bx + bw ||
@@ -2319,7 +2319,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                     unsigned char *buf = dst->buffer + y * dst->stride + x;
                     render_priv->engine->add_bitmaps(buf, dst->stride,
                                                      src->buffer, src->stride,
-                                                     src->h, src->w);
+                                                     src->w, src->h);
                 }
             }
         }
@@ -2353,7 +2353,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                     unsigned char *buf = dst->buffer + y * dst->stride + x;
                     render_priv->engine->add_bitmaps(buf, dst->stride,
                                                      src->buffer, src->stride,
-                                                     src->h, src->w);
+                                                     src->w, src->h);
                 }
             }
         }

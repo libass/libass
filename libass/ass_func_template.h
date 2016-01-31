@@ -33,10 +33,10 @@ void DECORATE(fill_generic_tile32)(uint8_t *buf, ptrdiff_t stride,
 
 void DECORATE(add_bitmaps)(uint8_t *dst, intptr_t dst_stride,
                            uint8_t *src, intptr_t src_stride,
-                           intptr_t height, intptr_t width);
+                           intptr_t width, intptr_t height);
 void DECORATE(sub_bitmaps)(uint8_t *dst, intptr_t dst_stride,
                            uint8_t *src, intptr_t src_stride,
-                           intptr_t height, intptr_t width);
+                           intptr_t width, intptr_t height);
 void DECORATE(mul_bitmaps)(uint8_t *dst, intptr_t dst_stride,
                            uint8_t *src1, intptr_t src1_stride,
                            uint8_t *src2, intptr_t src2_stride,
