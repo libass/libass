@@ -1288,14 +1288,12 @@ long long ass_step_sub(ASS_Track *track, long long now, int movement)
     int i;
     ASS_Event *best = NULL;
     long long target = now;
-    int direction = movement > 0 ? 1 : -1;
+    int direction = (movement > 0 ? 1 : -1) * !!movement;
 
-    if (movement == 0)
-        return 0;
     if (track->n_events == 0)
         return 0;
 
-    while (movement) {
+    do {
         ASS_Event *closest = NULL;
         long long closest_time = now;
         for (i = 0; i < track->n_events; i++) {
@@ -1308,10 +1306,18 @@ long long ass_step_sub(ASS_Track *track, long long now, int movement)
                         closest_time = end;
                     }
                 }
-            } else {
+            } else if (direction > 0) {
                 long long start = track->events[i].Start;
                 if (start > target) {
                     if (!closest || start < closest_time) {
+                        closest = &track->events[i];
+                        closest_time = start;
+                    }
+                }
+            } else {
+                long long start = track->events[i].Start;
+                if (start < target) {
+                    if (!closest || start >= closest_time) {
                         closest = &track->events[i];
                         closest_time = start;
                     }
@@ -1322,7 +1328,7 @@ long long ass_step_sub(ASS_Track *track, long long now, int movement)
         movement -= direction;
         if (closest)
             best = closest;
-    }
+    } while (movement);
 
     return best ? best->Start - now : 0;
 }
