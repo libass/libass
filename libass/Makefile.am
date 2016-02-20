@@ -2,9 +2,9 @@ AM_CFLAGS = -std=gnu99 -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter \
             -Werror-implicit-function-declaration -Wstrict-prototypes        \
             -Wpointer-arith -Wredundant-decls -D_GNU_SOURCE
 
-LIBASS_LT_CURRENT = 7
-LIBASS_LT_REVISION = 1
-LIBASS_LT_AGE = 2
+LIBASS_LT_CURRENT = 8
+LIBASS_LT_REVISION = 0
+LIBASS_LT_AGE = 3
 
 yasm_verbose = $(yasm_verbose_$(V))
 yasm_verbose_ = $(yasm_verbose_$(AM_DEFAULT_VERBOSITY))

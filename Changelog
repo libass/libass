@@ -1,6 +1,7 @@
-libass (0.13.2 - unreleased)
+libass (0.13.2)
  * Add ass_set_check_readorder() API function to disable use of the ReadOrder
    field for duplicate checking in ass_process_chunk().
+ * ass_step_sub(track, now, 0) now finds the start of the subtitle at "now".
  * Bug fixes
    * Fix an issue with the new duplicate checking, which could lead to
      missing subtitles after seeking.
