@@ -583,6 +583,7 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
  * use the ReadOrder field embedded in the packet as unique identifier, and
  * discard the packet if there was already a packet with the same ReadOrder.
  * Other values are undefined.
+ * If this function is not called, the default value is 1.
  */
 void ass_set_check_readorder(ASS_Track *track, int check_readorder);
 
