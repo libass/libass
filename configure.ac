@@ -243,8 +243,8 @@ if test x$enable_require_system_font_provider != xno &&
    test x$coretext != xtrue
 then
     AC_MSG_ERROR([\
-Either DirectWrite (on Windows), CoreText (on OSX), or Fontconfig\
-(Linux, other) is required. If you really want to compile without\
+Either DirectWrite (on Windows), CoreText (on OSX), or Fontconfig \
+(Linux, other) is required. If you really want to compile without \
 a system font provider, add --disable-require-system-font-provider])
 fi
 
