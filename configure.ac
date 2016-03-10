@@ -78,7 +78,7 @@ AS_IF([test x$enable_asm != xno], [
     AS_CASE([$host],
         [*darwin*], [
             ASFLAGS="$ASFLAGS -f macho$BITS -DPREFIX -DHAVE_ALIGNED_STACK=1" ],
-        [*linux*|*dragonfly*|*bsd*], [
+        [*linux*|*dragonfly*|*bsd*|*solaris*], [
             ASFLAGS="$ASFLAGS -f elf -DHAVE_ALIGNED_STACK=1" ],
         [*cygwin*|*mingw*], [
             ASFLAGS="$ASFLAGS -f win$BITS"
