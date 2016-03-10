@@ -227,6 +227,10 @@ AM_CONDITIONAL([ENABLE_PROFILE], [test x$enable_profile = xyes])
 # add packages to pkg-config for static linking
 if test "$use_libiconv" = true; then
     AC_DEFINE(CONFIG_ICONV, 1, [use iconv])
+    if test x$ac_cv_search_libiconv_open != x'none required' &&
+       test x$ac_cv_search_iconv_open != x'none required'; then
+        pkg_libs="${pkg_libs} -liconv"
+    fi
 fi
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
