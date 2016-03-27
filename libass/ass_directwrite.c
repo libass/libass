@@ -693,7 +693,11 @@ static void scan_fonts(IDWriteFactory *factory,
 
             add_font(font, fontFamily, provider);
         }
+
+        IDWriteFontFamily_Release(fontFamily);
     }
+
+    IDWriteFontCollection_Release(fontCollection);
 }
 
 static void get_substitutions(void *priv, const char *name,
