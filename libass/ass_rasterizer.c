@@ -272,6 +272,11 @@ int rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
         if (j > last)
             return 0;
 
+        if (path->points[j].x <  -(1 << 28) || path->points[j].x >= (1 << 28))
+            return 0;
+        if (path->points[j].y <= -(1 << 28) || path->points[j].y >  (1 << 28))
+            return 0;
+
         switch (FT_CURVE_TAG(path->tags[j])) {
         case FT_CURVE_TAG_ON:
             p[0].x =  path->points[j].x;
@@ -309,7 +314,12 @@ int rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
             return 0;
         }
 
-        for (j++; j <= last; ++j)
+        for (j++; j <= last; j++) {
+            if (path->points[j].x <  -(1 << 28) || path->points[j].x >= (1 << 28))
+                return 0;
+            if (path->points[j].y <= -(1 << 28) || path->points[j].y >  (1 << 28))
+                return 0;
+
             switch (FT_CURVE_TAG(path->tags[j])) {
             case FT_CURVE_TAG_ON:
                 switch (st) {
@@ -390,6 +400,7 @@ int rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
             default:
                 return 0;
             }
+        }
 
         if (process_end)
             switch (st) {
