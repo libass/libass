@@ -63,6 +63,7 @@ typedef struct {
 typedef struct {
     ASS_Image result;
     CompositeHashValue *source;
+    size_t ref_count;
 } ASS_ImagePriv;
 
 typedef struct {
@@ -349,7 +350,8 @@ typedef struct {
 } Segment;
 
 void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style);
-void ass_free_images(ASS_Image *img);
+void ass_frame_ref(ASS_Image *img);
+void ass_frame_unref(ASS_Image *img);
 
 // XXX: this is actually in ass.c, includes should be fixed later on
 void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track);

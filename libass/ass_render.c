@@ -116,8 +116,8 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
 void ass_renderer_done(ASS_Renderer *render_priv)
 {
-    ass_free_images(render_priv->images_root);
-    ass_free_images(render_priv->prev_images_root);
+    ass_frame_unref(render_priv->images_root);
+    ass_frame_unref(render_priv->prev_images_root);
 
     ass_cache_done(render_priv->cache.composite_cache);
     ass_cache_done(render_priv->cache.bitmap_cache);
@@ -177,6 +177,7 @@ static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
 
     img->source = source;
     ass_cache_inc_ref(source);
+    img->ref_count = 0;
 
     return &img->result;
 }
@@ -2633,24 +2634,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 }
 
 /**
- * \brief deallocate image list
- * \param img list pointer
- */
-void ass_free_images(ASS_Image *img)
-{
-    while (img) {
-        ASS_Image *next = img->next;
-        ASS_ImagePriv *priv = (ASS_ImagePriv *) img;
-        if (priv->source)
-            ass_cache_dec_ref(priv->source);
-        else
-            ass_aligned_free(img->bitmap);
-        free(priv);
-        img = next;
-    }
-}
-
-/**
  * \brief Check cache limits and reset cache if they are exceeded
  */
 static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
@@ -2707,7 +2690,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     render_priv->font_scale_x = par;
 
     render_priv->prev_images_root = render_priv->images_root;
-    render_priv->images_root = 0;
+    render_priv->images_root = NULL;
 
     check_cache_limits(render_priv, &render_priv->cache);
 
@@ -2979,7 +2962,7 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
         if (detect_change) {
             *detect_change = 2;
         }
-        return 0;
+        return NULL;
     }
 
     // render events separately
@@ -3023,13 +3006,44 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
             cur = cur->next;
         }
     }
+    ass_frame_ref(priv->images_root);
 
     if (detect_change)
         *detect_change = ass_detect_change(priv);
 
     // free the previous image list
-    ass_free_images(priv->prev_images_root);
-    priv->prev_images_root = 0;
+    ass_frame_unref(priv->prev_images_root);
+    priv->prev_images_root = NULL;
 
     return priv->images_root;
+}
+
+/**
+ * \brief Add reference to a frame image list.
+ * \param image_list image list returned by ass_render_frame()
+ */
+void ass_frame_ref(ASS_Image *img)
+{
+    if (!img)
+        return;
+    ((ASS_ImagePriv *) img)->ref_count++;
+}
+
+/**
+ * \brief Release reference to a frame image list.
+ * \param image_list image list returned by ass_render_frame()
+ */
+void ass_frame_unref(ASS_Image *img)
+{
+    if (!img || --((ASS_ImagePriv *) img)->ref_count)
+        return;
+    do {
+        ASS_ImagePriv *priv = (ASS_ImagePriv *) img;
+        img = img->next;
+        if (priv->source)
+            ass_cache_dec_ref(priv->source);
+        else
+            ass_aligned_free(priv->result.bitmap);
+        free(priv);
+    } while (img);
 }
