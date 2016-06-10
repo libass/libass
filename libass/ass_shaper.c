@@ -965,11 +965,10 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
 }
 
 /**
- * \brief Resolve a Windows font charset number to a suitable
- * base direction. 177 and 178 are Hebrew and Arabic respectively, and
- * they map to RTL. Everything else maps to LTR for compatibility
- * reasons. The special value -1, which is not a legal Windows font charset
- * number, can be used for autodetection.
+ * \brief Resolve a Windows font charset number to a suitable base
+ * direction. Generally, use LTR for compatibility with VSFilter. The
+ * special value -1, which is not a legal Windows font charset number,
+ * can be used for autodetection.
  * \param enc Windows font encoding
  */
 FriBidiParType resolve_base_direction(int enc)
@@ -977,9 +976,6 @@ FriBidiParType resolve_base_direction(int enc)
     switch (enc) {
         case -1:
             return FRIBIDI_PAR_ON;
-        case 177:
-        case 178:
-            return FRIBIDI_PAR_RTL;
         default:
             return FRIBIDI_PAR_LTR;
     }
