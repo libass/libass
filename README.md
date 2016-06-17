@@ -34,6 +34,7 @@ The following projects/companies use libass:
 - [HandBrake](http://handbrake.fr/)
 - [Crunchyroll](http://www.crunchyroll.com/)
 - [MX Player](https://play.google.com/store/apps/details?id=com.mxtech.videoplayer.ad)
+- [QMPlay2](http://zaps166.sourceforge.net/?app=QMPlay2)
 
 Information about the ASS format:
 =================================
