@@ -82,7 +82,7 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
         if (blur_g)
             size_g = sizeof(uint16_t) * bm_g->stride * 2;
         size_t size = FFMAX(size_o, size_g);
-        uint16_t *tmp = size ? ass_aligned_alloc(32, size) : NULL;
+        uint16_t *tmp = size ? ass_aligned_alloc(32, size, false) : NULL;
         if (!tmp)
             return;
         if (bm_o) {
@@ -127,14 +127,15 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
     }
 }
 
-static bool alloc_bitmap_buffer(const BitmapEngine *engine, Bitmap *bm, int w, int h)
+static bool alloc_bitmap_buffer(const BitmapEngine *engine, Bitmap *bm, int w, int h,
+                                bool zero)
 {
     unsigned align = 1 << engine->align_order;
     size_t s = ass_align(align, w);
     // Too often we use ints as offset for bitmaps => use INT_MAX.
     if (s > (INT_MAX - 32) / FFMAX(h, 1))
         return false;
-    uint8_t *buf = ass_aligned_alloc(align, s * h + 32);
+    uint8_t *buf = ass_aligned_alloc(align, s * h + 32, zero);
     if (!buf)
         return false;
     bm->w = w;
@@ -144,24 +145,15 @@ static bool alloc_bitmap_buffer(const BitmapEngine *engine, Bitmap *bm, int w, i
     return true;
 }
 
-static Bitmap *alloc_bitmap_raw(const BitmapEngine *engine, int w, int h)
+Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h, bool zero)
 {
     Bitmap *bm = malloc(sizeof(Bitmap));
     if (!bm)
         return NULL;
-    if (!alloc_bitmap_buffer(engine, bm, w, h)) {
+    if (!alloc_bitmap_buffer(engine, bm, w, h, zero)) {
         free(bm);
         return NULL;
     }
-    return bm;
-}
-
-Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h)
-{
-    Bitmap *bm = alloc_bitmap_raw(engine, w, h);
-    if(!bm)
-        return NULL;
-    memset(bm->buffer, 0, bm->stride * bm->h + 32);
     bm->left = bm->top = 0;
     return bm;
 }
@@ -169,7 +161,7 @@ Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h)
 bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int w, int h)
 {
     uint8_t *old = bm->buffer;
-    if (!alloc_bitmap_buffer(engine, bm, w, h))
+    if (!alloc_bitmap_buffer(engine, bm, w, h, false))
         return false;
     ass_aligned_free(old);
     return true;
@@ -184,7 +176,7 @@ void ass_free_bitmap(Bitmap *bm)
 
 Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src)
 {
-    Bitmap *dst = alloc_bitmap_raw(engine, src->w, src->h);
+    Bitmap *dst = alloc_bitmap(engine, src->w, src->h, false);
     if (!dst)
         return NULL;
     dst->left = src->left;
@@ -208,7 +200,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return NULL;
 
     if (rst->x_min >= rst->x_max || rst->y_min >= rst->y_max) {
-        Bitmap *bm = alloc_bitmap(render_priv->engine, 2 * bord, 2 * bord);
+        Bitmap *bm = alloc_bitmap(render_priv->engine, 2 * bord, 2 * bord, true);
         if (!bm)
             return NULL;
         bm->left = bm->top = -bord;
@@ -236,7 +228,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
     int tile_w = (w + 2 * bord + mask) & ~mask;
     int tile_h = (h + 2 * bord + mask) & ~mask;
-    Bitmap *bm = alloc_bitmap_raw(render_priv->engine, tile_w, tile_h);
+    Bitmap *bm = alloc_bitmap(render_priv->engine, tile_w, tile_h, false);
     if (!bm)
         return NULL;
     bm->left = x_min - bord;
@@ -266,7 +258,7 @@ static Bitmap *outline_to_bitmap_ft(ASS_Renderer *render_priv,
 
     FT_Outline_Get_CBox(outline, &bbox);
     if (bbox.xMin >= bbox.xMax || bbox.yMin >= bbox.yMax) {
-        bm = alloc_bitmap(render_priv->engine, 2 * bord, 2 * bord);
+        bm = alloc_bitmap(render_priv->engine, 2 * bord, 2 * bord, true);
         if (!bm)
             return NULL;
         bm->left = bm->top = -bord;
@@ -296,7 +288,7 @@ static Bitmap *outline_to_bitmap_ft(ASS_Renderer *render_priv,
     }
 
     // allocate and set up bitmap
-    bm = alloc_bitmap(render_priv->engine, w + 2 * bord, h + 2 * bord);
+    bm = alloc_bitmap(render_priv->engine, w + 2 * bord, h + 2 * bord, true);
     if (!bm)
         return NULL;
     bm->left = bbox.xMin - bord;
