@@ -107,7 +107,7 @@ typedef struct {
     unsigned char *buffer;      // h * stride buffer
 } Bitmap;
 
-Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h);
+Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h, bool zero);
 bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int w, int h);
 Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src);
 void ass_free_bitmap(Bitmap *bm);

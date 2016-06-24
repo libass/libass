@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,7 +57,7 @@ char *ass_strndup(const char *s, size_t n);
 #define strndup ass_strndup
 #endif
 
-void *ass_aligned_alloc(size_t alignment, size_t size);
+void *ass_aligned_alloc(size_t alignment, size_t size, bool zero);
 void ass_aligned_free(void *ptr);
 
 void *ass_realloc_array(void *ptr, size_t nmemb, size_t size);

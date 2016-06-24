@@ -79,12 +79,13 @@ char *ass_strndup(const char *s, size_t n)
 }
 #endif
 
-void *ass_aligned_alloc(size_t alignment, size_t size)
+void *ass_aligned_alloc(size_t alignment, size_t size, bool zero)
 {
     assert(!(alignment & (alignment - 1))); // alignment must be power of 2
     if (size >= SIZE_MAX - alignment - sizeof(void *))
         return NULL;
-    char *allocation = malloc(size + sizeof(void *) + alignment - 1);
+    char *allocation = zero ? calloc(size + sizeof(void *) + alignment - 1, 1)
+                            : malloc(size + sizeof(void *) + alignment - 1);
     if (!allocation)
         return NULL;
     char *ptr = allocation + sizeof(void *);

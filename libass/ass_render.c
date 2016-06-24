@@ -558,7 +558,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             }
 
             // Allocate new buffer and add to free list
-            nbuffer = ass_aligned_alloc(32, as * ah);
+            nbuffer = ass_aligned_alloc(32, as * ah, false);
             if (!nbuffer)
                 break;
 
@@ -578,7 +578,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             // Allocate new buffer and add to free list
             unsigned align = (w >= 16) ? 16 : ((w >= 8) ? 8 : 1);
             unsigned ns = ass_align(align, w);
-            nbuffer = ass_aligned_alloc(align, ns * h);
+            nbuffer = ass_aligned_alloc(align, ns * h, false);
             if (!nbuffer)
                 break;
 
@@ -2302,7 +2302,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
         } else if (info->n_bm) {
             info->bm = alloc_bitmap(render_priv->engine,
                                     info->rect.x_max - info->rect.x_min + 2 * bord,
-                                    info->rect.y_max - info->rect.y_min + 2 * bord);
+                                    info->rect.y_max - info->rect.y_min + 2 * bord, true);
             Bitmap *dst = info->bm;
             if (dst) {
                 dst->left = info->rect.x_min - info->x - bord;
@@ -2336,7 +2336,8 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
         } else if (info->n_bm_o) {
             info->bm_o = alloc_bitmap(render_priv->engine,
                                       info->rect_o.x_max - info->rect_o.x_min + 2 * bord,
-                                      info->rect_o.y_max - info->rect_o.y_min + 2 * bord);
+                                      info->rect_o.y_max - info->rect_o.y_min + 2 * bord,
+                                      true);
             Bitmap *dst = info->bm_o;
             if (dst) {
                 dst->left = info->rect_o.x_min - info->x - bord;
@@ -2378,7 +2379,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 
 static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
 {
-    void *nbuffer = ass_aligned_alloc(1, event_images->width * event_images->height);
+    void *nbuffer = ass_aligned_alloc(1, event_images->width * event_images->height, false);
     if (!nbuffer)
         return;
     memset(nbuffer, 0xFF, event_images->width * event_images->height);
