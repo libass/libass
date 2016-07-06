@@ -1575,7 +1575,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
         s1 = s2 = 0;
         for (i = 0; i <= text_info->length; ++i) {
             cur = text_info->glyphs + i;
-            if ((i == text_info->length) || cur->linebreak) {
+            if (cur->linebreak) {
                 s1 = s2;
                 s2 = s3;
                 s3 = cur;
@@ -1614,8 +1614,6 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
                     }
                 }
             }
-            if (i == text_info->length)
-                break;
         }
 
     }
