@@ -49,8 +49,8 @@ typedef struct {
     double pbo; // drawing will be shifted in y direction by this amount
     double scale_x;     // FontScaleX
     double scale_y;     // FontScaleY
-    int asc;            // ascender
-    int desc;           // descender
+    FT_F26Dot6 asc;     // ascender
+    FT_F26Dot6 desc;    // descender
     ASS_Outline outline; // target outline
     FT_Vector advance;  // advance (from cbox)
     int hash;           // hash value (for caching)

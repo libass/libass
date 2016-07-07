@@ -65,8 +65,8 @@ START(outline_bitmap, outline_bitmap_hash_key)
     GENERIC(FT_Long, frx) // signed 10.22
     GENERIC(FT_Long, fry) // signed 10.22
     GENERIC(FT_Long, frz) // signed 10.22
-    GENERIC(FT_Long, fax) // signed 16.16
-    GENERIC(FT_Long, fay) // signed 16.16
+    GENERIC(FT_Fixed, fax) // signed 16.16
+    GENERIC(FT_Fixed, fay) // signed 16.16
     // shift vector that was added to glyph before applying rotation
     // = 0, if frx = fry = frx = 0
     // = (glyph base point) - (rotation origin), otherwise
@@ -88,12 +88,12 @@ START(glyph, glyph_hash_key)
     GENERIC(int, glyph_index)
     GENERIC(int, bold)
     GENERIC(int, italic)
-    GENERIC(FT_Long, scale_x) // 16.16
-    GENERIC(FT_Long, scale_y) // 16.16
+    GENERIC(FT_Fixed, scale_x) // 16.16
+    GENERIC(FT_Fixed, scale_y) // 16.16
     FTVECTOR(outline) // border width, 16.16
     GENERIC(unsigned, flags)    // glyph decoration flags
     GENERIC(unsigned, border_style)
-    GENERIC(FT_Long, hspacing) // 16.16
+    GENERIC(FT_Fixed, hspacing) // 16.16
 END(GlyphHashKey)
 
 START(glyph_metrics, glyph_metrics_hash_key)
@@ -101,18 +101,18 @@ START(glyph_metrics, glyph_metrics_hash_key)
     GENERIC(double, size)
     GENERIC(int, face_index)
     GENERIC(int, glyph_index)
-    GENERIC(FT_Long, scale_x)
-    GENERIC(FT_Long, scale_y)
+    GENERIC(FT_Fixed, scale_x)
+    GENERIC(FT_Fixed, scale_y)
 END(GlyphMetricsHashKey)
 
 // describes an outline drawing
 START(drawing, drawing_hash_key)
-    GENERIC(FT_Long, scale_x)
-    GENERIC(FT_Long, scale_y)
+    GENERIC(FT_Fixed, scale_x)
+    GENERIC(FT_Fixed, scale_y)
     GENERIC(int, pbo)
     FTVECTOR(outline)
     GENERIC(unsigned, border_style)
-    GENERIC(FT_Long, hspacing)
+    GENERIC(FT_Fixed, hspacing)
     GENERIC(int, scale)
     GENERIC(unsigned, hash)
     STRING(text)

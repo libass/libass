@@ -261,12 +261,12 @@ static bool drawing_evaluate_curve(ASS_Drawing *drawing,
     }
 
     if (spline) {
-        int x01 = (p[1].x - p[0].x) / 3;
-        int y01 = (p[1].y - p[0].y) / 3;
-        int x12 = (p[2].x - p[1].x) / 3;
-        int y12 = (p[2].y - p[1].y) / 3;
-        int x23 = (p[3].x - p[2].x) / 3;
-        int y23 = (p[3].y - p[2].y) / 3;
+        FT_Pos x01 = (p[1].x - p[0].x) / 3;
+        FT_Pos y01 = (p[1].y - p[0].y) / 3;
+        FT_Pos x12 = (p[2].x - p[1].x) / 3;
+        FT_Pos y12 = (p[2].y - p[1].y) / 3;
+        FT_Pos x23 = (p[3].x - p[2].x) / 3;
+        FT_Pos y23 = (p[3].y - p[2].y) / 3;
 
         p[0].x = p[1].x + ((x12 - x01) >> 1);
         p[0].y = p[1].y + ((y12 - y01) >> 1);

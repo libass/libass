@@ -115,45 +115,45 @@ static inline uint32_t ass_bswap32(uint32_t x)
 #endif
 }
 
-static inline int d6_to_int(FT_Long x)
+static inline int d6_to_int(FT_F26Dot6 x)
 {
     return (x + 32) >> 6;
 }
-static inline int d16_to_int(FT_Long x)
+static inline int d16_to_int(FT_Fixed x)
 {
     return (x + 32768) >> 16;
 }
-static inline FT_Long int_to_d6(int x)
+static inline FT_F26Dot6 int_to_d6(int x)
 {
-    return ((FT_Long) x) * (1 << 6);
+    return ((FT_F26Dot6) x) * (1 << 6);
 }
-static inline FT_Long int_to_d16(int x)
+static inline FT_Fixed int_to_d16(int x)
 {
-    return ((FT_Long) x) * (1 << 16);
+    return ((FT_Fixed) x) * (1 << 16);
 }
-static inline FT_Long d16_to_d6(FT_Long x)
+static inline FT_F26Dot6 d16_to_d6(FT_Fixed x)
 {
     return (x + 512) >> 10;
 }
-static inline FT_Long d6_to_d16(FT_Long x)
+static inline FT_Fixed d6_to_d16(FT_F26Dot6 x)
 {
     return x * (1 << 10);
 }
-static inline double d6_to_double(FT_Long x)
+static inline double d6_to_double(FT_F26Dot6 x)
 {
     return x / 64.;
 }
-static inline FT_Long double_to_d6(double x)
+static inline FT_F26Dot6 double_to_d6(double x)
 {
-    return (FT_Long) (x * 64);
+    return (FT_F26Dot6) (x * 64);
 }
-static inline double d16_to_double(FT_Long x)
+static inline double d16_to_double(FT_Fixed x)
 {
     return ((double) x) / 0x10000;
 }
-static inline FT_Long double_to_d16(double x)
+static inline FT_Fixed double_to_d16(double x)
 {
-    return (FT_Long) (x * 0x10000);
+    return (FT_Fixed) (x * 0x10000);
 }
 static inline double d22_to_double(FT_Long x)
 {

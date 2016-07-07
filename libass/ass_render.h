@@ -162,7 +162,7 @@ typedef struct glyph_info {
     // after process_karaoke_effects: distance in pixels from the glyph origin.
     // part of the glyph to the left of it is displayed in a different color.
     int effect_skip_timing;     // delay after the end of last karaoke word
-    FT_Long asc, desc;          // font max ascender and descender
+    FT_F26Dot6 asc, desc;       // font max ascender and descender, 26.6
     int be;                     // blur edges
     double blur;                // gaussian blur
     double shadow_x;
