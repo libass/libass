@@ -326,8 +326,8 @@ void ass_font_set_size(ASS_Font *font, double size)
  * \param ch character code
  * The values are extracted from the font face that provides glyphs for the given character
  **/
-void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
-                           int *desc)
+void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, FT_Long *asc,
+                           FT_Long *desc)
 {
     int i;
     for (i = 0; i < font->n_faces; ++i) {
@@ -349,7 +349,7 @@ void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
     *asc = *desc = 0;
 }
 
-static void add_line(FT_Outline *ol, int bear, int advance, int dir, int pos, int size) {
+static void add_line(FT_Outline *ol, int bear, FT_Long advance, int dir, int pos, int size) {
     FT_Vector points[4] = {
         {.x = bear,      .y = pos + size},
         {.x = advance,   .y = pos + size},
@@ -387,7 +387,8 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
     TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
     TT_Postscript *ps = FT_Get_Sfnt_Table(face, ft_sfnt_post);
     FT_Outline *ol = &((FT_OutlineGlyph) glyph)->outline;
-    int advance, y_scale, i, dir;
+    FT_Long advance;
+    int y_scale, i, dir;
 
     if (!under && !through)
         return 0;

@@ -27,6 +27,8 @@
 #include <assert.h>
 #include <errno.h>
 #include <math.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 #include "ass.h"
 
@@ -113,57 +115,57 @@ static inline uint32_t ass_bswap32(uint32_t x)
 #endif
 }
 
-static inline int d6_to_int(int x)
+static inline int d6_to_int(FT_Long x)
 {
     return (x + 32) >> 6;
 }
-static inline int d16_to_int(int x)
+static inline int d16_to_int(FT_Long x)
 {
     return (x + 32768) >> 16;
 }
-static inline int int_to_d6(int x)
+static inline FT_Long int_to_d6(int x)
 {
-    return x * (1 << 6);
+    return ((FT_Long) x) * (1 << 6);
 }
-static inline int int_to_d16(int x)
+static inline FT_Long int_to_d16(int x)
 {
-    return x * (1 << 16);
+    return ((FT_Long) x) * (1 << 16);
 }
-static inline int d16_to_d6(int x)
+static inline FT_Long d16_to_d6(FT_Long x)
 {
     return (x + 512) >> 10;
 }
-static inline int d6_to_d16(int x)
+static inline FT_Long d6_to_d16(FT_Long x)
 {
     return x * (1 << 10);
 }
-static inline double d6_to_double(int x)
+static inline double d6_to_double(FT_Long x)
 {
     return x / 64.;
 }
-static inline int double_to_d6(double x)
+static inline FT_Long double_to_d6(double x)
 {
-    return (int) (x * 64);
+    return (FT_Long) (x * 64);
 }
-static inline double d16_to_double(int x)
+static inline double d16_to_double(FT_Long x)
 {
     return ((double) x) / 0x10000;
 }
-static inline int double_to_d16(double x)
+static inline FT_Long double_to_d16(double x)
 {
-    return (int) (x * 0x10000);
+    return (FT_Long) (x * 0x10000);
 }
-static inline double d22_to_double(int x)
+static inline double d22_to_double(FT_Long x)
 {
     return ((double) x) / 0x400000;
 }
-static inline int double_to_d22(double x)
+static inline FT_Long double_to_d22(double x)
 {
-    return (int) (x * 0x400000);
+    return (FT_Long) (x * 0x400000);
 }
 
 // Calculate cache key for a rotational angle in radians
-static inline int rot_key(double a)
+static inline FT_Long rot_key(double a)
 {
     return double_to_d22(remainder(a, 2 * M_PI));
 }
