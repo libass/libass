@@ -175,7 +175,7 @@ static void load_fonts_from_dir(ASS_Library *library, const char *dir)
         char fullname[4096];
         snprintf(fullname, sizeof(fullname), "%s/%s", dir, entry->d_name);
         size_t bufsize = 0;
-        ass_msg(library, MSGL_WARN, "Loading font file '%s'", fullname);
+        ass_msg(library, MSGL_INFO, "Loading font file '%s'", fullname);
         void *data = read_file(library, fullname, &bufsize);
         if (data) {
             ass_add_font(library, entry->d_name, data, bufsize);
