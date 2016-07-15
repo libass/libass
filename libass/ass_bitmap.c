@@ -635,34 +635,40 @@ void ass_mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
     }
 }
 
-void ass_rgba_blend_c(uint8_t *dst, intptr_t dst_stride,
-                      uint8_t *src, intptr_t src_stride,
-                      intptr_t src_w, intptr_t src_h,
-                      uint32_t color)
+void ass_rgba_blend_c(uint8_t *dst8, intptr_t dst_stride,
+                      /*const */uint8_t *src, intptr_t src_stride,
+                      intptr_t width, intptr_t height, uint32_t color)
 {
-    const unsigned int r = (color >> 24) & 0xff;
-    const unsigned int g = (color >> 16) & 0xff;
-    const unsigned int b = (color >>  8) & 0xff;
-    const unsigned int a = 0xff - (color & 0xff);
+    const int16_t r = (color >> 24) & 0xFF;
+    const int16_t g = (color >> 16) & 0xFF;
+    const int16_t b = (color >>  8) & 0xFF;
+    const int16_t a =                 0xFF;
 
-    for (int y = 0; y < src_h; y++, dst += dst_stride, src += src_stride) {
-        uint32_t *dstrow = (uint32_t *) dst;
-        for (int x = 0; x < src_w; x++) {
-            const unsigned int v = src[x];
-            int rr = (r * a * v);
-            int gg = (g * a * v);
-            int bb = (b * a * v);
-            int aa =      a * v;
-            uint32_t dstpix = dstrow[x];
-            unsigned int dstb =  dstpix        & 0xFF;
-            unsigned int dstg = (dstpix >>  8) & 0xFF;
-            unsigned int dstr = (dstpix >> 16) & 0xFF;
-            unsigned int dsta = (dstpix >> 24) & 0xFF;
-            dstb = (bb       + dstb * (255 * 255 - aa)) / (255 * 255);
-            dstg = (gg       + dstg * (255 * 255 - aa)) / (255 * 255);
-            dstr = (rr       + dstr * (255 * 255 - aa)) / (255 * 255);
-            dsta = (aa * 255 + dsta * (255 * 255 - aa)) / (255 * 255);
-            dstrow[x] = dstb | (dstg << 8) | (dstr << 16) | (dsta << 24);
+    uint16_t alpha = color & 0xFF;
+    if (alpha == 0xFF) return;
+    alpha |= alpha << 8;
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            uint32_t *dst = (uint32_t*)&dst8[x * 4];
+            int s = src[x] * 16384 / 255;
+            // src[x] : 0..0x4000 range inclusive
+            int16_t v = s - (((uint32_t)s) * alpha >> 16);  // pmulhuw
+            int16_t dstb = (*dst >>  0) & 0xFF;  // unpack
+            int16_t dstg = (*dst >>  8) & 0xFF;
+            int16_t dstr = (*dst >> 16) & 0xFF;
+            int16_t dsta = (*dst >> 24) & 0xFF;
+            int16_t db = ((((int32_t) ((b - dstb) << 3)) * v >> 16) + 1) >> 1;  // pmulhw or pmulhrsw
+            int16_t dg = ((((int32_t) ((g - dstg) << 3)) * v >> 16) + 1) >> 1;
+            int16_t dr = ((((int32_t) ((r - dstr) << 3)) * v >> 16) + 1) >> 1;
+            int16_t da = ((((int32_t) ((a - dsta) << 3)) * v >> 16) + 1) >> 1;
+            dstb += db;
+            dstg += dg;
+            dstr += dr;
+            dsta += da;
+            *dst  = dstb | (dstg << 8) | (dstr << 16) | (dsta << 24);  // pack
         }
+        dst8 += dst_stride;
+        src += src_stride;
     }
 }
