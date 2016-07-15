@@ -42,6 +42,11 @@ typedef void (*BitmapMulFunc)(uint8_t *dst, intptr_t dst_stride,
                               uint8_t *src2, intptr_t src2_stride,
                               intptr_t width, intptr_t height);
 
+typedef void (*RGBABlendFunc)(uint8_t *dst, intptr_t dst_stride,
+                              uint8_t *src, intptr_t src_stride,
+                              intptr_t src_w, intptr_t src_h,
+                              uint32_t color);
+
 typedef void (*BeBlurFunc)(uint8_t *buf, intptr_t w, intptr_t h,
                            intptr_t stride, uint16_t *tmp);
 
@@ -72,6 +77,9 @@ typedef struct {
     // blend functions
     BitmapBlendFunc add_bitmaps, sub_bitmaps;
     BitmapMulFunc mul_bitmaps;
+
+    // rgba blend functions
+    RGBABlendFunc rgba_blend;
 
     // be blur function
     BeBlurFunc be_blur;

@@ -42,6 +42,11 @@ void DECORATE(mul_bitmaps)(uint8_t *dst, intptr_t dst_stride,
                            uint8_t *src2, intptr_t src2_stride,
                            intptr_t width, intptr_t height);
 
+void DECORATE(rgba_blend)(uint8_t *dst, intptr_t dst_stride,
+                          uint8_t *src, intptr_t src_stride,
+                          intptr_t src_w, intptr_t src_h,
+                          uint32_t color);
+
 void DECORATE(be_blur)(uint8_t *buf, intptr_t w, intptr_t h,
                        intptr_t stride, uint16_t *tmp);
 
@@ -114,6 +119,8 @@ const BitmapEngine DECORATE(bitmap_engine) = {
     .sub_bitmaps = ass_sub_bitmaps_c,
     .mul_bitmaps = ass_mul_bitmaps_c,
 #endif
+
+    .rgba_blend = ass_rgba_blend_c,
 
 #ifdef __x86_64__
     .be_blur = DECORATE(be_blur),
