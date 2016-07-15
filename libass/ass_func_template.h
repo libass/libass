@@ -128,7 +128,11 @@ const BitmapEngine DECORATE(bitmap_engine) = {
     .mul_bitmaps = ass_mul_bitmaps_c,
 #endif
 
+#if defined(__x86_64__)
+    .rgba_blend = DECORATE2(rgba_blend),
+#else
     .rgba_blend = ass_rgba_blend_c,
+#endif
 
 #ifdef __x86_64__
     .be_blur = DECORATE(be_blur),

@@ -23,6 +23,8 @@
 SECTION_RODATA 32
 
 words_255: dw 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF
+last_255: dw 0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0xFF
+magic_0x4000: dd -2139062143,-2139062143,-2139062143,-2139062143,-2139062143,-2139062143,-2139062143,-2139062143
 
 SECTION .text
 
@@ -301,5 +303,106 @@ cglobal mul_bitmaps, 8,12
     cmp r2, r7
     jl .height_loop
     RET
+
+;------------------------------------------------------------------------------
+; void rgba_blend(uint8_t *dst, intptr_t dst_stride,
+;                 uint8_t *src, intptr_t src_stride,
+;                 intptr_t src_w, intptr_t src_h,
+;                 uint32_t color);
+;------------------------------------------------------------------------------
+
+;INIT_XMM sse2
+;INIT_YMM avx2
+%macro RGBA_BLEND 0
+cglobal rgba_blend, 7,12
+    cmp r6b, 0xFF
+    je .end
+    test r4, r4
+    je .end
+    test r5, r5
+    je .end
+    pxor m0, m0
+    movd xm1, r6d ; m1 = rgba
+    punpcklbw m1, m0
+    pshuflw m1, m1, 0x39
+    %if mmsize == 16
+        punpcklqdq m1, m1
+    %else
+        vpbroadcastq m1, xm1
+    %endif
+    por m1, [last_255 wrt rip]
+    movd xm2, r6d ; m2 = alpha
+    %if mmsize == 16
+        punpcklbw m2, m2
+        punpcklbw m2, m2
+        pshufd m2, m2, 0
+    %else
+        vpbroadcastb m2, xm2
+    %endif
+    imul r5, r3
+    add r5, r2 ; end = src + (src_stride * src_h)
+.height_loop:
+    xor r6, r6 ; i = 0
+.width_loop:
+    %if mmsize == 16
+        movzx r7d, word [r2 + r6]
+    %else
+        mov r7d, [r2 + r6]
+    %endif
+    movd xm3, r7d ; m3 = v
+    punpcklbw m3, m0
+    punpcklwd m3, m0
+    %if mmsize == 32
+        vpermq m3, m3, 0x98
+    %endif
+    punpckldq m3, m0
+    psllq m3, 14
+    pmuludq m3, [magic_0x4000 wrt rip]
+    psrlq m3, 39
+    pshuflw m3, m3, 0
+    pshufhw m3, m3, 0
+    %if mmsize == 16
+        movdqu m4, m3
+        pmulhuw m4, m2
+    %else
+        vpmulhuw m4, m3, m2
+    %endif
+    psubw m3, m4
+    %if mmsize == 16
+        movq m4, [r0 + r6 * 4]
+        punpcklbw m4, m0
+    %else
+        vmovdqu xm4, [r0 + r6 * 4]
+        vpermq m4, m4, 0x98
+        punpcklbw m4, m0
+    %endif
+    mova m5, m1
+    psubw m5, m4
+    psllw m5, 1
+    pmulhrsw m5, m3
+    paddw m4, m5
+    %if mmsize == 16
+        packuswb m4, m4
+        movh [r0 + r6 * 4], m4
+    %else
+        vpackuswb m4, m4
+        vpermq m4, m4, 0x8
+        movu [r0 + r6 * 4], xm4
+    %endif
+    add r6, mmsize / 8 ; i += 2 (or 4)
+    cmp r6, r4 ; i < w
+    jl .width_loop
+    add r0, r1 ; dst += dst_stride
+    add r2, r3 ; src += src_stride
+    cmp r2, r5 ; src < end
+    jl .height_loop
+.end:
+    RET
+%endmacro
+
+INIT_XMM sse2
+RGBA_BLEND
+INIT_YMM avx2
+RGBA_BLEND
 
 %endif
