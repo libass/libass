@@ -565,6 +565,7 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
             info->next = malloc(sizeof(GlyphInfo));
             if (info->next) {
                 memcpy(info->next, info, sizeof(GlyphInfo));
+                ass_cache_inc_ref(info->font);
                 info = info->next;
                 info->next = NULL;
             }

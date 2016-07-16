@@ -454,7 +454,7 @@ void ass_cache_inc_ref(void *value)
     if (!value)
         return;
     CacheItem *item = value_to_item(value);
-    assert(item->size);
+    assert(item->size && item->ref_count);
     item->ref_count++;
 }
 
