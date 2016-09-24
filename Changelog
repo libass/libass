@@ -1,3 +1,11 @@
+libass (0.13.3)
+ * Improve compatibility/portablility of build system,
+   should fix e.g. compilation on Solaris.
+ * Fix memory leak in DirectWrite font provider.
+ * Fix the rasterizer when rendering some large outlines.
+ * Remove hack that forced RTL base direction depending on font encoding.
+ * Greatly improve the internal caches with refcounting and gradual clearing.
+
 libass (0.13.2)
  * Add ass_set_check_readorder() API function to disable use of the ReadOrder
    field for duplicate checking in ass_process_chunk().
