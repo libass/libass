@@ -1518,7 +1518,6 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     double pen_shift_x;
     double pen_shift_y;
     int cur_line;
-    int run_offset;
     TextInfo *text_info = &render_priv->text_info;
 
     last_space = -1;
@@ -1629,7 +1628,6 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     trim_whitespace(render_priv);
 
     cur_line = 1;
-    run_offset = 0;
 
     i = 0;
     cur = text_info->glyphs + i;
@@ -1650,7 +1648,6 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
                 text_info->lines[cur_line - 1].offset;
             text_info->lines[cur_line].offset = i;
             cur_line++;
-            run_offset++;
             pen_shift_x = d6_to_double(-cur->pos.x);
             pen_shift_y += height + render_priv->settings.line_spacing;
         }
