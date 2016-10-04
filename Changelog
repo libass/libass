@@ -1,3 +1,11 @@
+libass (0.13.4)
+ * Bug fixes found with fuzzing
+   * Fix memory reallocation in the shaper.
+   * Fix two small memory leaks in the parser and test program.
+   * Fix illegal read in Gaussian blur coefficient calculations.
+   * Fix mode 0/3 line wrapping equalization in specific cases which could
+     result in illegal reads while laying out and shaping text.
+
 libass (0.13.3)
  * Improve compatibility/portablility of build system,
    should fix e.g. compilation on Solaris.
