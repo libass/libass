@@ -744,7 +744,7 @@ static void calc_coeff(double mu[4], const int index[4], int prefilter, double r
         (  17 -  126 * mul +  273 * mul2 -  164 * mul3) / 12096,
     };
 
-    double mat_freq[13];
+    double mat_freq[14];
     memcpy(mat_freq, kernel, sizeof(kernel));
     memset(mat_freq + 4, 0, sizeof(mat_freq) - sizeof(kernel));
     int n = 6;

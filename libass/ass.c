@@ -590,6 +590,7 @@ static int process_styles_line(ASS_Track *track, char *str)
     if (!strncmp(str, "Format:", 7)) {
         char *p = str + 7;
         skip_spaces(&p);
+        free(track->style_format);
         track->style_format = strdup(p);
         ass_msg(track->library, MSGL_DBG2, "Style format: %s",
                track->style_format);

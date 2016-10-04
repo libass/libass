@@ -100,6 +100,7 @@ static bool check_allocations(ASS_Shaper *shaper, size_t new_size)
             !ASS_REALLOC_ARRAY(shaper->emblevels, new_size) ||
             !ASS_REALLOC_ARRAY(shaper->cmap, new_size))
             return false;
+        shaper->n_glyphs = new_size;
     }
     return true;
 }

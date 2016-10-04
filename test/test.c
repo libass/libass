@@ -186,6 +186,7 @@ static void print_font_providers(ASS_Library *ass_library)
         printf("%s'%s'", separator,  font_provider_labels[providers[i]]);
     }
     printf(".\n");
+    free(providers);
 }
 
 int main(int argc, char *argv[])
