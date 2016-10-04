@@ -1607,7 +1607,9 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
                         ((s3 - 1)->bbox.xMax + (s3 - 1)->pos.x) -
                         (w->bbox.xMin + w->pos.x));
 
-                    if (DIFF(l1_new, l2_new) < DIFF(l1, l2)) {
+                    if (DIFF(l1_new, l2_new) < DIFF(l1, l2) && w > text_info->glyphs) {
+                        if (w->linebreak)
+                            text_info->n_lines--;
                         w->linebreak = 1;
                         s2->linebreak = 0;
                         exit = 0;
