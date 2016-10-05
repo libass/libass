@@ -28,6 +28,9 @@
 #define HALIGN_LEFT 1
 #define HALIGN_CENTER 2
 #define HALIGN_RIGHT 3
+#define JUSTIFY_LEFT 1
+#define JUSTIFY_CENTER 2
+#define JUSTIFY_RIGHT 3
 
 #define FONT_WEIGHT_LIGHT  300
 #define FONT_WEIGHT_MEDIUM 400
@@ -67,6 +70,7 @@ typedef struct ass_style {
     double Outline;
     double Shadow;
     int Alignment;
+    int Justify;
     int MarginL;
     int MarginR;
     int MarginV;
