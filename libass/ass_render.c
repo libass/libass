@@ -784,6 +784,9 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     if (requested & ASS_OVERRIDE_BIT_ALIGNMENT)
         new->Alignment = user->Alignment;
 
+    if (requested & ASS_OVERRIDE_BIT_JUSTIFY)
+        new->Justify = user->Justify;
+
     if (requested & ASS_OVERRIDE_BIT_MARGINS) {
         new->MarginL = user->MarginL;
         new->MarginR = user->MarginR;
@@ -886,6 +889,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.wrap_style = render_priv->track->WrapStyle;
 
     render_priv->state.alignment = render_priv->state.style->Alignment;
+    render_priv->state.justify = render_priv->state.style->Justify;
     render_priv->state.pos_x = 0;
     render_priv->state.pos_y = 0;
     render_priv->state.org_x = 0;
@@ -2071,19 +2075,49 @@ static void align_lines(ASS_Renderer *render_priv, double max_text_width)
     double width = 0;
     int last_break = -1;
     int halign = render_priv->state.alignment & 3;
+    int justify = render_priv->state.justify;
+    double max_width = 0;
 
     if (render_priv->state.evt_type == EVENT_HSCROLL)
         return;
 
     for (i = 0; i <= text_info->length; ++i) {   // (text_info->length + 1) is the end of the last line
         if ((i == text_info->length) || glyphs[i].linebreak) {
+            max_width = FFMAX(max_width,width);
+            width = 0;
+        }
+        if (i < text_info->length && !glyphs[i].skip &&
+                glyphs[i].symbol != '\n' && glyphs[i].symbol != 0) {
+            width += d6_to_double(glyphs[i].cluster_advance.x);
+        }
+    }
+    for (i = 0; i <= text_info->length; ++i) {   // (text_info->length + 1) is the end of the last line
+        if ((i == text_info->length) || glyphs[i].linebreak) {
             double shift = 0;
             if (halign == HALIGN_LEFT) {    // left aligned, no action
-                shift = 0;
+                if (justify == ASS_JUSTIFY_RIGHT) {
+                    shift = max_width - width;
+                } else if (justify == ASS_JUSTIFY_CENTER) {
+                    shift = (max_width - width) / 2.0;
+                } else {
+                    shift = 0;
+                }
             } else if (halign == HALIGN_RIGHT) {    // right aligned
-                shift = max_text_width - width;
+                if (justify == ASS_JUSTIFY_LEFT) {
+                    shift = max_text_width - max_width;
+                } else if (justify == ASS_JUSTIFY_CENTER) {
+                    shift = max_text_width - max_width + (max_width - width) / 2.0;
+                } else {
+                    shift = max_text_width - width;
+                }
             } else if (halign == HALIGN_CENTER) {   // centered
-                shift = (max_text_width - width) / 2.0;
+                if (justify == ASS_JUSTIFY_LEFT) {
+                    shift = (max_text_width - max_width) / 2.0;
+                } else if (justify == ASS_JUSTIFY_RIGHT) {
+                    shift = (max_text_width - max_width) / 2.0 + max_width - width;
+                } else {
+                    shift = (max_text_width - width) / 2.0;
+                }
             }
             for (j = last_break + 1; j < i; ++j) {
                 GlyphInfo *info = glyphs + j;

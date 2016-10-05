@@ -220,6 +220,7 @@ typedef struct {
     FT_Stroker stroker;
     int stroker_radius;         // last stroker radius, for caching stroker objects
     int alignment;              // alignment overrides go here; if zero, style value will be used
+    int justify;                // justify instructions
     double frx, fry, frz;
     double fax, fay;            // text shearing
     enum {
