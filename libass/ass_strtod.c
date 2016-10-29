@@ -20,7 +20,7 @@
 #include "ass_string.h"
 
 static
-const int maxExponent = 511;    /* Largest possible base 10 exponent.  Any
+const size_t maxExponent = 511; /* Largest possible base 10 exponent.  Any
                                  * exponent larger than this will already
                                  * produce underflow or overflow, so there's
                                  * no need to worry about additional digits.
@@ -78,12 +78,12 @@ ass_strtod(
                              * address here. */
     )
 {
-    int sign, expSign = 0;
+    int sign, fracExpSign, expSign = 0;
     double fraction, dblExp, *d;
     register const char *p;
     register int c;
-    int exp = 0;            /* Exponent read from "EX" field. */
-    int fracExp = 0;        /* Exponent that derives from the fractional
+    size_t exp = 0;         /* Exponent read from "EX" field. */
+    size_t fracExp;         /* Exponent that derives from the fractional
                              * part.  Under normal circumstatnces, it is
                              * the negative of the number of digits in F.
                              * However, if I is very long, the last digits
@@ -92,8 +92,8 @@ ass_strtod(
                              * unnecessary overflow on I alone).  In this
                              * case, fracExp is incremented one for each
                              * dropped digit. */
-    int mantSize;       /* Number of digits in mantissa. */
-    int decPt;          /* Number of mantissa digits BEFORE decimal
+    size_t mantSize;    /* Number of digits in mantissa. */
+    size_t decPt;       /* Number of mantissa digits BEFORE decimal
                          * point. */
     const char *pExp;       /* Temporarily holds location of exponent
                              * in string. */
@@ -126,7 +126,7 @@ ass_strtod(
     {
         c = *p;
         if (!ass_isdigit(c)) {
-            if ((c != '.') || (decPt >= 0)) {
+            if ((c != '.') || (decPt != (size_t) -1)) {
                 break;
             }
             decPt = mantSize;
@@ -143,15 +143,19 @@ ass_strtod(
 
     pExp  = p;
     p -= mantSize;
-    if (decPt < 0) {
+    if (decPt == (size_t) -1) {
         decPt = mantSize;
     } else {
         mantSize -= 1;      /* One of the digits was the point. */
     }
     if (mantSize > 18) {
-        fracExp = decPt - 18;
         mantSize = 18;
+    }
+    if (decPt < mantSize) {
+        fracExpSign = 1;
+        fracExp = mantSize - decPt;
     } else {
+        fracExpSign = 0;
         fracExp = decPt - mantSize;
     }
     if (mantSize == 0) {
@@ -206,10 +210,13 @@ ass_strtod(
             p += 1;
         }
     }
-    if (expSign) {
-        exp = fracExp - exp;
-    } else {
+    if (expSign == fracExpSign) {
         exp = fracExp + exp;
+    } else if (fracExp <= exp) {
+        exp = exp - fracExp;
+    } else {
+        exp = fracExp - exp;
+        expSign = fracExpSign;
     }
 
     /*
@@ -219,12 +226,6 @@ ass_strtod(
      * fraction.
      */
 
-    if (exp < 0) {
-        expSign = 1;
-        exp = -exp;
-    } else {
-        expSign = 0;
-    }
     if (exp > maxExponent) {
         exp = maxExponent;
         errno = ERANGE;
