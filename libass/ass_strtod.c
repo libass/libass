@@ -228,7 +228,9 @@ ass_strtod(
 
     if (exp > maxExponent) {
         exp = maxExponent;
-        errno = ERANGE;
+        if (fraction != 0.0) {
+            errno = ERANGE;
+        }
     }
     dblExp = 1.0;
     for (d = (double *) powersOf10; exp != 0; exp >>= 1, d += 1) {
