@@ -95,6 +95,7 @@ ass_strtod(
     size_t mantSize;    /* Number of digits in mantissa. */
     size_t decPt;       /* Number of mantissa digits BEFORE decimal
                          * point. */
+    size_t leadZeros;   /* Number of leading zeros in mantissa. */
     const char *pExp;       /* Temporarily holds location of exponent
                              * in string. */
 
@@ -122,6 +123,7 @@ ass_strtod(
      */
 
     decPt = -1;
+    leadZeros = -1;
     for (mantSize = 0; ; mantSize += 1)
     {
         c = *p;
@@ -130,6 +132,8 @@ ass_strtod(
                 break;
             }
             decPt = mantSize;
+        } else if ((c != '0') && (leadZeros == (size_t) -1)) {
+            leadZeros = mantSize;
         }
         p += 1;
     }
@@ -141,15 +145,21 @@ ass_strtod(
      * they can't affect the value anyway.
      */
 
+    if (leadZeros == (size_t) -1) {
+        leadZeros = mantSize;
+    }
     pExp  = p;
-    p -= mantSize;
+    p -= mantSize - leadZeros;
     if (decPt == (size_t) -1) {
         decPt = mantSize;
     } else {
         mantSize -= 1;      /* One of the digits was the point. */
+        if (decPt < leadZeros) {
+            leadZeros -= 1;
+        }
     }
-    if (mantSize > 18) {
-        mantSize = 18;
+    if (mantSize - leadZeros > 18) {
+        mantSize = leadZeros + 18;
     }
     if (decPt < mantSize) {
         fracExpSign = 1;
@@ -164,6 +174,7 @@ ass_strtod(
         goto done;
     } else {
         int frac1, frac2;
+        mantSize -= leadZeros;
         frac1 = 0;
         for ( ; mantSize > 9; mantSize -= 1)
         {
