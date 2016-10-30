@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 1988-1993 The Regents of the University of California.
  * Copyright (c) 1994 Sun Microsystems, Inc.
+ * Copyright (c) 2016 Oleg Oshmyan <chortos@inbox.lv>
  *
  * Permission to use, copy, modify, and distribute this
  * software and its documentation for any purpose and without
@@ -78,7 +79,7 @@ ass_strtod(
                              * address here. */
     )
 {
-    int sign, fracExpSign, expSign = 0;
+    int sign, fracExpSign, expSign;
     double fraction, dblExp, *d;
     register const char *p;
     register int c;
@@ -206,6 +207,14 @@ ass_strtod(
 
     p = pExp;
     if ((*p == 'E') || (*p == 'e')) {
+        size_t expLimit;    /* If exp > expLimit, appending another digit
+                             * to exp is guaranteed to make it too large.
+                             * If exp == expLimit, this may depend on
+                             * the exact digit, but in any case exp with
+                             * the digit appended and fracExp added will
+                             * still fit in size_t, even if it does
+                             * exceed maxExponent. */
+        int expWraparound = 0;
         p += 1;
         if (*p == '-') {
             expSign = 1;
@@ -216,17 +225,37 @@ ass_strtod(
             }
             expSign = 0;
         }
+        if (expSign == fracExpSign) {
+            if (maxExponent < fracExp) {
+                expLimit = 0;
+            } else {
+                expLimit = (maxExponent - fracExp) / 10;
+            }
+        } else {
+            expLimit = fracExp / 10 + (fracExp % 10 + maxExponent) / 10;
+        }
         while (ass_isdigit(*p)) {
+            if ((exp > expLimit) || expWraparound) {
+                do {
+                    p += 1;
+                } while (ass_isdigit(*p));
+                goto expOverflow;
+            } else if (exp > ((size_t) -1 - (*p - '0')) / 10) {
+                expWraparound = 1;
+            }
             exp = exp * 10 + (*p - '0');
             p += 1;
         }
-    }
-    if (expSign == fracExpSign) {
-        exp = fracExp + exp;
-    } else if (fracExp <= exp) {
-        exp = exp - fracExp;
+        if (expSign == fracExpSign) {
+            exp = fracExp + exp;
+        } else if ((fracExp <= exp) || expWraparound) {
+            exp = exp - fracExp;
+        } else {
+            exp = fracExp - exp;
+            expSign = fracExpSign;
+        }
     } else {
-        exp = fracExp - exp;
+        exp = fracExp;
         expSign = fracExpSign;
     }
 
@@ -238,6 +267,7 @@ ass_strtod(
      */
 
     if (exp > maxExponent) {
+expOverflow:
         exp = maxExponent;
         if (fraction != 0.0) {
             errno = ERANGE;
