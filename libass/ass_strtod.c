@@ -80,7 +80,8 @@ ass_strtod(
     )
 {
     int sign, fracExpSign, expSign;
-    double fraction, dblExp, *d;
+    double fraction, dblExp;
+    const double *d;
     register const char *p;
     register int c;
     size_t exp = 0;         /* Exponent read from "EX" field. */
@@ -274,7 +275,7 @@ expOverflow:
         }
     }
     dblExp = 1.0;
-    for (d = (double *) powersOf10; exp != 0; exp >>= 1, d += 1) {
+    for (d = powersOf10; exp != 0; exp >>= 1, d += 1) {
         if (exp & 01) {
             dblExp *= *d;
         }
