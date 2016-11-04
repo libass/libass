@@ -17,6 +17,7 @@
 #include "ass_compat.h"
 
 #include <stdlib.h>
+#include <float.h>
 #include <errno.h>
 #include "ass_string.h"
 
@@ -38,6 +39,19 @@ const double powersOf10[] = {   /* Table giving binary powers of 10.  Entry */
     1.0e64,
     1.0e128,
     1.0e256
+};
+
+static
+const double negPowOf10[] = {   /* Table giving negative binary powers */
+    0.1,                        /* of 10.  Entry is 10^-2^i. */
+    0.01,                       /* Used to convert decimal exponents */
+    1.0e-4,                     /* into floating-point numbers. */
+    1.0e-8,
+    1.0e-16,
+    1.0e-32,
+    1.0e-64,
+    1.0e-128,
+    1.0e-256
 };
 
 /*
@@ -175,10 +189,11 @@ ass_strtod(
         p = string;
         goto done;
     } else {
-        int frac1, frac2;
+        int frac1, frac2, m;
         mantSize -= leadZeros;
+        m = mantSize;
         frac1 = 0;
-        for ( ; mantSize > 9; mantSize -= 1)
+        for ( ; m > 9; m -= 1)
         {
             c = *p;
             p += 1;
@@ -189,7 +204,7 @@ ass_strtod(
             frac1 = 10*frac1 + (c - '0');
         }
         frac2 = 0;
-        for (; mantSize > 0; mantSize -= 1)
+        for (; m > 0; m -= 1)
         {
             c = *p;
             p += 1;
@@ -274,8 +289,32 @@ expOverflow:
             errno = ERANGE;
         }
     }
+    /* Prefer positive powers of 10 for increased precision, especially
+     * for small powers that are represented exactly in floating-point. */
+    if ((exp <= DBL_MAX_10_EXP) || !expSign) {
+        d = powersOf10;
+    } else {
+        /* The floating-point format supports more negative exponents
+         * than positive, or perhaps the result is a subnormal number. */
+        if (exp > -DBL_MIN_10_EXP) {
+            /* The result might be a valid subnormal number, but the
+             * exponent underflows.  Tweak fraction so that it is below
+             * 1.0 first, so that if the exponent still underflows after
+             * that, the result is sure to underflow as well. */
+            exp -= mantSize;
+            dblExp = 1.0;
+            for (d = powersOf10; mantSize != 0; mantSize >>= 1, d += 1) {
+                if (mantSize & 01) {
+                    dblExp *= *d;
+                }
+            }
+            fraction /= dblExp;
+        }
+        d = negPowOf10;
+        expSign = 0;
+    }
     dblExp = 1.0;
-    for (d = powersOf10; exp != 0; exp >>= 1, d += 1) {
+    for (; exp != 0; exp >>= 1, d += 1) {
         if (exp & 01) {
             dblExp *= *d;
         }
