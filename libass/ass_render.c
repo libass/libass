@@ -781,10 +781,11 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
         new->Shadow = user->Shadow * scale;
     }
 
-    if (requested & ASS_OVERRIDE_BIT_ALIGNMENT) {
+    if (requested & ASS_OVERRIDE_BIT_ALIGNMENT)
         new->Alignment = user->Alignment;
+
+    if (requested & ASS_OVERRIDE_BIT_JUSTIFY)
         new->Justify = user->Justify;
-    }
 
     if (requested & ASS_OVERRIDE_BIT_MARGINS) {
         new->MarginL = user->MarginL;
@@ -2094,25 +2095,25 @@ static void align_lines(ASS_Renderer *render_priv, double max_text_width)
         if ((i == text_info->length) || glyphs[i].linebreak) {
             double shift = 0;
             if (halign == HALIGN_LEFT) {    // left aligned, no action
-                if (justify == JUSTIFY_RIGHT) {
+                if (justify == ASS_JUSTIFY_RIGHT) {
                     shift = max_width - width;
-                } else if (justify == JUSTIFY_CENTER) {
+                } else if (justify == ASS_JUSTIFY_CENTER) {
                     shift = (max_width - width) / 2.0;
                 } else {
                     shift = 0;
                 }
             } else if (halign == HALIGN_RIGHT) {    // right aligned
-                if (justify == JUSTIFY_LEFT) {
+                if (justify == ASS_JUSTIFY_LEFT) {
                     shift = max_text_width - max_width;
-                } else if (justify == JUSTIFY_CENTER) {
+                } else if (justify == ASS_JUSTIFY_CENTER) {
                     shift = max_text_width - max_width + (max_width - width) / 2.0;
                 } else {
                     shift = max_text_width - width;
                 }
             } else if (halign == HALIGN_CENTER) {   // centered
-                if (justify == JUSTIFY_LEFT) {
+                if (justify == ASS_JUSTIFY_LEFT) {
                     shift = (max_text_width - max_width) / 2.0;
-                } else if (justify == JUSTIFY_RIGHT) {
+                } else if (justify == ASS_JUSTIFY_RIGHT) {
                     shift = (max_text_width - max_width) / 2.0 + max_width - width;
                 } else {
                     shift = (max_text_width - width) / 2.0;
