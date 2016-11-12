@@ -781,8 +781,10 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
         new->Shadow = user->Shadow * scale;
     }
 
-    if (requested & ASS_OVERRIDE_BIT_ALIGNMENT)
+    if (requested & ASS_OVERRIDE_BIT_ALIGNMENT) {
         new->Alignment = user->Alignment;
+        new->Justify = user->Justify;
+    }
 
     if (requested & ASS_OVERRIDE_BIT_MARGINS) {
         new->MarginL = user->MarginL;
@@ -863,7 +865,6 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
     render_priv->state.hspacing = style->Spacing;
     render_priv->state.be = 0;
     render_priv->state.blur = style->Blur;
-    render_priv->state.justify = style->Justify;
     render_priv->state.shadow_x = style->Shadow;
     render_priv->state.shadow_y = style->Shadow;
     render_priv->state.frx = render_priv->state.fry = 0.;
@@ -887,6 +888,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.wrap_style = render_priv->track->WrapStyle;
 
     render_priv->state.alignment = render_priv->state.style->Alignment;
+    render_priv->state.justify = render_priv->state.style->Justify;
     render_priv->state.pos_x = 0;
     render_priv->state.pos_y = 0;
     render_priv->state.org_x = 0;
