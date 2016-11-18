@@ -225,7 +225,7 @@ ass_strtod(
     } else {
         expSign = 0;
     }
-    if (exp > maxExponent) {
+    if (exp > maxExponent || exp < 0) {
         exp = maxExponent;
         errno = ERANGE;
     }
