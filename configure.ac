@@ -190,7 +190,8 @@ if test x$enable_directwrite != xno; then
 AC_MSG_CHECKING([for DIRECTWRITE])
 AC_LINK_IFELSE([
   AC_LANG_PROGRAM(
-    [[#include <windows.h>]],
+    [[#include <windows.h>
+      #include <Dwrite.h>]],
     [[;]],)
   ], [
     AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite])
