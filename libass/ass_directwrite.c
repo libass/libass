@@ -66,8 +66,8 @@ typedef struct FallbackLogTextRenderer {
 
 static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_IsPixelSnappingDisabled(
     IDWriteTextRenderer *This,
-    _In_opt_ void* clientDrawingContext,
-    _Out_ BOOL* isDisabled
+    void* clientDrawingContext,
+    BOOL* isDisabled
     )
 {
     *isDisabled = true;
@@ -76,8 +76,8 @@ static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_IsPixelSnappingDisabled
 
 static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_GetCurrentTransform(
     IDWriteTextRenderer *This,
-    _In_opt_ void* clientDrawingContext,
-    _Out_ DWRITE_MATRIX* transform
+    void* clientDrawingContext,
+    DWRITE_MATRIX* transform
     )
 {
     return E_NOTIMPL;
@@ -85,8 +85,8 @@ static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_GetCurrentTransform(
 
 static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_GetPixelsPerDip(
     IDWriteTextRenderer *This,
-    _In_opt_ void* clientDrawingContext,
-    _Out_ FLOAT* pixelsPerDip
+    void* clientDrawingContext,
+    FLOAT* pixelsPerDip
     )
 {
     return E_NOTIMPL;
@@ -94,12 +94,12 @@ static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_GetPixelsPerDip(
 
 static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_DrawGlyphRun(
     IDWriteTextRenderer *This,
-    _In_opt_ void* clientDrawingContext,
+    void* clientDrawingContext,
     FLOAT baselineOriginX,
     FLOAT baselineOriginY,
     DWRITE_MEASURING_MODE measuringMode,
-    _In_ DWRITE_GLYPH_RUN const* glyphRun,
-    _In_ DWRITE_GLYPH_RUN_DESCRIPTION const* glyphRunDescription,
+    DWRITE_GLYPH_RUN const* glyphRun,
+    DWRITE_GLYPH_RUN_DESCRIPTION const* glyphRunDescription,
     IUnknown* clientDrawingEffect
     )
 {
@@ -122,10 +122,10 @@ static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_DrawGlyphRun(
 
 static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_DrawUnderline(
     IDWriteTextRenderer *This,
-    _In_opt_ void* clientDrawingContext,
+    void* clientDrawingContext,
     FLOAT baselineOriginX,
     FLOAT baselineOriginY,
-    _In_ DWRITE_UNDERLINE const* underline,
+    DWRITE_UNDERLINE const* underline,
     IUnknown* clientDrawingEffect
     )
 {
@@ -134,10 +134,10 @@ static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_DrawUnderline(
 
 static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_DrawStrikethrough(
     IDWriteTextRenderer *This,
-    _In_opt_ void* clientDrawingContext,
+    void* clientDrawingContext,
     FLOAT baselineOriginX,
     FLOAT baselineOriginY,
-    _In_ DWRITE_STRIKETHROUGH const* strikethrough,
+    DWRITE_STRIKETHROUGH const* strikethrough,
     IUnknown* clientDrawingEffect
     )
 {
@@ -722,9 +722,9 @@ static ASS_FontProviderFuncs directwrite_callbacks = {
 };
 
 typedef HRESULT (WINAPI *DWriteCreateFactoryFn)(
-  _In_  DWRITE_FACTORY_TYPE factoryType,
-  _In_  REFIID              iid,
-  _Out_ IUnknown            **factory
+    DWRITE_FACTORY_TYPE factoryType,
+    REFIID              iid,
+    IUnknown            **factory
 );
 
 /*
