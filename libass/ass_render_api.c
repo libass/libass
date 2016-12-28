@@ -180,8 +180,18 @@ void ass_set_cache_limits(ASS_Renderer *render_priv, int glyph_max,
                           int bitmap_max)
 {
     render_priv->cache.glyph_max = glyph_max ? glyph_max : GLYPH_CACHE_MAX;
-    render_priv->cache.bitmap_max_size = bitmap_max ? 1048576 * bitmap_max :
-                                         BITMAP_CACHE_MAX_SIZE;
+
+    size_t bitmap_cache, composite_cache;
+    if (bitmap_max) {
+        bitmap_cache = MEGABYTE * (size_t) bitmap_max;
+        composite_cache = bitmap_cache / (COMPOSITE_CACHE_RATIO + 1);
+        bitmap_cache -= composite_cache;
+    } else {
+        bitmap_cache = BITMAP_CACHE_MAX_SIZE;
+        composite_cache = COMPOSITE_CACHE_MAX_SIZE;
+    }
+    render_priv->cache.bitmap_max_size = bitmap_cache;
+    render_priv->cache.composite_max_size = composite_cache;
 }
 
 ASS_FontProvider *
