@@ -318,7 +318,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
                 push_arg(args, &nargs, q, r);
                 q = r;
                 // The closing parenthesis could be missing.
-                if (*q == ')')
+                if (q != end)
                     ++q;
                 break;
             }
