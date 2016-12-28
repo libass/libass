@@ -3,7 +3,7 @@ AM_CFLAGS = -std=gnu99 -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter \
             -Wpointer-arith -Wredundant-decls -D_GNU_SOURCE
 
 LIBASS_LT_CURRENT = 8
-LIBASS_LT_REVISION = 2
+LIBASS_LT_REVISION = 3
 LIBASS_LT_AGE = 3
 
 yasm_verbose = $(yasm_verbose_$(V))
