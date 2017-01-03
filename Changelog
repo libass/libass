@@ -1,3 +1,7 @@
+libass (0.13.6)
+ * Bump ABI version to account for the new Justify field in ASS_Style
+   that was added in 0.13.5.
+
 libass (0.13.5)
  * Add Justify style override that changes text justification
    (left/right/center) without affecting event positioning.
