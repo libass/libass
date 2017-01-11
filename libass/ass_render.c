@@ -2413,15 +2413,23 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 
 static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
 {
-    void *nbuffer = ass_aligned_alloc(1, event_images->width * event_images->height, false);
+    int left    = event_images->left;
+    int top     = event_images->top;
+    int right   = event_images->left + event_images->width;
+    int bottom  = event_images->top  + event_images->height;
+    left        = FFMINMAX(left,   0, render_priv->width);
+    top         = FFMINMAX(top,    0, render_priv->height);
+    right       = FFMINMAX(right,  0, render_priv->width);
+    bottom      = FFMINMAX(bottom, 0, render_priv->height);
+    int w = right - left;
+    int h = bottom - top;
+    if (w < 1 || h < 1)
+        return;
+    void *nbuffer = ass_aligned_alloc(1, w * h, false);
     if (!nbuffer)
         return;
-    memset(nbuffer, 0xFF, event_images->width * event_images->height);
-    ASS_Image *img = my_draw_bitmap(nbuffer, event_images->width,
-                                    event_images->height,
-                                    event_images->width,
-                                    event_images->left,
-                                    event_images->top,
+    memset(nbuffer, 0xFF, w* h);
+    ASS_Image *img = my_draw_bitmap(nbuffer, w, h, w, left, top,
                                     render_priv->state.c[3], NULL);
     if (img) {
         img->next = event_images->imgs;
