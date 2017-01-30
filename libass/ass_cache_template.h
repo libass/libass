@@ -90,7 +90,7 @@ START(glyph, glyph_hash_key)
     GENERIC(int, italic)
     GENERIC(unsigned, scale_x) // 16.16
     GENERIC(unsigned, scale_y) // 16.16
-    FTVECTOR(outline) // border width, 16.16
+    FTVECTOR(outline) // border width, 26.6
     GENERIC(unsigned, flags)    // glyph decoration flags
     GENERIC(unsigned, border_style)
     GENERIC(int, hspacing) // 16.16
