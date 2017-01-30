@@ -213,7 +213,6 @@ typedef struct {
     ASS_Event *event;
     ASS_Style *style;
     int parsed_tags;
-    int has_clips;              // clips that conflict with cache change detection
 
     ASS_Font *font;
     double font_size;
