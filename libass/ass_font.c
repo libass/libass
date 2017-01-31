@@ -326,19 +326,21 @@ void ass_font_set_size(ASS_Font *font, double size)
  * \param ch character code
  * The values are extracted from the font face that provides glyphs for the given character
  **/
-void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
-                           int *desc)
+void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, FT_F26Dot6 *asc,
+                           FT_F26Dot6 *desc)
 {
     int i;
     for (i = 0; i < font->n_faces; ++i) {
         FT_Face face = font->faces[i];
         TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
         if (FT_Get_Char_Index(face, ass_font_index_magic(face, ch))) {
-            int y_scale = face->size->metrics.y_scale;
+            /* 16.16 scaling value that converts from font units to 26.6 */
+            FT_Fixed y_scale = face->size->metrics.y_scale;
             if (os2) {
                 *asc = FT_MulFix((short)os2->usWinAscent, y_scale);
                 *desc = FT_MulFix((short)os2->usWinDescent, y_scale);
             } else {
+                /* could also use face->size->metrics.ascender w/o MulFix */
                 *asc = FT_MulFix(face->ascender, y_scale);
                 *desc = FT_MulFix(-face->descender, y_scale);
             }
@@ -349,7 +351,9 @@ void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
     *asc = *desc = 0;
 }
 
-static void add_line(FT_Outline *ol, int bear, int advance, int dir, int pos, int size) {
+static void add_line(FT_Outline *ol, FT_F26Dot6 bear, FT_F26Dot6 advance,
+                     FT_Orientation dir, FT_F26Dot6 pos, FT_F26Dot6 size)
+{
     FT_Vector points[4] = {
         {.x = bear,      .y = pos + size},
         {.x = advance,   .y = pos + size},
@@ -387,7 +391,10 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
     TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
     TT_Postscript *ps = FT_Get_Sfnt_Table(face, ft_sfnt_post);
     FT_Outline *ol = &((FT_OutlineGlyph) glyph)->outline;
-    int advance, y_scale, i, dir;
+    FT_F26Dot6 advance;
+    FT_Fixed y_scale;
+    FT_Orientation dir;
+    int i;
 
     if (!under && !through)
         return 0;
@@ -414,8 +421,8 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
 
     // Add points to the outline
     if (under && ps) {
-        int pos = FT_MulFix(ps->underlinePosition, y_scale);
-        int size = FT_MulFix(ps->underlineThickness, y_scale / 2);
+        FT_F26Dot6 pos = FT_MulFix(ps->underlinePosition, y_scale);
+        FT_F26Dot6 size = FT_MulFix(ps->underlineThickness, y_scale / 2);
 
         if (pos > 0 || size <= 0)
             return 1;
@@ -424,8 +431,8 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
     }
 
     if (through && os2) {
-        int pos = FT_MulFix(os2->yStrikeoutPosition, y_scale);
-        int size = FT_MulFix(os2->yStrikeoutSize, y_scale / 2);
+        FT_Fixed pos = FT_MulFix(os2->yStrikeoutPosition, y_scale);
+        FT_Fixed size = FT_MulFix(os2->yStrikeoutSize, y_scale / 2);
 
         if (pos < 0 || size <= 0)
             return 1;
@@ -719,8 +726,8 @@ get_contour_cbox(FT_BBox *box, FT_Vector *points, int start, int end)
 static long long get_contour_area(FT_Vector *points, int start, int end)
 {
     long long area = 0;
-    int x = points[end].x;
-    int y = points[end].y;
+    FT_Pos x = points[end].x;
+    FT_Pos y = points[end].y;
     for (int i = start; i <= end; i++) {
         area += (long long)(points[i].x + x) * (points[i].y - y);
         x = points[i].x;
@@ -838,8 +845,8 @@ void fix_freetype_stroker(ASS_Outline *outline, int border_x, int border_y)
         if (dir == inside_direction) {
             FT_BBox box;
             get_contour_cbox(&box, outline->points, start, end);
-            int width = box.xMax - box.xMin;
-            int height = box.yMax - box.yMin;
+            FT_Pos width = box.xMax - box.xMin;
+            FT_Pos height = box.yMax - box.yMin;
             if (width < border_x * 2 || height < border_y * 2) {
                 valid_cont[i] = 0;
                 modified = 1;

@@ -145,7 +145,7 @@ void update_font(ASS_Renderer *render_priv)
  */
 void change_border(ASS_Renderer *render_priv, double border_x, double border_y)
 {
-    int bord = 64 * border_x * render_priv->border_scale;
+    FT_Fixed bord = double_to_d16(border_x * render_priv->border_scale);
 
     if (bord > 0 && border_x == border_y) {
         if (!render_priv->state.stroker) {

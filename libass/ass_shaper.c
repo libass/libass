@@ -431,8 +431,8 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
     metrics->hash_key.font = info->font;
     metrics->hash_key.face_index = info->face_index;
     metrics->hash_key.size = info->font_size;
-    metrics->hash_key.scale_x = double_to_d6(info->scale_x);
-    metrics->hash_key.scale_y = double_to_d6(info->scale_y);
+    metrics->hash_key.scale_x = double_to_d16(info->scale_x);
+    metrics->hash_key.scale_y = double_to_d16(info->scale_y);
 
     return hb_fonts[info->face_index];
 }
