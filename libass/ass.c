@@ -1498,7 +1498,7 @@ void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track)
             ass_msg(lib, MSGL_WARN,
                    "PlayResY undefined, setting to %d", track->PlayResY);
         } else if (track->PlayResY <= 0) {
-            track->PlayResY = FFMAX(1, track->PlayResX * 3 / 4);
+            track->PlayResY = FFMAX(1, track->PlayResX * 3LL / 4);
             ass_msg(lib, MSGL_WARN,
                    "PlayResY undefined, setting to %d", track->PlayResY);
         } else if (track->PlayResX <= 0 && track->PlayResY == 1024) {
@@ -1506,7 +1506,7 @@ void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track)
             ass_msg(lib, MSGL_WARN,
                    "PlayResX undefined, setting to %d", track->PlayResX);
         } else if (track->PlayResX <= 0) {
-            track->PlayResX = FFMAX(1, track->PlayResY * 4 / 3);
+            track->PlayResX = FFMAX(1, track->PlayResY * 4LL / 3);
             ass_msg(lib, MSGL_WARN,
                    "PlayResX undefined, setting to %d", track->PlayResX);
         }
