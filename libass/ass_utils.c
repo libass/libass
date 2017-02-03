@@ -154,14 +154,14 @@ void rskip_spaces(char **str, char *limit)
     *str = p;
 }
 
-static int read_digits(char **str, int base, uint32_t *res)
+static int read_digits(char **str, unsigned base, uint32_t *res)
 {
     char *p = *str;
     char *start = p;
     uint32_t val = 0;
 
     while (1) {
-        int digit;
+        unsigned digit;
         if (*p >= '0' && *p < FFMIN(base, 10) + '0')
             digit = *p - '0';
         else if (*p >= 'a' && *p < base - 10 + 'a')
@@ -184,7 +184,7 @@ static int read_digits(char **str, int base, uint32_t *res)
  * Follows the rules for strtoul but reduces the number modulo 2**32
  * instead of saturating it to 2**32 - 1.
  */
-static int mystrtou32_modulo(char **p, int base, uint32_t *res)
+static int mystrtou32_modulo(char **p, unsigned base, uint32_t *res)
 {
     // This emulates scanf with %d or %x format as it works on
     // Windows, because that's what is used by VSFilter. In practice,
@@ -240,7 +240,7 @@ uint32_t parse_color_tag(char *str)
 uint32_t parse_color_header(char *str)
 {
     uint32_t color = 0;
-    int base;
+    unsigned base;
 
     if (!ass_strncasecmp(str, "&h", 2) || !ass_strncasecmp(str, "0x", 2)) {
         str += 2;

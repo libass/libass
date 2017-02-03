@@ -259,7 +259,7 @@ ass_strtod(
             } else if (exp > ((size_t) -1 - (*p - '0')) / 10) {
                 expWraparound = 1;
             }
-            exp = exp * 10 + (*p - '0');
+            exp = exp * 10u + (*p - '0');
             p += 1;
         }
         if (expSign == fracExpSign) {
