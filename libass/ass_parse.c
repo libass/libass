@@ -603,7 +603,12 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             if (t1 == -1 && t4 == -1) {
                 t1 = 0;
                 t4 = render_priv->state.event->Duration;
-                t3 = t4 - t3;
+                // The value we parsed in t3 is an offset from the event end.
+                // What we really want in t3 is an offset from the event start.
+                // To this end, set t3 to (event duration - parsed value).
+                // If t3 >= t4, the exact value of t3 will not matter,
+                // so clamp it to avoid overflow in the subtraction.
+                t3 = t4 - FFMAX(t3, 0);
             }
             if ((render_priv->state.parsed_tags & PARSED_FADE) == 0) {
                 render_priv->state.fade =
