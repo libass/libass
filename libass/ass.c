@@ -232,7 +232,7 @@ static long long string2timecode(ASS_Library *library, char *p)
         ass_msg(library, MSGL_WARN, "Bad timestamp");
         return 0;
     }
-    tm = ((h * 60LL + m) * 60 + s) * 1000 + ms * 10;
+    tm = ((h * 60LL + m) * 60 + s) * 1000 + ms * 10LL;
     return tm;
 }
 
