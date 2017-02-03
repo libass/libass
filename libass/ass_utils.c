@@ -192,7 +192,7 @@ static int read_digits(char **str, int base, uint32_t *res)
 
     while (1) {
         int digit;
-        if (*p >= '0' && *p < base + '0')
+        if (*p >= '0' && *p < FFMIN(base, 10) + '0')
             digit = *p - '0';
         else if (*p >= 'a' && *p < base - 10 + 'a')
             digit = *p - 'a' + 10;
