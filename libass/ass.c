@@ -24,7 +24,6 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
-#include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <inttypes.h>
@@ -235,28 +234,6 @@ static long long string2timecode(ASS_Library *library, char *p)
     }
     tm = ((h * 60LL + m) * 60 + s) * 1000 + ms * 10;
     return tm;
-}
-
-/**
- * \brief converts numpad-style align to align.
- */
-static int numpad2align(int val)
-{
-    if (val < -INT_MAX)
-        // Pick an alignment somewhat arbitrarily. VSFilter handles
-        // INT32_MIN as a mix of 1, 2 and 3, so prefer one of those values.
-        val = 2;
-    else if (val < 0)
-        val = -val;
-
-    int res = ((val - 1) % 3) + 1;  // horizontal alignment
-    if (val <= 3)
-        res |= VALIGN_SUB;
-    else if (val <= 6)
-        res |= VALIGN_CENTER;
-    else
-        res |= VALIGN_TOP;
-    return res;
 }
 
 #define NEXT(str,token) \

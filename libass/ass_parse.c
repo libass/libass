@@ -566,14 +566,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
     } else if (tag("an")) {
         int val = argtoi(*args);
         if ((render_priv->state.parsed_tags & PARSED_A) == 0) {
-            if (val >= 1 && val <= 9) {
-                int v = (val - 1) / 3;      // 0, 1 or 2 for vertical alignment
-                if (v != 0)
-                    v = 3 - v;
-                val = ((val - 1) % 3) + 1;  // horizontal alignment
-                val += v * 4;
-                render_priv->state.alignment = val;
-            } else
+            if (val >= 1 && val <= 9)
+                render_priv->state.alignment = numpad2align(val);
+            else
                 render_priv->state.alignment =
                     render_priv->state.style->Alignment;
             render_priv->state.parsed_tags |= PARSED_A;

@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <limits.h>
 #include <inttypes.h>
 
 #include "ass_library.h"
@@ -325,6 +326,28 @@ int parse_ycbcr_matrix(char *str)
     if (!ass_strcasecmp(buffer, "pc.fcc"))
         return YCBCR_FCC_PC;
     return YCBCR_UNKNOWN;
+}
+
+/**
+ * \brief converts numpad-style align to align.
+ */
+int numpad2align(int val)
+{
+    if (val < -INT_MAX)
+        // Pick an alignment somewhat arbitrarily. VSFilter handles
+        // INT32_MIN as a mix of 1, 2 and 3, so prefer one of those values.
+        val = 2;
+    else if (val < 0)
+        val = -val;
+
+    int res = ((val - 1) % 3) + 1;  // horizontal alignment
+    if (val <= 3)
+        res |= VALIGN_SUB;
+    else if (val <= 6)
+        res |= VALIGN_CENTER;
+    else
+        res |= VALIGN_TOP;
+    return res;
 }
 
 void ass_msg(ASS_Library *priv, int lvl, const char *fmt, ...)

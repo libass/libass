@@ -87,6 +87,7 @@ uint32_t parse_color_tag(char *str);
 uint32_t parse_color_header(char *str);
 char parse_bool(char *str);
 int parse_ycbcr_matrix(char *str);
+int numpad2align(int val);
 unsigned ass_utf8_get_char(char **str);
 unsigned ass_utf8_put_char(char *dest, uint32_t ch);
 void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_size);
