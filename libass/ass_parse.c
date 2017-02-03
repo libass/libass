@@ -176,11 +176,12 @@ inline void change_alpha(uint32_t *var, int32_t new, double pwr)
  * \param a first value
  * \param b second value
  * \return result of multiplication
- * Parameters and result are limited by 0xFF.
+ * At least one of the parameters must be less than or equal to 0xFF.
+ * The result is less than or equal to max(a, b, 0xFF).
  */
 inline uint32_t mult_alpha(uint32_t a, uint32_t b)
 {
-    return 0xFF - (0xFF - a) * (0xFF - b) / 0xFF;
+    return a - (uint64_t) a * b / 0xFF + b;
 }
 
 /**
