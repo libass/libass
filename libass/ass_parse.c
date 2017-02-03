@@ -181,7 +181,7 @@ inline void change_alpha(uint32_t *var, int32_t new, double pwr)
  */
 inline uint32_t mult_alpha(uint32_t a, uint32_t b)
 {
-    return a - (uint64_t) a * b / 0xFF + b;
+    return a - ((uint64_t) a * b + 0x7F) / 0xFF + b;
 }
 
 /**
