@@ -659,24 +659,18 @@ static int process_events_line(ASS_Track *track, char *str)
     return 0;
 }
 
-// Copied from mkvtoolnix
-static unsigned char *decode_chars(unsigned char c1, unsigned char c2,
-                                   unsigned char c3, unsigned char c4,
-                                   unsigned char *dst, int cnt)
+static unsigned char *decode_chars(const unsigned char *src,
+                                   unsigned char *dst, int cnt_in)
 {
-    uint32_t value;
-    unsigned char bytes[3];
-    int i;
+    uint32_t value = 0;
+    for (int i = 0; i < cnt_in; i++)
+        value |= (uint32_t) ((src[i] - 33u) & 63) << 6 * (3 - i);
 
-    value =
-        ((c1 - 33) << 18) + ((c2 - 33) << 12) + ((c3 - 33) << 6) + (c4 -
-                                                                    33);
-    bytes[2] = value & 0xff;
-    bytes[1] = (value & 0xff00) >> 8;
-    bytes[0] = (value & 0xff0000) >> 16;
-
-    for (i = 0; i < cnt; ++i)
-        *dst++ = bytes[i];
+    *dst++ = value >> 16;
+    if (cnt_in >= 3)
+        *dst++ = value >> 8 & 0xff;
+    if (cnt_in >= 4)
+        *dst++ = value & 0xff;
     return dst;
 }
 
@@ -696,21 +690,21 @@ static int decode_font(ASS_Track *track)
         ass_msg(track->library, MSGL_ERR, "Bad encoded data size");
         goto error_decode_font;
     }
-    buf = malloc(size / 4 * 3 + 2);
+    buf = malloc(size / 4 * 3 + FFMAX(size % 4 - 1, 0));
     if (!buf)
         goto error_decode_font;
     q = buf;
     for (i = 0, p = (unsigned char *) track->parser_priv->fontdata;
          i < size / 4; i++, p += 4) {
-        q = decode_chars(p[0], p[1], p[2], p[3], q, 3);
+        q = decode_chars(p, q, 4);
     }
     if (size % 4 == 2) {
-        q = decode_chars(p[0], p[1], 0, 0, q, 1);
+        q = decode_chars(p, q, 2);
     } else if (size % 4 == 3) {
-        q = decode_chars(p[0], p[1], p[2], 0, q, 2);
+        q = decode_chars(p, q, 3);
     }
     dsize = q - buf;
-    assert(dsize <= size / 4 * 3 + 2);
+    assert(dsize == size / 4 * 3 + FFMAX(size % 4 - 1, 0));
 
     if (track->library->extract_fonts) {
         ass_add_font(track->library, track->parser_priv->fontname,
