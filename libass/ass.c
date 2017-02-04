@@ -744,14 +744,9 @@ static int process_fonts_line(ASS_Track *track, char *str)
     }
 
     len = strlen(str);
-    if (len > 80) {
-        ass_msg(track->library, MSGL_WARN, "Font line too long: %d, %s",
-                len, str);
-        return 0;
-    }
     if (track->parser_priv->fontdata_used + len >
         track->parser_priv->fontdata_size) {
-        track->parser_priv->fontdata_size += 100 * 1024;
+        track->parser_priv->fontdata_size += FFMAX(len, 100 * 1024);
         track->parser_priv->fontdata =
             realloc(track->parser_priv->fontdata,
                     track->parser_priv->fontdata_size);
