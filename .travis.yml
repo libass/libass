@@ -9,6 +9,15 @@ os:
   - linux
   - osx
 
+compiler:
+  - gcc
+  - clang
+
+matrix:
+  exclude:
+    - os: osx
+      compiler: gcc
+
 sudo: required
 dist: trusty
 
