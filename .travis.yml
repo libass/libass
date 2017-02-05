@@ -49,4 +49,4 @@ addons:
     notification_email: none@example.com
     build_command_prepend: "./configure"
     build_command:   "make -j4"
-    branch_pattern: coverity_scan
+    branch_pattern: master|coverity_scan
