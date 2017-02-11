@@ -148,9 +148,10 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         meta.fullnames = fullnames;
 
         // read PostScript name
-        meta.postscript_name = NULL;
-        FcPatternGetString(pat, FC_POSTSCRIPT_NAME, 0,
-                           (FcChar8 **)&meta.postscript_name);
+        result = FcPatternGetString(pat, FC_POSTSCRIPT_NAME, 0,
+                (FcChar8 **)&meta.postscript_name);
+        if (result != FcResultMatch)
+            meta.postscript_name = NULL;
 
         ass_font_provider_add_font(provider, &meta, path, index, (void *)pat);
     }
