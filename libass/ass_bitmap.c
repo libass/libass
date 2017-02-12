@@ -219,7 +219,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
     int mask = (1 << render_priv->engine->tile_order) - 1;
 
-    if (w < 0 || h < 0 || w > 8000000 / FFMAX(h, 1) ||
+    if (w < 0 || h < 0 ||
         w > INT_MAX - (2 * bord + mask) || h > INT_MAX - (2 * bord + mask)) {
         ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
                 w, h);
@@ -280,7 +280,7 @@ static Bitmap *outline_to_bitmap_ft(ASS_Renderer *render_priv,
     bbox.xMin >>= 6;
     bbox.yMax >>= 6;
 
-    if (w < 0 || h < 0 || w > 8000000 / FFMAX(h, 1) ||
+    if (w < 0 || h < 0 ||
         w > INT_MAX - 2 * bord || h > INT_MAX - 2 * bord) {
         ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
                 w, h);
