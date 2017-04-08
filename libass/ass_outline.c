@@ -59,12 +59,20 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
     if (!outline_alloc(outline, source->n_points, source->n_contours))
         return false;
 
-    for (int i = 0; i < source->n_contours; i++)
-        outline->contours[i] = source->contours[i];
-    memcpy(outline->points, source->points, sizeof(FT_Vector) * source->n_points);
-    memcpy(outline->tags, source->tags, source->n_points);
-    outline->n_contours = source->n_contours;
-    outline->n_points = source->n_points;
+    short start = 0;
+    outline->n_contours = outline->n_points = 0;
+    for (int i = 0; i < source->n_contours; i++) {
+        size_t n = source->contours[i] - start + 1;
+        // skip degenerate 2-point contours from broken fonts
+        if (n >= 3) {
+            memcpy(outline->points + outline->n_points, source->points + start, sizeof(FT_Vector) * n);
+            memcpy(outline->tags + outline->n_points, source->tags + start, n);
+
+            outline->n_points += n;
+            outline->contours[outline->n_contours++] = outline->n_points - 1;
+        }
+        start = source->contours[i] + 1;
+    }
     return true;
 }
 
