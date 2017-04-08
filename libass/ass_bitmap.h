@@ -117,9 +117,9 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
  * \param bm_g out: pointer to the bitmap of original glyph is returned here
  * \param bm_o out: pointer to the bitmap of border glyph is returned here
  */
-int outline_to_bitmap2(ASS_Renderer *render_priv, ASS_Outline *outline,
-                       ASS_Outline *border1, ASS_Outline *border2,
-                       Bitmap **bm_g, Bitmap **bm_o);
+bool outline_to_bitmap2(ASS_Renderer *render_priv, ASS_Outline *outline,
+                        ASS_Outline *border1, ASS_Outline *border2,
+                        Bitmap **bm_g, Bitmap **bm_o);
 
 int be_padding(int be);
 void be_blur_pre(uint8_t *buf, intptr_t w,

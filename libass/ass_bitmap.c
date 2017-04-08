@@ -202,15 +202,6 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
     if (bord < 0 || bord > INT_MAX / 2)
         return NULL;
-
-    if (rst->x_min >= rst->x_max || rst->y_min >= rst->y_max) {
-        Bitmap *bm = alloc_bitmap(render_priv->engine, 2 * bord, 2 * bord, true);
-        if (!bm)
-            return NULL;
-        bm->left = bm->top = -bord;
-        return bm;
-    }
-
     if (rst->x_max > INT_MAX - 63 || rst->y_max > INT_MAX - 63)
         return NULL;
 
@@ -443,9 +434,9 @@ int be_padding(int be)
     return FFMAX(128 - be, 0);
 }
 
-int outline_to_bitmap2(ASS_Renderer *render_priv, ASS_Outline *outline,
-                       ASS_Outline *border1, ASS_Outline *border2,
-                       Bitmap **bm_g, Bitmap **bm_o)
+bool outline_to_bitmap2(ASS_Renderer *render_priv, ASS_Outline *outline,
+                        ASS_Outline *border1, ASS_Outline *border2,
+                        Bitmap **bm_g, Bitmap **bm_o)
 {
     assert(bm_g && bm_o);
     *bm_g = *bm_o = NULL;
@@ -457,19 +448,20 @@ int outline_to_bitmap2(ASS_Renderer *render_priv, ASS_Outline *outline,
     if (border2 && !border2->n_points)
         border2 = NULL;
 
-    if (outline)
+    if (outline) {
         *bm_g = outline_to_bitmap(render_priv, outline, NULL, 1);
-    if (!*bm_g)
-        return 1;
+        if (!*bm_g)
+            return false;
+    }
 
     if (border1 || border2) {
         *bm_o = outline_to_bitmap(render_priv, border1, border2, 1);
         if (!*bm_o) {
-            return 1;
+            return false;
         }
     }
 
-    return 0;
+    return true;
 }
 
 /**

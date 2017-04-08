@@ -1030,12 +1030,12 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         if (info->drawing) {
             ASS_Drawing *drawing = info->drawing;
             ass_drawing_hash(drawing);
-            if(!ass_drawing_parse(drawing, 0)) {
+            if(!ass_drawing_parse(drawing, 0) ||
+                    !outline_copy(&val->outline, &drawing->outline)) {
                 ass_cache_commit(val, 1);
                 ass_cache_dec_ref(val);
                 return;
             }
-            outline_copy(&val->outline, &drawing->outline);
             val->advance.x = drawing->advance.x;
             val->advance.y = drawing->advance.y;
             val->asc = drawing->asc;
@@ -1050,7 +1050,12 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                         info->symbol, info->face_index, info->glyph_index,
                         priv->settings.hinting, info->flags);
             if (glyph != NULL) {
-                outline_convert(&val->outline, &((FT_OutlineGlyph) glyph)->outline);
+                FT_Outline *src = &((FT_OutlineGlyph) glyph)->outline;
+                if (!outline_convert(&val->outline, src)) {
+                    ass_cache_commit(val, 1);
+                    ass_cache_dec_ref(val);
+                    return;
+                }
                 if (priv->settings.shaper == ASS_SHAPING_SIMPLE) {
                     val->advance.x = d16_to_d6(glyph->advance.x);
                     val->advance.y = d16_to_d6(glyph->advance.y);
@@ -1062,12 +1067,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                 val->desc *= info->scale_y;
             }
         }
-
-        if (!val->outline.n_points) {
-            ass_cache_commit(val, 1);
-            ass_cache_dec_ref(val);
-            return;
-        }
+        val->valid = true;
 
         outline_get_cbox(&val->outline, &val->bbox_scaled);
 
@@ -1082,7 +1082,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                             double_to_d6(info->border_x * priv->border_scale),
                             double_to_d6(info->border_y * priv->border_scale));
 
-        } else if ((info->border_x > 0 || info->border_y > 0)
+        } else if (val->outline.n_points && (info->border_x > 0 || info->border_y > 0)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
             const int eps = 16;
             int xbord = double_to_d6(info->border_x * priv->border_scale);
@@ -1101,9 +1101,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         }
 
         ass_cache_commit(val, 1);
-    }
-
-    if (!val->outline.n_points) {
+    } else if (!val->valid) {
         ass_cache_dec_ref(val);
         return;
     }
@@ -1209,10 +1207,21 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
     OutlineBitmapHashKey *key = &info->hash_key.u.outline;
     if (ass_cache_get(render_priv->cache.bitmap_cache, &info->hash_key, &val)) {
         info->image = val;
+        if (!val->valid)
+            info->symbol = 0;
         return;
     }
-    if (!val)
+    if (!val) {
+        info->symbol = 0;
         return;
+    }
+    if (!info->outline) {
+        memset(val, 0, sizeof(*val));
+        ass_cache_commit(val, sizeof(BitmapHashKey) + sizeof(BitmapHashValue));
+        info->image = val;
+        info->symbol = 0;
+        return;
+    }
 
     const int n_outlines = 3;
     ASS_Outline outline[n_outlines];
@@ -1244,10 +1253,10 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         outline_translate(&outline[i], key->advance.x, -key->advance.y);
 
     // render glyph
-    int error = outline_to_bitmap2(render_priv,
-                                   &outline[0], &outline[1], &outline[2],
-                                   &val->bm, &val->bm_o);
-    if (error)
+    val->valid = outline_to_bitmap2(render_priv,
+                                    &outline[0], &outline[1], &outline[2],
+                                    &val->bm, &val->bm_o);
+    if (!val->valid)
         info->symbol = 0;
 
     ass_cache_commit(val, bitmap_size(val->bm) + bitmap_size(val->bm_o) +

@@ -30,6 +30,7 @@ typedef struct cache Cache;
 // cache values
 
 typedef struct {
+    bool valid;
     Bitmap *bm;               // the actual bitmaps
     Bitmap *bm_o;
 } BitmapHashValue;
@@ -41,6 +42,7 @@ typedef struct {
 } CompositeHashValue;
 
 typedef struct {
+    bool valid;
     ASS_Outline outline;
     ASS_Outline border[2];
     FT_BBox bbox_scaled;        // bbox after scaling, but before rotation
