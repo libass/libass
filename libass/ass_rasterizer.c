@@ -42,7 +42,7 @@ static inline int ilog2(uint32_t n)
 #else
     int res = 0;
     for (int ord = 16; ord; ord /= 2)
-        if (n >= ((uint32_t)1 << ord)) {
+        if (n >= ((uint32_t) 1 << ord)) {
             res += ord;
             n >>= ord;
         }
@@ -82,7 +82,7 @@ static inline bool check_capacity(RasterizerData *rst, int index, size_t delta)
     if (!ptr)
         return false;
 
-    rst->linebuf[index] = (struct segment *)ptr;
+    rst->linebuf[index] = (struct segment *) ptr;
     rst->capacity[index] = capacity;
     return true;
 }
@@ -138,8 +138,8 @@ static inline void segment_init(OutlineSegment *seg,
 
     seg->r.x = x;
     seg->r.y = y;
-    seg->r2 = x * (int64_t)x + y * (int64_t)y;
-    seg->er = outline_error * (int64_t)FFMAX(abs_x, abs_y);
+    seg->r2 = x * (int64_t) x + y * (int64_t) y;
+    seg->er = outline_error * (int64_t) FFMAX(abs_x, abs_y);
 }
 
 static inline bool segment_subdivide(const OutlineSegment *seg,
@@ -147,8 +147,8 @@ static inline bool segment_subdivide(const OutlineSegment *seg,
 {
     int32_t x = pt.x - beg.x;
     int32_t y = pt.y - beg.y;
-    int64_t pdr = seg->r.x * (int64_t)x + seg->r.y * (int64_t)y;
-    int64_t pcr = seg->r.x * (int64_t)y - seg->r.y * (int64_t)x;
+    int64_t pdr = seg->r.x * (int64_t) x + seg->r.y * (int64_t) y;
+    int64_t pcr = seg->r.x * (int64_t) y - seg->r.y * (int64_t) x;
     return pdr < -seg->er || pdr > seg->r2 + seg->er ||
         (pcr < 0 ? -pcr : pcr) > seg->er;
 }
@@ -182,7 +182,7 @@ static bool add_line(RasterizerData *rst, OutlinePoint pt0, OutlinePoint pt1)
 
     line->a = y;
     line->b = -x;
-    line->c = y * (int64_t)pt0.x - x * (int64_t)pt0.y;
+    line->c = y * (int64_t) pt0.x - x * (int64_t) pt0.y;
 
     // halfplane normalization
     int32_t abs_x = x < 0 ? -x : x;
@@ -193,9 +193,9 @@ static bool add_line(RasterizerData *rst, OutlinePoint pt0, OutlinePoint pt1)
     line->a *= 1 << shift;
     line->b *= 1 << shift;
     line->c *= 1 << shift;
-    line->scale = (uint64_t)0x53333333 * (uint32_t)(max_ab * (uint64_t)max_ab >> 32) >> 32;
-    line->scale += 0x8810624D - (0xBBC6A7EF * (uint64_t)max_ab >> 32);
-    //line->scale = ((uint64_t)1 << 61) / max_ab;
+    line->scale = (uint64_t) 0x53333333 * (uint32_t) (max_ab * (uint64_t) max_ab >> 32) >> 32;
+    line->scale += 0x8810624D - (0xBBC6A7EF * (uint64_t) max_ab >> 32);
+    //line->scale = ((uint64_t) 1 << 61) / max_ab;
     return true;
 }
 
@@ -457,7 +457,7 @@ static void segment_move_x(struct segment *line, int32_t x)
     line->x_min -= x;
     line->x_max -= x;
     line->x_min = FFMAX(line->x_min, 0);
-    line->c -= line->a * (int64_t)x;
+    line->c -= line->a * (int64_t) x;
 
     static const int test = SEGFLAG_EXACT_LEFT | SEGFLAG_UL_DR;
     if (!line->x_min && (line->flags & test) == test)
@@ -469,7 +469,7 @@ static void segment_move_y(struct segment *line, int32_t y)
     line->y_min -= y;
     line->y_max -= y;
     line->y_min = FFMAX(line->y_min, 0);
-    line->c -= line->b * (int64_t)y;
+    line->c -= line->b * (int64_t) y;
 
     static const int test = SEGFLAG_EXACT_TOP | SEGFLAG_UL_DR;
     if (!line->y_min && (line->flags & test) == test)
@@ -481,7 +481,7 @@ static void segment_split_horz(struct segment *line, struct segment *next, int32
     assert(x > line->x_min && x < line->x_max);
 
     *next = *line;
-    next->c -= line->a * (int64_t)x;
+    next->c -= line->a * (int64_t) x;
     next->x_min = 0;
     next->x_max -= x;
     line->x_max = x;
@@ -502,7 +502,7 @@ static void segment_split_vert(struct segment *line, struct segment *next, int32
     assert(y > line->y_min && y < line->y_max);
 
     *next = *line;
-    next->c -= line->b * (int64_t)y;
+    next->c -= line->b * (int64_t) y;
     next->y_min = 0;
     next->y_max -= y;
     line->y_max = y;
@@ -522,8 +522,8 @@ static inline int segment_check_left(const struct segment *line, int32_t x)
 {
     if (line->flags & SEGFLAG_EXACT_LEFT)
         return line->x_min >= x;
-    int64_t cc = line->c - line->a * (int64_t)x -
-        line->b * (int64_t)(line->flags & SEGFLAG_UL_DR ? line->y_min : line->y_max);
+    int64_t cc = line->c - line->a * (int64_t) x -
+        line->b * (int64_t) (line->flags & SEGFLAG_UL_DR ? line->y_min : line->y_max);
     if (line->a < 0)
         cc = -cc;
     return cc >= 0;
@@ -533,8 +533,8 @@ static inline int segment_check_right(const struct segment *line, int32_t x)
 {
     if (line->flags & SEGFLAG_EXACT_RIGHT)
         return line->x_max <= x;
-    int64_t cc = line->c - line->a * (int64_t)x -
-        line->b * (int64_t)(line->flags & SEGFLAG_UL_DR ? line->y_max : line->y_min);
+    int64_t cc = line->c - line->a * (int64_t) x -
+        line->b * (int64_t) (line->flags & SEGFLAG_UL_DR ? line->y_max : line->y_min);
     if (line->a > 0)
         cc = -cc;
     return cc >= 0;
@@ -544,8 +544,8 @@ static inline int segment_check_top(const struct segment *line, int32_t y)
 {
     if (line->flags & SEGFLAG_EXACT_TOP)
         return line->y_min >= y;
-    int64_t cc = line->c - line->b * (int64_t)y -
-        line->a * (int64_t)(line->flags & SEGFLAG_UL_DR ? line->x_min : line->x_max);
+    int64_t cc = line->c - line->b * (int64_t) y -
+        line->a * (int64_t) (line->flags & SEGFLAG_UL_DR ? line->x_min : line->x_max);
     if (line->b < 0)
         cc = -cc;
     return cc >= 0;
@@ -555,8 +555,8 @@ static inline int segment_check_bottom(const struct segment *line, int32_t y)
 {
     if (line->flags & SEGFLAG_EXACT_BOTTOM)
         return line->y_max <= y;
-    int64_t cc = line->c - line->b * (int64_t)y -
-        line->a * (int64_t)(line->flags & SEGFLAG_UL_DR ? line->x_max : line->x_min);
+    int64_t cc = line->c - line->b * (int64_t) y -
+        line->a * (int64_t) (line->flags & SEGFLAG_UL_DR ? line->x_max : line->x_min);
     if (line->b > 0)
         cc = -cc;
     return cc >= 0;
@@ -692,8 +692,8 @@ static inline void rasterizer_fill_halfplane(const BitmapEngine *engine,
 
     uint32_t abs_a = a < 0 ? -a : a;
     uint32_t abs_b = b < 0 ? -b : b;
-    int64_t size = (int64_t)(abs_a + abs_b) << (engine->tile_order + 5);
-    int64_t offs = ((int64_t)a + b) * (1 << (engine->tile_order + 5));
+    int64_t size = (int64_t) (abs_a + abs_b) << (engine->tile_order + 5);
+    int64_t offs = ((int64_t) a + b) * (1 << (engine->tile_order + 5));
 
     ptrdiff_t step = 1 << engine->tile_order;
     ptrdiff_t tile_stride = stride * (1 << engine->tile_order);
@@ -701,14 +701,14 @@ static inline void rasterizer_fill_halfplane(const BitmapEngine *engine,
     height >>= engine->tile_order;
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            int64_t cc = c - (a * (int64_t)x + b * (int64_t)y) * (1 << (engine->tile_order + 6));
+            int64_t cc = c - (a * (int64_t) x + b * (int64_t) y) * (1 << (engine->tile_order + 6));
             int64_t offs_c = offs - cc;
             int64_t abs_c = offs_c < 0 ? -offs_c : offs_c;
             if (abs_c < size)
                 engine->fill_halfplane(buf + x * step, stride, a, b, cc, scale);
             else
                 engine->fill_solid(buf + x * step, stride,
-                                   ((uint32_t)(offs_c >> 32) ^ scale) & 0x80000000);
+                                   ((uint32_t) (offs_c >> 32) ^ scale) & 0x80000000);
         }
         buf += tile_stride;
     }
@@ -756,7 +756,7 @@ static bool rasterizer_fill_level(const BitmapEngine *engine, RasterizerData *rs
                                   int index, const size_t n_lines[2], const int winding[2])
 {
     assert(width > 0 && height > 0);
-    assert((unsigned)index < 2u && n_lines[0] + n_lines[1] <= rst->size[index]);
+    assert((unsigned) index < 2u && n_lines[0] + n_lines[1] <= rst->size[index]);
     assert(!(width  & ((1 << engine->tile_order) - 1)));
     assert(!(height & ((1 << engine->tile_order) - 1)));
 
@@ -823,14 +823,14 @@ static bool rasterizer_fill_level(const BitmapEngine *engine, RasterizerData *rs
         buf1 += width;
         polyline_split_horz(line, n_lines,
                             dst0, n_next0, dst1, n_next1,
-                            winding1, (int32_t)width << 6);
+                            winding1, (int32_t) width << 6);
     } else {
         height = 1 << ilog2(height - 1);
         height1 -= height;
         buf1 += height * stride;
         polyline_split_vert(line, n_lines,
                             dst0, n_next0, dst1, n_next1,
-                            winding1, (int32_t)height << 6);
+                            winding1, (int32_t) height << 6);
     }
     rst->size[index ^ 0] = offs  + n_next0[0] + n_next0[1];
     rst->size[index ^ 1] = offs1 + n_next1[0] + n_next1[1];
@@ -860,7 +860,7 @@ bool rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
         line->x_max -= x0;
         line->y_min -= y0;
         line->y_max -= y0;
-        line->c -= line->a * (int64_t)x0 + line->b * (int64_t)y0;
+        line->c -= line->a * (int64_t) x0 + line->b * (int64_t) y0;
     }
     rst->x_min -= x0;
     rst->x_max -= x0;
@@ -874,8 +874,8 @@ bool rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
     size_t n_lines[2] = { rst->n_first, rst->size[0] - rst->n_first };
     int winding[2] = { 0, 0 };
 
-    int32_t size_x = (int32_t)width << 6;
-    int32_t size_y = (int32_t)height << 6;
+    int32_t size_x = (int32_t) width << 6;
+    int32_t size_y = (int32_t) height << 6;
     if (rst->x_max >= size_x) {
         polyline_split_horz(rst->linebuf[0], n_lines,
                             rst->linebuf[0], n_lines,

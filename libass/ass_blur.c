@@ -83,7 +83,7 @@ void ass_stripe_unpack_c(int16_t *dst, const uint8_t *src, ptrdiff_t src_stride,
         int16_t *ptr = dst;
         for (uintptr_t x = 0; x < width; x += STRIPE_WIDTH) {
             for (int k = 0; k < STRIPE_WIDTH; ++k)
-                ptr[k] = (uint16_t)(((src[x + k] << 7) | (src[x + k] >> 1)) + 1) >> 1;
+                ptr[k] = (uint16_t) (((src[x + k] << 7) | (src[x + k] >> 1)) + 1) >> 1;
                 //ptr[k] = (0x4000 * src[x + k] + 127) / 255;
             ptr += STRIPE_WIDTH * height;
         }
@@ -100,7 +100,7 @@ void ass_stripe_pack_c(uint8_t *dst, ptrdiff_t dst_stride, const int16_t *src,
         for (uintptr_t y = 0; y < height; ++y) {
             const int16_t *dither = dither_line + (y & 1) * STRIPE_WIDTH;
             for (int k = 0; k < STRIPE_WIDTH; ++k)
-                ptr[k] = (uint16_t)(src[k] - (src[k] >> 8) + dither[k]) >> 6;
+                ptr[k] = (uint16_t) (src[k] - (src[k] >> 8) + dither[k]) >> 6;
                 //ptr[k] = (255 * src[k] + 0x1FFF) / 0x4000;
             ptr += dst_stride;
             src += STRIPE_WIDTH;
@@ -197,9 +197,9 @@ static inline void expand_func(int16_t *rp, int16_t *rn,
     *rp = (5 * p1 + 10 * z0 + 1 * n1 + 8) >> 4;
     *rn = (1 * p1 + 10 * z0 + 5 * n1 + 8) >> 4;
     */
-    uint16_t r = (uint16_t)(((uint16_t)(p1 + n1) >> 1) + z0) >> 1;
-    *rp = (uint16_t)(((uint16_t)(r + p1) >> 1) + z0 + 1) >> 1;
-    *rn = (uint16_t)(((uint16_t)(r + n1) >> 1) + z0 + 1) >> 1;
+    uint16_t r = (uint16_t) (((uint16_t) (p1 + n1) >> 1) + z0) >> 1;
+    *rp = (uint16_t) (((uint16_t) (r + p1) >> 1) + z0 + 1) >> 1;
+    *rn = (uint16_t) (((uint16_t) (r + n1) >> 1) + z0 + 1) >> 1;
 }
 
 void ass_expand_horz_c(int16_t *dst, const int16_t *src,
@@ -275,7 +275,7 @@ static inline int16_t pre_blur1_func(int16_t p1, int16_t z0, int16_t n1)
     /*
     return (1 * p1 + 2 * z0 + 1 * n1 + 2) >> 2;
     */
-    return (uint16_t)(((uint16_t)(p1 + n1) >> 1) + z0 + 1) >> 1;
+    return (uint16_t) (((uint16_t) (p1 + n1) >> 1) + z0 + 1) >> 1;
 }
 
 void ass_pre_blur1_horz_c(int16_t *dst, const int16_t *src,
@@ -333,10 +333,10 @@ static inline int16_t pre_blur2_func(int16_t p2, int16_t p1, int16_t z0,
     /*
     return (1 * p2 + 4 * p1 + 6 * z0 + 4 * n1 + 1 * n2 + 8) >> 4;
     */
-    uint16_t r1 = ((uint16_t)(((uint16_t)(p2 + n2) >> 1) + z0) >> 1) + z0;
+    uint16_t r1 = ((uint16_t) (((uint16_t) (p2 + n2) >> 1) + z0) >> 1) + z0;
     uint16_t r2 = p1 + n1;
-    uint16_t r = ((uint16_t)(r1 + r2) >> 1) | (0x8000 & r1 & r2);
-    return (uint16_t)(r + 1) >> 1;
+    uint16_t r = ((uint16_t) (r1 + r2) >> 1) | (0x8000 & r1 & r2);
+    return (uint16_t) (r + 1) >> 1;
 }
 
 void ass_pre_blur2_horz_c(int16_t *dst, const int16_t *src,
@@ -396,10 +396,10 @@ static inline int16_t pre_blur3_func(int16_t p3, int16_t p2, int16_t p1, int16_t
     /*
     return (1 * p3 + 6 * p2 + 15 * p1 + 20 * z0 + 15 * n1 + 6 * n2 + 1 * n3 + 32) >> 6;
     */
-    return (20 * (uint16_t)z0 +
-            15 * (uint16_t)(p1 + n1) +
-             6 * (uint16_t)(p2 + n2) +
-             1 * (uint16_t)(p3 + n3) + 32) >> 6;
+    return (20 * (uint16_t) z0 +
+            15 * (uint16_t) (p1 + n1) +
+             6 * (uint16_t) (p2 + n2) +
+             1 * (uint16_t) (p3 + n3) + 32) >> 6;
 }
 
 void ass_pre_blur3_horz_c(int16_t *dst, const int16_t *src,
@@ -832,7 +832,7 @@ static void find_best_method(BlurMethod *blur, double r2)
     }
 
     for (int i = 1; i <= 4; ++i)
-        blur->coeff[i - 1] = (int)(0x10000 * mu[i] + 0.5);
+        blur->coeff[i - 1] = (int) (0x10000 * mu[i] + 0.5);
 }
 
 /**

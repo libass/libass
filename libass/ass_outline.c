@@ -234,8 +234,8 @@ static inline double vec_len(Vector vec)
 static bool emit_point(StrokerState *str, OutlinePoint pt,
                        Vector offs, char tag, int dir)
 {
-    int32_t dx = (int32_t)(str->xbord * offs.x);
-    int32_t dy = (int32_t)(str->ybord * offs.y);
+    int32_t dx = (int32_t) (str->xbord * offs.x);
+    int32_t dy = (int32_t) (str->ybord * offs.y);
 
     if (dir & 1) {
         FT_Vector res = { pt.x + dx, pt.y + dy };
@@ -255,8 +255,8 @@ static bool emit_point(StrokerState *str, OutlinePoint pt,
 static void fix_first_point(StrokerState *str, OutlinePoint pt,
                             Vector offs, int dir)
 {
-    int32_t dx = (int32_t)(str->xbord * offs.x);
-    int32_t dy = (int32_t)(str->ybord * offs.y);
+    int32_t dx = (int32_t) (str->xbord * offs.x);
+    int32_t dy = (int32_t) (str->ybord * offs.y);
 
     if (dir & 1) {
         FT_Vector res = { pt.x + dx, pt.y + dy };
@@ -998,7 +998,7 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
     str.eps = eps;
 
     str.contour_start = true;
-    double rel_err = (double)eps / rad;
+    double rel_err = (double) eps / rad;
     str.merge_cos = 1 - rel_err;
     double e = sqrt(2 * rel_err);
     str.split_cos = 1 + 8 * rel_err - 4 * (1 + rel_err) * e;
