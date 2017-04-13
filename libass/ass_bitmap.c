@@ -186,8 +186,6 @@ Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src)
     return dst;
 }
 
-#if CONFIG_RASTERIZER
-
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           ASS_Outline *outline, int bord)
 {
@@ -245,109 +243,6 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
     return bm;
 }
-
-#else
-
-static Bitmap *outline_to_bitmap_ft(ASS_Renderer *render_priv,
-                                    FT_Outline *outline, int bord)
-{
-    Bitmap *bm;
-    int w, h;
-    int error;
-    FT_BBox bbox;
-    FT_Bitmap bitmap;
-
-    FT_Outline_Get_CBox(outline, &bbox);
-    if (bbox.xMin >= bbox.xMax || bbox.yMin >= bbox.yMax) {
-        bm = alloc_bitmap(render_priv->engine, 2 * bord, 2 * bord, true);
-        if (!bm)
-            return NULL;
-        bm->left = bm->top = -bord;
-        return bm;
-    }
-
-    // move glyph to origin (0, 0)
-    bbox.xMin &= ~63;
-    bbox.yMin &= ~63;
-    FT_Outline_Translate(outline, -bbox.xMin, -bbox.yMin);
-    if (bbox.xMax > INT_MAX - 63 || bbox.yMax > INT_MAX - 63)
-        return NULL;
-    // bitmap size
-    bbox.xMax = (bbox.xMax + 63) & ~63;
-    bbox.yMax = (bbox.yMax + 63) & ~63;
-    w = (bbox.xMax - bbox.xMin) >> 6;
-    h = (bbox.yMax - bbox.yMin) >> 6;
-    // pen offset
-    bbox.xMin >>= 6;
-    bbox.yMax >>= 6;
-
-    if (w < 0 || h < 0 ||
-        w > INT_MAX - 2 * bord || h > INT_MAX - 2 * bord) {
-        ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
-                w, h);
-        return NULL;
-    }
-
-    // allocate and set up bitmap
-    bm = alloc_bitmap(render_priv->engine, w + 2 * bord, h + 2 * bord, true);
-    if (!bm)
-        return NULL;
-    bm->left = bbox.xMin - bord;
-    bm->top = -bbox.yMax - bord;
-    bitmap.width = w;
-    bitmap.rows = h;
-    bitmap.pitch = bm->stride;
-    bitmap.buffer = bm->buffer + bord + bm->stride * bord;
-    bitmap.num_grays = 256;
-    bitmap.pixel_mode = FT_PIXEL_MODE_GRAY;
-
-    // render into target bitmap
-    if ((error = FT_Outline_Get_Bitmap(render_priv->ftlibrary, outline, &bitmap))) {
-        ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph: %d\n", error);
-        ass_free_bitmap(bm);
-        return NULL;
-    }
-
-    return bm;
-}
-
-Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          ASS_Outline *outline, int bord)
-{
-    size_t n_points = outline->n_points;
-    if (n_points > SHRT_MAX) {
-        ass_msg(render_priv->library, MSGL_WARN, "Too many outline points: %d",
-                outline->n_points);
-        n_points = SHRT_MAX;
-    }
-
-    size_t n_contours = FFMIN(outline->n_contours, SHRT_MAX);
-    short contours_small[EFFICIENT_CONTOUR_COUNT];
-    short *contours = contours_small;
-    short *contours_large = NULL;
-    if (n_contours > EFFICIENT_CONTOUR_COUNT) {
-        contours_large = malloc(n_contours * sizeof(short));
-        if (!contours_large)
-            return NULL;
-        contours = contours_large;
-    }
-    for (size_t i = 0; i < n_contours; ++i)
-        contours[i] = FFMIN(outline->contours[i], n_points - 1);
-
-    FT_Outline ftol;
-    ftol.n_points = n_points;
-    ftol.n_contours = n_contours;
-    ftol.points = outline->points;
-    ftol.tags = outline->tags;
-    ftol.contours = contours;
-    ftol.flags = 0;
-
-    Bitmap *bm = outline_to_bitmap_ft(render_priv, &ftol, bord);
-    free(contours_large);
-    return bm;
-}
-
-#endif
 
 /**
  * \brief fix outline bitmap

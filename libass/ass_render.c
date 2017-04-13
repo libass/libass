@@ -75,12 +75,10 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->engine = &ass_bitmap_engine_c;
 #endif
 
-#if CONFIG_RASTERIZER
     if (!rasterizer_init(&priv->rasterizer, priv->engine->tile_order, 16)) {
         FT_Done_FreeType(ft);
         goto ass_init_exit;
     }
-#endif
 
     priv->cache.font_cache = ass_font_cache_create();
     priv->cache.bitmap_cache = ass_bitmap_cache_create();
@@ -129,9 +127,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     ass_shaper_free(render_priv->shaper);
     ass_cache_done(render_priv->cache.font_cache);
 
-#if CONFIG_RASTERIZER
     rasterizer_done(&render_priv->rasterizer);
-#endif
 
     if (render_priv->fontselect)
         ass_fontselect_free(render_priv->fontselect);

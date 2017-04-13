@@ -124,13 +124,6 @@ AM_COND_IF([ASM],
     [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])]
     )
 
-AM_CONDITIONAL([RASTERIZER], [test x$enable_rasterizer != xno])
-
-AM_COND_IF([RASTERIZER],
-    [AC_DEFINE(CONFIG_RASTERIZER, 1, [rasterizer enabled])],
-    [AC_DEFINE(CONFIG_RASTERIZER, 0, [rasterizer enabled])]
-    )
-
 AM_CONDITIONAL([ENABLE_LARGE_TILES], [test x$enable_large_tiles = xyes])
 
 AM_COND_IF([ENABLE_LARGE_TILES],

@@ -62,12 +62,10 @@ typedef struct {
     int align_order;  // log2(alignment)
 
     // rasterizer functions
-#if CONFIG_RASTERIZER
     int tile_order;  // log2(tile_size)
     FillSolidTileFunc fill_solid;
     FillHalfplaneTileFunc fill_halfplane;
     FillGenericTileFunc fill_generic;
-#endif
 
     // blend functions
     BitmapBlendFunc add_bitmaps, sub_bitmaps;

@@ -32,8 +32,6 @@ typedef struct ass_outline {
     char *tags;
 } ASS_Outline;
 
-#define EFFICIENT_CONTOUR_COUNT 8
-
 bool outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_contours);
 ASS_Outline *outline_create(size_t n_points, size_t n_contours);
 ASS_Outline *outline_convert(const FT_Outline *source);

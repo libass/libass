@@ -92,7 +92,6 @@ void DECORATE(blur1246_vert)(int16_t *dst, const int16_t *src,
 const BitmapEngine DECORATE(bitmap_engine) = {
     .align_order = ALIGN,
 
-#if CONFIG_RASTERIZER
 #if CONFIG_LARGE_TILES
     .tile_order = 5,
     .fill_solid = DECORATE(fill_solid_tile32),
@@ -103,7 +102,6 @@ const BitmapEngine DECORATE(bitmap_engine) = {
     .fill_solid = DECORATE(fill_solid_tile16),
     .fill_halfplane = DECORATE(fill_halfplane_tile16),
     .fill_generic = DECORATE(fill_generic_tile16),
-#endif
 #endif
 
     .add_bitmaps = DECORATE(add_bitmaps),

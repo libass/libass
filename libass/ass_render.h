@@ -324,9 +324,7 @@ struct ass_renderer {
     CacheStore cache;
 
     const BitmapEngine *engine;
-#if CONFIG_RASTERIZER
     RasterizerData rasterizer;
-#endif
 
     ASS_Style user_override_style;
 };
