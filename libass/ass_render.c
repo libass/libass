@@ -2402,10 +2402,14 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 
 static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
 {
-    int left    = event_images->left;
-    int top     = event_images->top;
-    int right   = event_images->left + event_images->width;
-    int bottom  = event_images->top  + event_images->height;
+    double size_x = render_priv->state.shadow_x > 0 ?
+                    render_priv->state.shadow_x * render_priv->border_scale : 0;
+    double size_y = render_priv->state.shadow_y > 0 ?
+                    render_priv->state.shadow_y * render_priv->border_scale : 0;
+    int left    = event_images->left - size_x;
+    int top     = event_images->top  - size_y;
+    int right   = event_images->left + event_images->width  + size_x;
+    int bottom  = event_images->top  + event_images->height + size_y;
     left        = FFMINMAX(left,   0, render_priv->width);
     top         = FFMINMAX(top,    0, render_priv->height);
     right       = FFMINMAX(right,  0, render_priv->width);
