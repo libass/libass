@@ -1,3 +1,15 @@
+libass (unreleased)
+ * Fix invalid memory accesses with BorderStyle=4
+ * Fix change detection bug on frame resizes
+ * Fix cache bugs with border size
+ * Reduce precision of border width in font outline caching
+ * Don't treat :;<=>? as hexadecimal digits in color headers
+ * Fix parsing of unusual Alignment values in ASS style definitions
+ * Fix potential truncation in timestamp parsing
+ * Treat negative PlayResX/PlayResY like VSFilter
+ * Fixes to parsing of embedded fonts
+ * Remove arbitrary bitmap limit (fixes issues with subtitle rendering at 4K)
+
 libass (0.13.6)
  * Bump ABI version to account for the new Justify field in ASS_Style
    that was added in 0.13.5.
