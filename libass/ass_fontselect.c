@@ -588,14 +588,20 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
     // found anything?
     char *result = NULL;
     if (selected) {
+        ASS_FontProvider *provider = selected->provider;
+
         // successfully matched, set up return values
         *postscript_name = selected->postscript_name;
-        *index = selected->index;
         *uid   = selected->uid;
+
+        // use lazy evaluation for index if applicable
+        if (provider->funcs.get_font_index) {
+            *index = provider->funcs.get_font_index(selected->priv);
+        } else
+            *index = selected->index;
 
         // set up memory stream if there is no path
         if (selected->path == NULL) {
-            ASS_FontProvider *provider = selected->provider;
             stream->func = provider->funcs.get_data;
             stream->priv = selected->priv;
             // Prefer PostScript name because it is unique. This is only
@@ -607,11 +613,7 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
                 result = selected->families[0];
         } else
             result = selected->path;
-    }
 
-    // set up index, if lazy evaluation function exists
-    if (selected->provider->funcs.get_font_index) {
-        *index = selected->provider->funcs.get_font_index(selected->priv);
     }
 
     return result;
