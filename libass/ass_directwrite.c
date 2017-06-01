@@ -352,6 +352,19 @@ static bool check_postscript(void *data)
 }
 
 /*
+ * Lazily return index of font. It requires the FontFace to be present, which is expensive to initialize.
+ */
+static unsigned get_font_index(void *data)
+{
+    FontPrivate *priv = (FontPrivate *)data;
+
+    if (!init_font_private_face(priv))
+        return 0;
+
+    return IDWriteFontFace_GetIndex(priv->face);
+}
+
+/*
  * Check if the passed font has a specific unicode character.
  */
 static bool check_glyph(void *data, uint32_t code)
@@ -719,6 +732,7 @@ static ASS_FontProviderFuncs directwrite_callbacks = {
     .destroy_provider   = destroy_provider,
     .get_substitutions  = get_substitutions,
     .get_fallback       = get_fallback,
+    .get_font_index     = get_font_index,
 };
 
 typedef HRESULT (WINAPI *DWriteCreateFactoryFn)(

@@ -335,6 +335,8 @@ DECLARE_INTERFACE_(IDWriteFontFace,IUnknown)
         UINT32 *numberOfFiles,
         IDWriteFontFile **fontFiles) PURE;
 
+    STDMETHOD_(UINT32, GetIndex)(THIS) PURE;
+
     /* rest dropped */
     END_INTERFACE
 };
@@ -342,6 +344,7 @@ DECLARE_INTERFACE_(IDWriteFontFace,IUnknown)
 #define IDWriteFontFace_Release(This) (This)->lpVtbl->Release(This)
 #define IDWriteFontFace_GetType(This) (This)->lpVtbl->GetType(This)
 #define IDWriteFontFace_GetFiles(This,fontFiles,b) (This)->lpVtbl->GetFiles(This,fontFiles,b)
+#define IDWriteFontFace_GetIndex(This) (This)->lpVtbl->GetIndex(This)
 #endif /*COBJMACROS*/
 
 #undef  INTERFACE

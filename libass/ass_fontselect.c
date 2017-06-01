@@ -609,6 +609,11 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
             result = selected->path;
     }
 
+    // set up index, if lazy evaluation function exists
+    if (selected->provider->funcs.get_font_index) {
+        *index = selected->provider->funcs.get_font_index(selected->priv);
+    }
+
     return result;
 }
 

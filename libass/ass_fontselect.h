@@ -71,6 +71,16 @@ typedef bool    (*CheckPostscriptFunc)(void *font_priv);
 typedef bool    (*CheckGlyphFunc)(void *font_priv, uint32_t codepoint);
 
 /**
+* Get index of a font in context of a font collection.
+* This function is optional and may be needed to initialize the font index
+* lazily.
+*
+* \param font_priv font private data
+* \return font index inside the collection, or 0 in case of a single font
+*/
+typedef unsigned    (*GetFontIndex)(void *font_priv);
+
+/**
  * Destroy a font's private data.
  *
  *  \param font_priv font private data
@@ -150,6 +160,7 @@ typedef struct font_provider_funcs {
     MatchFontsFunc      match_fonts;            /* optional */
     SubstituteFontFunc  get_substitutions;      /* optional */
     GetFallbackFunc     get_fallback;           /* optional */
+    GetFontIndex        get_font_index;         /* optional */
 } ASS_FontProviderFuncs;
 
 /*
