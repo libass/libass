@@ -1,4 +1,4 @@
-libass (unreleased)
+libass (0.13.7)
  * Fix invalid memory accesses with BorderStyle=4
  * Fix change detection bug on frame resizes
  * Fix cache bugs with border size
@@ -9,6 +9,8 @@ libass (unreleased)
  * Treat negative PlayResX/PlayResY like VSFilter
  * Fixes to parsing of embedded fonts
  * Remove arbitrary bitmap limit (fixes issues with subtitle rendering at 4K)
+ * Allow using shadow offset to adjust size of background with BorderStyle=4
+ * Fix TrueType/OpenType font collection handling with the DirectWrite backend
 
 libass (0.13.6)
  * Bump ABI version to account for the new Justify field in ASS_Style
