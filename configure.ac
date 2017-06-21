@@ -58,20 +58,20 @@ AS_IF([test x$enable_asm != xno], [
     AS_CASE([$host],
         [i?86-*], [
             INTEL=true
-            AS=yasm
+            AS=nasm
             X86=true
             BITS=32
             BITTYPE=32
             ASFLAGS="$ASFLAGS -DARCH_X86_64=0" ],
         [x86_64-*-gnux32|amd64-*-gnux32], [
-            AS=yasm
+            AS=nasm
             INTEL=true
             X64=true
             BITS=64
             BITTYPE=x32
             ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -DPIC" ],
         [x86_64-*|amd64-*], [
-            AS=yasm
+            AS=nasm
             INTEL=true
             X64=true
             BITS=64
@@ -79,10 +79,10 @@ AS_IF([test x$enable_asm != xno], [
             ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -DPIC" ],
         )
     AS_IF([test x$INTEL = xtrue], [
-        AC_CHECK_PROG([yasm_check], [$AS], [yes])
-        AS_IF([test x$yasm_check != xyes], [
-            AC_MSG_WARN(yasm was not found; ASM functions are disabled.)
-            AC_MSG_WARN(Install yasm for a significantly faster libass build.)
+        AC_CHECK_PROG([nasm_check], [$AS], [yes])
+        AS_IF([test x$nasm_check != xyes], [
+            AC_MSG_WARN(nasm was not found; ASM functions are disabled.)
+            AC_MSG_WARN(Install nasm for a significantly faster libass build.)
             enable_asm=no
         ], [
             AS_CASE([$host],
@@ -106,8 +106,8 @@ AS_IF([test x$enable_asm != xno], [
             ], [
                 AC_MSG_RESULT([no])
                 VER=`($AS --version || echo no assembler) 2>/dev/null | head -n 1`
-                AC_MSG_WARN([yasm is too old (found $VER); ASM functions are disabled.])
-                AC_MSG_WARN([Install yasm-1.2.0 or later for a significantly faster libass build.])
+                AC_MSG_WARN([nasm is too old (found $VER); ASM functions are disabled.])
+                AC_MSG_WARN([Install nasm-2.10 or later for a significantly faster libass build.])
                 enable_asm=no
             ])
             rm conftest.asm conftest.o > /dev/null 2>&1

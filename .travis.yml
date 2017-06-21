@@ -29,7 +29,7 @@ branches:
 
 before_install:
   - (sudo apt-get update || brew update)
-  - (sudo apt-get install -y libfontconfig1-dev libfreetype6-dev libfribidi-dev libharfbuzz-dev yasm || brew install freetype fribidi yasm) && ./autogen.sh && ./configure
+  - (sudo apt-get install -y libfontconfig1-dev libfreetype6-dev libfribidi-dev libharfbuzz-dev nasm || brew install freetype fribidi nasm) && ./autogen.sh && ./configure
 script:
   - make -j4
 

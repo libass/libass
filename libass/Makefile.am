@@ -6,12 +6,12 @@ LIBASS_LT_CURRENT = 9
 LIBASS_LT_REVISION = 1
 LIBASS_LT_AGE = 0
 
-yasm_verbose = $(yasm_verbose_$(V))
-yasm_verbose_ = $(yasm_verbose_$(AM_DEFAULT_VERBOSITY))
-yasm_verbose_0 = @echo "  YASM    " $@;
+nasm_verbose = $(nasm_verbose_$(V))
+nasm_verbose_ = $(nasm_verbose_$(AM_DEFAULT_VERBOSITY))
+nasm_verbose_0 = @echo "  NASM    " $@;
 
 .asm.lo:
-	$(yasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
+	$(nasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
 
 SRC_INTEL = x86/rasterizer.asm x86/blend_bitmaps.asm x86/blur.asm x86/cpuid.asm \
             x86/cpuid.h
