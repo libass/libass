@@ -13,7 +13,7 @@ yasm_verbose_0 = @echo "  YASM    " $@;
 .asm.lo:
 	$(yasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
 
-SRC_INTEL = x86/rasterizer.asm x86/blend_bitmaps.asm x86/blur.asm x86/cpuid.asm x86/utils.asm \
+SRC_INTEL = x86/rasterizer.asm x86/blend_bitmaps.asm x86/blur.asm x86/cpuid.asm \
             x86/cpuid.h
 SRC_INTEL64 = x86/be_blur.asm
 
@@ -54,4 +54,4 @@ endif
 assheadersdir = $(includedir)/ass
 dist_assheaders_HEADERS = ass.h ass_types.h
 
-EXTRA_DIST = libass.sym x86/x86inc.asm
+EXTRA_DIST = libass.sym x86/x86inc.asm x86/utils.asm
