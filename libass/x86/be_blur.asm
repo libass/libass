@@ -18,7 +18,7 @@
 ;* OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ;******************************************************************************
 
-%include "x86inc.asm"
+%include "x86/x86inc.asm"
 
 SECTION_RODATA 32
 low_word_zero: dd 0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF
@@ -43,7 +43,7 @@ cglobal be_blur, 5,15,9
     lea r12, [r4 + r3 * 2] ; unsigned char *col_sum_buf = tmp + stride * 2;
     lea r14, [r1 - 2] ; tmpreg = (w-2);
     and r14, -8 ; tmpreg &= (~7);
-.first_loop
+.first_loop:
     movzx r10, byte [r7 + r6] ; int temp1 = src[x];
     lea r11, [r8 + r10] ; int temp2 = old_pix + temp1;
     mov r8, r10 ; old_pix = temp1;
@@ -58,7 +58,7 @@ cglobal be_blur, 5,15,9
     movzx r8, byte [r7 + 1] ; int old_pix = src[1];
     movzx r9, byte [r7] ; int old_sum = src[0];
     add r9, r8 ; old_sum += old_pix
-.second_loop
+.second_loop:
     movzx r10, byte [r7 + r6] ; int temp1 = src[x];
     lea r11, [r8 + r10] ; int temp2 = old_pix + temp1;
     mov r8, r10 ; old_pix = temp1;
@@ -72,7 +72,7 @@ cglobal be_blur, 5,15,9
     cmp r6, r1 ; x < w
     jl .second_loop
     mov r5, 2 ; int y = 2;
-.height_loop
+.height_loop:
     mov r10, r5; int tmpreg = y;
     imul r10, r3; tmpreg *= stride;
     lea r7, [r0 + r10] ; unsigned char *src=buf+y*stride;
@@ -82,9 +82,9 @@ cglobal be_blur, 5,15,9
     movzx r10, byte [r7] ; temp1 = src[0];
     movzx r11, byte [r7 + 1] ; temp2 = src[1];
     add r10, r11; temp1 += temp2
-    movd xmm0, r10; __m128i old_pix_128 = temp2;
-    movd xmm1, r11; __m128i old_sum_128 = temp1;
-.width_loop
+    movd xm0, r10d; __m128i old_pix_128 = temp2;
+    movd xm1, r11d; __m128i old_sum_128 = temp1;
+.width_loop:
     movq xmm2, [r7 + r6]; __m128i new_pix = (src+x);
     punpcklbw xmm2, xmm6 ; new_pix = _mm_unpacklo_epi8(new_pix, temp3);
     movdqa xmm3, xmm2 ; __m128i temp = new_pix;
@@ -116,7 +116,7 @@ cglobal be_blur, 5,15,9
     movzx r9, byte [r7 + r6 - 2] ; old_sum = old_pix + src[x-2];
     add r9, r8
     jmp .final_width_check
-.final_width_loop
+.final_width_loop:
     movzx r10, byte [r7 + r6] ; temp1 = src[x];
     lea r11, [r8 + r10] ; temp2 = old_pix + temp1;
     mov r8, r10 ; old_pix = temp1;
@@ -131,7 +131,7 @@ cglobal be_blur, 5,15,9
     mov byte [r13 + r6 - 1], r10b ; dst[x-1] = temp1
     mov [r12 + r6 * 2], r11w ; col_sum_buf[x] = temp2;
     inc r6 ; x++
-.final_width_check
+.final_width_check:
     cmp r6, r1 ; x < w
     jl .final_width_loop
     inc r5 ; y++;
@@ -152,8 +152,8 @@ cglobal be_blur, 5,15,9
     lea r12, [r4 + r3 * 2] ; unsigned char *col_sum_buf = tmp + stride * 2;
     lea r14, [r1 - 2] ; tmpreg = (w-2);
     and r14, -16 ; tmpreg &= (~15);
-    vmovdqa ymm7, [low_word_zero wrt rip]
-.first_loop
+    vmovdqa ymm7, [low_word_zero]
+.first_loop:
     movzx r10, byte [r7 + r6] ; int temp1 = src[x];
     lea r11, [r8 + r10] ; int temp2 = old_pix + temp1;
     mov r8, r10 ; old_pix = temp1;
@@ -168,7 +168,7 @@ cglobal be_blur, 5,15,9
     movzx r8, byte [r7 + 1] ; int old_pix = src[1];
     movzx r9, byte [r7] ; int old_sum = src[0];
     add r9, r8 ; old_sum += old_pix
-.second_loop
+.second_loop:
     movzx r10, byte [r7 + r6] ; int temp1 = src[x];
     lea r11, [r8 + r10] ; int temp2 = old_pix + temp1;
     mov r8, r10 ; old_pix = temp1;
@@ -182,7 +182,7 @@ cglobal be_blur, 5,15,9
     cmp r6, r1 ; x < w
     jl .second_loop
     mov r5, 2 ; int y = 2;
-.height_loop
+.height_loop:
     mov r10, r5; int tmpreg = y;
     imul r10, r3; tmpreg *= stride;
     lea r7, [r0 + r10] ; unsigned char *src=buf+y*stride;
@@ -194,7 +194,7 @@ cglobal be_blur, 5,15,9
     add r10, r11; temp1 += temp2
     vmovd xmm0, r10d; __m128i old_pix_128 = temp2;
     vmovd xmm1, r11d; __m128i old_sum_128 = temp1;
-.width_loop
+.width_loop:
     vpermq ymm2, [r7 + r6], 0x10
     vpunpcklbw ymm2, ymm2, ymm6 ; new_pix = _mm_unpacklo_epi8(new_pix, temp3);
     vpermq ymm8, ymm2, 0x4e
@@ -229,7 +229,7 @@ cglobal be_blur, 5,15,9
     movzx r9, byte [r7 + r6 - 2] ; old_sum = old_pix + src[x-2];
     add r9, r8
     jmp .final_width_check
-.final_width_loop
+.final_width_loop:
     movzx r10, byte [r7 + r6] ; temp1 = src[x];
     lea r11, [r8 + r10] ; temp2 = old_pix + temp1;
     mov r8, r10 ; old_pix = temp1;
@@ -244,7 +244,7 @@ cglobal be_blur, 5,15,9
     mov byte [r13 + r6 - 1], r10b ; dst[x-1] = temp1
     mov [r12 + r6 * 2], r11w ; col_sum_buf[x] = temp2;
     inc r6 ; x++
-.final_width_check
+.final_width_check:
     cmp r6, r1 ; x < w
     jl .final_width_loop
     inc r5 ; y++;

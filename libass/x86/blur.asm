@@ -18,7 +18,7 @@
 ;* OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ;******************************************************************************
 
-%include "utils.asm"
+%include "x86/utils.asm"
 
 SECTION_RODATA 32
 
@@ -57,7 +57,7 @@ cglobal stripe_unpack, 5,6,3
     mova m2, [words_one]
     jmp .row_loop
 
-.col_loop
+.col_loop:
     mova m1, [r1]
 %if mmsize == 32
     vpermq m1, m1, q3120
@@ -75,7 +75,7 @@ cglobal stripe_unpack, 5,6,3
     mova [r0 + r5], m1
     add r5, r4
     add r1, mmsize
-.row_loop
+.row_loop:
     cmp r5, r3
     jl .col_loop
     sub r5, r4
@@ -93,7 +93,7 @@ cglobal stripe_unpack, 5,6,3
     psrlw m0, 1
     mova [r0 + r5], m0
 
-.skip_odd
+.skip_odd:
     add r5, mmsize
     sub r5, r3
     add r1, r2
@@ -126,7 +126,7 @@ cglobal stripe_pack, 5,7,5
     sub r5, r6
     jmp .row_loop
 
-.col_loop
+.col_loop:
     mova m0, [r2]
     mova m2, m0
     psrlw m2, 8
@@ -153,7 +153,7 @@ cglobal stripe_pack, 5,7,5
     jb .col_loop
     add r0, r5
     add r2, r4
-.row_loop
+.row_loop:
     mova m3, [words_dither0]
     mova m4, [words_dither1]
     lea r6, [r2 + r4]
@@ -163,7 +163,7 @@ cglobal stripe_pack, 5,7,5
     jb .odd_stripe
     RET
 
-.odd_stripe
+.odd_stripe:
     mova m0, [r2]
     mova m2, m0
     psrlw m2, 8
@@ -264,7 +264,7 @@ cglobal shrink_horz, 4,7,8
 %endif
 
     lea r5, [r0 + r3]
-.main_loop
+.main_loop:
 %if ARCH_X86_64
     LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6, right
     LOAD_LINE 1, r1,r2,r7, r4 + 1 * r3, r6
@@ -406,13 +406,13 @@ cglobal shrink_vert, 4,7,8
     lea r6, [words_zero]
     sub r6, r1
 
-.col_loop
+.col_loop:
     mov r4, -4 * mmsize
     pxor m0, m0
     pxor m1, m1
     pxor m2, m2
     pxor m3, m3
-.row_loop
+.row_loop:
     LOAD_LINE 4, r1,r3,r6, r4 + 4 * mmsize, r5
     LOAD_LINE 5, r1,r3,r6, r4 + 5 * mmsize, r5
 
@@ -499,7 +499,7 @@ cglobal expand_horz, 4,7,5
 %if ARCH_X86_64 == 0
     PUSH t0
 %endif
-.main_loop
+.main_loop:
 %if ARCH_X86_64
     LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6, right
     LOAD_LINE 1, r1,r2,r7, r4 + 1 * r3, r6
@@ -562,7 +562,7 @@ cglobal expand_horz, 4,7,5
     jb .odd_stripe
     RET
 
-.odd_stripe
+.odd_stripe:
 %if ARCH_X86_64
     LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6, right
     LOAD_LINE 1, r1,r2,r7, r4 + 1 * r3, r6, left
@@ -631,11 +631,11 @@ cglobal expand_vert, 4,7,5
     lea r6, [words_zero]
     sub r6, r1
 
-.col_loop
+.col_loop:
     mov r4, -2 * mmsize
     pxor m0, m0
     pxor m1, m1
-.row_loop
+.row_loop:
     LOAD_LINE 2, r1,r3,r6, r4 + 2 * mmsize, r5
 
     paddw m3, m0, m2
@@ -701,7 +701,7 @@ cglobal pre_blur1_horz, 4,7,4
     sub r7, r1
 %endif
 
-.main_loop
+.main_loop:
 %if ARCH_X86_64
     LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6, right
     LOAD_LINE 1, r1,r2,r7, r4 + 1 * r3, r6
@@ -758,11 +758,11 @@ cglobal pre_blur1_vert, 4,7,4
     lea r6, [words_zero]
     sub r6, r1
 
-.col_loop
+.col_loop:
     mov r4, -2 * mmsize
     pxor m0, m0
     pxor m1, m1
-.row_loop
+.row_loop:
     LOAD_LINE 2, r1,r3,r6, r4 + 2 * mmsize, r5
 
     paddw m0, m2
@@ -819,7 +819,7 @@ cglobal pre_blur2_horz, 4,7,7
     sub r7, r1
 %endif
 
-.main_loop
+.main_loop:
 %if ARCH_X86_64
     LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6, right
     LOAD_LINE 1, r1,r2,r7, r4 + 1 * r3, r6
@@ -898,13 +898,13 @@ cglobal pre_blur2_vert, 4,7,8
     lea r6, [words_zero]
     sub r6, r1
 
-.col_loop
+.col_loop:
     mov r4, -4 * mmsize
     pxor m0, m0
     pxor m1, m1
     pxor m2, m2
     pxor m3, m3
-.row_loop
+.row_loop:
     LOAD_LINE 4, r1,r3,r6, r4 + 4 * mmsize, r5
 
 %if ARCH_X86_64
@@ -1018,7 +1018,7 @@ cglobal pre_blur3_horz, 4,7,8
     sub r7, r1
 %endif
 
-.main_loop
+.main_loop:
 %if ARCH_X86_64
     LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6, right
     LOAD_LINE 1, r1,r2,r7, r4 + 1 * r3, r6
@@ -1110,9 +1110,9 @@ cglobal pre_blur3_vert, 4,7,8
     lea r6, [words_zero]
     sub r6, r1
 
-.col_loop
+.col_loop:
     mov r4, -6 * mmsize
-.row_loop
+.row_loop:
     mova m6, m4
     mova m7, m4
     LOAD_LINE 0, r1,r3,r6, r4 + 3 * mmsize, r5
@@ -1227,7 +1227,7 @@ cglobal blur%1_horz, 5,7,8
     sub r7, r1
 %endif
 
-.main_loop
+.main_loop:
 %if ARCH_X86_64
 %if %%i4 > 4
     LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6
@@ -1366,9 +1366,9 @@ cglobal blur%1_vert, 5,7,8
     lea r6, [words_zero]
     sub r6, r1
 
-.col_loop
+.col_loop:
     mov r4, -2 * %%i4 * mmsize
-.row_loop
+.row_loop:
     mova m6, m8
     mova m7, m8
     LOAD_LINE 0, r1,r3,r6, r4 + %%i4 * mmsize, r5

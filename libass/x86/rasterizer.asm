@@ -18,7 +18,7 @@
 ;* OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ;******************************************************************************
 
-%include "utils.asm"
+%include "x86/utils.asm"
 
 SECTION_RODATA 32
 
@@ -216,7 +216,7 @@ cglobal fill_halfplane_tile%2, 6,7,8
     mov r2d, (1 << %1)
     jmp .loop_entry
 
-.loop_start
+.loop_start:
     add r0, r1
 %if ARCH_X86_64 || a_shift == 0
     psubw m1, m8
@@ -224,7 +224,7 @@ cglobal fill_halfplane_tile%2, 6,7,8
     BCASTW 7, r3d
     psubw m1, m7
 %endif
-.loop_entry
+.loop_entry:
 %assign i 0
 %rep (1 << %1) / mmsize
 %if i
@@ -597,7 +597,7 @@ cglobal fill_generic_tile%2, 0,7,8
     %define dn_pos [rstk + delta_offs + 2 * tile_size + 8]
 %endif
 
-.line_loop
+.line_loop:
 %if ARCH_X86_64 == 0
     mov t3, r2m
     lea t0, [t3 + line_size]
@@ -743,7 +743,7 @@ cglobal fill_generic_tile%2, 0,7,8
     jmp .bulk_fill
 %endif
 
-.generic_fist
+.generic_fist:
 %if ARCH_X86_64 == 0
     mov t5, dn_addr
 %if a_shift
@@ -751,7 +751,7 @@ cglobal fill_generic_tile%2, 0,7,8
 %endif
 %endif
 
-.bulk_fill
+.bulk_fill:
     mov t2d, 1 << (13 - %1)
     mov t0d, t9d  ; b
     sar t0d, 1
@@ -785,7 +785,7 @@ cglobal fill_generic_tile%2, 0,7,8
 
     mova mm_full, [words_tile%2]
 %endif
-.internal_loop
+.internal_loop:
 %assign i 0
 %rep (2 << %1) / mmsize
 %if i
@@ -807,7 +807,7 @@ cglobal fill_generic_tile%2, 0,7,8
     psubw mm_c, m0
 %endif
 
-.end_loop
+.end_loop:
 %if ARCH_X86_64
     test t7d, t7d
     jz .end_line_loop
@@ -820,17 +820,17 @@ cglobal fill_generic_tile%2, 0,7,8
     jmp .last_line
 %endif
 
-.single_line
+.single_line:
 %if ARCH_X86_64 == 0
     mov t7d, dn_pos
 %endif
     mov t2d, t7d
     sub t2d, t6d  ; dn_pos - up_pos
     add t6d, t7d  ; dn_pos + up_pos
-.last_line
+.last_line:
     FILL_BORDER_LINE %1, t4,t8,t9,t10,t2,t6, t0,t1, 0,1,2,3,4,5
 
-.end_line_loop
+.end_line_loop:
 %if ARCH_X86_64
     add r2, line_size
     sub r3, 1

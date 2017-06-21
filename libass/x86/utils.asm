@@ -18,8 +18,7 @@
 ;* OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ;******************************************************************************
 
-%define PIC
-%include "x86inc.asm"
+%include "x86/x86inc.asm"
 
 ;------------------------------------------------------------------------------
 ; MUL 1:reg, 2:num

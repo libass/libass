@@ -18,7 +18,7 @@
 ;* OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ;******************************************************************************
 
-%include "x86inc.asm"
+%include "x86/x86inc.asm"
 
 SECTION_RODATA 32
 
@@ -154,7 +154,7 @@ cglobal sub_bitmaps_x86, 6,10
         add r6, mmsize
         cmp r6, r7
         jl .stride_loop ; still in scan line
-    .stride_loop2
+    .stride_loop2:
         cmp r6, r5
         jge .finish
         movzx r8, byte [r0 + r6]
@@ -163,7 +163,7 @@ cglobal sub_bitmaps_x86, 6,10
         mov byte [r0 + r6], r8b
         inc r6
         jmp .stride_loop2
-    .finish
+    .finish:
         add r0, r1
         add r2, r3
         cmp r2, r4
@@ -215,7 +215,7 @@ cglobal mul_bitmaps, 8,12
     imul r7, r3
     add r7, r2 ; last address
     pxor xmm2, xmm2
-    movdqa xmm3, [words_255 wrt rip]
+    movdqa xmm3, [words_255]
     mov r9, r6
     and r9, -8 ; &= (~8);
 .height_loop:
@@ -233,7 +233,7 @@ cglobal mul_bitmaps, 8,12
     add r8, 8
     cmp r8, r9
     jl .stride_loop ; still in scan line
-.stride_loop2
+.stride_loop2:
     cmp r8, r6
     jge .finish
     movzx r10, byte [r2 + r8]
@@ -262,7 +262,7 @@ cglobal mul_bitmaps, 8,12
     imul r7, r3
     add r7, r2 ; last address
     vpxor ymm2, ymm2
-    vmovdqa ymm3, [words_255 wrt rip]
+    vmovdqa ymm3, [words_255]
     mov r9, r6
     and r9, -16 ; &= (~16);
 .height_loop:
@@ -283,7 +283,7 @@ cglobal mul_bitmaps, 8,12
     add r8, 16
     cmp r8, r9
     jl .stride_loop ; still in scan line
-.stride_loop2
+.stride_loop2:
     cmp r8, r6
     jge .finish
     movzx r10, byte [r2 + r8]
