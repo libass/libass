@@ -61,33 +61,23 @@ AS_IF([test x$enable_asm != xno], [
             AS=yasm
             X86=true
             BITS=32
-            ASFLAGS="$ASFLAGS -DARCH_X86_64=0 -m x86" ],
+            BITTYPE=32
+            ASFLAGS="$ASFLAGS -DARCH_X86_64=0" ],
         [x86_64-*-gnux32|amd64-*-gnux32], [
             AS=yasm
             INTEL=true
             X64=true
             BITS=64
-            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -m x32" ],
+            BITTYPE=x32
+            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -DPIC" ],
         [x86_64-*|amd64-*], [
             AS=yasm
             INTEL=true
             X64=true
             BITS=64
-            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -m amd64" ],
+            BITTYPE=64
+            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -DPIC" ],
         )
-    AS_CASE([$host],
-        [*darwin*], [
-            ASFLAGS="$ASFLAGS -f macho$BITS -DPREFIX -DHAVE_ALIGNED_STACK=1" ],
-        [*linux*|*dragonfly*|*bsd*|*solaris*], [
-            ASFLAGS="$ASFLAGS -f elf -DHAVE_ALIGNED_STACK=1" ],
-        [*cygwin*|*mingw*], [
-            ASFLAGS="$ASFLAGS -f win$BITS"
-            AS_IF([test x$BITS = x64], [
-                ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=1"
-            ], [
-                ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0 -DPREFIX"
-            ])
-        ])
     AS_IF([test x$INTEL = xtrue], [
         AC_CHECK_PROG([yasm_check], [$AS], [yes])
         AS_IF([test x$yasm_check != xyes], [
@@ -95,6 +85,20 @@ AS_IF([test x$enable_asm != xno], [
             AC_MSG_WARN(Install yasm for a significantly faster libass build.)
             enable_asm=no
         ], [
+            AS_CASE([$host],
+                [*darwin*], [
+                    ASFLAGS="$ASFLAGS -f macho$BITTYPE -DPREFIX -DHAVE_ALIGNED_STACK=1" ],
+                [*linux*|*dragonfly*|*bsd*|*solaris*], [
+                    ASFLAGS="$ASFLAGS -f elf$BITTYPE -DHAVE_ALIGNED_STACK=1" ],
+                [*cygwin*|*mingw*], [
+                    ASFLAGS="$ASFLAGS -f win$BITTYPE"
+                    AS_IF([test x$BITS = x64], [
+                        ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=1"
+                    ], [
+                        ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0 -DPREFIX"
+                    ])
+                ])
+            ASFLAGS="$ASFLAGS -DHAVE_CPUNOP=0 -Dprivate_prefix=ass"
             AC_MSG_CHECKING([if $AS supports vpmovzxwd])
             echo "vpmovzxwd ymm0, xmm0" > conftest.asm
             AS_IF([$AS conftest.asm $ASFLAGS -o conftest.o >conftest.log 2>&1], [
