@@ -76,7 +76,10 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 #endif
 
 #if CONFIG_RASTERIZER
-    rasterizer_init(&priv->rasterizer, 16);
+    if (!rasterizer_init(&priv->rasterizer, priv->engine->tile_order, 16)) {
+        FT_Done_FreeType(ft);
+        goto ass_init_exit;
+    }
 #endif
 
     priv->cache.font_cache = ass_font_cache_create();

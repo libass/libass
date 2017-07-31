@@ -192,7 +192,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           ASS_Outline *outline, int bord)
 {
     RasterizerData *rst = &render_priv->rasterizer;
-    if (!rasterizer_set_outline(rst, outline)) {
+    if (!rasterizer_set_outline(rst, outline, false)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
         return NULL;
     }

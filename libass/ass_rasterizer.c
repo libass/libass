@@ -51,12 +51,16 @@ static inline int ilog2(uint32_t n)
 }
 
 
-void rasterizer_init(RasterizerData *rst, int outline_error)
+bool rasterizer_init(RasterizerData *rst, int tile_order, int outline_error)
 {
     rst->outline_error = outline_error;
     rst->linebuf[0] = rst->linebuf[1] = NULL;
     rst->size[0] = rst->capacity[0] = 0;
     rst->size[1] = rst->capacity[1] = 0;
+    rst->n_first = 0;
+
+    rst->tile = ass_aligned_alloc(32, 1 << (2 * tile_order), false);
+    return rst->tile;
 }
 
 /**
@@ -87,6 +91,8 @@ void rasterizer_done(RasterizerData *rst)
 {
     free(rst->linebuf[0]);
     free(rst->linebuf[1]);
+
+    ass_aligned_free(rst->tile);
 }
 
 
@@ -258,13 +264,19 @@ static bool add_cubic(RasterizerData *rst, const OutlinePoint *pt)
 }
 
 
-bool rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
+bool rasterizer_set_outline(RasterizerData *rst,
+                            const ASS_Outline *path, bool extra)
 {
     enum Status {
         S_ON, S_Q, S_C1, S_C2
     };
 
-    rst->size[0] = 0;
+    if (!extra) {
+        rst->x_min = rst->y_min = INT32_MAX;
+        rst->x_max = rst->y_max = INT32_MIN;
+        rst->n_first = 0;
+    }
+    rst->size[0] = rst->n_first;
     for (size_t i = 0, j = 0; i < path->n_contours; i++) {
         OutlinePoint start, p[4];
         int process_end = 1;
@@ -428,14 +440,14 @@ bool rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
             }
     }
 
-    rst->x_min = rst->y_min = 0x7FFFFFFF;
-    rst->x_max = rst->y_max = 0x80000000;
-    for (size_t k = 0; k < rst->size[0]; k++) {
+    for (size_t k = rst->n_first; k < rst->size[0]; k++) {
         rst->x_min = FFMIN(rst->x_min, rst->linebuf[0][k].x_min);
         rst->x_max = FFMAX(rst->x_max, rst->linebuf[0][k].x_max);
         rst->y_min = FFMIN(rst->y_min, rst->linebuf[0][k].y_min);
         rst->y_max = FFMAX(rst->y_max, rst->linebuf[0][k].y_max);
     }
+    if (!extra)
+        rst->n_first = rst->size[0];
     return true;
 }
 
@@ -553,80 +565,99 @@ static inline int segment_check_bottom(const struct segment *line, int32_t y)
 /**
  * \brief Split list of segments horizontally
  * \param src in: input array, can coincide with *dst0 or *dst1
- * \param n_src in: input array size
- * \param dst0, dst1 out: pointers to output arrays of at least n_src size
+ * \param n_src in: numbers of input segments for both groups
+ * \param dst0, dst1 out: output arrays of at least n_src[0] + n_src[1] size
+ * \param n_dst0, n_dst1 out: numbers of output segments for both groups
+ * \param winding out: resulting winding of bottom-split point
  * \param x in: split coordinate
- * \return winding difference between bottom-split and bottom-left points
  */
-static int polyline_split_horz(const struct segment *src, size_t n_src,
-                               struct segment **dst0, struct segment **dst1, int32_t x)
+static void polyline_split_horz(const struct segment *src, const size_t n_src[2],
+                                struct segment *dst0, size_t n_dst0[2],
+                                struct segment *dst1, size_t n_dst1[2],
+                                int winding[2], int32_t x)
 {
-    int winding = 0;
-    const struct segment *end = src + n_src;
+    const struct segment *cmp = src + n_src[0];
+    const struct segment *end = cmp + n_src[1];
+    n_dst0[0] = n_dst0[1] = 0;
+    n_dst1[0] = n_dst1[1] = 0;
     for (; src != end; src++) {
+        int group = src < cmp ? 0 : 1;
+
         int delta = 0;
         if (!src->y_min && (src->flags & SEGFLAG_EXACT_TOP))
             delta = src->a < 0 ? 1 : -1;
         if (segment_check_right(src, x)) {
-            winding += delta;
+            winding[group] += delta;
             if (src->x_min >= x)
                 continue;
-            **dst0 = *src;
-            (*dst0)->x_max = FFMIN((*dst0)->x_max, x);
-            ++(*dst0);
+            *dst0 = *src;
+            dst0->x_max = FFMIN(dst0->x_max, x);
+            n_dst0[group]++;
+            dst0++;
             continue;
         }
         if (segment_check_left(src, x)) {
-            **dst1 = *src;
-            segment_move_x(*dst1, x);
-            ++(*dst1);
+            *dst1 = *src;
+            segment_move_x(dst1, x);
+            n_dst1[group]++;
+            dst1++;
             continue;
         }
         if (src->flags & SEGFLAG_UL_DR)
-            winding += delta;
-        **dst0 = *src;
-        segment_split_horz(*dst0, *dst1, x);
-        ++(*dst0);
-        ++(*dst1);
+            winding[group] += delta;
+        *dst0 = *src;
+        segment_split_horz(dst0, dst1, x);
+        n_dst0[group]++;
+        dst0++;
+        n_dst1[group]++;
+        dst1++;
     }
-    return winding;
 }
 
 /**
  * \brief Split list of segments vertically
  */
-static int polyline_split_vert(const struct segment *src, size_t n_src,
-                               struct segment **dst0, struct segment **dst1, int32_t y)
+static void polyline_split_vert(const struct segment *src, const size_t n_src[2],
+                                struct segment *dst0, size_t n_dst0[2],
+                                struct segment *dst1, size_t n_dst1[2],
+                                int winding[2], int32_t y)
 {
-    int winding = 0;
-    const struct segment *end = src + n_src;
+    const struct segment *cmp = src + n_src[0];
+    const struct segment *end = cmp + n_src[1];
+    n_dst0[0] = n_dst0[1] = 0;
+    n_dst1[0] = n_dst1[1] = 0;
     for (; src != end; src++) {
+        int group = src < cmp ? 0 : 1;
+
         int delta = 0;
         if (!src->x_min && (src->flags & SEGFLAG_EXACT_LEFT))
             delta = src->b < 0 ? 1 : -1;
         if (segment_check_bottom(src, y)) {
-            winding += delta;
+            winding[group] += delta;
             if (src->y_min >= y)
                 continue;
-            **dst0 = *src;
-            (*dst0)->y_max = (*dst0)->y_max < y ? (*dst0)->y_max : y;
-            ++(*dst0);
+            *dst0 = *src;
+            dst0->y_max = dst0->y_max < y ? dst0->y_max : y;
+            n_dst0[group]++;
+            dst0++;
             continue;
         }
         if (segment_check_top(src, y)) {
-            **dst1 = *src;
-            segment_move_y(*dst1, y);
-            ++(*dst1);
+            *dst1 = *src;
+            segment_move_y(dst1, y);
+            n_dst1[group]++;
+            dst1++;
             continue;
         }
         if (src->flags & SEGFLAG_UL_DR)
-            winding += delta;
-        **dst0 = *src;
-        segment_split_vert(*dst0, *dst1, y);
-        ++(*dst0);
-        ++(*dst1);
+            winding[group] += delta;
+        *dst0 = *src;
+        segment_split_vert(dst0, dst1, y);
+        n_dst0[group]++;
+        dst0++;
+        n_dst1[group]++;
+        dst1++;
     }
-    return winding;
 }
 
 
@@ -683,6 +714,34 @@ static inline void rasterizer_fill_halfplane(const BitmapEngine *engine,
     }
 }
 
+enum {
+    FLAG_SOLID     = 1,
+    FLAG_COMPLEX   = 2,
+    FLAG_REVERSE   = 4,
+    FLAG_GENERIC   = 8,
+};
+
+static inline int get_fill_flags(struct segment *line, size_t n_lines, int winding)
+{
+    if (!n_lines)
+        return winding ? FLAG_SOLID : 0;
+    if (n_lines > 1)
+        return FLAG_COMPLEX | FLAG_GENERIC;
+
+    static const int test = SEGFLAG_UL_DR | SEGFLAG_EXACT_LEFT;
+    if (((line->flags & test) != test) == !(line->flags & SEGFLAG_DN))
+        winding++;
+
+    switch (winding) {
+    case 0:
+        return FLAG_COMPLEX | FLAG_REVERSE;
+    case 1:
+        return FLAG_COMPLEX;
+    default:
+        return FLAG_SOLID;
+    }
+}
+
 /**
  * \brief Main quad-tree filling function
  * \param index index (0 or 1) of the input segment buffer (rst->linebuf)
@@ -694,72 +753,92 @@ static inline void rasterizer_fill_halfplane(const BitmapEngine *engine,
  */
 static bool rasterizer_fill_level(const BitmapEngine *engine, RasterizerData *rst,
                                   uint8_t *buf, int width, int height, ptrdiff_t stride,
-                                  int index, size_t offs, int winding)
+                                  int index, const size_t n_lines[2], const int winding[2])
 {
     assert(width > 0 && height > 0);
-    assert((unsigned)index < 2u && offs <= rst->size[index]);
+    assert((unsigned)index < 2u && n_lines[0] + n_lines[1] <= rst->size[index]);
     assert(!(width  & ((1 << engine->tile_order) - 1)));
     assert(!(height & ((1 << engine->tile_order) - 1)));
 
-    size_t n = rst->size[index] - offs;
-    struct segment *line = rst->linebuf[index] + offs;
-    if (!n) {
-        rasterizer_fill_solid(engine, buf, width, height, stride, winding);
+    size_t offs = rst->size[index] - n_lines[0] - n_lines[1];
+    struct segment *line = rst->linebuf[index] + offs, *line1 = line + n_lines[0];
+    int flags0 = get_fill_flags(line,  n_lines[0], winding[0]);
+    int flags1 = get_fill_flags(line1, n_lines[1], winding[1]);
+    int flags = (flags0 | flags1) ^ FLAG_COMPLEX;
+    if (flags & (FLAG_SOLID | FLAG_COMPLEX)) {
+        rasterizer_fill_solid(engine, buf, width, height, stride, flags & FLAG_SOLID);
+        rst->size[index] = offs;
         return true;
     }
-    if (n == 1) {
-        static const int test = SEGFLAG_UL_DR | SEGFLAG_EXACT_LEFT;
-        if (((line->flags & test) != test) == !(line->flags & SEGFLAG_DN))
-            winding++;
-
-        int flag = 0;
-        if (winding)
-            flag ^= 1;
-        if (winding - 1)
-            flag ^= 3;
-        if (flag & 1)
-            rasterizer_fill_halfplane(engine, buf, width, height, stride,
-                                      line->a, line->b, line->c,
-                                      flag & 2 ? -line->scale : line->scale);
-        else
-            rasterizer_fill_solid(engine, buf, width, height, stride, flag & 2);
+    if (!(flags & FLAG_GENERIC) && ((flags0 ^ flags1) & FLAG_COMPLEX)) {
+        if (flags1 & FLAG_COMPLEX)
+            line = line1;
+        rasterizer_fill_halfplane(engine, buf, width, height, stride,
+                                  line->a, line->b, line->c,
+                                  flags & FLAG_REVERSE ? -line->scale : line->scale);
         rst->size[index] = offs;
         return true;
     }
     if (width == 1 << engine->tile_order && height == 1 << engine->tile_order) {
-        engine->fill_generic(buf, stride, line, rst->size[index] - offs, winding);
+        if (!(flags1 & FLAG_COMPLEX)) {
+            engine->fill_generic(buf, stride, line, n_lines[0], winding[0]);
+            rst->size[index] = offs;
+            return true;
+        }
+        if (!(flags0 & FLAG_COMPLEX)) {
+            engine->fill_generic(buf, stride, line1, n_lines[1], winding[1]);
+            rst->size[index] = offs;
+            return true;
+        }
+        if (flags0 & FLAG_GENERIC)
+            engine->fill_generic(buf, stride, line, n_lines[0], winding[0]);
+        else
+            engine->fill_halfplane(buf, stride, line->a, line->b, line->c,
+                                   flags0 & FLAG_REVERSE ? -line->scale : line->scale);
+        if (flags1 & FLAG_GENERIC)
+            engine->fill_generic(rst->tile, width, line1, n_lines[1], winding[1]);
+        else
+            engine->fill_halfplane(rst->tile, width, line1->a, line1->b, line1->c,
+                                   flags1 & FLAG_REVERSE ? -line1->scale : line1->scale);
+        // XXX: better to use max instead of add
+        engine->add_bitmaps(buf, stride, rst->tile, width, height, width);
         rst->size[index] = offs;
         return true;
     }
 
     size_t offs1 = rst->size[index ^ 1];
-    if (!check_capacity(rst, index ^ 1, n))
+    if (!check_capacity(rst, index ^ 1, n_lines[0] + n_lines[1]))
         return false;
     struct segment *dst0 = line;
     struct segment *dst1 = rst->linebuf[index ^ 1] + offs1;
 
-    int winding1 = winding;
     uint8_t *buf1 = buf;
     int width1  = width;
     int height1 = height;
+    size_t n_next0[2], n_next1[2];
+    int winding1[2] = { winding[0], winding[1] };
     if (width > height) {
         width = 1 << ilog2(width - 1);
         width1 -= width;
         buf1 += width;
-        winding1 += polyline_split_horz(line, n, &dst0, &dst1, (int32_t)width << 6);
+        polyline_split_horz(line, n_lines,
+                            dst0, n_next0, dst1, n_next1,
+                            winding1, (int32_t)width << 6);
     } else {
         height = 1 << ilog2(height - 1);
         height1 -= height;
         buf1 += height * stride;
-        winding1 += polyline_split_vert(line, n, &dst0, &dst1, (int32_t)height << 6);
+        polyline_split_vert(line, n_lines,
+                            dst0, n_next0, dst1, n_next1,
+                            winding1, (int32_t)height << 6);
     }
-    rst->size[index ^ 0] = dst0 - rst->linebuf[index ^ 0];
-    rst->size[index ^ 1] = dst1 - rst->linebuf[index ^ 1];
+    rst->size[index ^ 0] = offs  + n_next0[0] + n_next0[1];
+    rst->size[index ^ 1] = offs1 + n_next1[0] + n_next1[1];
 
-    if (!rasterizer_fill_level(engine, rst, buf,  width,  height,  stride, index ^ 0, offs,  winding))
+    if (!rasterizer_fill_level(engine, rst, buf,  width,  height,  stride, index ^ 0, n_next0,  winding))
         return false;
     assert(rst->size[index ^ 0] == offs);
-    if (!rasterizer_fill_level(engine, rst, buf1, width1, height1, stride, index ^ 1, offs1, winding1))
+    if (!rasterizer_fill_level(engine, rst, buf1, width1, height1, stride, index ^ 1, n_next1, winding1))
         return false;
     assert(rst->size[index ^ 1] == offs1);
     return true;
@@ -774,9 +853,8 @@ bool rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
     assert(!(height & ((1 << engine->tile_order) - 1)));
     x0 *= 1 << 6;  y0 *= 1 << 6;
 
-    size_t n = rst->size[0];
     struct segment *line = rst->linebuf[0];
-    struct segment *end = line + n;
+    struct segment *end = line + rst->size[0];
     for (; line != end; line++) {
         line->x_min -= x0;
         line->x_max -= x0;
@@ -789,40 +867,44 @@ bool rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
     rst->y_min -= y0;
     rst->y_max -= y0;
 
-    int index = 0;
-    int winding = 0;
     if (!check_capacity(rst, 1, rst->size[0]))
         return false;
+
+    size_t n_unused[2];
+    size_t n_lines[2] = { rst->n_first, rst->size[0] - rst->n_first };
+    int winding[2] = { 0, 0 };
+
     int32_t size_x = (int32_t)width << 6;
     int32_t size_y = (int32_t)height << 6;
     if (rst->x_max >= size_x) {
-        struct segment *dst0 = rst->linebuf[index];
-        struct segment *dst1 = rst->linebuf[index ^ 1];
-        polyline_split_horz(rst->linebuf[index], n, &dst0, &dst1, size_x);
-        n = dst0 - rst->linebuf[index];
+        polyline_split_horz(rst->linebuf[0], n_lines,
+                            rst->linebuf[0], n_lines,
+                            rst->linebuf[1], n_unused,
+                            winding, size_x);
+        winding[0] = winding[1] = 0;
     }
     if (rst->y_max >= size_y) {
-        struct segment *dst0 = rst->linebuf[index];
-        struct segment *dst1 = rst->linebuf[index ^ 1];
-        polyline_split_vert(rst->linebuf[index], n, &dst0, &dst1, size_y);
-        n = dst0 - rst->linebuf[index];
+        polyline_split_vert(rst->linebuf[0], n_lines,
+                            rst->linebuf[0], n_lines,
+                            rst->linebuf[1], n_unused,
+                            winding, size_y);
+        winding[0] = winding[1] = 0;
     }
     if (rst->x_min <= 0) {
-        struct segment *dst0 = rst->linebuf[index];
-        struct segment *dst1 = rst->linebuf[index ^ 1];
-        polyline_split_horz(rst->linebuf[index], n, &dst0, &dst1, 0);
-        index ^= 1;
-        n = dst1 - rst->linebuf[index];
+        polyline_split_horz(rst->linebuf[0], n_lines,
+                            rst->linebuf[1], n_unused,
+                            rst->linebuf[0], n_lines,
+                            winding, 0);
     }
     if (rst->y_min <= 0) {
-        struct segment *dst0 = rst->linebuf[index];
-        struct segment *dst1 = rst->linebuf[index ^ 1];
-        winding = polyline_split_vert(rst->linebuf[index], n, &dst0, &dst1, 0);
-        index ^= 1;
-        n = dst1 - rst->linebuf[index];
+        polyline_split_vert(rst->linebuf[0], n_lines,
+                            rst->linebuf[1], n_unused,
+                            rst->linebuf[0], n_lines,
+                            winding, 0);
     }
-    rst->size[index] = n;
-    rst->size[index ^ 1] = 0;
-    return rasterizer_fill_level(engine, rst, buf, width, height, stride,
-                                 index, 0, winding);
+    rst->size[0] = n_lines[0] + n_lines[1];
+    rst->size[1] = 0;
+    return rasterizer_fill_level(engine, rst,
+                                 buf, width, height, stride,
+                                 0, n_lines, winding);
 }

@@ -27,11 +27,11 @@
 
 
 enum {
-    SEGFLAG_DN = 1,
-    SEGFLAG_UL_DR = 2,
-    SEGFLAG_EXACT_LEFT = 4,
-    SEGFLAG_EXACT_RIGHT = 8,
-    SEGFLAG_EXACT_TOP = 16,
+    SEGFLAG_DN           =  1,
+    SEGFLAG_UL_DR        =  2,
+    SEGFLAG_EXACT_LEFT   =  4,
+    SEGFLAG_EXACT_RIGHT  =  8,
+    SEGFLAG_EXACT_TOP    = 16,
     SEGFLAG_EXACT_BOTTOM = 32,
 };
 
@@ -51,15 +51,22 @@ typedef struct {
     // internal buffers
     struct segment *linebuf[2];
     size_t size[2], capacity[2];
+    size_t n_first;
+
+    uint8_t *tile;
 } RasterizerData;
 
-void rasterizer_init(RasterizerData *rst, int outline_error);
+bool rasterizer_init(RasterizerData *rst, int tile_order, int outline_error);
 void rasterizer_done(RasterizerData *rst);
 
 /**
- * \brief Convert FreeType outline to polyline and calculate exact bounds
+ * \brief Convert outline to polyline and calculate exact bounds
+ * \param path in: source outline
+ * \param extra in: true if path is second border outline
+ * \return false on error
  */
-bool rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path);
+bool rasterizer_set_outline(RasterizerData *rst,
+                            const ASS_Outline *path, bool extra);
 
 /**
  * \brief Polyline rasterization function
