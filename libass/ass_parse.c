@@ -138,41 +138,6 @@ void update_font(ASS_Renderer *render_priv)
 }
 
 /**
- * \brief Change border width
- *
- * \param render_priv renderer state object
- * \param info glyph state object
- */
-void change_border(ASS_Renderer *render_priv, double border_x, double border_y)
-{
-    int bord = 64 * border_x * render_priv->border_scale;
-
-    if (bord > 0 && border_x == border_y) {
-        if (!render_priv->state.stroker) {
-            int error;
-            error =
-                FT_Stroker_New(render_priv->ftlibrary,
-                               &render_priv->state.stroker);
-            if (error) {
-                ass_msg(render_priv->library, MSGL_V,
-                        "failed to get stroker");
-                render_priv->state.stroker = 0;
-            }
-            render_priv->state.stroker_radius = -1.0;
-        }
-        if (render_priv->state.stroker && render_priv->state.stroker_radius != bord) {
-            FT_Stroker_Set(render_priv->state.stroker, bord,
-                           FT_STROKER_LINECAP_ROUND,
-                           FT_STROKER_LINEJOIN_ROUND, 0);
-            render_priv->state.stroker_radius = bord;
-        }
-    } else {
-        FT_Stroker_Done(render_priv->state.stroker);
-        render_priv->state.stroker = 0;
-    }
-}
-
-/**
  * \brief Calculate a weighted average of two colors
  * calculates c1*(1-a) + c2*a, but separately for each component except alpha
  */

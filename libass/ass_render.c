@@ -133,10 +133,6 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     rasterizer_done(&render_priv->rasterizer);
 #endif
 
-    if (render_priv->state.stroker) {
-        FT_Stroker_Done(render_priv->state.stroker);
-        render_priv->state.stroker = 0;
-    }
     if (render_priv->fontselect)
         ass_fontselect_free(render_priv->fontselect);
     if (render_priv->ftlibrary)
@@ -854,7 +850,6 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
     render_priv->state.border_style = style->BorderStyle;
     render_priv->state.border_x = style->Outline;
     render_priv->state.border_y = style->Outline;
-    change_border(render_priv, render_priv->state.border_x, render_priv->state.border_y);
     render_priv->state.scale_x = style->ScaleX;
     render_priv->state.scale_y = style->ScaleY;
     render_priv->state.hspacing = style->Spacing;
@@ -962,120 +957,6 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
     ol->contours[ol->n_contours++] = ol->n_points - 1;
 }
 
-/*
- * Stroke an outline glyph in x/y direction.  Applies various fixups to get
- * around limitations of the FreeType stroker.
- */
-static void stroke_outline(ASS_Renderer *render_priv, ASS_Outline *outline,
-                           int sx, int sy)
-{
-    if (sx <= 0 && sy <= 0)
-        return;
-
-    fix_freetype_stroker(outline, sx, sy);
-
-    size_t n_points = outline->n_points;
-    if (n_points > SHRT_MAX) {
-        ass_msg(render_priv->library, MSGL_WARN, "Too many outline points: %d",
-                outline->n_points);
-        n_points = SHRT_MAX;
-    }
-
-    size_t n_contours = FFMIN(outline->n_contours, SHRT_MAX);
-    short contours_small[EFFICIENT_CONTOUR_COUNT];
-    short *contours = contours_small;
-    short *contours_large = NULL;
-    if (n_contours > EFFICIENT_CONTOUR_COUNT) {
-        contours_large = malloc(n_contours * sizeof(short));
-        if (!contours_large)
-            return;
-        contours = contours_large;
-    }
-    for (size_t i = 0; i < n_contours; ++i)
-        contours[i] = FFMIN(outline->contours[i], n_points - 1);
-
-    FT_Outline ftol;
-    ftol.n_points = n_points;
-    ftol.n_contours = n_contours;
-    ftol.points = outline->points;
-    ftol.tags = outline->tags;
-    ftol.contours = contours;
-    ftol.flags = 0;
-
-    // Borders are equal; use the regular stroker
-    if (sx == sy && render_priv->state.stroker) {
-        int error;
-        FT_StrokerBorder border = FT_Outline_GetOutsideBorder(&ftol);
-        error = FT_Stroker_ParseOutline(render_priv->state.stroker, &ftol, 0);
-        if (error) {
-            ass_msg(render_priv->library, MSGL_WARN,
-                    "FT_Stroker_ParseOutline failed, error: %d", error);
-        }
-        unsigned new_points, new_contours;
-        error = FT_Stroker_GetBorderCounts(render_priv->state.stroker, border,
-                &new_points, &new_contours);
-        if (error) {
-            ass_msg(render_priv->library, MSGL_WARN,
-                    "FT_Stroker_GetBorderCounts failed, error: %d", error);
-        }
-        outline_free(outline);
-        outline->n_points = outline->n_contours = 0;
-        if (new_contours > FFMAX(EFFICIENT_CONTOUR_COUNT, n_contours)) {
-            if (!ASS_REALLOC_ARRAY(contours_large, new_contours)) {
-                free(contours_large);
-                return;
-            }
-        }
-        n_points = new_points;
-        n_contours = new_contours;
-        if (!outline_alloc(outline, n_points, n_contours)) {
-            ass_msg(render_priv->library, MSGL_WARN,
-                    "Not enough memory for border outline");
-            free(contours_large);
-            return;
-        }
-        ftol.n_points = ftol.n_contours = 0;
-        ftol.points = outline->points;
-        ftol.tags = outline->tags;
-
-        FT_Stroker_ExportBorder(render_priv->state.stroker, border, &ftol);
-
-        outline->n_points = n_points;
-        outline->n_contours = n_contours;
-        for (size_t i = 0; i < n_contours; ++i)
-            outline->contours[i] = (unsigned short) contours[i];
-
-    // "Stroke" with the outline emboldener (in two passes if needed).
-    // The outlines look uglier, but the emboldening never adds any points
-    } else {
-#if (FREETYPE_MAJOR > 2) || \
-    ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR > 4)) || \
-    ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR == 4) && (FREETYPE_PATCH >= 10))
-        FT_Outline_EmboldenXY(&ftol, sx * 2, sy * 2);
-        FT_Outline_Translate(&ftol, -sx, -sy);
-#else
-        int i;
-        FT_Outline nol;
-
-        FT_Outline_New(render_priv->ftlibrary, ftol.n_points,
-                       ftol.n_contours, &nol);
-        FT_Outline_Copy(&ftol, &nol);
-
-        FT_Outline_Embolden(&ftol, sx * 2);
-        FT_Outline_Translate(&ftol, -sx, -sx);
-        FT_Outline_Embolden(&nol, sy * 2);
-        FT_Outline_Translate(&nol, -sy, -sy);
-
-        for (i = 0; i < ftol.n_points; i++)
-            ftol.points[i].y = nol.points[i].y;
-
-        FT_Outline_Done(render_priv->ftlibrary, &nol);
-#endif
-    }
-
-    free(contours_large);
-}
-
 /**
  * \brief Prepare glyph hash
  */
@@ -1133,7 +1014,7 @@ static void fill_composite_hash(CompositeHashKey *hk, CombinedBitmapInfo *info)
  * \brief Get normal and outline (border) glyphs
  * \param info out: struct filled with extracted data
  * Tries to get both glyphs from cache.
- * If they can't be found, gets a glyph from font face, generates outline with FT_Stroker,
+ * If they can't be found, gets a glyph from font face, generates outline,
  * and add them to cache.
  * The glyphs are returned in info->glyph and info->outline_glyph
  */
@@ -1218,11 +1099,16 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         } else if ((info->border_x > 0 || info->border_y > 0)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
 
-            change_border(priv, info->border_x, info->border_y);
-            val->border = outline_copy(val->outline);
-            stroke_outline(priv, val->border,
+            val->border = outline_create(2 * val->outline->n_points,
+                                         val->outline->n_contours);
+            if (val->border && !outline_stroke(val->border, NULL, val->outline,
                     double_to_d6(info->border_x * priv->border_scale),
-                    double_to_d6(info->border_y * priv->border_scale));
+                    double_to_d6(info->border_y * priv->border_scale), 16)) {
+                ass_msg(priv->library, MSGL_WARN, "Cannot stoke outline");
+                outline_free(val->border);
+                free(val->border);
+                val->border = NULL;
+            }
         }
 
         ass_cache_commit(val, 1);

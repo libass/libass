@@ -23,7 +23,6 @@
 #include <inttypes.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include FT_STROKER_H
 #include FT_GLYPH_H
 #include FT_SYNTHESIS_H
 #ifdef CONFIG_HARFBUZZ
@@ -218,8 +217,6 @@ typedef struct {
     double font_size;
     int flags;                  // decoration flags (underline/strike-through)
 
-    FT_Stroker stroker;
-    int stroker_radius;         // last stroker radius, for caching stroker objects
     int alignment;              // alignment overrides go here; if zero, style value will be used
     int justify;                // justify instructions
     double frx, fry, frz;

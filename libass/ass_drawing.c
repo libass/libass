@@ -35,47 +35,6 @@
 #define GLYPH_INITIAL_CONTOURS 5
 
 /*
- * \brief Add a single point to a contour.
- */
-static inline bool drawing_add_point(ASS_Drawing *drawing,
-                                     const FT_Vector *point, char tags)
-{
-    ASS_Outline *ol = &drawing->outline;
-    if (ol->n_points >= ol->max_points) {
-        size_t new_size = 2 * ol->max_points;
-        if (!ASS_REALLOC_ARRAY(ol->points, new_size))
-            return false;
-        if (!ASS_REALLOC_ARRAY(ol->tags, new_size))
-            return false;
-        ol->max_points = new_size;
-    }
-
-    ol->points[ol->n_points].x = point->x;
-    ol->points[ol->n_points].y = point->y;
-    ol->tags[ol->n_points] = tags;
-    ol->n_points++;
-    return true;
-}
-
-/*
- * \brief Close a contour and check outline size overflow.
- */
-static inline bool drawing_close_shape(ASS_Drawing *drawing)
-{
-    ASS_Outline *ol = &drawing->outline;
-    if (ol->n_contours >= ol->max_contours) {
-        size_t new_size = 2 * ol->max_contours;
-        if (!ASS_REALLOC_ARRAY(ol->contours, new_size))
-            return false;
-        ol->max_contours = new_size;
-    }
-
-    ol->contours[ol->n_contours] = ol->n_points - 1;
-    ol->n_contours++;
-    return true;
-}
-
-/*
  * \brief Prepare drawing for parsing.  This just sets a few parameters.
  */
 static void drawing_prepare(ASS_Drawing *drawing)
@@ -278,10 +237,11 @@ static bool drawing_evaluate_curve(ASS_Drawing *drawing,
         p[2].y -= y12;
     }
 
-    return (started || drawing_add_point(drawing, &p[0], FT_CURVE_TAG_ON)) &&
-        drawing_add_point(drawing, &p[1], FT_CURVE_TAG_CUBIC) &&
-        drawing_add_point(drawing, &p[2], FT_CURVE_TAG_CUBIC) &&
-        drawing_add_point(drawing, &p[3], FT_CURVE_TAG_ON);
+    return (started ||
+        outline_add_point(&drawing->outline, p[0], FT_CURVE_TAG_ON)) &&
+        outline_add_point(&drawing->outline, p[1], FT_CURVE_TAG_CUBIC) &&
+        outline_add_point(&drawing->outline, p[2], FT_CURVE_TAG_CUBIC) &&
+        outline_add_point(&drawing->outline, p[3], FT_CURVE_TAG_ON);
 }
 
 /*
@@ -362,7 +322,7 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode)
             pen = token->point;
             translate_point(drawing, &pen);
             if (started) {
-                if (!drawing_close_shape(drawing))
+                if (!outline_close_contour(&drawing->outline))
                     goto error;
                 started = 0;
             }
@@ -372,9 +332,9 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode)
             FT_Vector to;
             to = token->point;
             translate_point(drawing, &to);
-            if (!started && !drawing_add_point(drawing, &pen, FT_CURVE_TAG_ON))
+            if (!started && !outline_add_point(&drawing->outline, pen, FT_CURVE_TAG_ON))
                 goto error;
-            if (!drawing_add_point(drawing, &to, FT_CURVE_TAG_ON))
+            if (!outline_add_point(&drawing->outline, to, FT_CURVE_TAG_ON))
                 goto error;
             started = 1;
             token = token->next;
@@ -409,7 +369,7 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, int raw_mode)
     }
 
     // Close the last contour
-    if (started && !drawing_close_shape(drawing))
+    if (started && !outline_close_contour(&drawing->outline))
         goto error;
 
     drawing_finish(drawing, raw_mode);
