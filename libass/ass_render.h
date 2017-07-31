@@ -149,7 +149,7 @@ typedef struct glyph_info {
     double font_size;
     ASS_Drawing *drawing;
     ASS_Outline *outline;
-    ASS_Outline *border;
+    ASS_Outline *border[2];
     FT_BBox bbox;
     FT_Vector pos;
     FT_Vector offset;

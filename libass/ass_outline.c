@@ -29,62 +29,61 @@ bool outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_contours)
     outline->contours = malloc(sizeof(size_t) * n_contours);
     outline->points = malloc(sizeof(FT_Vector) * n_points);
     outline->tags = malloc(n_points);
-    if (!outline->contours || !outline->points || !outline->tags)
+    if (!outline->contours || !outline->points || !outline->tags) {
+        outline_free(outline);
         return false;
+    }
 
     outline->max_contours = n_contours;
     outline->max_points = n_points;
     return true;
 }
 
-ASS_Outline *outline_create(size_t n_points, size_t n_contours)
+static void outline_clear(ASS_Outline *outline)
 {
-    ASS_Outline *ol = calloc(1, sizeof(*ol));
-    if (!ol)
-        return NULL;
+    outline->contours = NULL;
+    outline->points = NULL;
+    outline->tags = NULL;
 
-    if (!outline_alloc(ol, n_points, n_contours)) {
-        outline_free(ol);
-        free(ol);
-        return NULL;
+    outline->n_contours = outline->max_contours = 0;
+    outline->n_points = outline->max_points = 0;
+}
+
+bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
+{
+    if (!source || !source->n_points) {
+        outline_clear(outline);
+        return true;
     }
 
-    return ol;
-}
-
-ASS_Outline *outline_convert(const FT_Outline *source)
-{
-    if (!source)
-        return NULL;
-
-    ASS_Outline *ol = outline_create(source->n_points, source->n_contours);
-    if (!ol)
-        return NULL;
+    if (!outline_alloc(outline, source->n_points, source->n_contours))
+        return false;
 
     for (int i = 0; i < source->n_contours; i++)
-        ol->contours[i] = source->contours[i];
-    memcpy(ol->points, source->points, sizeof(FT_Vector) * source->n_points);
-    memcpy(ol->tags, source->tags, source->n_points);
-    ol->n_contours = source->n_contours;
-    ol->n_points = source->n_points;
-    return ol;
+        outline->contours[i] = source->contours[i];
+    memcpy(outline->points, source->points, sizeof(FT_Vector) * source->n_points);
+    memcpy(outline->tags, source->tags, source->n_points);
+    outline->n_contours = source->n_contours;
+    outline->n_points = source->n_points;
+    return true;
 }
 
-ASS_Outline *outline_copy(const ASS_Outline *source)
+bool outline_copy(ASS_Outline *outline, const ASS_Outline *source)
 {
-    if (!source)
-        return NULL;
+    if (!source || !source->n_points) {
+        outline_clear(outline);
+        return true;
+    }
 
-    ASS_Outline *ol = outline_create(source->n_points, source->n_contours);
-    if (!ol)
-        return NULL;
+    if (!outline_alloc(outline, source->n_points, source->n_contours))
+        return false;
 
-    memcpy(ol->contours, source->contours, sizeof(size_t) * source->n_contours);
-    memcpy(ol->points, source->points, sizeof(FT_Vector) * source->n_points);
-    memcpy(ol->tags, source->tags, source->n_points);
-    ol->n_contours = source->n_contours;
-    ol->n_points = source->n_points;
-    return ol;
+    memcpy(outline->contours, source->contours, sizeof(size_t) * source->n_contours);
+    memcpy(outline->points, source->points, sizeof(FT_Vector) * source->n_points);
+    memcpy(outline->tags, source->tags, source->n_points);
+    outline->n_contours = source->n_contours;
+    outline->n_points = source->n_points;
+    return true;
 }
 
 void outline_free(ASS_Outline *outline)
@@ -95,6 +94,8 @@ void outline_free(ASS_Outline *outline)
     free(outline->contours);
     free(outline->points);
     free(outline->tags);
+
+    outline_clear(outline);
 }
 
 
@@ -151,6 +152,19 @@ void outline_transform(const ASS_Outline *outline, const FT_Matrix *matrix)
                    FT_MulFix(outline->points[i].y, matrix->yy);
         outline->points[i].x = x;
         outline->points[i].y = y;
+    }
+}
+
+void outline_update_cbox(const ASS_Outline *outline, FT_BBox *cbox)
+{
+    if (!outline)
+        return;
+
+    for (size_t i = 0; i < outline->n_points; i++) {
+        cbox->xMin = FFMIN(cbox->xMin, outline->points[i].x);
+        cbox->xMax = FFMAX(cbox->xMax, outline->points[i].x);
+        cbox->yMin = FFMIN(cbox->yMin, outline->points[i].y);
+        cbox->yMax = FFMAX(cbox->yMax, outline->points[i].y);
     }
 }
 
@@ -968,24 +982,12 @@ static bool close_contour(StrokerState *str, int dir)
 bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
                     const ASS_Outline *path, int xbord, int ybord, int eps)
 {
-    if (result1)
-        result1->n_contours = result1->n_points = 0;
-
     int rad = FFMAX(xbord, ybord);
-    if (rad < eps) {
-        assert(result->max_contours >= path->n_contours);
-        assert(result->max_points >= path->n_points);
-        memcpy(result->contours, path->contours, sizeof(size_t) * path->n_contours);
-        memcpy(result->points, path->points, sizeof(FT_Vector) * path->n_points);
-        memcpy(result->tags, path->tags, path->n_points);
-        result->n_contours = path->n_contours;
-        result->n_points = path->n_points;
-        return true;
-    }
+    assert(rad >= eps);
 
     result->n_contours = result->n_points = 0;
+    result1->n_contours = result1->n_points = 0;
 
-    int dir = result1 ? 3 : 1;
     StrokerState str;
     str.result[0] = result;
     str.result[1] = result1;
@@ -1009,6 +1011,7 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
         S_ON, S_Q, S_C1, S_C2
     };
 
+    const int dir = 3;
     for (size_t i = 0, j = 0; i < path->n_contours; i++) {
         OutlinePoint start, p[4];
         int process_end = 1;

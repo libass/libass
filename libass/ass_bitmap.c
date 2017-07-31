@@ -187,10 +187,15 @@ Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src)
 }
 
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          ASS_Outline *outline, int bord)
+                          ASS_Outline *outline1, ASS_Outline *outline2,
+                          int bord)
 {
     RasterizerData *rst = &render_priv->rasterizer;
-    if (!rasterizer_set_outline(rst, outline, false)) {
+    if (outline1 && !rasterizer_set_outline(rst, outline1, false)) {
+        ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
+        return NULL;
+    }
+    if (outline2 && !rasterizer_set_outline(rst, outline2, !!outline1)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
         return NULL;
     }
@@ -438,21 +443,27 @@ int be_padding(int be)
     return FFMAX(128 - be, 0);
 }
 
-int outline_to_bitmap2(ASS_Renderer *render_priv,
-                       ASS_Outline *outline, ASS_Outline *border,
+int outline_to_bitmap2(ASS_Renderer *render_priv, ASS_Outline *outline,
+                       ASS_Outline *border1, ASS_Outline *border2,
                        Bitmap **bm_g, Bitmap **bm_o)
 {
     assert(bm_g && bm_o);
-
     *bm_g = *bm_o = NULL;
 
+    if (outline && !outline->n_points)
+        outline = NULL;
+    if (border1 && !border1->n_points)
+        border1 = NULL;
+    if (border2 && !border2->n_points)
+        border2 = NULL;
+
     if (outline)
-        *bm_g = outline_to_bitmap(render_priv, outline, 1);
+        *bm_g = outline_to_bitmap(render_priv, outline, NULL, 1);
     if (!*bm_g)
         return 1;
 
-    if (border) {
-        *bm_o = outline_to_bitmap(render_priv, border, 1);
+    if (border1 || border2) {
+        *bm_o = outline_to_bitmap(render_priv, border1, border2, 1);
         if (!*bm_o) {
             return 1;
         }

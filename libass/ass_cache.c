@@ -259,10 +259,9 @@ static void outline_destruct(void *key, void *value)
 {
     OutlineHashValue *v = value;
     OutlineHashKey *k = key;
-    outline_free(v->outline);
-    free(v->outline);
-    outline_free(v->border);
-    free(v->border);
+    outline_free(&v->outline);
+    outline_free(&v->border[0]);
+    outline_free(&v->border[1]);
     switch (k->type) {
         case OUTLINE_GLYPH: ass_cache_dec_ref(k->u.glyph.font); break;
         case OUTLINE_DRAWING: free(k->u.drawing.text); break;

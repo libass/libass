@@ -33,9 +33,8 @@ typedef struct ass_outline {
 } ASS_Outline;
 
 bool outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_contours);
-ASS_Outline *outline_create(size_t n_points, size_t n_contours);
-ASS_Outline *outline_convert(const FT_Outline *source);
-ASS_Outline *outline_copy(const ASS_Outline *source);
+bool outline_convert(ASS_Outline *outline, const FT_Outline *source);
+bool outline_copy(ASS_Outline *outline, const ASS_Outline *source);
 void outline_free(ASS_Outline *outline);
 
 bool outline_add_point(ASS_Outline *outline, FT_Vector pt, char tag);
@@ -43,6 +42,7 @@ bool outline_close_contour(ASS_Outline *outline);
 
 void outline_translate(const ASS_Outline *outline, FT_Pos dx, FT_Pos dy);
 void outline_transform(const ASS_Outline *outline, const FT_Matrix *matrix);
+void outline_update_cbox(const ASS_Outline *outline, FT_BBox *cbox);
 void outline_get_cbox(const ASS_Outline *outline, FT_BBox *cbox);
 
 bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,

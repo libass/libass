@@ -492,7 +492,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             outline_translate(outline, trans.x, trans.y);
         }
 
-        val->bm = outline_to_bitmap(render_priv, outline, 0);
+        val->bm = outline_to_bitmap(render_priv, outline, NULL, 1);
         ass_cache_commit(val, bitmap_size(val->bm) +
                          sizeof(BitmapHashKey) + sizeof(BitmapHashValue));
     }
@@ -1035,7 +1035,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                 ass_cache_dec_ref(val);
                 return;
             }
-            val->outline = outline_copy(&drawing->outline);
+            outline_copy(&val->outline, &drawing->outline);
             val->advance.x = drawing->advance.x;
             val->advance.y = drawing->advance.y;
             val->asc = drawing->asc;
@@ -1050,7 +1050,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                         info->symbol, info->face_index, info->glyph_index,
                         priv->settings.hinting, info->flags);
             if (glyph != NULL) {
-                val->outline = outline_convert(&((FT_OutlineGlyph) glyph)->outline);
+                outline_convert(&val->outline, &((FT_OutlineGlyph) glyph)->outline);
                 if (priv->settings.shaper == ASS_SHAPING_SIMPLE) {
                     val->advance.x = d16_to_d6(glyph->advance.x);
                     val->advance.y = d16_to_d6(glyph->advance.y);
@@ -1063,61 +1063,55 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             }
         }
 
-        if (!val->outline) {
+        if (!val->outline.n_points) {
             ass_cache_commit(val, 1);
             ass_cache_dec_ref(val);
             return;
         }
 
-        outline_get_cbox(val->outline, &val->bbox_scaled);
+        outline_get_cbox(&val->outline, &val->bbox_scaled);
 
         if (info->border_style == 3) {
-            val->border = calloc(1, sizeof(ASS_Outline));
-            if (!val->border) {
-                outline_free(val->outline);
-                free(val->outline);
-                val->outline = NULL;
-                ass_cache_commit(val, 1);
-                ass_cache_dec_ref(val);
-                return;
-            }
-
             FT_Vector advance;
             if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing)
                 advance = val->advance;
             else
                 advance = info->advance;
 
-            draw_opaque_box(priv, info, val->asc, val->desc, val->border, advance,
-                    double_to_d6(info->border_x * priv->border_scale),
-                    double_to_d6(info->border_y * priv->border_scale));
+            draw_opaque_box(priv, info, val->asc, val->desc, &val->border[0], advance,
+                            double_to_d6(info->border_x * priv->border_scale),
+                            double_to_d6(info->border_y * priv->border_scale));
 
         } else if ((info->border_x > 0 || info->border_y > 0)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
-
-            val->border = outline_create(2 * val->outline->n_points,
-                                         val->outline->n_contours);
-            if (val->border && !outline_stroke(val->border, NULL, val->outline,
-                    double_to_d6(info->border_x * priv->border_scale),
-                    double_to_d6(info->border_y * priv->border_scale), 16)) {
-                ass_msg(priv->library, MSGL_WARN, "Cannot stoke outline");
-                outline_free(val->border);
-                free(val->border);
-                val->border = NULL;
+            const int eps = 16;
+            int xbord = double_to_d6(info->border_x * priv->border_scale);
+            int ybord = double_to_d6(info->border_y * priv->border_scale);
+            if(xbord >= eps || ybord >= eps) {
+                outline_alloc(&val->border[0], 2 * val->outline.n_points, val->outline.n_contours);
+                outline_alloc(&val->border[1], 2 * val->outline.n_points, val->outline.n_contours);
+                if (!val->border[0].max_points || !val->border[1].max_points ||
+                        !outline_stroke(&val->border[0], &val->border[1],
+                                        &val->outline, xbord, ybord, eps)) {
+                    ass_msg(priv->library, MSGL_WARN, "Cannot stoke outline");
+                    outline_free(&val->border[0]);
+                    outline_free(&val->border[1]);
+                }
             }
         }
 
         ass_cache_commit(val, 1);
     }
 
-    if (!val->outline) {
+    if (!val->outline.n_points) {
         ass_cache_dec_ref(val);
         return;
     }
 
     info->hash_key.u.outline.outline = val;
-    info->outline = val->outline;
-    info->border = val->border;
+    info->outline = &val->outline;
+    info->border[0] = &val->border[0];
+    info->border[1] = &val->border[1];
     info->bbox = val->bbox_scaled;
     if (info->drawing || priv->settings.shaper == ASS_SHAPING_SIMPLE) {
         info->cluster_advance.x = info->advance.x = val->advance.x;
@@ -1185,21 +1179,16 @@ transform_3d_points(FT_Vector shift, ASS_Outline *outline, double frx, double fr
  * Rotates both glyphs by frx, fry and frz. Shift vector is added before rotation and subtracted after it.
  */
 static void
-transform_3d(FT_Vector shift, ASS_Outline *outline, ASS_Outline *border,
+transform_3d(FT_Vector shift, ASS_Outline *outline, int n_outlines,
              double frx, double fry, double frz, double fax, double fay,
              double scale, int yshift)
 {
     frx = -frx;
     frz = -frz;
-    if (frx != 0. || fry != 0. || frz != 0. || fax != 0. || fay != 0.) {
-        if (outline)
-            transform_3d_points(shift, outline, frx, fry, frz,
+    if (frx != 0. || fry != 0. || frz != 0. || fax != 0. || fay != 0.)
+        for (int i = 0; i < n_outlines; i++)
+            transform_3d_points(shift, &outline[i], frx, fry, frz,
                                 fax, fay, scale, yshift);
-
-        if (border)
-            transform_3d_points(shift, border, frx, fry, frz,
-                                fax, fay, scale, yshift);
-    }
 }
 
 /**
@@ -1225,8 +1214,11 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
     if (!val)
         return;
 
-    ASS_Outline *outline = outline_copy(info->outline);
-    ASS_Outline *border  = outline_copy(info->border);
+    const int n_outlines = 3;
+    ASS_Outline outline[n_outlines];
+    outline_copy(&outline[0], info->outline);
+    outline_copy(&outline[1], info->border[0]);
+    outline_copy(&outline[2], info->border[1]);
 
     // calculating rotation shift vector (from rotation origin to the glyph basepoint)
     FT_Vector shift = { key->shift_x, key->shift_y };
@@ -1236,7 +1228,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 
     // apply rotation
     // use blur_scale because, like blurs, VSFilter forgets to scale this
-    transform_3d(shift, outline, border,
+    transform_3d(shift, outline, n_outlines,
                  info->frx, info->fry, info->frz, fax_scaled,
                  fay_scaled, render_priv->blur_scale, info->asc);
 
@@ -1245,19 +1237,15 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                     0, double_to_d16(1.0) };
 
     // subpixel shift
-    if (outline) {
-        if (scale_x != 1.0)
-            outline_transform(outline, &m);
-        outline_translate(outline, key->advance.x, -key->advance.y);
-    }
-    if (border) {
-        if (scale_x != 1.0)
-            outline_transform(border, &m);
-        outline_translate(border, key->advance.x, -key->advance.y);
-    }
+    if (scale_x != 1.0)
+        for (int i = 0; i < n_outlines; i++)
+            outline_transform(&outline[i], &m);
+    for (int i = 0; i < n_outlines; i++)
+        outline_translate(&outline[i], key->advance.x, -key->advance.y);
 
     // render glyph
-    int error = outline_to_bitmap2(render_priv, outline, border,
+    int error = outline_to_bitmap2(render_priv,
+                                   &outline[0], &outline[1], &outline[2],
                                    &val->bm, &val->bm_o);
     if (error)
         info->symbol = 0;
@@ -1266,10 +1254,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                      sizeof(BitmapHashKey) + sizeof(BitmapHashValue));
     info->image = val;
 
-    outline_free(outline);
-    free(outline);
-    outline_free(border);
-    free(border);
+    for (int i = 0; i < n_outlines; i++)
+        outline_free(&outline[i]);
 }
 
 /**
