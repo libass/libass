@@ -23,6 +23,7 @@
 #include FT_OUTLINE_H
 
 #include "ass.h"
+#include "ass_outline.h"
 #include "ass_bitmap.h"
 
 typedef enum {

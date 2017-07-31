@@ -27,6 +27,7 @@
 
 #include "ass_utils.h"
 #include "ass_font.h"
+#include "ass_outline.h"
 #include "ass_cache.h"
 
 // type-specific functions

@@ -90,15 +90,7 @@ extern const BitmapEngine ass_bitmap_engine_sse2;
 extern const BitmapEngine ass_bitmap_engine_avx2;
 
 
-typedef struct {
-    size_t n_contours, max_contours;
-    size_t *contours;
-    size_t n_points, max_points;
-    FT_Vector *points;
-    char *tags;
-} ASS_Outline;
-
-#define EFFICIENT_CONTOUR_COUNT 8
+typedef struct ass_outline ASS_Outline;
 
 typedef struct {
     int left, top;

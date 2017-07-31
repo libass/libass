@@ -19,14 +19,15 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#include "ass_utils.h"
-#include "ass_rasterizer.h"
 #include <assert.h>
-
 #ifdef _MSC_VER
 #include <intrin.h>
 #pragma intrinsic(_BitScanReverse)
 #endif
+
+#include "ass_utils.h"
+#include "ass_outline.h"
+#include "ass_rasterizer.h"
 
 
 

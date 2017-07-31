@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include "ass_outline.h"
 #include "ass_render.h"
 #include "ass_parse.h"
 #include "ass_shaper.h"

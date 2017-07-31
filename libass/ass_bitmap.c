@@ -31,6 +31,7 @@
 #include FT_OUTLINE_H
 
 #include "ass_utils.h"
+#include "ass_outline.h"
 #include "ass_bitmap.h"
 #include "ass_render.h"
 

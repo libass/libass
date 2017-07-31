@@ -23,7 +23,6 @@
 #include <stdint.h>
 
 #include "ass_bitmap.h"
-#include "ass_font.h"
 
 
 enum {
