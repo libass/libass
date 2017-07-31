@@ -31,7 +31,7 @@
 
 
 
-static inline int ilog2(uint32_t n)  // XXX: different compilers
+static inline int ilog2(uint32_t n)
 {
 #ifdef __GNUC__
     return __builtin_clz(n) ^ 31;
@@ -63,24 +63,24 @@ void rasterizer_init(RasterizerData *rst, int outline_error)
  * \brief Ensure sufficient buffer size (allocate if necessary)
  * \param index index (0 or 1) of the input segment buffer (rst->linebuf)
  * \param delta requested size increase
- * \return zero on error
+ * \return false on error
  */
-static inline int check_capacity(RasterizerData *rst, int index, size_t delta)
+static inline bool check_capacity(RasterizerData *rst, int index, size_t delta)
 {
     delta += rst->size[index];
     if (rst->capacity[index] >= delta)
-        return 1;
+        return true;
 
     size_t capacity = FFMAX(2 * rst->capacity[index], 64);
     while (capacity < delta)
         capacity *= 2;
     void *ptr = realloc(rst->linebuf[index], sizeof(struct segment) * capacity);
     if (!ptr)
-        return 0;
+        return false;
 
     rst->linebuf[index] = (struct segment *)ptr;
     rst->capacity[index] = capacity;
-    return 1;
+    return true;
 }
 
 void rasterizer_done(RasterizerData *rst)
@@ -136,8 +136,8 @@ static inline void segment_init(OutlineSegment *seg,
     seg->er = outline_error * (int64_t)FFMAX(abs_x, abs_y);
 }
 
-static inline int segment_subdivide(const OutlineSegment *seg,
-                                    OutlinePoint beg, OutlinePoint pt)
+static inline bool segment_subdivide(const OutlineSegment *seg,
+                                     OutlinePoint beg, OutlinePoint pt)
 {
     int32_t x = pt.x - beg.x;
     int32_t y = pt.y - beg.y;
@@ -150,17 +150,17 @@ static inline int segment_subdivide(const OutlineSegment *seg,
 /**
  * \brief Add new segment to polyline
  */
-static inline int add_line(RasterizerData *rst, OutlinePoint pt0, OutlinePoint pt1)
+static bool add_line(RasterizerData *rst, OutlinePoint pt0, OutlinePoint pt1)
 {
     int32_t x = pt1.x - pt0.x;
     int32_t y = pt1.y - pt0.y;
     if (!x && !y)
-        return 1;
+        return true;
 
     if (!check_capacity(rst, 0, 1))
-        return 0;
+        return false;
     struct segment *line = rst->linebuf[0] + rst->size[0];
-    ++rst->size[0];
+    rst->size[0]++;
 
     line->flags = SEGFLAG_EXACT_LEFT | SEGFLAG_EXACT_RIGHT |
                   SEGFLAG_EXACT_TOP | SEGFLAG_EXACT_BOTTOM;
@@ -190,93 +190,94 @@ static inline int add_line(RasterizerData *rst, OutlinePoint pt0, OutlinePoint p
     line->scale = (uint64_t)0x53333333 * (uint32_t)(max_ab * (uint64_t)max_ab >> 32) >> 32;
     line->scale += 0x8810624D - (0xBBC6A7EF * (uint64_t)max_ab >> 32);
     //line->scale = ((uint64_t)1 << 61) / max_ab;
-    return 1;
+    return true;
 }
 
 /**
  * \brief Add quadratic spline to polyline
  * Performs recursive subdivision if necessary.
  */
-static int add_quadratic(RasterizerData *rst,
-                         OutlinePoint pt0, OutlinePoint pt1, OutlinePoint pt2)
+static bool add_quadratic(RasterizerData *rst, const OutlinePoint *pt)
 {
     OutlineSegment seg;
-    segment_init(&seg, pt0, pt2, rst->outline_error);
-    if (!segment_subdivide(&seg, pt0, pt1))
-        return add_line(rst, pt0, pt2);
+    segment_init(&seg, pt[0], pt[2], rst->outline_error);
+    if (!segment_subdivide(&seg, pt[0], pt[1]))
+        return add_line(rst, pt[0], pt[2]);
 
-    OutlinePoint p01, p12, c;  // XXX: overflow?
-    p01.x = pt0.x + pt1.x;
-    p01.y = pt0.y + pt1.y;
-    p12.x = pt1.x + pt2.x;
-    p12.y = pt1.y + pt2.y;
-    c.x = (p01.x + p12.x + 2) >> 2;
-    c.y = (p01.y + p12.y + 2) >> 2;
-    p01.x >>= 1;
-    p01.y >>= 1;
-    p12.x >>= 1;
-    p12.y >>= 1;
-    return add_quadratic(rst, pt0, p01, c) && add_quadratic(rst, c, p12, pt2);
+    OutlinePoint next[5];
+    next[1].x = pt[0].x + pt[1].x;
+    next[1].y = pt[0].y + pt[1].y;
+    next[3].x = pt[1].x + pt[2].x;
+    next[3].y = pt[1].y + pt[2].y;
+    next[2].x = (next[1].x + next[3].x + 2) >> 2;
+    next[2].y = (next[1].y + next[3].y + 2) >> 2;
+    next[1].x >>= 1;
+    next[1].y >>= 1;
+    next[3].x >>= 1;
+    next[3].y >>= 1;
+    next[0] = pt[0];
+    next[4] = pt[2];
+    return add_quadratic(rst, next) && add_quadratic(rst, next + 2);
 }
 
 /**
  * \brief Add cubic spline to polyline
  * Performs recursive subdivision if necessary.
  */
-static int add_cubic(RasterizerData *rst,
-                     OutlinePoint pt0, OutlinePoint pt1, OutlinePoint pt2, OutlinePoint pt3)
+static bool add_cubic(RasterizerData *rst, const OutlinePoint *pt)
 {
     OutlineSegment seg;
-    segment_init(&seg, pt0, pt3, rst->outline_error);
-    if (!segment_subdivide(&seg, pt0, pt1) && !segment_subdivide(&seg, pt0, pt2))
-        return add_line(rst, pt0, pt3);
+    segment_init(&seg, pt[0], pt[3], rst->outline_error);
+    if (!segment_subdivide(&seg, pt[0], pt[1]) && !segment_subdivide(&seg, pt[0], pt[2]))
+        return add_line(rst, pt[0], pt[3]);
 
-    OutlinePoint p01, p12, p23, p012, p123, c;  // XXX: overflow?
-    p01.x = pt0.x + pt1.x;
-    p01.y = pt0.y + pt1.y;
-    p12.x = pt1.x + pt2.x + 2;
-    p12.y = pt1.y + pt2.y + 2;
-    p23.x = pt2.x + pt3.x;
-    p23.y = pt2.y + pt3.y;
-    p012.x = p01.x + p12.x;
-    p012.y = p01.y + p12.y;
-    p123.x = p12.x + p23.x;
-    p123.y = p12.y + p23.y;
-    c.x = (p012.x + p123.x - 1) >> 3;
-    c.y = (p012.y + p123.y - 1) >> 3;
-    p01.x >>= 1;
-    p01.y >>= 1;
-    p012.x >>= 2;
-    p012.y >>= 2;
-    p123.x >>= 2;
-    p123.y >>= 2;
-    p23.x >>= 1;
-    p23.y >>= 1;
-    return add_cubic(rst, pt0, p01, p012, c) && add_cubic(rst, c, p123, p23, pt3);
+    OutlinePoint next[7], center;
+    next[1].x = pt[0].x + pt[1].x;
+    next[1].y = pt[0].y + pt[1].y;
+    center.x = pt[1].x + pt[2].x + 2;
+    center.y = pt[1].y + pt[2].y + 2;
+    next[5].x = pt[2].x + pt[3].x;
+    next[5].y = pt[2].y + pt[3].y;
+    next[2].x = next[1].x + center.x;
+    next[2].y = next[1].y + center.y;
+    next[4].x = center.x + next[5].x;
+    next[4].y = center.y + next[5].y;
+    next[3].x = (next[2].x + next[4].x - 1) >> 3;
+    next[3].y = (next[2].y + next[4].y - 1) >> 3;
+    next[2].x >>= 2;
+    next[2].y >>= 2;
+    next[4].x >>= 2;
+    next[4].y >>= 2;
+    next[1].x >>= 1;
+    next[1].y >>= 1;
+    next[5].x >>= 1;
+    next[5].y >>= 1;
+    next[0] = pt[0];
+    next[6] = pt[3];
+    return add_cubic(rst, next) && add_cubic(rst, next + 3);
 }
 
 
-int rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
+bool rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
 {
     enum Status {
         S_ON, S_Q, S_C1, S_C2
     };
 
-    size_t i, j = 0;
     rst->size[0] = 0;
-    for (i = 0; i < path->n_contours; ++i) {
+    for (size_t i = 0, j = 0; i < path->n_contours; i++) {
         OutlinePoint start, p[4];
         int process_end = 1;
         enum Status st;
 
         int last = path->contours[i];
         if (j > last)
-            return 0;
+            return false;
 
         if (path->points[j].x <  -(1 << 28) || path->points[j].x >= (1 << 28))
-            return 0;
+            return false;
         if (path->points[j].y <= -(1 << 28) || path->points[j].y >  (1 << 28))
-            return 0;
+            return false;
 
         switch (FT_CURVE_TAG(path->tags[j])) {
         case FT_CURVE_TAG_ON:
@@ -307,19 +308,19 @@ int rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
                 break;
 
             default:
-                return 0;
+                return false;
             }
             break;
 
         default:
-            return 0;
+            return false;
         }
 
         for (j++; j <= last; j++) {
             if (path->points[j].x <  -(1 << 28) || path->points[j].x >= (1 << 28))
-                return 0;
+                return false;
             if (path->points[j].y <= -(1 << 28) || path->points[j].y >  (1 << 28))
-                return 0;
+                return false;
 
             switch (FT_CURVE_TAG(path->tags[j])) {
             case FT_CURVE_TAG_ON:
@@ -328,15 +329,15 @@ int rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
                     p[1].x =  path->points[j].x;
                     p[1].y = -path->points[j].y;
                     if (!add_line(rst, p[0], p[1]))
-                        return 0;
+                        return false;
                     p[0] = p[1];
                     break;
 
                 case S_Q:
                     p[2].x =  path->points[j].x;
                     p[2].y = -path->points[j].y;
-                    if (!add_quadratic(rst, p[0], p[1], p[2]))
-                        return 0;
+                    if (!add_quadratic(rst, p))
+                        return false;
                     p[0] = p[2];
                     st = S_ON;
                     break;
@@ -344,14 +345,14 @@ int rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
                 case S_C2:
                     p[3].x =  path->points[j].x;
                     p[3].y = -path->points[j].y;
-                    if (!add_cubic(rst, p[0], p[1], p[2], p[3]))
-                        return 0;
+                    if (!add_cubic(rst, p))
+                        return false;
                     p[0] = p[3];
                     st = S_ON;
                     break;
 
                 default:
-                    return 0;
+                    return false;
                 }
                 break;
 
@@ -368,14 +369,14 @@ int rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
                     p[3].y = -path->points[j].y;
                     p[2].x = (p[1].x + p[3].x) >> 1;
                     p[2].y = (p[1].y + p[3].y) >> 1;
-                    if (!add_quadratic(rst, p[0], p[1], p[2]))
-                        return 0;
+                    if (!add_quadratic(rst, p))
+                        return false;
                     p[0] = p[2];
                     p[1] = p[3];
                     break;
 
                 default:
-                    return 0;
+                    return false;
                 }
                 break;
 
@@ -394,12 +395,12 @@ int rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
                     break;
 
                 default:
-                    return 0;
+                    return false;
                 }
                 break;
 
             default:
-                return 0;
+                return false;
             }
         }
 
@@ -407,34 +408,35 @@ int rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path)
             switch (st) {
             case S_ON:
                 if (!add_line(rst, p[0], start))
-                    return 0;
+                    return false;
                 break;
 
             case S_Q:
-                if (!add_quadratic(rst, p[0], p[1], start))
-                    return 0;
+                p[2] = start;
+                if (!add_quadratic(rst, p))
+                    return false;
                 break;
 
             case S_C2:
-                if (!add_cubic(rst, p[0], p[1], p[2], start))
-                    return 0;
+                p[3] = start;
+                if (!add_cubic(rst, p))
+                    return false;
                 break;
 
             default:
-                return 0;
+                return false;
             }
     }
 
-    size_t k;
     rst->x_min = rst->y_min = 0x7FFFFFFF;
     rst->x_max = rst->y_max = 0x80000000;
-    for (k = 0; k < rst->size[0]; ++k) {
+    for (size_t k = 0; k < rst->size[0]; k++) {
         rst->x_min = FFMIN(rst->x_min, rst->linebuf[0][k].x_min);
         rst->x_max = FFMAX(rst->x_max, rst->linebuf[0][k].x_max);
         rst->y_min = FFMIN(rst->y_min, rst->linebuf[0][k].y_min);
         rst->y_max = FFMAX(rst->y_max, rst->linebuf[0][k].y_max);
     }
-    return 1;
+    return true;
 }
 
 
@@ -561,7 +563,7 @@ static int polyline_split_horz(const struct segment *src, size_t n_src,
 {
     int winding = 0;
     const struct segment *end = src + n_src;
-    for (; src != end; ++src) {
+    for (; src != end; src++) {
         int delta = 0;
         if (!src->y_min && (src->flags & SEGFLAG_EXACT_TOP))
             delta = src->a < 0 ? 1 : -1;
@@ -598,7 +600,7 @@ static int polyline_split_vert(const struct segment *src, size_t n_src,
 {
     int winding = 0;
     const struct segment *end = src + n_src;
-    for (; src != end; ++src) {
+    for (; src != end; src++) {
         int delta = 0;
         if (!src->x_min && (src->flags & SEGFLAG_EXACT_LEFT))
             delta = src->b < 0 ? 1 : -1;
@@ -635,14 +637,13 @@ static inline void rasterizer_fill_solid(const BitmapEngine *engine,
     assert(!(width  & ((1 << engine->tile_order) - 1)));
     assert(!(height & ((1 << engine->tile_order) - 1)));
 
-    int i, j;
     ptrdiff_t step = 1 << engine->tile_order;
     ptrdiff_t tile_stride = stride * (1 << engine->tile_order);
     width  >>= engine->tile_order;
     height >>= engine->tile_order;
-    for (j = 0; j < height; ++j) {
-        for (i = 0; i < width; ++i)
-            engine->fill_solid(buf + i * step, stride, set);
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++)
+            engine->fill_solid(buf + x * step, stride, set);
         buf += tile_stride;
     }
 }
@@ -663,20 +664,19 @@ static inline void rasterizer_fill_halfplane(const BitmapEngine *engine,
     int64_t size = (int64_t)(abs_a + abs_b) << (engine->tile_order + 5);
     int64_t offs = ((int64_t)a + b) * (1 << (engine->tile_order + 5));
 
-    int i, j;
     ptrdiff_t step = 1 << engine->tile_order;
     ptrdiff_t tile_stride = stride * (1 << engine->tile_order);
     width  >>= engine->tile_order;
     height >>= engine->tile_order;
-    for (j = 0; j < height; ++j) {
-        for (i = 0; i < width; ++i) {
-            int64_t cc = c - (a * (int64_t)i + b * (int64_t)j) * (1 << (engine->tile_order + 6));
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int64_t cc = c - (a * (int64_t)x + b * (int64_t)y) * (1 << (engine->tile_order + 6));
             int64_t offs_c = offs - cc;
             int64_t abs_c = offs_c < 0 ? -offs_c : offs_c;
             if (abs_c < size)
-                engine->fill_halfplane(buf + i * step, stride, a, b, cc, scale);
+                engine->fill_halfplane(buf + x * step, stride, a, b, cc, scale);
             else
-                engine->fill_solid(buf + i * step, stride,
+                engine->fill_solid(buf + x * step, stride,
                                    ((uint32_t)(offs_c >> 32) ^ scale) & 0x80000000);
         }
         buf += tile_stride;
@@ -688,13 +688,13 @@ static inline void rasterizer_fill_halfplane(const BitmapEngine *engine,
  * \param index index (0 or 1) of the input segment buffer (rst->linebuf)
  * \param offs current offset from the beginning of the buffer
  * \param winding bottom-left winding value
- * \return zero on error
+ * \return false on error
  * Rasterizes (possibly recursive) one quad-tree level.
  * Truncates used input buffer.
  */
-static int rasterizer_fill_level(const BitmapEngine *engine, RasterizerData *rst,
-                                 uint8_t *buf, int width, int height, ptrdiff_t stride,
-                                 int index, size_t offs, int winding)
+static bool rasterizer_fill_level(const BitmapEngine *engine, RasterizerData *rst,
+                                  uint8_t *buf, int width, int height, ptrdiff_t stride,
+                                  int index, size_t offs, int winding)
 {
     assert(width > 0 && height > 0);
     assert((unsigned)index < 2u && offs <= rst->size[index]);
@@ -705,7 +705,7 @@ static int rasterizer_fill_level(const BitmapEngine *engine, RasterizerData *rst
     struct segment *line = rst->linebuf[index] + offs;
     if (!n) {
         rasterizer_fill_solid(engine, buf, width, height, stride, winding);
-        return 1;
+        return true;
     }
     if (n == 1) {
         static const int test = SEGFLAG_UL_DR | SEGFLAG_EXACT_LEFT;
@@ -724,17 +724,17 @@ static int rasterizer_fill_level(const BitmapEngine *engine, RasterizerData *rst
         else
             rasterizer_fill_solid(engine, buf, width, height, stride, flag & 2);
         rst->size[index] = offs;
-        return 1;
+        return true;
     }
     if (width == 1 << engine->tile_order && height == 1 << engine->tile_order) {
         engine->fill_generic(buf, stride, line, rst->size[index] - offs, winding);
         rst->size[index] = offs;
-        return 1;
+        return true;
     }
 
     size_t offs1 = rst->size[index ^ 1];
     if (!check_capacity(rst, index ^ 1, n))
-        return 0;
+        return false;
     struct segment *dst0 = line;
     struct segment *dst1 = rst->linebuf[index ^ 1] + offs1;
 
@@ -757,16 +757,17 @@ static int rasterizer_fill_level(const BitmapEngine *engine, RasterizerData *rst
     rst->size[index ^ 1] = dst1 - rst->linebuf[index ^ 1];
 
     if (!rasterizer_fill_level(engine, rst, buf,  width,  height,  stride, index ^ 0, offs,  winding))
-        return 0;
+        return false;
     assert(rst->size[index ^ 0] == offs);
     if (!rasterizer_fill_level(engine, rst, buf1, width1, height1, stride, index ^ 1, offs1, winding1))
-        return 0;
+        return false;
     assert(rst->size[index ^ 1] == offs1);
-    return 1;
+    return true;
 }
 
-int rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
-                    uint8_t *buf, int x0, int y0, int width, int height, ptrdiff_t stride)
+bool rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
+                     uint8_t *buf, int x0, int y0,
+                     int width, int height, ptrdiff_t stride)
 {
     assert(width > 0 && height > 0);
     assert(!(width  & ((1 << engine->tile_order) - 1)));
@@ -776,7 +777,7 @@ int rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
     size_t n = rst->size[0];
     struct segment *line = rst->linebuf[0];
     struct segment *end = line + n;
-    for (; line != end; ++line) {
+    for (; line != end; line++) {
         line->x_min -= x0;
         line->x_max -= x0;
         line->y_min -= y0;
@@ -791,7 +792,7 @@ int rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
     int index = 0;
     int winding = 0;
     if (!check_capacity(rst, 1, rst->size[0]))
-        return 0;
+        return false;
     int32_t size_x = (int32_t)width << 6;
     int32_t size_y = (int32_t)height << 6;
     if (rst->x_max >= size_x) {

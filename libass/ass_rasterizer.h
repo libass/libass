@@ -21,6 +21,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "ass_bitmap.h"
 
@@ -58,19 +59,19 @@ void rasterizer_done(RasterizerData *rst);
 /**
  * \brief Convert FreeType outline to polyline and calculate exact bounds
  */
-int rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path);
+bool rasterizer_set_outline(RasterizerData *rst, const ASS_Outline *path);
 
 /**
  * \brief Polyline rasterization function
  * \param x0, y0, width, height in: source window (full pixel units)
  * \param buf out: aligned output buffer (size = stride * height)
  * \param stride output buffer stride (aligned)
- * \return zero on error
+ * \return false on error
  * Deletes preprocessed polyline after work.
  */
-int rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
-                    uint8_t *buf, int x0, int y0,
-                    int width, int height, ptrdiff_t stride);
+bool rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
+                     uint8_t *buf, int x0, int y0,
+                     int width, int height, ptrdiff_t stride);
 
 
-#endif                          /* LIBASS_RASTERIZER_H */
+#endif /* LIBASS_RASTERIZER_H */

@@ -27,22 +27,20 @@
 
 void ass_fill_solid_tile16_c(uint8_t *buf, ptrdiff_t stride, int set)
 {
-    int i, j;
     int8_t value = set ? 255 : 0;
-    for (j = 0; j < 16; ++j) {
-        for (i = 0; i < 16; ++i)
-            buf[i] = value;
+    for (int y = 0; y < 16; y++) {
+        for (int x = 0; x < 16; x++)
+            buf[x] = value;
         buf += stride;
     }
 }
 
 void ass_fill_solid_tile32_c(uint8_t *buf, ptrdiff_t stride, int set)
 {
-    int i, j;
     int8_t value = set ? 255 : 0;
-    for (j = 0; j < 32; ++j) {
-        for (i = 0; i < 32; ++i)
-            buf[i] = value;
+    for (int y = 0; y < 32; y++) {
+        for (int x = 0; x < 32; x++)
+            buf[x] = value;
         buf += stride;
     }
 }
@@ -82,21 +80,20 @@ void ass_fill_halfplane_tile16_c(uint8_t *buf, ptrdiff_t stride,
     int16_t abs_b = bb < 0 ? -bb : bb;
     int16_t delta = (FFMIN(abs_a, abs_b) + 2) >> 2;
 
-    int i, j;
     int16_t va1[16], va2[16];
-    for (i = 0; i < 16; ++i) {
-        va1[i] = aa * i - delta;
-        va2[i] = aa * i + delta;
+    for (int x = 0; x < 16; x++) {
+        va1[x] = aa * x - delta;
+        va2[x] = aa * x + delta;
     }
 
     static const int16_t full = (1 << 10) - 1;
-    for (j = 0; j < 16; ++j) {
-        for (i = 0; i < 16; ++i) {
-            int16_t c1 = cc - va1[i];
-            int16_t c2 = cc - va2[i];
+    for (int y = 0; y < 16; y++) {
+        for (int x = 0; x < 16; x++) {
+            int16_t c1 = cc - va1[x];
+            int16_t c2 = cc - va2[x];
             c1 = FFMINMAX(c1, 0, full);
             c2 = FFMINMAX(c2, 0, full);
-            buf[i] = (c1 + c2) >> 3;
+            buf[x] = (c1 + c2) >> 3;
         }
         buf += stride;
         cc -= bb;
@@ -115,21 +112,20 @@ void ass_fill_halfplane_tile32_c(uint8_t *buf, ptrdiff_t stride,
     int16_t abs_b = bb < 0 ? -bb : bb;
     int16_t delta = (FFMIN(abs_a, abs_b) + 2) >> 2;
 
-    int i, j;
     int16_t va1[32], va2[32];
-    for (i = 0; i < 32; ++i) {
-        va1[i] = aa * i - delta;
-        va2[i] = aa * i + delta;
+    for (int x = 0; x < 32; x++) {
+        va1[x] = aa * x - delta;
+        va2[x] = aa * x + delta;
     }
 
     static const int16_t full = (1 << 9) - 1;
-    for (j = 0; j < 32; ++j) {
-        for (i = 0; i < 32; ++i) {
-            int16_t c1 = cc - va1[i];
-            int16_t c2 = cc - va2[i];
+    for (int y = 0; y < 32; y++) {
+        for (int x = 0; x < 32; x++) {
+            int16_t c1 = cc - va1[x];
+            int16_t c2 = cc - va2[x];
             c1 = FFMINMAX(c1, 0, full);
             c2 = FFMINMAX(c2, 0, full);
-            buf[i] = (c1 + c2) >> 2;
+            buf[x] = (c1 + c2) >> 2;
         }
         buf += stride;
         cc -= bb;
@@ -163,15 +159,14 @@ static inline void update_border_line16(int16_t res[16],
     int16_t offs1 = size - ((base + dc) * (int32_t)w >> 16);
     int16_t offs2 = size - ((base - dc) * (int32_t)w >> 16);
 
-    int i;
     size <<= 1;
-    for (i = 0; i < 16; ++i) {
-        int16_t cw = (c - va[i]) * (int32_t)w >> 16;
+    for (int x = 0; x < 16; x++) {
+        int16_t cw = (c - va[x]) * (int32_t)w >> 16;
         int16_t c1 = cw + offs1;
         int16_t c2 = cw + offs2;
         c1 = FFMINMAX(c1, 0, size);
         c2 = FFMINMAX(c2, 0, size);
-        res[i] += c1 + c2;
+        res[x] += c1 + c2;
     }
 }
 
@@ -179,13 +174,12 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
                                const struct segment *line, size_t n_lines,
                                int winding)
 {
-    int i, j;
     int16_t res[16][16], delta[18];
-    for (j = 0; j < 16; ++j)
-        for (i = 0; i < 16; ++i)
-            res[j][i] = 0;
-    for (j = 0; j < 18; ++j)
-        delta[j] = 0;
+    for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 16; x++)
+            res[y][x] = 0;
+    for (int y = 0; y < 18; y++)
+        delta[y] = 0;
 
     static const int16_t full = 1 << 10;
     const struct segment *end = line + n_lines;
@@ -221,8 +215,8 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
         c -= (a >> 1) + b * up;
 
         int16_t va[16];
-        for (i = 0; i < 16; ++i)
-            va[i] = a * i;
+        for (int x = 0; x < 16; x++)
+            va[x] = a * x;
         int16_t abs_a = a < 0 ? -a : a;
         int16_t abs_b = b < 0 ? -b : b;
         int16_t dc = (FFMIN(abs_a, abs_b) + 2) >> 2;
@@ -239,13 +233,13 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
             up++;
             c -= b;
         }
-        for (j = up; j < dn; ++j) {
-            for (i = 0; i < 16; ++i) {
-                int16_t c1 = c - va[i] + dc1;
-                int16_t c2 = c - va[i] + dc2;
+        for (int y = up; y < dn; y++) {
+            for (int x = 0; x < 16; x++) {
+                int16_t c1 = c - va[x] + dc1;
+                int16_t c2 = c - va[x] + dc2;
                 c1 = FFMINMAX(c1, 0, full);
                 c2 = FFMINMAX(c2, 0, full);
-                res[j][i] += (c1 + c2) >> 3;
+                res[y][x] += (c1 + c2) >> 3;
             }
             c -= b;
         }
@@ -254,12 +248,12 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
     }
 
     int16_t cur = 256 * winding;
-    for (j = 0; j < 16; ++j) {
-        cur += delta[j];
-        for (i = 0; i < 16; ++i) {
-            int16_t val = res[j][i] + cur, neg_val = -val;
+    for (int y = 0; y < 16; y++) {
+        cur += delta[y];
+        for (int x = 0; x < 16; x++) {
+            int16_t val = res[y][x] + cur, neg_val = -val;
             val = (val > neg_val ? val : neg_val);
-            buf[i] = FFMIN(val, 255);
+            buf[x] = FFMIN(val, 255);
         }
         buf += stride;
     }
@@ -282,15 +276,14 @@ static inline void update_border_line32(int16_t res[32],
     int16_t offs1 = size - ((base + dc) * (int32_t)w >> 16);
     int16_t offs2 = size - ((base - dc) * (int32_t)w >> 16);
 
-    int i;
     size <<= 1;
-    for (i = 0; i < 32; ++i) {
-        int16_t cw = (c - va[i]) * (int32_t)w >> 16;
+    for (int x = 0; x < 32; x++) {
+        int16_t cw = (c - va[x]) * (int32_t)w >> 16;
         int16_t c1 = cw + offs1;
         int16_t c2 = cw + offs2;
         c1 = FFMINMAX(c1, 0, size);
         c2 = FFMINMAX(c2, 0, size);
-        res[i] += c1 + c2;
+        res[x] += c1 + c2;
     }
 }
 
@@ -298,13 +291,12 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
                                const struct segment *line, size_t n_lines,
                                int winding)
 {
-    int i, j;
     int16_t res[32][32], delta[34];
-    for (j = 0; j < 32; ++j)
-        for (i = 0; i < 32; ++i)
-            res[j][i] = 0;
-    for (j = 0; j < 34; ++j)
-        delta[j] = 0;
+    for (int y = 0; y < 32; y++)
+        for (int x = 0; x < 32; x++)
+            res[y][x] = 0;
+    for (int y = 0; y < 34; y++)
+        delta[y] = 0;
 
     static const int16_t full = 1 << 9;
     const struct segment *end = line + n_lines;
@@ -340,8 +332,8 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
         c -= (a >> 1) + b * up;
 
         int16_t va[32];
-        for (i = 0; i < 32; ++i)
-            va[i] = a * i;
+        for (int x = 0; x < 32; x++)
+            va[x] = a * x;
         int16_t abs_a = a < 0 ? -a : a;
         int16_t abs_b = b < 0 ? -b : b;
         int16_t dc = (FFMIN(abs_a, abs_b) + 2) >> 2;
@@ -358,13 +350,13 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
             up++;
             c -= b;
         }
-        for (j = up; j < dn; ++j) {
-            for (i = 0; i < 32; ++i) {
-                int16_t c1 = c - va[i] + dc1;
-                int16_t c2 = c - va[i] + dc2;
+        for (int y = up; y < dn; y++) {
+            for (int x = 0; x < 32; x++) {
+                int16_t c1 = c - va[x] + dc1;
+                int16_t c2 = c - va[x] + dc2;
                 c1 = FFMINMAX(c1, 0, full);
                 c2 = FFMINMAX(c2, 0, full);
-                res[j][i] += (c1 + c2) >> 2;
+                res[y][x] += (c1 + c2) >> 2;
             }
             c -= b;
         }
@@ -373,12 +365,12 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
     }
 
     int16_t cur = 256 * winding;
-    for (j = 0; j < 32; ++j) {
-        cur += delta[j];
-        for (i = 0; i < 32; ++i) {
-            int16_t val = res[j][i] + cur, neg_val = -val;
+    for (int y = 0; y < 32; y++) {
+        cur += delta[y];
+        for (int x = 0; x < 32; x++) {
+            int16_t val = res[y][x] + cur, neg_val = -val;
             val = (val > neg_val ? val : neg_val);
-            buf[i] = FFMIN(val, 255);
+            buf[x] = FFMIN(val, 255);
         }
         buf += stride;
     }
