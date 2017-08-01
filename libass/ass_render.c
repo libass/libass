@@ -2113,7 +2113,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                     current_info->filter.flags |= FILTER_NONZERO_SHADOW;
                 // VSFilter compatibility: invisible fill and no border?
                 // In this case no shadow is supposed to be rendered.
-                if (info->border || (info->c[0] & 0xFF) != 0xFF)
+                if (info->border[0] || info->border[1] || (info->c[0] & 0xFF) != 0xFF)
                     current_info->filter.flags |= FILTER_DRAW_SHADOW;
 
                 current_info->filter.be = info->be;
