@@ -194,6 +194,55 @@ void outline_get_cbox(const ASS_Outline *outline, FT_BBox *cbox)
 }
 
 
+/*
+ * Outline Stroke Algorithm
+ *
+ * Goal:
+ * Given source outline, construct two border outlines, such as that
+ * for any point inside any border outline (nonzero winding rule)
+ * minimal distance to points of source outline (same rule)
+ * is less than 1 with given precision, and for any point outside
+ * both border outlines minimal distance is more than approximately 1.
+ * Distance here is defined in normal space that is scaled by [1 / xbord, 1 / ybord].
+ * Correspondingly distance is equal to hypot(dx / xbord, dy / ybord) and
+ * approximate allowable error is eps / max(xbord, ybord).
+ *
+ * Two border outlines correspond to ±1 offset curves and
+ * are required in case of self-intersecting source outline.
+ *
+ * Each of source segment that can be line segment, quadratic or cubic spline,
+ * and also connection between them is stroked mostly independently.
+ * Line segments can be offset quite straightforwardly.
+ * For splines algorithm first tries to offset individual points,
+ * then estimates error of such approximation and subdivide recursively if necessary.
+ *
+ * List of problems that need to be solved:
+ * 1) Too close points lead to random derivatives or even division by zero.
+ *    Algorithm solves that by merging such points into one.
+ * 2) Degenerate cases--near zero derivative in some spline points.
+ *    Algorithm adds circular cap in such cases.
+ * 3) Negative curvative--offset amount is larger than spline curvative.
+ *    Algorithm checks if produced splines can potentially have self-intersection
+ *    and handles them accordingly. It's mostly done by skipping
+ *    problematic spline and replacing it with polyline that covers only
+ *    positive winging part of mathematical offset curve.
+ *
+ * Error estimation for splines is done by analyzing offset spline.
+ * Offset spline is the difference between result and source spline in normal space.
+ * Such spline should consist of vectors with length 1 and orthogonal to source spline.
+ * Correspondingly error estimator have radial and angular part.
+ *
+ * Useful facts about B-splines.
+ * 1) Derivative of B-spline of order N is B-spline of order N-1.
+ * 2) Multiplication of B-splines of order N and M is B-spline of order N+M.
+ * 3) B-spline is fully contained inside convex hull of its control points.
+ *
+ * So, for radial error its possible to check only control points of
+ * offset spline multiplication by itself. And for angular error its
+ * possible to check control points of cross and dot product between
+ * offset spline and derivative spline.
+ */
+
 
 typedef struct {
     int32_t x, y;
@@ -209,36 +258,68 @@ typedef struct {
 } Normal;
 
 typedef struct {
-    ASS_Outline *result[2];
-    double xbord, ybord;
-    double xscale, yscale;
-    int eps;
+    ASS_Outline *result[2];   // result outlines
+    double xbord, ybord;      // border sizes
+    double xscale, yscale;    // inverse border sizes
+    int eps;                  // allowable error in coordinate space
 
+    // true if where are points in current contour
     bool contour_start;
+    // skip flags for first and last point
     int first_skip, last_skip;
+    // normal at first and last point
     Vector first_normal, last_normal;
+    // first and last point of current contour
     OutlinePoint first_point, last_point;
 
-    double merge_cos, split_cos, min_len;
-    double err_q, err_c, err_a;
+    // cosinus of maximal angle that do not require cap
+    double merge_cos;
+    // cosinus of maximal angle of circular arc that can be approximated with quadratic spline
+    double split_cos;
+    // maximal distance between control points in normal space that triggers handling of degenerates
+    double min_len;
+    // constant that used in exact radial error checking in quadratic case
+    double err_q;
+    // constant that used in approximate radial error checking in cubic case
+    double err_c;
+    // tangent of maximal angular error
+    double err_a;
 } StrokerState;
 
+/**
+ * \brief 2D vector dot product
+ */
 static inline double vec_dot(Vector vec1, Vector vec2)
 {
     return vec1.x * vec2.x + vec1.y * vec2.y;
 }
 
+/**
+ * \brief 2D vector cross product
+ */
 static inline double vec_crs(Vector vec1, Vector vec2)
 {
     return vec1.x * vec2.y - vec1.y * vec2.x;
 }
 
+/**
+ * \brief 2D vector length
+ */
 static inline double vec_len(Vector vec)
 {
     return sqrt(vec.x * vec.x + vec.y * vec.y);
 }
 
 
+/**
+ * \brief Add point to one or two border outlines
+ * \param str stroker state
+ * \param pt source point
+ * \param offs offset in normal space
+ * \param tag outline tag flag
+ * \param dir destination outline flags
+ * \return false on allocation failure
+ */
 static bool emit_point(StrokerState *str, OutlinePoint pt,
                        Vector offs, char tag, int dir)
 {
@@ -260,6 +341,13 @@ static bool emit_point(StrokerState *str, OutlinePoint pt,
     return true;
 }
 
+/**
+ * \brief Replace first point of current contour
+ * \param str stroker state
+ * \param pt source point
+ * \param offs offset in normal space
+ * \param dir destination outline flags
+ */
 static void fix_first_point(StrokerState *str, OutlinePoint pt,
                             Vector offs, int dir)
 {
@@ -284,6 +372,17 @@ static void fix_first_point(StrokerState *str, OutlinePoint pt,
     }
 }
 
+/**
+ * \brief Helper function for circular arc construction
+ * \param str stroker state
+ * \param pt center point
+ * \param normal0 first normal
+ * \param normal1 last normal
+ * \param mul precalculated coefficients
+ * \param level subdivision level
+ * \param dir destination outline flags
+ * \return false on allocation failure
+ */
 static bool process_arc(StrokerState *str, OutlinePoint pt,
                         Vector normal0, Vector normal1,
                         const double *mul, int level, int dir)
@@ -298,6 +397,16 @@ static bool process_arc(StrokerState *str, OutlinePoint pt,
            emit_point(str, pt, center, FT_CURVE_TAG_CONIC, dir);
 }
 
+/**
+ * \brief Construct circular arc
+ * \param str stroker state
+ * \param pt center point
+ * \param normal0 first normal
+ * \param normal1 last normal
+ * \param c dot product between normal0 and normal1
+ * \param dir destination outline flags
+ * \return false on allocation failure
+ */
 static bool draw_arc(StrokerState *str, OutlinePoint pt,
                      Vector normal0, Vector normal1, double c, int dir)
 {
@@ -328,6 +437,13 @@ static bool draw_arc(StrokerState *str, OutlinePoint pt,
         process_arc(str, pt, center,  normal1, mul + pos, max_subdiv - pos, dir);
 }
 
+/**
+ * \brief Construct full circle
+ * \param str stroker state
+ * \param pt center point
+ * \param dir destination outline flags
+ * \return false on allocation failure
+ */
 static bool draw_circle(StrokerState *str, OutlinePoint pt, int dir)
 {
     const int max_subdiv = 15;
@@ -350,6 +466,14 @@ static bool draw_circle(StrokerState *str, OutlinePoint pt, int dir)
            process_arc(str, pt, normal[3], normal[0], mul + pos, max_subdiv - pos, dir);
 }
 
+/**
+ * \brief Start new segment and add circular cap if necessary
+ * \param str stroker state
+ * \param pt start point of the new segment
+ * \param normal normal at start of the new segment
+ * \param dir destination outline flags
+ * \return false on allocation failure
+ */
 static bool start_segment(StrokerState *str, OutlinePoint pt,
                           Vector normal, int dir)
 {
@@ -387,12 +511,23 @@ static bool start_segment(StrokerState *str, OutlinePoint pt,
     return !dir || draw_arc(str, pt, prev, normal, c, dir);
 }
 
+/**
+ * \brief Same as emit_point() but also updates skip flags
+ */
 static bool emit_first_point(StrokerState *str, OutlinePoint pt, int dir)
 {
     str->last_skip &= ~dir;
     return emit_point(str, pt, str->last_normal, FT_CURVE_TAG_ON, dir);
 }
 
+/**
+ * \brief Prepare to skip part of curve
+ * \param str stroker state
+ * \param pt start point of the skipped part
+ * \param dir destination outline flags
+ * \param first true if the skipped part is at start of the segment
+ * \return false on allocation failure
+ */
 static bool prepare_skip(StrokerState *str, OutlinePoint pt, int dir, bool first)
 {
     if (first)
@@ -403,6 +538,13 @@ static bool prepare_skip(StrokerState *str, OutlinePoint pt, int dir, bool first
     return true;
 }
 
+/**
+ * \brief Process source line segment
+ * \param str stroker state
+ * \param pt end point of the line segment
+ * \param dir destination outline flags
+ * \return false on allocation failure
+ */
 static bool add_line(StrokerState *str, OutlinePoint pt, int dir)
 {
     int32_t dx = pt.x - str->last_point.x;
@@ -423,6 +565,15 @@ static bool add_line(StrokerState *str, OutlinePoint pt, int dir)
 }
 
 
+/**
+ * \brief Estimate error for quadratic spline
+ * \param str stroker state
+ * \param c dot product between normal[0] and normal[1]
+ * \param s cross product between normal[0] and normal[1]
+ * \param normal first and last spline normal
+ * \param result best offset for central spline point
+ * \return false if error is too large
+ */
 static bool estimate_quadratic_error(StrokerState *str, double c, double s,
                                      const Normal *normal, Vector *result)
 {
@@ -443,6 +594,16 @@ static bool estimate_quadratic_error(StrokerState *str, double c, double s,
     return true;
 }
 
+/**
+ * \brief Helper function for quadratic spline construction
+ * \param str stroker state
+ * \param pt array of 3 source spline points
+ * \param deriv array of 2 differences between adjacent points in normal space
+ * \param normal first and last spline normal
+ * \param dir destination outline flags
+ * \param first true if the current part is at start of the segment
+ * \return false on allocation failure
+ */
 static bool process_quadratic(StrokerState *str, const OutlinePoint *pt,
                               const Vector *deriv, const Normal *normal,
                               int dir, bool first)
@@ -539,6 +700,13 @@ static bool process_quadratic(StrokerState *str, const OutlinePoint *pt,
            process_quadratic(str, next + 2, next_deriv + 1, next_normal + 1, dir, false);
 }
 
+/**
+ * \brief Process source quadratic spline
+ * \param str stroker state
+ * \param pt array of 3 source spline points
+ * \param dir destination outline flags
+ * \return false on allocation failure
+ */
 static bool add_quadratic(StrokerState *str, const OutlinePoint *pt, int dir)
 {
     int32_t dx0 = pt[1].x - pt[0].x;
@@ -589,6 +757,17 @@ enum {
     MASK_CLIP_1       = FLAG_CLIP_1       << FLAG_COUNT,
 };
 
+/**
+ * \brief Estimate error for cubic spline
+ * \param str stroker state
+ * \param c dot product between normal[0] and normal[1]
+ * \param s cross product between normal[0] and normal[1]
+ * \param dc dot products between normals and central points difference in normal space
+ * \param dc cross products between normals and central points difference in normal space
+ * \param normal first and last spline normal
+ * \param result best offsets for central spline points (second & third)
+ * \return flags for destination outlines that do not require subdivision
+ */
 static int estimate_cubic_error(StrokerState *str, double c, double s,
                                 const double *dc, const double *ds,
                                 const Normal *normal, Vector *result,
@@ -682,6 +861,16 @@ static int estimate_cubic_error(StrokerState *str, double c, double s,
     return dir;
 }
 
+/**
+ * \brief Helper function for cubic spline construction
+ * \param str stroker state
+ * \param pt array of 4 source spline points
+ * \param deriv array of 3 differences between adjacent points in normal space
+ * \param normal first and last spline normal
+ * \param dir destination outline flags
+ * \param first true if the current part is at start of the segment
+ * \return false on allocation failure
+ */
 static bool process_cubic(StrokerState *str, const OutlinePoint *pt,
                           const Vector *deriv, const Normal *normal,
                           int dir, bool first)
@@ -903,6 +1092,13 @@ static bool process_cubic(StrokerState *str, const OutlinePoint *pt,
            process_cubic(str, next + 3, next_deriv + 2, next_normal + 1, dir, false);
 }
 
+/**
+ * \brief Process source cubic spline
+ * \param str stroker state
+ * \param pt array of 4 source spline points
+ * \param dir destination outline flags
+ * \return false on allocation failure
+ */
 static bool add_cubic(StrokerState *str, const OutlinePoint *pt, int dir)
 {
     int flags = 9;
@@ -955,6 +1151,12 @@ static bool add_cubic(StrokerState *str, const OutlinePoint *pt, int dir)
 }
 
 
+/**
+ * \brief Process contour closing
+ * \param str stroker state
+ * \param dir destination outline flags
+ * \return false on allocation failure
+ */
 static bool close_contour(StrokerState *str, int dir)
 {
     if (str->contour_start) {
@@ -986,6 +1188,13 @@ static bool close_contour(StrokerState *str, int dir)
 
 /*
  * Stroke an outline glyph in x/y direction.
+ * \param result first result outline
+ * \param result1 second result outline
+ * \param path source outline
+ * \param xbord border size in X direction
+ * \param ybord border size in Y direction
+ * \param eps approximate allowable error
+ * \return false on allocation failure
  */
 bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
                     const ASS_Outline *path, int xbord, int ybord, int eps)
