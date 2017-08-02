@@ -66,8 +66,8 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
         // skip degenerate 2-point contours from broken fonts
         if (n >= 3) {
             for (size_t k = 0; k < n; k++) {
-                outline->points[outline->n_points + k].x = source->points[start + k].x;
-                outline->points[outline->n_points + k].y = source->points[start + k].y;
+                outline->points[outline->n_points + k].x =  source->points[start + k].x;
+                outline->points[outline->n_points + k].y = -source->points[start + k].y;
             }
             memcpy(outline->tags + outline->n_points, source->tags + start, n);
 
@@ -310,13 +310,11 @@ static bool emit_point(StrokerState *str, ASS_Vector pt,
 
     if (dir & 1) {
         ASS_Vector res = { pt.x + dx, pt.y + dy };
-        res.y = -res.y;
         if (!outline_add_point(str->result[0], res, tag))
             return false;
     }
     if (dir & 2) {
         ASS_Vector res = { pt.x - dx, pt.y - dy };
-        res.y = -res.y;
         if (!outline_add_point(str->result[1], res, tag))
             return false;
     }
@@ -338,7 +336,6 @@ static void fix_first_point(StrokerState *str, ASS_Vector pt,
 
     if (dir & 1) {
         ASS_Vector res = { pt.x + dx, pt.y + dy };
-        res.y = -res.y;
         ASS_Outline *ol = str->result[0];
         size_t first = ol->n_contours ?
             ol->contours[ol->n_contours - 1] + 1 : 0;
@@ -346,7 +343,6 @@ static void fix_first_point(StrokerState *str, ASS_Vector pt,
     }
     if (dir & 2) {
         ASS_Vector res = { pt.x - dx, pt.y - dy };
-        res.y = -res.y;
         ASS_Outline *ol = str->result[1];
         size_t first = ol->n_contours ?
             ol->contours[ol->n_contours - 1] + 1 : 0;
@@ -1220,15 +1216,14 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
         if (j > last)
             return false;
 
-        if (path->points[j].x <  -(1 << 28) || path->points[j].x >= (1 << 28))
+        if (path->points[j].x < -(1 << 28) || path->points[j].x >= (1 << 28))
             return false;
-        if (path->points[j].y <= -(1 << 28) || path->points[j].y >  (1 << 28))
+        if (path->points[j].y < -(1 << 28) || path->points[j].y >= (1 << 28))
             return false;
 
         switch (FT_CURVE_TAG(path->tags[j])) {
         case FT_CURVE_TAG_ON:
-            p[0].x =  path->points[j].x;
-            p[0].y = -path->points[j].y;
+            p[0] = path->points[j];
             start = p[0];
             st = S_ON;
             break;
@@ -1236,20 +1231,17 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
         case FT_CURVE_TAG_CONIC:
             switch (FT_CURVE_TAG(path->tags[last])) {
             case FT_CURVE_TAG_ON:
-                p[0].x =  path->points[last].x;
-                p[0].y = -path->points[last].y;
-                p[1].x =  path->points[j].x;
-                p[1].y = -path->points[j].y;
+                p[0] = path->points[last];
+                p[1] = path->points[j];
                 process_end = 0;
                 start = p[0];
                 st = S_Q;
                 break;
 
             case FT_CURVE_TAG_CONIC:
-                p[1].x =  path->points[j].x;
-                p[1].y = -path->points[j].y;
+                p[1] = path->points[j];
                 p[0].x = (p[1].x + path->points[last].x) >> 1;
-                p[0].y = (p[1].y - path->points[last].y) >> 1;
+                p[0].y = (p[1].y + path->points[last].y) >> 1;
                 start = p[0];
                 st = S_Q;
                 break;
@@ -1265,25 +1257,23 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
         str.last_point = start;
 
         for (j++; j <= last; j++) {
-            if (path->points[j].x <  -(1 << 28) || path->points[j].x >= (1 << 28))
+            if (path->points[j].x < -(1 << 28) || path->points[j].x >= (1 << 28))
                 return false;
-            if (path->points[j].y <= -(1 << 28) || path->points[j].y >  (1 << 28))
+            if (path->points[j].y < -(1 << 28) || path->points[j].y >= (1 << 28))
                 return false;
 
             switch (FT_CURVE_TAG(path->tags[j])) {
             case FT_CURVE_TAG_ON:
                 switch (st) {
                 case S_ON:
-                    p[1].x =  path->points[j].x;
-                    p[1].y = -path->points[j].y;
+                    p[1] = path->points[j];
                     if (!add_line(&str, p[1], dir))
                         return false;
                     p[0] = p[1];
                     break;
 
                 case S_Q:
-                    p[2].x =  path->points[j].x;
-                    p[2].y = -path->points[j].y;
+                    p[2] = path->points[j];
                     if (!add_quadratic(&str, p, dir))
                         return false;
                     p[0] = p[2];
@@ -1291,8 +1281,7 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
                     break;
 
                 case S_C2:
-                    p[3].x =  path->points[j].x;
-                    p[3].y = -path->points[j].y;
+                    p[3] = path->points[j];
                     if (!add_cubic(&str, p, dir))
                         return false;
                     p[0] = p[3];
@@ -1307,14 +1296,12 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
             case FT_CURVE_TAG_CONIC:
                 switch (st) {
                 case S_ON:
-                    p[1].x =  path->points[j].x;
-                    p[1].y = -path->points[j].y;
+                    p[1] = path->points[j];
                     st = S_Q;
                     break;
 
                 case S_Q:
-                    p[3].x =  path->points[j].x;
-                    p[3].y = -path->points[j].y;
+                    p[3] = path->points[j];
                     p[2].x = (p[1].x + p[3].x) >> 1;
                     p[2].y = (p[1].y + p[3].y) >> 1;
                     if (!add_quadratic(&str, p, dir))
@@ -1331,14 +1318,12 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
             case FT_CURVE_TAG_CUBIC:
                 switch (st) {
                 case S_ON:
-                    p[1].x =  path->points[j].x;
-                    p[1].y = -path->points[j].y;
+                    p[1] = path->points[j];
                     st = S_C1;
                     break;
 
                 case S_C1:
-                    p[2].x =  path->points[j].x;
-                    p[2].y = -path->points[j].y;
+                    p[2] = path->points[j];
                     st = S_C2;
                     break;
 

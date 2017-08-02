@@ -67,7 +67,7 @@ static void drawing_finish(ASS_Drawing *drawing, bool raw_mode)
 
     // Place it onto the baseline
     for (size_t i = 0; i < ol->n_points; i++)
-        ol->points[i].y += drawing->asc;
+        ol->points[i].y -= drawing->asc;
 }
 
 /*
@@ -193,7 +193,7 @@ static inline void update_cbox(ASS_Drawing *drawing, ASS_Vector *point)
 static inline void translate_point(ASS_Drawing *drawing, ASS_Vector *point)
 {
     point->x = drawing->point_scale_x * point->x;
-    point->y = drawing->point_scale_y * -point->y;
+    point->y = drawing->point_scale_y * point->y;
 
     update_cbox(drawing, point);
 }

@@ -473,7 +473,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         val->bm = val->bm_o = NULL;
 
         // Not found in cache, parse and rasterize it
-        ASS_Outline *outline = ass_drawing_parse(drawing, 1);
+        ASS_Outline *outline = ass_drawing_parse(drawing, true);
         if (!outline) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
@@ -487,7 +487,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             render_priv->settings.top_margin != 0) {
             ASS_Vector trans = {
                 .x = int_to_d6(render_priv->settings.left_margin),
-                .y = -int_to_d6(render_priv->settings.top_margin),
+                .y = int_to_d6(render_priv->settings.top_margin),
             };
             outline_translate(outline, trans.x, trans.y);
         }
@@ -937,10 +937,10 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
     desc += asc * (scale_y - 1.0);
 
     ASS_Vector points[4] = {
-        { .x = -sx,         .y = asc + sy },
-        { .x = adv + sx,    .y = asc + sy },
-        { .x = adv + sx,    .y = -desc - sy },
-        { .x = -sx,         .y = -desc - sy },
+        { .x = -sx,         .y = -asc - sy },
+        { .x = adv + sx,    .y = -asc - sy },
+        { .x = adv + sx,    .y = desc + sy },
+        { .x = -sx,         .y = desc + sy },
     };
 
     ol->n_points = ol->n_contours = 0;
@@ -1030,7 +1030,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         if (info->drawing) {
             ASS_Drawing *drawing = info->drawing;
             ass_drawing_hash(drawing);
-            if(!ass_drawing_parse(drawing, 0) ||
+            if(!ass_drawing_parse(drawing, false) ||
                     !outline_copy(&val->outline, &drawing->outline)) {
                 ass_cache_commit(val, 1);
                 ass_cache_dec_ref(val);
@@ -1141,12 +1141,12 @@ transform_3d_points(ASS_Vector shift, ASS_Outline *outline, double frx, double f
 
     dist = 20000 * scale;
     for (size_t i = 0; i < outline->n_points; ++i) {
-        x = (double) p[i].x + shift.x + (fax * (yshift - p[i].y));
-        y = (double) p[i].y + shift.y + (-fay * p[i].x);
+        x = (double) p[i].x + shift.x + fax * (yshift + p[i].y);
+        y = (double) p[i].y + shift.y + fay * p[i].x;
         z = 0.;
 
-        xx = x * cz + y * sz;
-        yy = -(x * sz - y * cz);
+        xx = x * cz - y * sz;
+        yy = -(x * sz + y * cz);
         zz = z;
 
         x = xx;
@@ -1154,15 +1154,15 @@ transform_3d_points(ASS_Vector shift, ASS_Outline *outline, double frx, double f
         z = yy * sx - zz * cx;
 
         xx = x * cy + z * sy;
-        yy = y;
+        yy = -y;
         zz = x * sy - z * cy;
 
         zz = FFMAX(zz, 1000 - dist);
 
         x = (xx * dist) / (zz + dist);
         y = (yy * dist) / (zz + dist);
-        p[i].x = x - shift.x + 0.5;
-        p[i].y = y - shift.y + 0.5;
+        p[i].x = lround(x - shift.x);
+        p[i].y = lround(y - shift.y);
     }
 }
 
@@ -1250,7 +1250,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         for (int i = 0; i < n_outlines; i++)
             outline_transform(&outline[i], &m);
     for (int i = 0; i < n_outlines; i++)
-        outline_translate(&outline[i], key->advance.x, -key->advance.y);
+        outline_translate(&outline[i], key->advance.x, key->advance.y);
 
     // render glyph
     val->valid = outline_to_bitmap2(render_priv,
@@ -2021,7 +2021,7 @@ static void calculate_rotation_params(ASS_Renderer *render_priv, DBBox *bbox,
 
             if (key->frx || key->fry || key->frz || key->fax || key->fay) {
                 key->shift_x = info->pos.x + double_to_d6(device_x - center.x);
-                key->shift_y = -(info->pos.y + double_to_d6(device_y - center.y));
+                key->shift_y = info->pos.y + double_to_d6(device_y - center.y);
             } else {
                 key->shift_x = 0;
                 key->shift_y = 0;

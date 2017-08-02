@@ -282,15 +282,14 @@ bool rasterizer_set_outline(RasterizerData *rst,
         if (j > last)
             return false;
 
-        if (path->points[j].x <  -(1 << 28) || path->points[j].x >= (1 << 28))
+        if (path->points[j].x < -(1 << 28) || path->points[j].x >= (1 << 28))
             return false;
-        if (path->points[j].y <= -(1 << 28) || path->points[j].y >  (1 << 28))
+        if (path->points[j].y < -(1 << 28) || path->points[j].y >= (1 << 28))
             return false;
 
         switch (FT_CURVE_TAG(path->tags[j])) {
         case FT_CURVE_TAG_ON:
-            p[0].x =  path->points[j].x;
-            p[0].y = -path->points[j].y;
+            p[0] = path->points[j];
             start = p[0];
             st = S_ON;
             break;
@@ -298,19 +297,16 @@ bool rasterizer_set_outline(RasterizerData *rst,
         case FT_CURVE_TAG_CONIC:
             switch (FT_CURVE_TAG(path->tags[last])) {
             case FT_CURVE_TAG_ON:
-                p[0].x =  path->points[last].x;
-                p[0].y = -path->points[last].y;
-                p[1].x =  path->points[j].x;
-                p[1].y = -path->points[j].y;
+                p[0] = path->points[last];
+                p[1] = path->points[j];
                 process_end = 0;
                 st = S_Q;
                 break;
 
             case FT_CURVE_TAG_CONIC:
-                p[1].x =  path->points[j].x;
-                p[1].y = -path->points[j].y;
+                p[1] = path->points[j];
                 p[0].x = (p[1].x + path->points[last].x) >> 1;
-                p[0].y = (p[1].y - path->points[last].y) >> 1;
+                p[0].y = (p[1].y + path->points[last].y) >> 1;
                 start = p[0];
                 st = S_Q;
                 break;
@@ -325,25 +321,23 @@ bool rasterizer_set_outline(RasterizerData *rst,
         }
 
         for (j++; j <= last; j++) {
-            if (path->points[j].x <  -(1 << 28) || path->points[j].x >= (1 << 28))
+            if (path->points[j].x < -(1 << 28) || path->points[j].x >= (1 << 28))
                 return false;
-            if (path->points[j].y <= -(1 << 28) || path->points[j].y >  (1 << 28))
+            if (path->points[j].y < -(1 << 28) || path->points[j].y >= (1 << 28))
                 return false;
 
             switch (FT_CURVE_TAG(path->tags[j])) {
             case FT_CURVE_TAG_ON:
                 switch (st) {
                 case S_ON:
-                    p[1].x =  path->points[j].x;
-                    p[1].y = -path->points[j].y;
+                    p[1] = path->points[j];
                     if (!add_line(rst, p[0], p[1]))
                         return false;
                     p[0] = p[1];
                     break;
 
                 case S_Q:
-                    p[2].x =  path->points[j].x;
-                    p[2].y = -path->points[j].y;
+                    p[2] = path->points[j];
                     if (!add_quadratic(rst, p))
                         return false;
                     p[0] = p[2];
@@ -351,8 +345,7 @@ bool rasterizer_set_outline(RasterizerData *rst,
                     break;
 
                 case S_C2:
-                    p[3].x =  path->points[j].x;
-                    p[3].y = -path->points[j].y;
+                    p[3] = path->points[j];
                     if (!add_cubic(rst, p))
                         return false;
                     p[0] = p[3];
@@ -367,14 +360,12 @@ bool rasterizer_set_outline(RasterizerData *rst,
             case FT_CURVE_TAG_CONIC:
                 switch (st) {
                 case S_ON:
-                    p[1].x =  path->points[j].x;
-                    p[1].y = -path->points[j].y;
+                    p[1] = path->points[j];
                     st = S_Q;
                     break;
 
                 case S_Q:
-                    p[3].x =  path->points[j].x;
-                    p[3].y = -path->points[j].y;
+                    p[3] = path->points[j];
                     p[2].x = (p[1].x + p[3].x) >> 1;
                     p[2].y = (p[1].y + p[3].y) >> 1;
                     if (!add_quadratic(rst, p))
@@ -391,14 +382,12 @@ bool rasterizer_set_outline(RasterizerData *rst,
             case FT_CURVE_TAG_CUBIC:
                 switch (st) {
                 case S_ON:
-                    p[1].x =  path->points[j].x;
-                    p[1].y = -path->points[j].y;
+                    p[1] = path->points[j];
                     st = S_C1;
                     break;
 
                 case S_C1:
-                    p[2].x =  path->points[j].x;
-                    p[2].y = -path->points[j].y;
+                    p[2] = path->points[j];
                     st = S_C2;
                     break;
 
