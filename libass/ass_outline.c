@@ -284,15 +284,17 @@ void outline_translate(const ASS_Outline *outline, int32_t dx, int32_t dy)
     }
 }
 
-void outline_transform(const ASS_Outline *outline, const FT_Matrix *matrix)
+void outline_adjust(const ASS_Outline *outline, double scale_x, int32_t dx, int32_t dy)
 {
+    int32_t mul = lrint(scale_x * 0x10000);
+    if (mul == 0x10000) {
+        outline_translate(outline, dx, dy);
+        return;
+    }
     for (size_t i = 0; i < outline->n_points; i++) {
-        int32_t x = FT_MulFix(outline->points[i].x, matrix->xx) +
-                    FT_MulFix(outline->points[i].y, matrix->xy);
-        int32_t y = FT_MulFix(outline->points[i].x, matrix->yx) +
-                    FT_MulFix(outline->points[i].y, matrix->yy);
-        outline->points[i].x = x;
-        outline->points[i].y = y;
+        int32_t x = (int64_t) outline->points[i].x * mul >> 16;
+        outline->points[i].x = x + dx;
+        outline->points[i].y += dy;
     }
 }
 

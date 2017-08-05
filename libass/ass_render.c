@@ -1126,50 +1126,46 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 }
 
 /**
- * \brief Apply transformation to outline points of a glyph
- * Applies rotations given by frx, fry and frz and projects the points back
- * onto the screen plane.
+ * \brief Calculate transform matrix for transform_3d()
  */
 static void
-transform_3d_points(ASS_Vector shift, ASS_Outline *outline, double frx, double fry,
-                    double frz, double fax, double fay, double scale,
-                    int yshift)
+calc_transform_matrix(ASS_Vector shift,
+                      double frx, double fry, double frz,
+                      double fax, double fay, double scale,
+                      int yshift, double m[3][3])
 {
-    double sx = sin(frx);
-    double sy = sin(fry);
-    double sz = sin(frz);
-    double cx = cos(frx);
-    double cy = cos(fry);
-    double cz = cos(frz);
-    ASS_Vector *p = outline->points;
-    double x, y, z, xx, yy, zz;
-    int dist;
+    double sx = -sin(frx), cx = cos(frx);
+    double sy =  sin(fry), cy = cos(fry);
+    double sz = -sin(frz), cz = cos(frz);
 
-    dist = 20000 * scale;
-    for (size_t i = 0; i < outline->n_points; ++i) {
-        x = (double) p[i].x + shift.x + fax * (yshift + p[i].y);
-        y = (double) p[i].y + shift.y + fay * p[i].x;
-        z = 0.;
+    double x1[3] = { 1, fax, shift.x + fax * yshift };
+    double y1[3] = { fay, 1, shift.y };
 
-        xx = x * cz - y * sz;
-        yy = -(x * sz + y * cz);
-        zz = z;
-
-        x = xx;
-        y = yy * cx + zz * sx;
-        z = yy * sx - zz * cx;
-
-        xx = x * cy + z * sy;
-        yy = -y;
-        zz = x * sy - z * cy;
-
-        zz = FFMAX(zz, 1000 - dist);
-
-        x = (xx * dist) / (zz + dist);
-        y = (yy * dist) / (zz + dist);
-        p[i].x = lround(x - shift.x);
-        p[i].y = lround(y - shift.y);
+    double x2[3], y2[3];
+    for (int i = 0; i < 3; i++) {
+        x2[i] = x1[i] * cz - y1[i] * sz;
+        y2[i] = x1[i] * sz + y1[i] * cz;
     }
+
+    double y3[3], z3[3];
+    for (int i = 0; i < 3; i++) {
+        y3[i] = y2[i] * cx;
+        z3[i] = y2[i] * sx;
+    }
+
+    double x4[3], z4[3];
+    for (int i = 0; i < 3; i++) {
+        x4[i] = x2[i] * cy - z3[i] * sy;
+        z4[i] = x2[i] * sy + z3[i] * cy;
+    }
+
+    double dist = 20000 * scale;
+    for (int i = 0; i < 3; i++) {
+        m[0][i] = x4[i] * dist;
+        m[1][i] = y3[i] * dist;
+        m[2][i] = z4[i];
+    }
+    m[2][2] += dist;
 }
 
 /**
@@ -1187,12 +1183,24 @@ transform_3d(ASS_Vector shift, ASS_Outline *outline, int n_outlines,
              double frx, double fry, double frz, double fax, double fay,
              double scale, int yshift)
 {
-    frx = -frx;
-    frz = -frz;
-    if (frx != 0. || fry != 0. || frz != 0. || fax != 0. || fay != 0.)
-        for (int i = 0; i < n_outlines; i++)
-            transform_3d_points(shift, &outline[i], frx, fry, frz,
-                                fax, fay, scale, yshift);
+    if (frx == 0 && fry == 0 && frz == 0 && fax == 0 && fay == 0)
+        return;
+
+    double m[3][3];
+    calc_transform_matrix(shift, frx, fry, frz, fax, fay, scale, yshift, m);
+
+    for (int i = 0; i < n_outlines; i++) {
+        ASS_Vector *p = outline[i].points;
+        for (size_t j = 0; j < outline[i].n_points; ++j) {
+            double v[3];
+            for (int k = 0; k < 3; k++)
+                v[k] = m[k][0] * p[j].x + m[k][1] * p[j].y + m[k][2];
+
+            double w = 1 / FFMAX(v[2], 1000);
+            p[j].x = lrint(v[0] * w) - shift.x;
+            p[j].y = lrint(v[1] * w) - shift.y;
+        }
+    }
 }
 
 /**
@@ -1247,16 +1255,9 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                  info->frx, info->fry, info->frz, fax_scaled,
                  fay_scaled, render_priv->blur_scale, info->asc);
 
-    // PAR correction scaling
-    FT_Matrix m = { double_to_d16(scale_x), 0,
-                    0, double_to_d16(1.0) };
-
-    // subpixel shift
-    if (scale_x != 1.0)
-        for (int i = 0; i < n_outlines; i++)
-            outline_transform(&outline[i], &m);
+    // PAR correction scaling + subpixel shift
     for (int i = 0; i < n_outlines; i++)
-        outline_translate(&outline[i], key->advance.x, key->advance.y);
+        outline_adjust(&outline[i], scale_x, key->advance.x, key->advance.y);
 
     // render glyph
     val->valid = outline_to_bitmap2(render_priv,
