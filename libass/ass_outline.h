@@ -22,15 +22,16 @@
 #include <ft2build.h>
 #include FT_OUTLINE_H
 #include <stdbool.h>
+#include "ass_bitmap.h"
 
 
-typedef struct ass_outline {
+struct ass_outline {
     size_t n_contours, max_contours;
     size_t *contours;
     size_t n_points, max_points;
     FT_Vector *points;
     char *tags;
-} ASS_Outline;
+};
 
 bool outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_contours);
 bool outline_convert(ASS_Outline *outline, const FT_Outline *source);
