@@ -121,6 +121,13 @@ void ass_shaper_free(ASS_Shaper *shaper)
     free(shaper);
 }
 
+void ass_shaper_empty_cache(ASS_Shaper *shaper)
+{
+#ifdef CONFIG_HARFBUZZ
+    ass_cache_empty(shaper->metrics_cache);
+#endif
+}
+
 void ass_shaper_font_data_free(ASS_ShaperFontData *priv)
 {
 #ifdef CONFIG_HARFBUZZ
