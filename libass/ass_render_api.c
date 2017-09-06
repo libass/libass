@@ -146,6 +146,10 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
 
     ass_reconfigure(priv);
 
+    ass_cache_empty(priv->cache.font_cache);
+    if (priv->shaper)
+        ass_shaper_empty_cache(priv->shaper);
+
     if (priv->fontselect)
         ass_fontselect_free(priv->fontselect);
     priv->fontselect = ass_fontselect_init(priv->library, priv->ftlibrary,
