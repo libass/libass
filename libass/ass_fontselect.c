@@ -50,6 +50,11 @@
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 #define MAX_FULLNAME 100
 
+// workaround for gcc and clang bugs
+// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80454
+// https://bugs.llvm.org/show_bug.cgi?id=21689
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
 // internal font database element
 // all strings are utf-8
 struct font_info {
