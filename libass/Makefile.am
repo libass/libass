@@ -11,7 +11,7 @@ nasm_verbose_ = $(nasm_verbose_$(AM_DEFAULT_VERBOSITY))
 nasm_verbose_0 = @echo "  NASM    " $@;
 
 .asm.lo:
-	$(nasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
+	$(nasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(AS) $(ASFLAGS) -I$(srcdir)/ -o $@ $< -prefer-non-pic
 
 SRC_INTEL = x86/rasterizer.asm x86/blend_bitmaps.asm x86/blur.asm x86/cpuid.asm \
             x86/cpuid.h
