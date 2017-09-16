@@ -216,12 +216,12 @@ void outline_get_cbox(const ASS_Outline *outline, FT_BBox *cbox)
  * For splines algorithm first tries to offset individual points,
  * then estimates error of such approximation and subdivide recursively if necessary.
  *
- * List of problems that need to be solved:
+ * List of border cases handled by this algorithm:
  * 1) Too close points lead to random derivatives or even division by zero.
  *    Algorithm solves that by merging such points into one.
- * 2) Degenerate cases--near zero derivative in some spline points.
+ * 2) Degenerate cases--near zero derivative at some spline points.
  *    Algorithm adds circular cap in such cases.
- * 3) Negative curvative--offset amount is larger than spline curvative.
+ * 3) Negative curvature--offset amount is larger than radius of curvature.
  *    Algorithm checks if produced splines can potentially have self-intersection
  *    and handles them accordingly. It's mostly done by skipping
  *    problematic spline and replacing it with polyline that covers only
@@ -237,8 +237,8 @@ void outline_get_cbox(const ASS_Outline *outline, FT_BBox *cbox)
  * 2) Multiplication of B-splines of order N and M is B-spline of order N+M.
  * 3) B-spline is fully contained inside convex hull of its control points.
  *
- * So, for radial error its possible to check only control points of
- * offset spline multiplication by itself. And for angular error its
+ * So, for radial error it's possible to check only control points of
+ * offset spline multiplication by itself. And for angular error it's
  * possible to check control points of cross and dot product between
  * offset spline and derivative spline.
  */
@@ -495,7 +495,7 @@ static bool start_segment(StrokerState *str, OutlinePoint pt,
     }
     str->last_normal = normal;
 
-    // check for negative curvative
+    // check for negative curvature
     double s = vec_crs(prev, normal);
     int skip_dir = s < 0 ? 1 : 2;
     if (dir & skip_dir) {
