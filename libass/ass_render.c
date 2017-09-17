@@ -662,27 +662,24 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
     return head;
 }
 
-static void compute_string_bbox(TextInfo *text, DBBox *bbox)
+static void compute_string_bbox(TextInfo *text, ASS_DRect *bbox)
 {
-    int i;
-
     if (text->length > 0) {
-        bbox->xMin = 32000;
-        bbox->xMax = -32000;
-        bbox->yMin = -1 * text->lines[0].asc + d6_to_double(text->glyphs[0].pos.y);
-        bbox->yMax = text->height - text->lines[0].asc +
-                     d6_to_double(text->glyphs[0].pos.y);
+        bbox->x_min = +32000;
+        bbox->x_max = -32000;
+        bbox->y_min = d6_to_double(text->glyphs[0].pos.y) - text->lines[0].asc;
+        bbox->y_max = bbox->y_min + text->height;
 
-        for (i = 0; i < text->length; ++i) {
+        for (int i = 0; i < text->length; i++) {
             GlyphInfo *info = text->glyphs + i;
             if (info->skip) continue;
             double s = d6_to_double(info->pos.x);
             double e = s + d6_to_double(info->cluster_advance.x);
-            bbox->xMin = FFMIN(bbox->xMin, s);
-            bbox->xMax = FFMAX(bbox->xMax, e);
+            bbox->x_min = FFMIN(bbox->x_min, s);
+            bbox->x_max = FFMAX(bbox->x_max, e);
         }
     } else
-        bbox->xMin = bbox->xMax = bbox->yMin = bbox->yMax = 0.;
+        bbox->x_min = bbox->x_max = bbox->y_min = bbox->y_max = 0;
 }
 
 static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
@@ -1553,32 +1550,32 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
  * \param alignment alignment
  * \param bx, by out: base point coordinates
  */
-static void get_base_point(DBBox *bbox, int alignment, double *bx, double *by)
+static void get_base_point(ASS_DRect *bbox, int alignment, double *bx, double *by)
 {
     const int halign = alignment & 3;
     const int valign = alignment & 12;
     if (bx)
         switch (halign) {
         case HALIGN_LEFT:
-            *bx = bbox->xMin;
+            *bx = bbox->x_min;
             break;
         case HALIGN_CENTER:
-            *bx = (bbox->xMax + bbox->xMin) / 2.0;
+            *bx = (bbox->x_max + bbox->x_min) / 2.0;
             break;
         case HALIGN_RIGHT:
-            *bx = bbox->xMax;
+            *bx = bbox->x_max;
             break;
         }
     if (by)
         switch (valign) {
         case VALIGN_TOP:
-            *by = bbox->yMin;
+            *by = bbox->y_min;
             break;
         case VALIGN_CENTER:
-            *by = (bbox->yMax + bbox->yMin) / 2.0;
+            *by = (bbox->y_max + bbox->y_min) / 2.0;
             break;
         case VALIGN_SUB:
-            *by = bbox->yMax;
+            *by = bbox->y_max;
             break;
         }
 }
@@ -2004,13 +2001,10 @@ static void align_lines(ASS_Renderer *render_priv, double max_text_width)
     }
 }
 
-static void calculate_rotation_params(ASS_Renderer *render_priv, DBBox *bbox,
+static void calculate_rotation_params(ASS_Renderer *render_priv, ASS_DRect *bbox,
                                       double device_x, double device_y)
 {
-    TextInfo *text_info = &render_priv->text_info;
     ASS_DVector center;
-    int i;
-
     if (render_priv->state.have_origin) {
         center.x = x2scr(render_priv, render_priv->state.org_x);
         center.y = y2scr(render_priv, render_priv->state.org_y);
@@ -2021,7 +2015,8 @@ static void calculate_rotation_params(ASS_Renderer *render_priv, DBBox *bbox,
         center.y = device_y + by;
     }
 
-    for (i = 0; i < text_info->length; ++i) {
+    TextInfo *text_info = &render_priv->text_info;
+    for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + i;
         while (info) {
             OutlineBitmapHashKey *key = &info->hash_key.u.outline;
@@ -2319,13 +2314,6 @@ static int
 ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                  EventImages *event_images)
 {
-    DBBox bbox;
-    int MarginL, MarginR, MarginV;
-    int valign;
-    double device_x = 0;
-    double device_y = 0;
-    TextInfo *text_info = &render_priv->text_info;
-
     if (event->Style >= render_priv->track->n_styles) {
         ass_msg(render_priv->library, MSGL_WARN, "No style found");
         return 1;
@@ -2341,6 +2329,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     if (parse_events(render_priv, event))
         return 1;
 
+    TextInfo *text_info = &render_priv->text_info;
     if (text_info->length == 0) {
         // no valid symbols in the event; this can be smth like {comment}
         free_render_context(render_priv);
@@ -2365,13 +2354,13 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     // depends on glyph x coordinates being monotonous, so it should be done before line wrap
     process_karaoke_effects(render_priv);
 
-    valign = render_priv->state.alignment & 12;
+    int valign = render_priv->state.alignment & 12;
 
-    MarginL =
+    int MarginL =
         (event->MarginL) ? event->MarginL : render_priv->state.style->MarginL;
-    MarginR =
+    int MarginR =
         (event->MarginR) ? event->MarginR : render_priv->state.style->MarginR;
-    MarginV =
+    int MarginV =
         (event->MarginV) ? event->MarginV : render_priv->state.style->MarginV;
 
     // calculate max length of a line
@@ -2396,11 +2385,13 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     align_lines(render_priv, max_text_width);
 
     // determing text bounding box
+    ASS_DRect bbox;
     compute_string_bbox(text_info, &bbox);
 
     // determine device coordinates for text
 
     // x coordinate for everything except positioned events
+    double device_x = 0;
     if (render_priv->state.evt_type == EVENT_NORMAL ||
         render_priv->state.evt_type == EVENT_VSCROLL) {
         device_x = x2scr(render_priv, MarginL);
@@ -2412,12 +2403,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                       render_priv->state.scroll_shift);
         else if (render_priv->state.scroll_direction == SCROLL_LR)
             device_x =
-                x2scr(render_priv,
-                      render_priv->state.scroll_shift) - (bbox.xMax -
-                                                          bbox.xMin);
+                x2scr(render_priv, render_priv->state.scroll_shift) -
+                (bbox.x_max - bbox.x_min);
     }
 
     // y coordinate for everything except positioned events
+    double device_y = 0;
     if (render_priv->state.evt_type == EVENT_NORMAL ||
         render_priv->state.evt_type == EVENT_HSCROLL) {
         if (valign == VALIGN_TOP) {     // toptitle
@@ -2427,7 +2418,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         } else if (valign == VALIGN_CENTER) {   // midtitle
             double scr_y =
                 y2scr(render_priv, render_priv->track->PlayResY / 2.0);
-            device_y = scr_y - (bbox.yMax + bbox.yMin) / 2.0;
+            device_y = scr_y - (bbox.y_max + bbox.y_min) / 2.0;
         } else {                // subtitle
             double line_pos = render_priv->state.explicit ?
                 0 : render_priv->settings.line_position;
@@ -2455,8 +2446,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             device_y =
                 y2scr(render_priv,
                       render_priv->state.clip_y0 +
-                      render_priv->state.scroll_shift) - (bbox.yMax -
-                                                          bbox.yMin);
+                      render_priv->state.scroll_shift) -
+                (bbox.y_max - bbox.y_min);
         else if (render_priv->state.scroll_direction == SCROLL_BT)
             device_y =
                 y2scr(render_priv,
@@ -2531,9 +2522,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->top = device_y - text_info->lines[0].asc;
     event_images->height = text_info->height;
     event_images->left =
-        (device_x + bbox.xMin * render_priv->font_scale_x) + 0.5;
+        (device_x + bbox.x_min * render_priv->font_scale_x) + 0.5;
     event_images->width =
-        (bbox.xMax - bbox.xMin) * render_priv->font_scale_x + 0.5;
+        (bbox.x_max - bbox.x_min) * render_priv->font_scale_x + 0.5;
     event_images->detect_collisions = render_priv->state.detect_collisions;
     event_images->shift_direction = (valign == VALIGN_TOP) ? 1 : -1;
     event_images->event = event;

@@ -50,13 +50,6 @@
 #define PARSED_A    (1<<1)
 
 typedef struct {
-    double xMin;
-    double xMax;
-    double yMin;
-    double yMax;
-} DBBox;
-
-typedef struct {
     ASS_Image result;
     CompositeHashValue *source;
     size_t ref_count;

@@ -37,6 +37,10 @@ typedef struct {
     int32_t x_min, y_min, x_max, y_max;
 } ASS_Rect;
 
+typedef struct {
+    double x_min, y_min, x_max, y_max;
+} ASS_DRect;
+
 /*
  * Outline represented with array of points and array of segments.
  * Segment here is spline of order 1 (line), 2 (quadratic) or 3 (cubic).
