@@ -24,29 +24,27 @@
 
 
 
-bool outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_contours)
+bool outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_segments)
 {
-    outline->contours = malloc(sizeof(size_t) * n_contours);
     outline->points = malloc(sizeof(ASS_Vector) * n_points);
-    outline->tags = malloc(n_points);
-    if (!outline->contours || !outline->points || !outline->tags) {
+    outline->segments = malloc(n_segments);
+    if (!outline->points || !outline->segments) {
         outline_free(outline);
         return false;
     }
 
-    outline->max_contours = n_contours;
     outline->max_points = n_points;
+    outline->max_segments = n_segments;
     return true;
 }
 
 static void outline_clear(ASS_Outline *outline)
 {
-    outline->contours = NULL;
     outline->points = NULL;
-    outline->tags = NULL;
+    outline->segments = NULL;
 
-    outline->n_contours = outline->max_contours = 0;
     outline->n_points = outline->max_points = 0;
+    outline->n_segments = outline->max_segments = 0;
 }
 
 bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
@@ -56,27 +54,151 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
         return true;
     }
 
-    if (!outline_alloc(outline, source->n_points, source->n_contours))
+    if (!outline_alloc(outline, 2 * source->n_points, source->n_points))
         return false;
 
-    short start = 0;
-    outline->n_contours = outline->n_points = 0;
-    for (int i = 0; i < source->n_contours; i++) {
-        size_t n = source->contours[i] - start + 1;
-        // skip degenerate 2-point contours from broken fonts
-        if (n >= 3) {
-            for (size_t k = 0; k < n; k++) {
-                outline->points[outline->n_points + k].x =  source->points[start + k].x;
-                outline->points[outline->n_points + k].y = -source->points[start + k].y;
-            }
-            memcpy(outline->tags + outline->n_points, source->tags + start, n);
+    enum Status {
+        S_ON, S_Q, S_C1, S_C2
+    };
 
-            outline->n_points += n;
-            outline->contours[outline->n_contours++] = outline->n_points - 1;
+    outline->n_points = outline->n_segments = 0;
+    for (size_t i = 0, j = 0; i < source->n_contours; i++) {
+        ASS_Vector pt;
+        bool skip_last = false;
+        enum Status st;
+
+        int last = source->contours[i];
+        if (j > last || last >= source->n_points)
+            goto fail;
+
+        // skip degenerate 2-point contours from broken fonts
+        if (last - j < 2) {
+            j = last + 1;
+            continue;
         }
-        start = source->contours[i] + 1;
+
+        switch (FT_CURVE_TAG(source->tags[j])) {
+        case FT_CURVE_TAG_ON:
+            st = S_ON;
+            break;
+
+        case FT_CURVE_TAG_CONIC:
+            pt.x =  source->points[last].x;
+            pt.y = -source->points[last].y;
+            switch (FT_CURVE_TAG(source->tags[last])) {
+            case FT_CURVE_TAG_ON:
+                skip_last = true;
+                break;
+
+            case FT_CURVE_TAG_CONIC:
+                pt.x = (pt.x + source->points[j].x) >> 1;
+                pt.y = (pt.y - source->points[j].y) >> 1;
+                break;
+
+            default:
+                goto fail;
+            }
+            outline->points[outline->n_points++] = pt;
+            st = S_Q;
+            break;
+
+        default:
+            goto fail;
+        }
+        pt.x =  source->points[j].x;
+        pt.y = -source->points[j].y;
+        outline->points[outline->n_points++] = pt;
+
+        for (j++; j <= last; j++) {
+            switch (FT_CURVE_TAG(source->tags[j])) {
+            case FT_CURVE_TAG_ON:
+                switch (st) {
+                case S_ON:
+                    outline->segments[outline->n_segments++] = OUTLINE_LINE_SEGMENT;
+                    break;
+
+                case S_Q:
+                    outline->segments[outline->n_segments++] = OUTLINE_QUADRATIC_SPLINE;
+                    break;
+
+                case S_C2:
+                    outline->segments[outline->n_segments++] = OUTLINE_CUBIC_SPLINE;
+                    break;
+
+                default:
+                    goto fail;
+                }
+                st = S_ON;
+                break;
+
+            case FT_CURVE_TAG_CONIC:
+                switch (st) {
+                case S_ON:
+                    st = S_Q;
+                    break;
+
+                case S_Q:
+                    outline->segments[outline->n_segments++] = OUTLINE_QUADRATIC_SPLINE;
+                    pt.x = (pt.x + source->points[j].x) >> 1;
+                    pt.y = (pt.y - source->points[j].y) >> 1;
+                    outline->points[outline->n_points++] = pt;
+                    break;
+
+                default:
+                    goto fail;
+                }
+                break;
+
+            case FT_CURVE_TAG_CUBIC:
+                switch (st) {
+                case S_ON:
+                    st = S_C1;
+                    break;
+
+                case S_C1:
+                    st = S_C2;
+                    break;
+
+                default:
+                    goto fail;
+                }
+                break;
+
+            default:
+                goto fail;
+            }
+            pt.x =  source->points[j].x;
+            pt.y = -source->points[j].y;
+            outline->points[outline->n_points++] = pt;
+        }
+
+        switch (st) {
+        case S_ON:
+            if (skip_last) {
+                outline->n_points--;
+                break;
+            }
+            outline->segments[outline->n_segments++] = OUTLINE_LINE_SEGMENT;
+            break;
+
+        case S_Q:
+            outline->segments[outline->n_segments++] = OUTLINE_QUADRATIC_SPLINE;
+            break;
+
+        case S_C2:
+            outline->segments[outline->n_segments++] = OUTLINE_CUBIC_SPLINE;
+            break;
+
+        default:
+            goto fail;
+        }
+        outline->segments[outline->n_segments - 1] |= OUTLINE_CONTOUR_END;
     }
     return true;
+
+fail:
+    outline_free(outline);
+    return false;
 }
 
 bool outline_copy(ASS_Outline *outline, const ASS_Outline *source)
@@ -86,14 +208,13 @@ bool outline_copy(ASS_Outline *outline, const ASS_Outline *source)
         return true;
     }
 
-    if (!outline_alloc(outline, source->n_points, source->n_contours))
+    if (!outline_alloc(outline, source->n_points, source->n_segments))
         return false;
 
-    memcpy(outline->contours, source->contours, sizeof(size_t) * source->n_contours);
     memcpy(outline->points, source->points, sizeof(ASS_Vector) * source->n_points);
-    memcpy(outline->tags, source->tags, source->n_points);
-    outline->n_contours = source->n_contours;
+    memcpy(outline->segments, source->segments, source->n_segments);
     outline->n_points = source->n_points;
+    outline->n_segments = source->n_segments;
     return true;
 }
 
@@ -102,9 +223,8 @@ void outline_free(ASS_Outline *outline)
     if (!outline)
         return;
 
-    free(outline->contours);
     free(outline->points);
-    free(outline->tags);
+    free(outline->segments);
 
     outline_clear(outline);
 }
@@ -112,20 +232,35 @@ void outline_free(ASS_Outline *outline)
 
 /*
  * \brief Add a single point to a contour.
+ * Also adds outline segment if segment parameter is nonzero.
  */
-bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char tag)
+bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment)
 {
     if (outline->n_points >= outline->max_points) {
         size_t new_size = 2 * outline->max_points;
         if (!ASS_REALLOC_ARRAY(outline->points, new_size))
             return false;
-        if (!ASS_REALLOC_ARRAY(outline->tags, new_size))
-            return false;
         outline->max_points = new_size;
     }
     outline->points[outline->n_points] = pt;
-    outline->tags[outline->n_points] = tag;
     outline->n_points++;
+
+    return !segment || outline_add_segment(outline, segment);
+}
+
+/*
+ * \brief Add a segment to a contour.
+ */
+bool outline_add_segment(ASS_Outline *outline, char segment)
+{
+    if (outline->n_segments >= outline->max_segments) {
+        size_t new_size = 2 * outline->max_segments;
+        if (!ASS_REALLOC_ARRAY(outline->segments, new_size))
+            return false;
+        outline->max_segments = new_size;
+    }
+    outline->segments[outline->n_segments] = segment;
+    outline->n_segments++;
     return true;
 }
 
@@ -134,14 +269,9 @@ bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char tag)
  */
 bool outline_close_contour(ASS_Outline *outline)
 {
-    if (outline->n_contours >= outline->max_contours) {
-        size_t new_size = 2 * outline->max_contours;
-        if (!ASS_REALLOC_ARRAY(outline->contours, new_size))
-            return false;
-        outline->max_contours = new_size;
-    }
-    outline->contours[outline->n_contours] = outline->n_points - 1;
-    outline->n_contours++;
+    assert(outline->n_segments);
+    assert(!(outline->segments[outline->n_segments - 1] & ~OUTLINE_COUNT_MASK));
+    outline->segments[outline->n_segments - 1] |= OUTLINE_CONTOUR_END;
     return true;
 }
 
@@ -241,6 +371,7 @@ typedef struct {
 
 typedef struct {
     ASS_Outline *result[2];   // result outlines
+    size_t contour_first[2];  // start position of last contours
     double xbord, ybord;      // border sizes
     double xscale, yscale;    // inverse border sizes
     int eps;                  // allowable error in coordinate space
@@ -251,8 +382,8 @@ typedef struct {
     int first_skip, last_skip;
     // normal at first and last point
     ASS_DVector first_normal, last_normal;
-    // first and last point of current contour
-    ASS_Vector first_point, last_point;
+    // first point of current contour
+    ASS_Vector first_point;
 
     // cosinus of maximal angle that do not require cap
     double merge_cos;
@@ -298,24 +429,24 @@ static inline double vec_len(ASS_DVector vec)
  * \param str stroker state
  * \param pt source point
  * \param offs offset in normal space
- * \param tag outline tag flag
+ * \param segment outline segment type
  * \param dir destination outline flags
  * \return false on allocation failure
  */
 static bool emit_point(StrokerState *str, ASS_Vector pt,
-                       ASS_DVector offs, char tag, int dir)
+                       ASS_DVector offs, char segment, int dir)
 {
     int32_t dx = (int32_t) (str->xbord * offs.x);
     int32_t dy = (int32_t) (str->ybord * offs.y);
 
     if (dir & 1) {
         ASS_Vector res = { pt.x + dx, pt.y + dy };
-        if (!outline_add_point(str->result[0], res, tag))
+        if (!outline_add_point(str->result[0], res, segment))
             return false;
     }
     if (dir & 2) {
         ASS_Vector res = { pt.x - dx, pt.y - dy };
-        if (!outline_add_point(str->result[1], res, tag))
+        if (!outline_add_point(str->result[1], res, segment))
             return false;
     }
     return true;
@@ -337,16 +468,12 @@ static void fix_first_point(StrokerState *str, ASS_Vector pt,
     if (dir & 1) {
         ASS_Vector res = { pt.x + dx, pt.y + dy };
         ASS_Outline *ol = str->result[0];
-        size_t first = ol->n_contours ?
-            ol->contours[ol->n_contours - 1] + 1 : 0;
-        ol->points[first] = res;
+        ol->points[str->contour_first[0]] = res;
     }
     if (dir & 2) {
         ASS_Vector res = { pt.x - dx, pt.y - dy };
         ASS_Outline *ol = str->result[1];
-        size_t first = ol->n_contours ?
-            ol->contours[ol->n_contours - 1] + 1 : 0;
-        ol->points[first] = res;
+        ol->points[str->contour_first[1]] = res;
     }
 }
 
@@ -371,8 +498,8 @@ static bool process_arc(StrokerState *str, ASS_Vector pt,
     if (level)
         return process_arc(str, pt, normal0, center, mul, level - 1, dir) &&
                process_arc(str, pt, center, normal1, mul, level - 1, dir);
-    return emit_point(str, pt, normal0, FT_CURVE_TAG_ON, dir) &&
-           emit_point(str, pt, center, FT_CURVE_TAG_CONIC, dir);
+    return emit_point(str, pt, normal0, OUTLINE_QUADRATIC_SPLINE, dir) &&
+           emit_point(str, pt, center, 0, dir);
 }
 
 /**
@@ -477,10 +604,10 @@ static bool start_segment(StrokerState *str, ASS_Vector pt,
     double s = vec_crs(prev, normal);
     int skip_dir = s < 0 ? 1 : 2;
     if (dir & skip_dir) {
-        if (!emit_point(str, pt, prev, FT_CURVE_TAG_ON, ~str->last_skip & skip_dir))
+        if (!emit_point(str, pt, prev, OUTLINE_LINE_SEGMENT, ~str->last_skip & skip_dir))
             return false;
         ASS_DVector zero_normal = {0, 0};
-        if (!emit_point(str, pt, zero_normal, FT_CURVE_TAG_ON, skip_dir))
+        if (!emit_point(str, pt, zero_normal, OUTLINE_LINE_SEGMENT, skip_dir))
             return false;
     }
     str->last_skip = skip_dir;
@@ -492,10 +619,10 @@ static bool start_segment(StrokerState *str, ASS_Vector pt,
 /**
  * \brief Same as emit_point() but also updates skip flags
  */
-static bool emit_first_point(StrokerState *str, ASS_Vector pt, int dir)
+static bool emit_first_point(StrokerState *str, ASS_Vector pt, char segment, int dir)
 {
     str->last_skip &= ~dir;
-    return emit_point(str, pt, str->last_normal, FT_CURVE_TAG_ON, dir);
+    return emit_point(str, pt, str->last_normal, segment, dir);
 }
 
 /**
@@ -510,7 +637,7 @@ static bool prepare_skip(StrokerState *str, ASS_Vector pt, int dir, bool first)
 {
     if (first)
         str->first_skip |= dir;
-    else if (!emit_point(str, pt, str->last_normal, FT_CURVE_TAG_ON, ~str->last_skip & dir))
+    else if (!emit_point(str, pt, str->last_normal, OUTLINE_LINE_SEGMENT, ~str->last_skip & dir))
         return false;
     str->last_skip |= dir;
     return true;
@@ -519,26 +646,26 @@ static bool prepare_skip(StrokerState *str, ASS_Vector pt, int dir, bool first)
 /**
  * \brief Process source line segment
  * \param str stroker state
- * \param pt end point of the line segment
+ * \param pt0 start point of the line segment
+ * \param pt1 end point of the line segment
  * \param dir destination outline flags
  * \return false on allocation failure
  */
-static bool add_line(StrokerState *str, ASS_Vector pt, int dir)
+static bool add_line(StrokerState *str, ASS_Vector pt0, ASS_Vector pt1, int dir)
 {
-    int32_t dx = pt.x - str->last_point.x;
-    int32_t dy = pt.y - str->last_point.y;
+    int32_t dx = pt1.x - pt0.x;
+    int32_t dy = pt1.y - pt0.y;
     if (dx > -str->eps && dx < str->eps && dy > -str->eps && dy < str->eps)
         return true;
 
     ASS_DVector deriv = { dy * str->yscale, -dx * str->xscale };
     double scale = 1 / vec_len(deriv);
     ASS_DVector normal = { deriv.x * scale, deriv.y * scale };
-    if (!start_segment(str, str->last_point, normal, dir))
+    if (!start_segment(str, pt0, normal, dir))
         return false;
-    if (!emit_first_point(str, str->last_point, dir))
+    if (!emit_first_point(str, pt0, OUTLINE_LINE_SEGMENT, dir))
         return false;
     str->last_normal = normal;
-    str->last_point = pt;
     return true;
 }
 
@@ -603,13 +730,13 @@ static bool process_quadratic(StrokerState *str, const ASS_Vector *pt,
                     return false;
                 if (f0 < 0 || f1 < 0) {
                     ASS_DVector zero_normal = {0, 0};
-                    if (!emit_point(str, pt[0], zero_normal, FT_CURVE_TAG_ON, skip_dir) ||
-                        !emit_point(str, pt[2], zero_normal, FT_CURVE_TAG_ON, skip_dir))
+                    if (!emit_point(str, pt[0], zero_normal, OUTLINE_LINE_SEGMENT, skip_dir) ||
+                        !emit_point(str, pt[2], zero_normal, OUTLINE_LINE_SEGMENT, skip_dir))
                         return false;
                 } else {
                     double mul = f0 / abs_s;
                     ASS_DVector offs = { normal[0].v.x * mul, normal[0].v.y * mul };
-                    if (!emit_point(str, pt[0], offs, FT_CURVE_TAG_ON, skip_dir))
+                    if (!emit_point(str, pt[0], offs, OUTLINE_LINE_SEGMENT, skip_dir))
                         return false;
                 }
                 dir &= ~skip_dir;
@@ -625,9 +752,9 @@ static bool process_quadratic(StrokerState *str, const ASS_Vector *pt,
 
     ASS_DVector result;
     if (check_dir && estimate_quadratic_error(str, c, s, normal, &result)) {
-        if (!emit_first_point(str, pt[0], check_dir))
+        if (!emit_first_point(str, pt[0], OUTLINE_QUADRATIC_SPLINE, check_dir))
             return false;
-        if (!emit_point(str, pt[1], result, FT_CURVE_TAG_CONIC, check_dir))
+        if (!emit_point(str, pt[1], result, 0, check_dir))
             return false;
         dir &= ~check_dir;
         if (!dir) {
@@ -660,12 +787,12 @@ static bool process_quadratic(StrokerState *str, const ASS_Vector *pt,
 
     double len = vec_len(next_deriv[1]);
     if (len < str->min_len) {  // check degenerate case
-        if (!emit_first_point(str, next[0], dir))
+        if (!emit_first_point(str, next[0], OUTLINE_LINE_SEGMENT, dir))
             return false;
         if (!start_segment(str, next[2], normal[1].v, dir))
             return false;
         str->last_skip &= ~dir;
-        return emit_point(str, next[2], normal[1].v, FT_CURVE_TAG_ON, dir);
+        return emit_point(str, next[2], normal[1].v, OUTLINE_LINE_SEGMENT, dir);
     }
 
     double scale = 1 / len;
@@ -690,12 +817,12 @@ static bool add_quadratic(StrokerState *str, const ASS_Vector *pt, int dir)
     int32_t dx0 = pt[1].x - pt[0].x;
     int32_t dy0 = pt[1].y - pt[0].y;
     if (dx0 > -str->eps && dx0 < str->eps && dy0 > -str->eps && dy0 < str->eps)
-        return add_line(str, pt[2], dir);
+        return add_line(str, pt[0], pt[2], dir);
 
     int32_t dx1 = pt[2].x - pt[1].x;
     int32_t dy1 = pt[2].y - pt[1].y;
     if (dx1 > -str->eps && dx1 < str->eps && dy1 > -str->eps && dy1 < str->eps)
-        return add_line(str, pt[2], dir);
+        return add_line(str, pt[0], pt[2], dir);
 
     ASS_DVector deriv[2] = {
         { dy0 * str->yscale, -dx0 * str->xscale },
@@ -709,12 +836,8 @@ static bool add_quadratic(StrokerState *str, const ASS_Vector *pt, int dir)
     };
 
     bool first = str->contour_start;
-    if (!start_segment(str, pt[0], normal[0].v, dir))
-        return false;
-    if (!process_quadratic(str, pt, deriv, normal, dir, first))
-        return false;
-    str->last_point = pt[2];
-    return true;
+    return start_segment(str, pt[0], normal[0].v, dir) &&
+        process_quadratic(str, pt, deriv, normal, dir, first);
 }
 
 
@@ -889,13 +1012,13 @@ static bool process_cubic(StrokerState *str, const ASS_Vector *pt,
                         return false;
                     if (f0 < 0 || f1 < 0) {
                         ASS_DVector zero_normal = {0, 0};
-                        if (!emit_point(str, pt[0], zero_normal, FT_CURVE_TAG_ON, skip_dir) ||
-                            !emit_point(str, pt[3], zero_normal, FT_CURVE_TAG_ON, skip_dir))
+                        if (!emit_point(str, pt[0], zero_normal, OUTLINE_LINE_SEGMENT, skip_dir) ||
+                            !emit_point(str, pt[3], zero_normal, OUTLINE_LINE_SEGMENT, skip_dir))
                             return false;
                     } else {
                         double mul = f0 / abs_s;
                         ASS_DVector offs = { normal[0].v.x * mul, normal[0].v.y * mul };
-                        if (!emit_point(str, pt[0], offs, FT_CURVE_TAG_ON, skip_dir))
+                        if (!emit_point(str, pt[0], offs, OUTLINE_LINE_SEGMENT, skip_dir))
                             return false;
                     }
                     dir &= ~skip_dir;
@@ -957,10 +1080,10 @@ static bool process_cubic(StrokerState *str, const ASS_Vector *pt,
         check_dir = estimate_cubic_error(str, c, s, dc, ds,
                                          normal, result, flags, check_dir);
     if (check_dir) {
-        if (!emit_first_point(str, pt[0], check_dir))
+        if (!emit_first_point(str, pt[0], OUTLINE_CUBIC_SPLINE, check_dir))
             return false;
-        if (!emit_point(str, pt[1], result[0], FT_CURVE_TAG_CUBIC, check_dir) ||
-            !emit_point(str, pt[2], result[1], FT_CURVE_TAG_CUBIC, check_dir))
+        if (!emit_point(str, pt[1], result[0], 0, check_dir) ||
+            !emit_point(str, pt[2], result[1], 0, check_dir))
             return false;
         dir &= ~check_dir;
         if (!dir) {
@@ -1042,7 +1165,7 @@ static bool process_cubic(StrokerState *str, const ASS_Vector *pt,
         }
 
         if (len1 < str->min_len) {
-            if (!emit_first_point(str, next[0], dir))
+            if (!emit_first_point(str, next[0], OUTLINE_LINE_SEGMENT, dir))
                 return false;
         } else {
             if (!process_cubic(str, next + 0, next_deriv + 0, next_normal + 0, dir, first))
@@ -1051,7 +1174,7 @@ static bool process_cubic(StrokerState *str, const ASS_Vector *pt,
         if (!start_segment(str, next[2], next_normal[2].v, dir))
             return false;
         if (len2 < str->min_len) {
-            if (!emit_first_point(str, next[3], dir))
+            if (!emit_first_point(str, next[3], OUTLINE_LINE_SEGMENT, dir))
                 return false;
         } else {
             if (!process_cubic(str, next + 3, next_deriv + 2, next_normal + 2, dir, false))
@@ -1087,7 +1210,7 @@ static bool add_cubic(StrokerState *str, const ASS_Vector *pt, int dir)
         dx0 = pt[2].x - pt[0].x;
         dy0 = pt[2].y - pt[0].y;
         if (dx0 > -str->eps && dx0 < str->eps && dy0 > -str->eps && dy0 < str->eps)
-            return add_line(str, pt[3], dir);
+            return add_line(str, pt[0], pt[3], dir);
         flags ^= 1;
     }
 
@@ -1097,12 +1220,12 @@ static bool add_cubic(StrokerState *str, const ASS_Vector *pt, int dir)
         dx2 = pt[3].x - pt[1].x;
         dy2 = pt[3].y - pt[1].y;
         if (dx2 > -str->eps && dx2 < str->eps && dy2 > -str->eps && dy2 < str->eps)
-            return add_line(str, pt[3], dir);
+            return add_line(str, pt[0], pt[3], dir);
         flags ^= 4;
     }
 
     if (flags == 12)
-        return add_line(str, pt[3], dir);
+        return add_line(str, pt[0], pt[3], dir);
 
     int32_t dx1 = pt[flags >> 2].x - pt[flags & 3].x;
     int32_t dy1 = pt[flags >> 2].y - pt[flags & 3].y;
@@ -1120,34 +1243,31 @@ static bool add_cubic(StrokerState *str, const ASS_Vector *pt, int dir)
     };
 
     bool first = str->contour_start;
-    if (!start_segment(str, pt[0], normal[0].v, dir))
-        return false;
-    if (!process_cubic(str, pt, deriv, normal, dir, first))
-        return false;
-    str->last_point = pt[3];
-    return true;
+    return start_segment(str, pt[0], normal[0].v, dir) &&
+        process_cubic(str, pt, deriv, normal, dir, first);
 }
 
 
 /**
  * \brief Process contour closing
  * \param str stroker state
+ * \param last_point last contour point
  * \param dir destination outline flags
  * \return false on allocation failure
  */
-static bool close_contour(StrokerState *str, int dir)
+static bool close_contour(StrokerState *str, ASS_Vector last_point, int dir)
 {
     if (str->contour_start) {
         if ((dir & 3) == 3)
             dir = 1;
-        if (!draw_circle(str, str->last_point, dir))
+        if (!draw_circle(str, last_point, dir))
             return false;
     } else {
-        if (!add_line(str, str->first_point, dir))
+        if (!add_line(str, last_point, str->first_point, dir))
             return false;
         if (!start_segment(str, str->first_point, str->first_normal, dir))
             return false;
-        if (!emit_point(str, str->first_point, str->first_normal, FT_CURVE_TAG_ON,
+        if (!emit_point(str, str->first_point, str->first_normal, OUTLINE_LINE_SEGMENT,
                        ~str->last_skip & dir & str->first_skip))
             return false;
         if (str->last_normal.x != str->first_normal.x ||
@@ -1160,6 +1280,8 @@ static bool close_contour(StrokerState *str, int dir)
         return false;
     if ((dir & 2) && !outline_close_contour(str->result[1]))
         return false;
+    str->contour_first[0] = str->result[0]->n_points;
+    str->contour_first[1] = str->result[1]->n_points;
     return true;
 }
 
@@ -1177,15 +1299,18 @@ static bool close_contour(StrokerState *str, int dir)
 bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
                     const ASS_Outline *path, int xbord, int ybord, int eps)
 {
+    const int dir = 3;
     int rad = FFMAX(xbord, ybord);
     assert(rad >= eps);
 
-    result->n_contours = result->n_points = 0;
-    result1->n_contours = result1->n_points = 0;
+    result->n_points = result->n_segments = 0;
+    result1->n_points = result1->n_segments = 0;
 
     StrokerState str;
     str.result[0] = result;
     str.result[1] = result1;
+    str.contour_first[0] = 0;
+    str.contour_first[1] = 0;
     str.xbord = xbord;
     str.ybord = ybord;
     str.xscale = 1.0 / FFMAX(eps, xbord);
@@ -1202,165 +1327,54 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
     str.err_c = 390 * rel_err * rel_err;
     str.err_a = e;
 
-    enum Status {
-        S_ON, S_Q, S_C1, S_C2
-    };
-
-    const int dir = 3;
-    for (size_t i = 0, j = 0; i < path->n_contours; i++) {
-        ASS_Vector start, p[4];
-        int process_end = 1;
-        enum Status st;
-
-        int last = path->contours[i];
-        if (j > last)
+    for (size_t i = 0; i < path->n_points; i++) {
+        if (path->points[i].x < OUTLINE_MIN || path->points[i].x > OUTLINE_MAX)
             return false;
-
-        if (path->points[j].x < -(1 << 28) || path->points[j].x >= (1 << 28))
+        if (path->points[i].y < OUTLINE_MIN || path->points[i].y > OUTLINE_MAX)
             return false;
-        if (path->points[j].y < -(1 << 28) || path->points[j].y >= (1 << 28))
-            return false;
+    }
 
-        switch (FT_CURVE_TAG(path->tags[j])) {
-        case FT_CURVE_TAG_ON:
-            p[0] = path->points[j];
-            start = p[0];
-            st = S_ON;
+    ASS_Vector *start = path->points, *cur = start;
+    for (size_t i = 0; i < path->n_segments; i++) {
+        int n = path->segments[i] & OUTLINE_COUNT_MASK;
+        cur += n;
+
+        ASS_Vector *end = cur, p[4];
+        if (path->segments[i] & OUTLINE_CONTOUR_END) {
+            end = start;
+            start = cur;
+        }
+
+        switch (n) {
+        case OUTLINE_LINE_SEGMENT:
+            if (!add_line(&str, cur[-1], *end, dir))
+                return false;
             break;
 
-        case FT_CURVE_TAG_CONIC:
-            switch (FT_CURVE_TAG(path->tags[last])) {
-            case FT_CURVE_TAG_ON:
-                p[0] = path->points[last];
-                p[1] = path->points[j];
-                process_end = 0;
-                start = p[0];
-                st = S_Q;
-                break;
-
-            case FT_CURVE_TAG_CONIC:
-                p[1] = path->points[j];
-                p[0].x = (p[1].x + path->points[last].x) >> 1;
-                p[0].y = (p[1].y + path->points[last].y) >> 1;
-                start = p[0];
-                st = S_Q;
-                break;
-
-            default:
+        case OUTLINE_QUADRATIC_SPLINE:
+            p[0] = cur[-2];
+            p[1] = cur[-1];
+            p[2] = *end;
+            if (!add_quadratic(&str, p, dir))
                 return false;
-            }
+            break;
+
+        case OUTLINE_CUBIC_SPLINE:
+            p[0] = cur[-3];
+            p[1] = cur[-2];
+            p[2] = cur[-1];
+            p[3] = *end;
+            if (!add_cubic(&str, p, dir))
+                return false;
             break;
 
         default:
             return false;
         }
-        str.last_point = start;
 
-        for (j++; j <= last; j++) {
-            if (path->points[j].x < -(1 << 28) || path->points[j].x >= (1 << 28))
-                return false;
-            if (path->points[j].y < -(1 << 28) || path->points[j].y >= (1 << 28))
-                return false;
-
-            switch (FT_CURVE_TAG(path->tags[j])) {
-            case FT_CURVE_TAG_ON:
-                switch (st) {
-                case S_ON:
-                    p[1] = path->points[j];
-                    if (!add_line(&str, p[1], dir))
-                        return false;
-                    p[0] = p[1];
-                    break;
-
-                case S_Q:
-                    p[2] = path->points[j];
-                    if (!add_quadratic(&str, p, dir))
-                        return false;
-                    p[0] = p[2];
-                    st = S_ON;
-                    break;
-
-                case S_C2:
-                    p[3] = path->points[j];
-                    if (!add_cubic(&str, p, dir))
-                        return false;
-                    p[0] = p[3];
-                    st = S_ON;
-                    break;
-
-                default:
-                    return false;
-                }
-                break;
-
-            case FT_CURVE_TAG_CONIC:
-                switch (st) {
-                case S_ON:
-                    p[1] = path->points[j];
-                    st = S_Q;
-                    break;
-
-                case S_Q:
-                    p[3] = path->points[j];
-                    p[2].x = (p[1].x + p[3].x) >> 1;
-                    p[2].y = (p[1].y + p[3].y) >> 1;
-                    if (!add_quadratic(&str, p, dir))
-                        return false;
-                    p[0] = p[2];
-                    p[1] = p[3];
-                    break;
-
-                default:
-                    return false;
-                }
-                break;
-
-            case FT_CURVE_TAG_CUBIC:
-                switch (st) {
-                case S_ON:
-                    p[1] = path->points[j];
-                    st = S_C1;
-                    break;
-
-                case S_C1:
-                    p[2] = path->points[j];
-                    st = S_C2;
-                    break;
-
-                default:
-                    return false;
-                }
-                break;
-
-            default:
-                return false;
-            }
-        }
-
-        if (process_end)
-            switch (st) {
-            case S_ON:
-                if (!add_line(&str, start, dir))
-                    return false;
-                break;
-
-            case S_Q:
-                p[2] = start;
-                if (!add_quadratic(&str, p, dir))
-                    return false;
-                break;
-
-            case S_C2:
-                p[3] = start;
-                if (!add_cubic(&str, p, dir))
-                    return false;
-                break;
-
-            default:
-                return false;
-            }
-        if (!close_contour(&str, dir))
+        if (start == cur && !close_contour(&str, *end, dir))
             return false;
     }
+    assert(start == cur && cur == path->points + path->n_points);
     return true;
 }

@@ -263,167 +263,59 @@ static bool add_cubic(RasterizerData *rst, const ASS_Vector *pt)
 bool rasterizer_set_outline(RasterizerData *rst,
                             const ASS_Outline *path, bool extra)
 {
-    enum Status {
-        S_ON, S_Q, S_C1, S_C2
-    };
-
     if (!extra) {
         rst->x_min = rst->y_min = INT32_MAX;
         rst->x_max = rst->y_max = INT32_MIN;
         rst->n_first = 0;
     }
     rst->size[0] = rst->n_first;
-    for (size_t i = 0, j = 0; i < path->n_contours; i++) {
-        ASS_Vector start, p[4];
-        int process_end = 1;
-        enum Status st;
 
-        int last = path->contours[i];
-        if (j > last)
+    for (size_t i = 0; i < path->n_points; i++) {
+        if (path->points[i].x < OUTLINE_MIN || path->points[i].x > OUTLINE_MAX)
             return false;
+        if (path->points[i].y < OUTLINE_MIN || path->points[i].y > OUTLINE_MAX)
+            return false;
+    }
 
-        if (path->points[j].x < -(1 << 28) || path->points[j].x >= (1 << 28))
-            return false;
-        if (path->points[j].y < -(1 << 28) || path->points[j].y >= (1 << 28))
-            return false;
+    ASS_Vector *start = path->points, *cur = start;
+    for (size_t i = 0; i < path->n_segments; i++) {
+        int n = path->segments[i] & OUTLINE_COUNT_MASK;
+        cur += n;
 
-        switch (FT_CURVE_TAG(path->tags[j])) {
-        case FT_CURVE_TAG_ON:
-            p[0] = path->points[j];
-            start = p[0];
-            st = S_ON;
+        ASS_Vector *end = cur, p[4];
+        if (path->segments[i] & OUTLINE_CONTOUR_END) {
+            end = start;
+            start = cur;
+        }
+
+        switch (n) {
+        case OUTLINE_LINE_SEGMENT:
+            if (!add_line(rst, cur[-1], *end))
+                return false;
             break;
 
-        case FT_CURVE_TAG_CONIC:
-            switch (FT_CURVE_TAG(path->tags[last])) {
-            case FT_CURVE_TAG_ON:
-                p[0] = path->points[last];
-                p[1] = path->points[j];
-                process_end = 0;
-                st = S_Q;
-                break;
-
-            case FT_CURVE_TAG_CONIC:
-                p[1] = path->points[j];
-                p[0].x = (p[1].x + path->points[last].x) >> 1;
-                p[0].y = (p[1].y + path->points[last].y) >> 1;
-                start = p[0];
-                st = S_Q;
-                break;
-
-            default:
+        case OUTLINE_QUADRATIC_SPLINE:
+            p[0] = cur[-2];
+            p[1] = cur[-1];
+            p[2] = *end;
+            if (!add_quadratic(rst, p))
                 return false;
-            }
+            break;
+
+        case OUTLINE_CUBIC_SPLINE:
+            p[0] = cur[-3];
+            p[1] = cur[-2];
+            p[2] = cur[-1];
+            p[3] = *end;
+            if (!add_cubic(rst, p))
+                return false;
             break;
 
         default:
             return false;
         }
-
-        for (j++; j <= last; j++) {
-            if (path->points[j].x < -(1 << 28) || path->points[j].x >= (1 << 28))
-                return false;
-            if (path->points[j].y < -(1 << 28) || path->points[j].y >= (1 << 28))
-                return false;
-
-            switch (FT_CURVE_TAG(path->tags[j])) {
-            case FT_CURVE_TAG_ON:
-                switch (st) {
-                case S_ON:
-                    p[1] = path->points[j];
-                    if (!add_line(rst, p[0], p[1]))
-                        return false;
-                    p[0] = p[1];
-                    break;
-
-                case S_Q:
-                    p[2] = path->points[j];
-                    if (!add_quadratic(rst, p))
-                        return false;
-                    p[0] = p[2];
-                    st = S_ON;
-                    break;
-
-                case S_C2:
-                    p[3] = path->points[j];
-                    if (!add_cubic(rst, p))
-                        return false;
-                    p[0] = p[3];
-                    st = S_ON;
-                    break;
-
-                default:
-                    return false;
-                }
-                break;
-
-            case FT_CURVE_TAG_CONIC:
-                switch (st) {
-                case S_ON:
-                    p[1] = path->points[j];
-                    st = S_Q;
-                    break;
-
-                case S_Q:
-                    p[3] = path->points[j];
-                    p[2].x = (p[1].x + p[3].x) >> 1;
-                    p[2].y = (p[1].y + p[3].y) >> 1;
-                    if (!add_quadratic(rst, p))
-                        return false;
-                    p[0] = p[2];
-                    p[1] = p[3];
-                    break;
-
-                default:
-                    return false;
-                }
-                break;
-
-            case FT_CURVE_TAG_CUBIC:
-                switch (st) {
-                case S_ON:
-                    p[1] = path->points[j];
-                    st = S_C1;
-                    break;
-
-                case S_C1:
-                    p[2] = path->points[j];
-                    st = S_C2;
-                    break;
-
-                default:
-                    return false;
-                }
-                break;
-
-            default:
-                return false;
-            }
-        }
-
-        if (process_end)
-            switch (st) {
-            case S_ON:
-                if (!add_line(rst, p[0], start))
-                    return false;
-                break;
-
-            case S_Q:
-                p[2] = start;
-                if (!add_quadratic(rst, p))
-                    return false;
-                break;
-
-            case S_C2:
-                p[3] = start;
-                if (!add_cubic(rst, p))
-                    return false;
-                break;
-
-            default:
-                return false;
-            }
     }
+    assert(start == cur && cur == path->points + path->n_points);
 
     for (size_t k = rst->n_first; k < rst->size[0]; k++) {
         rst->x_min = FFMIN(rst->x_min, rst->linebuf[0][k].x_min);

@@ -30,7 +30,7 @@
 #include "ass_font.h"
 
 #define GLYPH_INITIAL_POINTS 100
-#define GLYPH_INITIAL_CONTOURS 5
+#define GLYPH_INITIAL_SEGMENTS 100
 
 /*
  * \brief Prepare drawing for parsing.  This just sets a few parameters.
@@ -53,8 +53,8 @@ static void drawing_finish(ASS_Drawing *drawing, bool raw_mode)
 
     if (drawing->library)
         ass_msg(drawing->library, MSGL_V,
-                "Parsed drawing with %d points and %d contours", ol->n_points,
-                ol->n_contours);
+                "Parsed drawing with %d points and %d segments",
+                ol->n_points, ol->n_segments);
 
     if (raw_mode)
         return;
@@ -230,10 +230,10 @@ static bool drawing_add_curve(ASS_Drawing *drawing, ASS_DrawingToken *token,
     }
 
     return (started ||
-        outline_add_point(&drawing->outline, p[0], FT_CURVE_TAG_ON)) &&
-        outline_add_point(&drawing->outline, p[1], FT_CURVE_TAG_CUBIC) &&
-        outline_add_point(&drawing->outline, p[2], FT_CURVE_TAG_CUBIC) &&
-        outline_add_point(&drawing->outline, p[3], FT_CURVE_TAG_ON);
+        outline_add_point(&drawing->outline, p[0], 0)) &&
+        outline_add_point(&drawing->outline, p[1], 0) &&
+        outline_add_point(&drawing->outline, p[2], 0) &&
+        outline_add_point(&drawing->outline, p[3], OUTLINE_CUBIC_SPLINE);
 }
 
 /*
@@ -250,7 +250,7 @@ ASS_Drawing *ass_drawing_new(ASS_Library *lib)
     drawing->scale_x = 1.;
     drawing->scale_y = 1.;
 
-    if (!outline_alloc(&drawing->outline, GLYPH_INITIAL_POINTS, GLYPH_INITIAL_CONTOURS)) {
+    if (!outline_alloc(&drawing->outline, GLYPH_INITIAL_POINTS, GLYPH_INITIAL_SEGMENTS)) {
         free(drawing);
         return NULL;
     }
@@ -314,6 +314,8 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, bool raw_mode)
             pen = token->point;
             translate_point(drawing, &pen);
             if (started) {
+                if (!outline_add_segment(&drawing->outline, OUTLINE_LINE_SEGMENT))
+                    goto error;
                 if (!outline_close_contour(&drawing->outline))
                     goto error;
                 started = false;
@@ -323,9 +325,9 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, bool raw_mode)
         case TOKEN_LINE: {
             ASS_Vector to = token->point;
             translate_point(drawing, &to);
-            if (!started && !outline_add_point(&drawing->outline, pen, FT_CURVE_TAG_ON))
+            if (!started && !outline_add_point(&drawing->outline, pen, 0))
                 goto error;
-            if (!outline_add_point(&drawing->outline, to, FT_CURVE_TAG_ON))
+            if (!outline_add_point(&drawing->outline, to, OUTLINE_LINE_SEGMENT))
                 goto error;
             started = true;
             token = token->next;
@@ -360,8 +362,12 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, bool raw_mode)
     }
 
     // Close the last contour
-    if (started && !outline_close_contour(&drawing->outline))
-        goto error;
+    if (started) {
+        if (!outline_add_segment(&drawing->outline, OUTLINE_LINE_SEGMENT))
+            goto error;
+        if (!outline_close_contour(&drawing->outline))
+            goto error;
+    }
 
     drawing_finish(drawing, raw_mode);
     drawing_free_tokens(drawing->tokens);

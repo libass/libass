@@ -943,14 +943,20 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
         { .x = -sx,         .y = desc + sy },
     };
 
-    ol->n_points = ol->n_contours = 0;
-    if (!outline_alloc(ol, 4, 1))
+    const char segments[4] = {
+        OUTLINE_LINE_SEGMENT,
+        OUTLINE_LINE_SEGMENT,
+        OUTLINE_LINE_SEGMENT,
+        OUTLINE_LINE_SEGMENT | OUTLINE_CONTOUR_END
+    };
+
+    ol->n_points = ol->n_segments = 0;
+    if (!outline_alloc(ol, 4, 4))
         return;
-    for (int i = 0; i < 4; ++i) {
-        ol->points[ol->n_points] = points[i];
-        ol->tags[ol->n_points++] = FT_CURVE_TAG_ON;
+    for (int i = 0; i < 4; i++) {
+        ol->points[ol->n_points++] = points[i];
+        ol->segments[ol->n_segments++] = segments[i];
     }
-    ol->contours[ol->n_contours++] = ol->n_points - 1;
 }
 
 /**
@@ -1088,8 +1094,8 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             int xbord = double_to_d6(info->border_x * priv->border_scale);
             int ybord = double_to_d6(info->border_y * priv->border_scale);
             if(xbord >= eps || ybord >= eps) {
-                outline_alloc(&val->border[0], 2 * val->outline.n_points, val->outline.n_contours);
-                outline_alloc(&val->border[1], 2 * val->outline.n_points, val->outline.n_contours);
+                outline_alloc(&val->border[0], 2 * val->outline.n_points, 2 * val->outline.n_segments);
+                outline_alloc(&val->border[1], 2 * val->outline.n_points, 2 * val->outline.n_segments);
                 if (!val->border[0].max_points || !val->border[1].max_points ||
                         !outline_stroke(&val->border[0], &val->border[1],
                                         &val->outline, xbord, ybord, eps)) {
