@@ -27,7 +27,7 @@
 
 void ass_fill_solid_tile16_c(uint8_t *buf, ptrdiff_t stride, int set)
 {
-    int8_t value = set ? 255 : 0;
+    uint8_t value = set ? 255 : 0;
     for (int y = 0; y < 16; y++) {
         for (int x = 0; x < 16; x++)
             buf[x] = value;
@@ -37,7 +37,7 @@ void ass_fill_solid_tile16_c(uint8_t *buf, ptrdiff_t stride, int set)
 
 void ass_fill_solid_tile32_c(uint8_t *buf, ptrdiff_t stride, int set)
 {
-    int8_t value = set ? 255 : 0;
+    uint8_t value = set ? 255 : 0;
     for (int y = 0; y < 32; y++) {
         for (int x = 0; x < 32; x++)
             buf[x] = value;
