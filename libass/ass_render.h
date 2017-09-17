@@ -57,11 +57,6 @@ typedef struct {
 } DBBox;
 
 typedef struct {
-    double x;
-    double y;
-} DVector;
-
-typedef struct {
     ASS_Image result;
     CompositeHashValue *source;
     size_t ref_count;
@@ -106,11 +101,6 @@ typedef enum {
     EF_KARAOKE_KO
 } Effect;
 
-typedef struct
-{
-    int x_min, y_min, x_max, y_max;
-} Rectangle;
-
 // describes a combined bitmap
 typedef struct {
     FilterDesc filter;
@@ -126,7 +116,7 @@ typedef struct {
     BitmapRef *bitmaps;
 
     int x, y;
-    Rectangle rect, rect_o;
+    ASS_Rect rect, rect_o;
     size_t n_bm, n_bm_o;
 
     Bitmap *bm, *bm_o, *bm_s;   // glyphs, outline, shadow bitmaps
@@ -150,13 +140,13 @@ typedef struct glyph_info {
     ASS_Drawing *drawing;
     ASS_Outline *outline;
     ASS_Outline *border[2];
-    FT_BBox bbox;
-    FT_Vector pos;
-    FT_Vector offset;
+    ASS_Rect bbox;
+    ASS_Vector pos;
+    ASS_Vector offset;
     char linebreak;             // the first (leading) glyph of some line ?
     uint32_t c[4];              // colors
-    FT_Vector advance;          // 26.6
-    FT_Vector cluster_advance;
+    ASS_Vector advance;         // 26.6
+    ASS_Vector cluster_advance;
     char effect;                // the first (leading) glyph of some effect ?
     Effect effect_type;
     int effect_timing;          // time duration of current karaoke word

@@ -24,6 +24,7 @@
 #include FT_GLYPH_H
 
 #include "ass.h"
+#include "ass_outline.h"
 
 
 struct segment;
@@ -87,8 +88,6 @@ extern const BitmapEngine ass_bitmap_engine_c;
 extern const BitmapEngine ass_bitmap_engine_sse2;
 extern const BitmapEngine ass_bitmap_engine_avx2;
 
-
-typedef struct ass_outline ASS_Outline;
 
 typedef struct {
     int left, top;

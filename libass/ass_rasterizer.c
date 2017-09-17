@@ -117,18 +117,14 @@ void rasterizer_done(RasterizerData *rst)
  */
 
 
-typedef struct {
-    int32_t x, y;
-} OutlinePoint;
-
 // Helper struct for spline split decision
 typedef struct {
-    OutlinePoint r;
+    ASS_Vector r;
     int64_t r2, er;
 } OutlineSegment;
 
 static inline void segment_init(OutlineSegment *seg,
-                                OutlinePoint beg, OutlinePoint end,
+                                ASS_Vector beg, ASS_Vector end,
                                 int32_t outline_error)
 {
     int32_t x = end.x - beg.x;
@@ -143,7 +139,7 @@ static inline void segment_init(OutlineSegment *seg,
 }
 
 static inline bool segment_subdivide(const OutlineSegment *seg,
-                                     OutlinePoint beg, OutlinePoint pt)
+                                     ASS_Vector beg, ASS_Vector pt)
 {
     int32_t x = pt.x - beg.x;
     int32_t y = pt.y - beg.y;
@@ -156,7 +152,7 @@ static inline bool segment_subdivide(const OutlineSegment *seg,
 /**
  * \brief Add new segment to polyline
  */
-static bool add_line(RasterizerData *rst, OutlinePoint pt0, OutlinePoint pt1)
+static bool add_line(RasterizerData *rst, ASS_Vector pt0, ASS_Vector pt1)
 {
     int32_t x = pt1.x - pt0.x;
     int32_t y = pt1.y - pt0.y;
@@ -203,14 +199,14 @@ static bool add_line(RasterizerData *rst, OutlinePoint pt0, OutlinePoint pt1)
  * \brief Add quadratic spline to polyline
  * Performs recursive subdivision if necessary.
  */
-static bool add_quadratic(RasterizerData *rst, const OutlinePoint *pt)
+static bool add_quadratic(RasterizerData *rst, const ASS_Vector *pt)
 {
     OutlineSegment seg;
     segment_init(&seg, pt[0], pt[2], rst->outline_error);
     if (!segment_subdivide(&seg, pt[0], pt[1]))
         return add_line(rst, pt[0], pt[2]);
 
-    OutlinePoint next[5];
+    ASS_Vector next[5];
     next[1].x = pt[0].x + pt[1].x;
     next[1].y = pt[0].y + pt[1].y;
     next[3].x = pt[1].x + pt[2].x;
@@ -230,14 +226,14 @@ static bool add_quadratic(RasterizerData *rst, const OutlinePoint *pt)
  * \brief Add cubic spline to polyline
  * Performs recursive subdivision if necessary.
  */
-static bool add_cubic(RasterizerData *rst, const OutlinePoint *pt)
+static bool add_cubic(RasterizerData *rst, const ASS_Vector *pt)
 {
     OutlineSegment seg;
     segment_init(&seg, pt[0], pt[3], rst->outline_error);
     if (!segment_subdivide(&seg, pt[0], pt[1]) && !segment_subdivide(&seg, pt[0], pt[2]))
         return add_line(rst, pt[0], pt[3]);
 
-    OutlinePoint next[7], center;
+    ASS_Vector next[7], center;
     next[1].x = pt[0].x + pt[1].x;
     next[1].y = pt[0].y + pt[1].y;
     center.x = pt[1].x + pt[2].x + 2;
@@ -278,7 +274,7 @@ bool rasterizer_set_outline(RasterizerData *rst,
     }
     rst->size[0] = rst->n_first;
     for (size_t i = 0, j = 0; i < path->n_contours; i++) {
-        OutlinePoint start, p[4];
+        ASS_Vector start, p[4];
         int process_end = 1;
         enum Status st;
 

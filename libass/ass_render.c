@@ -485,7 +485,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         // We need to translate the clip according to screen borders
         if (render_priv->settings.left_margin != 0 ||
             render_priv->settings.top_margin != 0) {
-            FT_Vector trans = {
+            ASS_Vector trans = {
                 .x = int_to_d6(render_priv->settings.left_margin),
                 .y = -int_to_d6(render_priv->settings.top_margin),
             };
@@ -917,7 +917,7 @@ static void free_render_context(ASS_Renderer *render_priv)
  */
 static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
                             int asc, int desc, ASS_Outline *ol,
-                            FT_Vector advance, int sx, int sy)
+                            ASS_Vector advance, int sx, int sy)
 {
     int adv = advance.x;
     double scale_y = info->orig_scale_y;
@@ -936,7 +936,7 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
     desc *= scale_y;
     desc += asc * (scale_y - 1.0);
 
-    FT_Vector points[4] = {
+    ASS_Vector points[4] = {
         { .x = -sx,         .y = asc + sy },
         { .x = adv + sx,    .y = asc + sy },
         { .x = adv + sx,    .y = -desc - sy },
@@ -948,7 +948,7 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
         return;
     for (int i = 0; i < 4; ++i) {
         ol->points[ol->n_points] = points[i];
-        ol->tags[ol->n_points++] = 1;
+        ol->tags[ol->n_points++] = FT_CURVE_TAG_ON;
     }
     ol->contours[ol->n_contours++] = ol->n_points - 1;
 }
@@ -1072,7 +1072,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         outline_get_cbox(&val->outline, &val->bbox_scaled);
 
         if (info->border_style == 3) {
-            FT_Vector advance;
+            ASS_Vector advance;
             if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing)
                 advance = val->advance;
             else
@@ -1125,7 +1125,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
  * onto the screen plane.
  */
 static void
-transform_3d_points(FT_Vector shift, ASS_Outline *outline, double frx, double fry,
+transform_3d_points(ASS_Vector shift, ASS_Outline *outline, double frx, double fry,
                     double frz, double fax, double fay, double scale,
                     int yshift)
 {
@@ -1135,7 +1135,7 @@ transform_3d_points(FT_Vector shift, ASS_Outline *outline, double frx, double fr
     double cx = cos(frx);
     double cy = cos(fry);
     double cz = cos(frz);
-    FT_Vector *p = outline->points;
+    ASS_Vector *p = outline->points;
     double x, y, z, xx, yy, zz;
     int dist;
 
@@ -1177,7 +1177,7 @@ transform_3d_points(FT_Vector shift, ASS_Outline *outline, double frx, double fr
  * Rotates both glyphs by frx, fry and frz. Shift vector is added before rotation and subtracted after it.
  */
 static void
-transform_3d(FT_Vector shift, ASS_Outline *outline, int n_outlines,
+transform_3d(ASS_Vector shift, ASS_Outline *outline, int n_outlines,
              double frx, double fry, double frz, double fax, double fay,
              double scale, int yshift)
 {
@@ -1230,7 +1230,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
     outline_copy(&outline[2], info->border[1]);
 
     // calculating rotation shift vector (from rotation origin to the glyph basepoint)
-    FT_Vector shift = { key->shift_x, key->shift_y };
+    ASS_Vector shift = { key->shift_x, key->shift_y };
     double scale_x = render_priv->font_scale_x;
     double fax_scaled = info->fax / info->scale_y * info->scale_x;
     double fay_scaled = info->fay / info->scale_x * info->scale_y;
@@ -1402,8 +1402,8 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
         int break_at = -1;
         double s_offset, len;
         cur = text_info->glyphs + i;
-        s_offset = d6_to_double(s1->bbox.xMin + s1->pos.x);
-        len = d6_to_double(cur->bbox.xMax + cur->pos.x) - s_offset;
+        s_offset = d6_to_double(s1->bbox.x_min + s1->pos.x);
+        len = d6_to_double(cur->bbox.x_max + cur->pos.x) - s_offset;
 
         if (cur->symbol == '\n') {
             break_type = 2;
@@ -1469,16 +1469,16 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
                     if (w->symbol == ' ')
                         ++w;
 
-                    l1 = d6_to_double(((s2 - 1)->bbox.xMax + (s2 - 1)->pos.x) -
-                        (s1->bbox.xMin + s1->pos.x));
-                    l2 = d6_to_double(((s3 - 1)->bbox.xMax + (s3 - 1)->pos.x) -
-                        (s2->bbox.xMin + s2->pos.x));
+                    l1 = d6_to_double(((s2 - 1)->bbox.x_max + (s2 - 1)->pos.x) -
+                        (s1->bbox.x_min + s1->pos.x));
+                    l2 = d6_to_double(((s3 - 1)->bbox.x_max + (s3 - 1)->pos.x) -
+                        (s2->bbox.x_min + s2->pos.x));
                     l1_new = d6_to_double(
-                        (e1->bbox.xMax + e1->pos.x) -
-                        (s1->bbox.xMin + s1->pos.x));
+                        (e1->bbox.x_max + e1->pos.x) -
+                        (s1->bbox.x_min + s1->pos.x));
                     l2_new = d6_to_double(
-                        ((s3 - 1)->bbox.xMax + (s3 - 1)->pos.x) -
-                        (w->bbox.xMin + w->pos.x));
+                        ((s3 - 1)->bbox.x_max + (s3 - 1)->pos.x) -
+                        (w->bbox.x_min + w->pos.x));
 
                     if (DIFF(l1_new, l2_new) < DIFF(l1, l2)) {
                         if (w->linebreak || w == text_info->glyphs)
@@ -1719,8 +1719,7 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
                 while ((*q != '{') && (*q != 0))
                     q++;
                 if (!drawing) {
-                    drawing = ass_drawing_new(render_priv->library,
-                                              render_priv->ftlibrary);
+                    drawing = ass_drawing_new(render_priv->library);
                     if (!drawing)
                         return 1;
                 }
@@ -1840,11 +1839,11 @@ static void retrieve_glyphs(ASS_Renderer *render_priv)
         if (i && glyphs[i - 1].italic && !info->italic) {
             int back = i - 1;
             GlyphInfo *og = &glyphs[back];
-            while (back && og->bbox.xMax - og->bbox.xMin == 0
+            while (back && og->bbox.x_max - og->bbox.x_min == 0
                     && og->italic)
                 og = &glyphs[--back];
-            if (og->bbox.xMax > og->cluster_advance.x)
-                og->cluster_advance.x = og->bbox.xMax;
+            if (og->bbox.x_max > og->cluster_advance.x)
+                og->cluster_advance.x = og->bbox.x_max;
         }
 
         // add horizontal letter spacing
@@ -1859,14 +1858,10 @@ static void retrieve_glyphs(ASS_Renderer *render_priv)
 // Preliminary layout (for line wrapping)
 static void preliminary_layout(ASS_Renderer *render_priv)
 {
-    FT_Vector pen;
-    int i;
-
-    pen.x = 0;
-    pen.y = 0;
-    for (i = 0; i < render_priv->text_info.length; i++) {
+    ASS_Vector pen = { 0, 0 };
+    for (int i = 0; i < render_priv->text_info.length; i++) {
         GlyphInfo *info = render_priv->text_info.glyphs + i;
-        FT_Vector cluster_pen = pen;
+        ASS_Vector cluster_pen = pen;
         while (info) {
             info->pos.x = cluster_pen.x;
             info->pos.y = cluster_pen.y;
@@ -1890,9 +1885,6 @@ static void preliminary_layout(ASS_Renderer *render_priv)
 static void reorder_text(ASS_Renderer *render_priv)
 {
     TextInfo *text_info = &render_priv->text_info;
-    FT_Vector pen;
-    int i;
-
     FriBidiStrIndex *cmap = ass_shaper_reorder(render_priv->shaper, text_info);
     if (!cmap) {
         ass_msg(render_priv->library, MSGL_ERR, "Failed to reorder text");
@@ -1902,12 +1894,11 @@ static void reorder_text(ASS_Renderer *render_priv)
     }
 
     // Reposition according to the map
-    pen.x = 0;
-    pen.y = 0;
+    ASS_Vector pen = { 0, 0 };
     int lineno = 1;
     double last_pen_x = 0;
     double last_fay = 0;
-    for (i = 0; i < text_info->length; i++) {
+    for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + cmap[i];
         if (text_info->glyphs[i].linebreak) {
             pen.y -= (last_fay / info->scale_x * info->scale_y) * (pen.x - last_pen_x);
@@ -1923,7 +1914,7 @@ static void reorder_text(ASS_Renderer *render_priv)
         }
         last_fay = info->fay;
         if (info->skip) continue;
-        FT_Vector cluster_pen = pen;
+        ASS_Vector cluster_pen = pen;
         while (info) {
             info->pos.x = info->offset.x + cluster_pen.x;
             info->pos.y = info->offset.y + cluster_pen.y;
@@ -2010,7 +2001,7 @@ static void calculate_rotation_params(ASS_Renderer *render_priv, DBBox *bbox,
                                       double device_x, double device_y)
 {
     TextInfo *text_info = &render_priv->text_info;
-    DVector center;
+    ASS_DVector center;
     int i;
 
     if (render_priv->state.have_origin) {
@@ -2041,13 +2032,13 @@ static void calculate_rotation_params(ASS_Renderer *render_priv, DBBox *bbox,
 }
 
 
-static inline void rectangle_reset(Rectangle *rect)
+static inline void rectangle_reset(ASS_Rect *rect)
 {
-    rect->x_min = rect->y_min = INT_MAX;
-    rect->x_max = rect->y_max = INT_MIN;
+    rect->x_min = rect->y_min = INT32_MAX;
+    rect->x_max = rect->y_max = INT32_MIN;
 }
 
-static inline void rectangle_combine(Rectangle *rect, const Bitmap *bm, int x, int y)
+static inline void rectangle_combine(ASS_Rect *rect, const Bitmap *bm, int x, int y)
 {
     rect->x_min = FFMIN(rect->x_min, x + bm->left);
     rect->y_min = FFMIN(rect->y_min, y + bm->top);
@@ -2102,7 +2093,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 memcpy(&current_info->c, &info->c, sizeof(info->c));
                 current_info->effect_type = info->effect_type;
                 current_info->effect_timing = info->effect_timing;
-                current_info->first_pos_x = info->bbox.xMax >> 6;
+                current_info->first_pos_x = info->bbox.x_max >> 6;
 
                 current_info->filter.flags = 0;
                 if (info->border_style == 3)

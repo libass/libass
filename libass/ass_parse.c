@@ -211,8 +211,7 @@ static int parse_vector_clip(ASS_Renderer *render_priv,
     struct arg text = args[nargs - 1];
 
     ass_drawing_free(drawing);
-    render_priv->state.clip_drawing =
-        ass_drawing_new(render_priv->library, render_priv->ftlibrary);
+    render_priv->state.clip_drawing = ass_drawing_new(render_priv->library);
     drawing = render_priv->state.clip_drawing;
     if (drawing) {
         drawing->scale = scale;
@@ -957,8 +956,8 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                 x_start = 1000000;
                 x_end = -1000000;
                 for (cur2 = s1; cur2 <= e1; ++cur2) {
-                    x_start = FFMIN(x_start, d6_to_int(cur2->bbox.xMin + cur2->pos.x));
-                    x_end = FFMAX(x_end, d6_to_int(cur2->bbox.xMax + cur2->pos.x));
+                    x_start = FFMIN(x_start, d6_to_int(cur2->bbox.x_min + cur2->pos.x));
+                    x_end = FFMAX(x_end, d6_to_int(cur2->bbox.x_max + cur2->pos.x));
                 }
 
                 dt = (tm_current - tm_start);

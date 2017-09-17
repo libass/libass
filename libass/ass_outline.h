@@ -22,13 +22,26 @@
 #include <ft2build.h>
 #include FT_OUTLINE_H
 #include <stdbool.h>
+#include <stdint.h>
 
+
+typedef struct {
+    int32_t x, y;
+} ASS_Vector;
+
+typedef struct {
+    double x, y;
+} ASS_DVector;
+
+typedef struct {
+    int32_t x_min, y_min, x_max, y_max;
+} ASS_Rect;
 
 typedef struct ass_outline {
     size_t n_contours, max_contours;
     size_t *contours;
     size_t n_points, max_points;
-    FT_Vector *points;
+    ASS_Vector *points;
     char *tags;
 } ASS_Outline;
 
@@ -37,13 +50,12 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source);
 bool outline_copy(ASS_Outline *outline, const ASS_Outline *source);
 void outline_free(ASS_Outline *outline);
 
-bool outline_add_point(ASS_Outline *outline, FT_Vector pt, char tag);
+bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char tag);
 bool outline_close_contour(ASS_Outline *outline);
 
-void outline_translate(const ASS_Outline *outline, FT_Pos dx, FT_Pos dy);
-void outline_transform(const ASS_Outline *outline, const FT_Matrix *matrix);
-void outline_update_cbox(const ASS_Outline *outline, FT_BBox *cbox);
-void outline_get_cbox(const ASS_Outline *outline, FT_BBox *cbox);
+void outline_translate(const ASS_Outline *outline, int32_t dx, int32_t dy);
+void outline_transform(const ASS_Outline *outline, const FT_Matrix *matrix);  // XXX: replace with outline_scale
+void outline_get_cbox(const ASS_Outline *outline, ASS_Rect *cbox);
 
 bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
                     const ASS_Outline *path, int xbord, int ybord, int eps);
