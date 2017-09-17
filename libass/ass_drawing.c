@@ -174,28 +174,15 @@ static void drawing_free_tokens(ASS_DrawingToken *token)
 }
 
 /*
- * \brief Update drawing cbox
- */
-static inline void update_cbox(ASS_Drawing *drawing, ASS_Vector *point)
-{
-    ASS_Rect *box = &drawing->cbox;
-
-    box->x_min = FFMIN(box->x_min, point->x);
-    box->x_max = FFMAX(box->x_max, point->x);
-    box->y_min = FFMIN(box->y_min, point->y);
-    box->y_max = FFMAX(box->y_max, point->y);
-}
-
-/*
  * \brief Translate and scale a point coordinate according to baseline
  * offset and scale.
  */
 static inline void translate_point(ASS_Drawing *drawing, ASS_Vector *point)
 {
-    point->x = drawing->point_scale_x * point->x;
-    point->y = drawing->point_scale_y * point->y;
+    point->x = lrint(drawing->point_scale_x * point->x);
+    point->y = lrint(drawing->point_scale_y * point->y);
 
-    update_cbox(drawing, point);
+    rectangle_update(&drawing->cbox, point->x, point->y, point->x, point->y);
 }
 
 /*
@@ -244,8 +231,7 @@ ASS_Drawing *ass_drawing_new(ASS_Library *lib)
     ASS_Drawing *drawing = calloc(1, sizeof(*drawing));
     if (!drawing)
         return NULL;
-    drawing->cbox.x_min = drawing->cbox.y_min = INT32_MAX;
-    drawing->cbox.x_max = drawing->cbox.y_max = INT32_MIN;
+    rectangle_reset(&drawing->cbox);
     drawing->library = lib;
     drawing->scale_x = 1.;
     drawing->scale_y = 1.;

@@ -2034,18 +2034,11 @@ static void calculate_rotation_params(ASS_Renderer *render_priv, ASS_DRect *bbox
 }
 
 
-static inline void rectangle_reset(ASS_Rect *rect)
-{
-    rect->x_min = rect->y_min = INT32_MAX;
-    rect->x_max = rect->y_max = INT32_MIN;
-}
-
 static inline void rectangle_combine(ASS_Rect *rect, const Bitmap *bm, int x, int y)
 {
-    rect->x_min = FFMIN(rect->x_min, x + bm->left);
-    rect->y_min = FFMIN(rect->y_min, y + bm->top);
-    rect->x_max = FFMAX(rect->x_max, x + bm->left + bm->w);
-    rect->y_max = FFMAX(rect->y_max, y + bm->top + bm->h);
+    x += bm->left;
+    y += bm->top;
+    rectangle_update(rect, x, y, x + bm->w, y + bm->h);
 }
 
 // Convert glyphs to bitmaps, combine them, apply blur, generate shadows.

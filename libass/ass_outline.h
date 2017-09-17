@@ -24,6 +24,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "ass_utils.h"
+
 
 typedef struct {
     int32_t x, y;
@@ -40,6 +42,21 @@ typedef struct {
 typedef struct {
     double x_min, y_min, x_max, y_max;
 } ASS_DRect;
+
+static inline void rectangle_reset(ASS_Rect *rect)
+{
+    rect->x_min = rect->y_min = INT32_MAX;
+    rect->x_max = rect->y_max = INT32_MIN;
+}
+
+static inline void rectangle_update(ASS_Rect *rect,
+    int32_t x_min, int32_t y_min, int32_t x_max, int32_t y_max)
+{
+    rect->x_min = FFMIN(rect->x_min, x_min);
+    rect->y_min = FFMIN(rect->y_min, y_min);
+    rect->x_max = FFMAX(rect->x_max, x_max);
+    rect->y_max = FFMAX(rect->y_max, y_max);
+}
 
 /*
  * Outline represented with array of points and array of segments.

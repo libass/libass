@@ -202,13 +202,13 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
     if (bord < 0 || bord > INT_MAX / 2)
         return NULL;
-    if (rst->x_max > INT_MAX - 63 || rst->y_max > INT_MAX - 63)
+    if (rst->bbox.x_max > INT_MAX - 63 || rst->bbox.y_max > INT_MAX - 63)
         return NULL;
 
-    int x_min = rst->x_min >> 6;
-    int y_min = rst->y_min >> 6;
-    int x_max = (rst->x_max + 63) >> 6;
-    int y_max = (rst->y_max + 63) >> 6;
+    int x_min = rst->bbox.x_min >> 6;
+    int y_min = rst->bbox.y_min >> 6;
+    int x_max = (rst->bbox.x_max + 63) >> 6;
+    int y_max = (rst->bbox.y_max + 63) >> 6;
     int w = x_max - x_min;
     int h = y_max - y_min;
 

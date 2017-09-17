@@ -264,8 +264,7 @@ bool rasterizer_set_outline(RasterizerData *rst,
                             const ASS_Outline *path, bool extra)
 {
     if (!extra) {
-        rst->x_min = rst->y_min = INT32_MAX;
-        rst->x_max = rst->y_max = INT32_MIN;
+        rectangle_reset(&rst->bbox);
         rst->n_first = 0;
     }
     rst->size[0] = rst->n_first;
@@ -318,10 +317,10 @@ bool rasterizer_set_outline(RasterizerData *rst,
     assert(start == cur && cur == path->points + path->n_points);
 
     for (size_t k = rst->n_first; k < rst->size[0]; k++) {
-        rst->x_min = FFMIN(rst->x_min, rst->linebuf[0][k].x_min);
-        rst->x_max = FFMAX(rst->x_max, rst->linebuf[0][k].x_max);
-        rst->y_min = FFMIN(rst->y_min, rst->linebuf[0][k].y_min);
-        rst->y_max = FFMAX(rst->y_max, rst->linebuf[0][k].y_max);
+        struct segment *line = &rst->linebuf[0][k];
+        rectangle_update(&rst->bbox,
+                         line->x_min, line->y_min,
+                         line->x_max, line->y_max);
     }
     if (!extra)
         rst->n_first = rst->size[0];
@@ -739,10 +738,10 @@ bool rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
         line->y_max -= y0;
         line->c -= line->a * (int64_t) x0 + line->b * (int64_t) y0;
     }
-    rst->x_min -= x0;
-    rst->x_max -= x0;
-    rst->y_min -= y0;
-    rst->y_max -= y0;
+    rst->bbox.x_min -= x0;
+    rst->bbox.x_max -= x0;
+    rst->bbox.y_min -= y0;
+    rst->bbox.y_max -= y0;
 
     if (!check_capacity(rst, 1, rst->size[0]))
         return false;
@@ -753,27 +752,27 @@ bool rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
 
     int32_t size_x = (int32_t) width << 6;
     int32_t size_y = (int32_t) height << 6;
-    if (rst->x_max >= size_x) {
+    if (rst->bbox.x_max >= size_x) {
         polyline_split_horz(rst->linebuf[0], n_lines,
                             rst->linebuf[0], n_lines,
                             rst->linebuf[1], n_unused,
                             winding, size_x);
         winding[0] = winding[1] = 0;
     }
-    if (rst->y_max >= size_y) {
+    if (rst->bbox.y_max >= size_y) {
         polyline_split_vert(rst->linebuf[0], n_lines,
                             rst->linebuf[0], n_lines,
                             rst->linebuf[1], n_unused,
                             winding, size_y);
         winding[0] = winding[1] = 0;
     }
-    if (rst->x_min <= 0) {
+    if (rst->bbox.x_min <= 0) {
         polyline_split_horz(rst->linebuf[0], n_lines,
                             rst->linebuf[1], n_unused,
                             rst->linebuf[0], n_lines,
                             winding, 0);
     }
-    if (rst->y_min <= 0) {
+    if (rst->bbox.y_min <= 0) {
         polyline_split_vert(rst->linebuf[0], n_lines,
                             rst->linebuf[1], n_unused,
                             rst->linebuf[0], n_lines,
