@@ -51,11 +51,9 @@ typedef struct {
     int desc;            // descender
     ASS_Outline outline; // target outline
     ASS_Vector advance;  // advance (from cbox)
-    int hash;            // hash value (for caching)
 
     // private
     ASS_Library *library;
-    ASS_DrawingToken *tokens;    // tokenized drawing
     double point_scale_x;
     double point_scale_y;
     ASS_Rect cbox;   // bounding box, or let's say... VSFilter's idea of it
@@ -64,7 +62,6 @@ typedef struct {
 ASS_Drawing *ass_drawing_new(ASS_Library *lib);
 void ass_drawing_free(ASS_Drawing *drawing);
 void ass_drawing_set_text(ASS_Drawing *drawing, char *str, size_t n);
-void ass_drawing_hash(ASS_Drawing *drawing);
 ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, bool raw_mode);
 
 #endif /* LIBASS_DRAWING_H */

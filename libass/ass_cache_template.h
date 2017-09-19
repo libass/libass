@@ -114,7 +114,6 @@ START(drawing, drawing_hash_key)
     GENERIC(unsigned, border_style)
     GENERIC(int, hspacing)
     GENERIC(int, scale)
-    GENERIC(unsigned, hash)
     STRING(text)
 END(DrawingHashKey)
 

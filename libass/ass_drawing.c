@@ -265,29 +265,17 @@ void ass_drawing_set_text(ASS_Drawing *drawing, char *str, size_t len)
 }
 
 /*
- * \brief Create a hashcode for the drawing
- * XXX: To avoid collisions a better hash algorithm might be useful.
- */
-void ass_drawing_hash(ASS_Drawing *drawing)
-{
-    if (!drawing->text)
-        return;
-    drawing->hash = fnv_32a_str(drawing->text, FNV1_32A_INIT);
-}
-
-/*
  * \brief Convert token list to outline.  Calls the line and curve evaluators.
  */
 ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, bool raw_mode)
 {
     bool started = false;
-    ASS_DrawingToken *token;
     ASS_Vector pen = {0, 0};
 
-    drawing->tokens = drawing_tokenize(drawing->text);
+    ASS_DrawingToken *tokens = drawing_tokenize(drawing->text);
     drawing_prepare(drawing);
 
-    token = drawing->tokens;
+    ASS_DrawingToken *token = tokens;
     while (token) {
         // Draw something according to current command
         switch (token->type) {
@@ -356,10 +344,10 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, bool raw_mode)
     }
 
     drawing_finish(drawing, raw_mode);
-    drawing_free_tokens(drawing->tokens);
+    drawing_free_tokens(tokens);
     return &drawing->outline;
 
 error:
-    drawing_free_tokens(drawing->tokens);
+    drawing_free_tokens(tokens);
     return NULL;
 }

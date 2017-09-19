@@ -975,7 +975,6 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
         // so for normal borders, maximize cache utility by ignoring it
         key->hspacing =
             info->border_style == 3 ? double_to_d16(info->hspacing) : 0;
-        key->hash = info->drawing->hash;
         key->text = info->drawing->text;
         key->pbo = info->drawing->pbo;
         key->scale = info->drawing->scale;
@@ -1032,7 +1031,6 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 
         if (info->drawing) {
             ASS_Drawing *drawing = info->drawing;
-            ass_drawing_hash(drawing);
             if(!ass_drawing_parse(drawing, false) ||
                     !outline_copy(&val->outline, &drawing->outline)) {
                 ass_cache_commit(val, 1);
