@@ -249,7 +249,6 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
     font->desc.vertical = desc->vertical;
 
     font->scale_x = font->scale_y = 1.;
-    font->v.x = font->v.y = 0;
     font->size = 0.;
 
     int error = add_face(fontsel, font, 0);
@@ -264,17 +263,12 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
 }
 
 /**
- * \brief Set font transformation matrix and shift vector
+ * \brief Set font transformation matrix
  **/
-void ass_font_set_transform(ASS_Font *font, double scale_x,
-                            double scale_y, FT_Vector *v)
+void ass_font_set_transform(ASS_Font *font, double scale_x, double scale_y)
 {
     font->scale_x = scale_x;
     font->scale_y = scale_y;
-    if (v) {
-        font->v.x = v->x;
-        font->v.y = v->y;
-    }
 }
 
 void ass_face_set_size(FT_Face face, double size)
@@ -597,12 +591,11 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
     ass_strike_outline_glyph(face, font, glyph, deco & DECO_UNDERLINE,
                              deco & DECO_STRIKETHROUGH);
 
-    // Apply scaling and shift
+    // Apply scaling
     FT_Matrix scale = { double_to_d16(font->scale_x), 0, 0,
                         double_to_d16(font->scale_y) };
     FT_Outline *outl = &((FT_OutlineGlyph) glyph)->outline;
     FT_Outline_Transform(outl, &scale);
-    FT_Outline_Translate(outl, font->v.x, font->v.y);
     glyph->advance.x *= font->scale_x;
 
     return glyph;

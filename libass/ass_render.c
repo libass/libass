@@ -1046,8 +1046,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         } else {
             ass_face_set_size(info->font->faces[info->face_index],
                               info->font_size);
-            ass_font_set_transform(info->font, info->scale_x,
-                                   info->scale_y, NULL);
+            ass_font_set_transform(info->font, info->scale_x, info->scale_y);
             FT_Glyph glyph =
                 ass_font_get_glyph(info->font,
                         info->symbol, info->face_index, info->glyph_index,

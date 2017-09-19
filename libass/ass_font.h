@@ -54,7 +54,6 @@ struct ass_font {
     ASS_ShaperFontData *shaper_priv;
     int n_faces;
     double scale_x, scale_y;    // current transform
-    FT_Vector v;                // current shift
     double size;
 };
 
@@ -62,8 +61,7 @@ void charmap_magic(ASS_Library *library, FT_Face face);
 ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
                        FT_Library ftlibrary, ASS_FontSelector *fontsel,
                        ASS_FontDesc *desc);
-void ass_font_set_transform(ASS_Font *font, double scale_x,
-                            double scale_y, FT_Vector *v);
+void ass_font_set_transform(ASS_Font *font, double scale_x, double scale_y);
 void ass_face_set_size(FT_Face face, double size);
 void ass_font_set_size(ASS_Font *font, double size);
 void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
