@@ -301,7 +301,7 @@ const CacheDesc glyph_metrics_cache_desc = {
     .construct_func = ass_glyph_metrics_construct,
     .destruct_func = glyph_metrics_destruct,
     .key_size = sizeof(GlyphMetricsHashKey),
-    .value_size = sizeof(GlyphMetricsHashValue)
+    .value_size = sizeof(FT_Glyph_Metrics)
 };
 
 
