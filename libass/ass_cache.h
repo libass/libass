@@ -59,11 +59,11 @@ typedef struct {
 #include "ass_cache_template.h"
 
 // Type-specific function pointers
-typedef unsigned(*HashFunction)(void *key, size_t key_size);
-typedef unsigned(*HashCompare)(void *a, void *b, size_t key_size);
-typedef bool(*CacheKeyMove)(void *dst, void *src, size_t key_size);
-typedef size_t(*CacheValueConstructor)(void *key, void *value, void *priv);
-typedef void(*CacheItemDestructor)(void *key, void *value);
+typedef uint32_t (*HashFunction)(void *key, uint32_t hval);
+typedef bool (*HashCompare)(void *a, void *b);
+typedef bool (*CacheKeyMove)(void *dst, void *src);
+typedef size_t (*CacheValueConstructor)(void *key, void *value, void *priv);
+typedef void (*CacheItemDestructor)(void *key, void *value);
 
 // cache hash keys
 

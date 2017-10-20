@@ -38,37 +38,36 @@
 #include "ass_cache_template.h"
 
 // font cache
-static unsigned font_hash(void *buf, size_t len)
+static uint32_t font_hash(void *buf, uint32_t hval)
 {
     ASS_FontDesc *desc = buf;
-    unsigned hval;
-    hval = fnv_32a_str(desc->family, FNV1_32A_INIT);
+    hval = fnv_32a_str(desc->family, hval);
     hval = fnv_32a_buf(&desc->bold, sizeof(desc->bold), hval);
     hval = fnv_32a_buf(&desc->italic, sizeof(desc->italic), hval);
     hval = fnv_32a_buf(&desc->vertical, sizeof(desc->vertical), hval);
     return hval;
 }
 
-static unsigned font_compare(void *key1, void *key2, size_t key_size)
+static bool font_compare(void *key1, void *key2)
 {
     ASS_FontDesc *a = key1;
     ASS_FontDesc *b = key2;
     if (strcmp(a->family, b->family) != 0)
-        return 0;
+        return false;
     if (a->bold != b->bold)
-        return 0;
+        return false;
     if (a->italic != b->italic)
-        return 0;
+        return false;
     if (a->vertical != b->vertical)
-        return 0;
-    return 1;
+        return false;
+    return true;
 }
 
-static bool font_key_move(void *dst, void *src, size_t key_size)
+static bool font_key_move(void *dst, void *src)
 {
     ASS_FontDesc *k = src;
     if (dst)
-        memcpy(dst, src, key_size);
+        memcpy(dst, src, sizeof(ASS_FontDesc));
     else
         free(k->family);
     return true;
@@ -93,29 +92,36 @@ const CacheDesc font_cache_desc = {
 
 
 // bitmap cache
-static unsigned bitmap_hash(void *key, size_t key_size)
+static uint32_t bitmap_hash(void *key, uint32_t hval)
 {
     BitmapHashKey *k = key;
     switch (k->type) {
-        case BITMAP_OUTLINE: return outline_bitmap_hash(&k->u, key_size);
-        case BITMAP_CLIP: return clip_bitmap_hash(&k->u, key_size);
-        default: return 0;
+    case BITMAP_OUTLINE:
+        return outline_bitmap_hash(&k->u, hval);
+    case BITMAP_CLIP:
+        return clip_bitmap_hash(&k->u, hval);
+    default:
+        return hval;
     }
 }
 
-static unsigned bitmap_compare(void *a, void *b, size_t key_size)
+static bool bitmap_compare(void *a, void *b)
 {
     BitmapHashKey *ak = a;
     BitmapHashKey *bk = b;
-    if (ak->type != bk->type) return 0;
+    if (ak->type != bk->type)
+        return false;
     switch (ak->type) {
-        case BITMAP_OUTLINE: return outline_bitmap_compare(&ak->u, &bk->u, key_size);
-        case BITMAP_CLIP: return clip_bitmap_compare(&ak->u, &bk->u, key_size);
-        default: return 0;
+    case BITMAP_OUTLINE:
+        return outline_bitmap_compare(&ak->u, &bk->u);
+    case BITMAP_CLIP:
+        return clip_bitmap_compare(&ak->u, &bk->u);
+    default:
+        return false;
     }
 }
 
-static bool bitmap_key_move(void *dst, void *src, size_t key_size)
+static bool bitmap_key_move(void *dst, void *src)
 {
     BitmapHashKey *d = dst, *s = src;
     if (!dst) {
@@ -123,7 +129,7 @@ static bool bitmap_key_move(void *dst, void *src, size_t key_size)
             ass_cache_dec_ref(s->u.outline.outline);
         return true;
     }
-    memcpy(dst, src, key_size);
+    memcpy(dst, src, sizeof(BitmapHashKey));
     if (s->type != BITMAP_CLIP)
         return true;
     d->u.clip.text = strdup(s->u.clip.text);
@@ -139,8 +145,12 @@ static void bitmap_destruct(void *key, void *value)
     if (v->bm_o)
         ass_free_bitmap(v->bm_o);
     switch (k->type) {
-        case BITMAP_OUTLINE: ass_cache_dec_ref(k->u.outline.outline); break;
-        case BITMAP_CLIP: free(k->u.clip.text); break;
+    case BITMAP_OUTLINE:
+        ass_cache_dec_ref(k->u.outline.outline);
+        break;
+    case BITMAP_CLIP:
+        free(k->u.clip.text);
+        break;
     }
 }
 
@@ -158,10 +168,10 @@ const CacheDesc bitmap_cache_desc = {
 
 
 // composite cache
-static unsigned composite_hash(void *key, size_t key_size)
+static uint32_t composite_hash(void *key, uint32_t hval)
 {
     CompositeHashKey *k = key;
-    unsigned hval = filter_hash(&k->filter, key_size);
+    hval = filter_hash(&k->filter, hval);
     for (size_t i = 0; i < k->bitmap_count; i++) {
         hval = fnv_32a_buf(&k->bitmaps[i].image, sizeof(k->bitmaps[i].image), hval);
         hval = fnv_32a_buf(&k->bitmaps[i].x, sizeof(k->bitmaps[i].x), hval);
@@ -170,25 +180,25 @@ static unsigned composite_hash(void *key, size_t key_size)
     return hval;
 }
 
-static unsigned composite_compare(void *a, void *b, size_t key_size)
+static bool composite_compare(void *a, void *b)
 {
     CompositeHashKey *ak = a;
     CompositeHashKey *bk = b;
     if (ak->bitmap_count != bk->bitmap_count)
-        return 0;
+        return false;
     for (size_t i = 0; i < ak->bitmap_count; i++) {
         if (ak->bitmaps[i].image != bk->bitmaps[i].image ||
             ak->bitmaps[i].x != bk->bitmaps[i].x ||
             ak->bitmaps[i].y != bk->bitmaps[i].y)
-            return 0;
+            return false;
     }
-    return filter_compare(&ak->filter, &bk->filter, key_size);
+    return filter_compare(&ak->filter, &bk->filter);
 }
 
-static bool composite_key_move(void *dst, void *src, size_t key_size)
+static bool composite_key_move(void *dst, void *src)
 {
     if (dst) {
-        memcpy(dst, src, key_size);
+        memcpy(dst, src, sizeof(CompositeHashKey));
         return true;
     }
     CompositeHashKey *k = src;
@@ -227,29 +237,38 @@ const CacheDesc composite_cache_desc = {
 
 
 // outline cache
-static unsigned outline_hash(void *key, size_t key_size)
+static uint32_t outline_hash(void *key, uint32_t hval)
 {
     OutlineHashKey *k = key;
     switch (k->type) {
-        case OUTLINE_GLYPH: return glyph_hash(&k->u, key_size);
-        case OUTLINE_DRAWING: return drawing_hash(&k->u, key_size);
-        default: return outline_common_hash(&k->u, key_size);
+    case OUTLINE_GLYPH:
+        return glyph_hash(&k->u, hval);
+    case OUTLINE_DRAWING:
+        return drawing_hash(&k->u, hval);
+    default:
+        // unused, added to disable warning
+        return outline_common_hash(&k->u, hval);
     }
 }
 
-static unsigned outline_compare(void *a, void *b, size_t key_size)
+static bool outline_compare(void *a, void *b)
 {
     OutlineHashKey *ak = a;
     OutlineHashKey *bk = b;
-    if (ak->type != bk->type) return 0;
+    if (ak->type != bk->type)
+        return false;
     switch (ak->type) {
-        case OUTLINE_GLYPH: return glyph_compare(&ak->u, &bk->u, key_size);
-        case OUTLINE_DRAWING: return drawing_compare(&ak->u, &bk->u, key_size);
-        default: return outline_common_compare(&ak->u, &bk->u, key_size);
+    case OUTLINE_GLYPH:
+        return glyph_compare(&ak->u, &bk->u);
+    case OUTLINE_DRAWING:
+        return drawing_compare(&ak->u, &bk->u);
+    default:
+        // unused, added to disable warning
+        return outline_common_compare(&ak->u, &bk->u);
     }
 }
 
-static bool outline_key_move(void *dst, void *src, size_t key_size)
+static bool outline_key_move(void *dst, void *src)
 {
     OutlineHashKey *d = dst, *s = src;
     if (!dst) {
@@ -257,7 +276,7 @@ static bool outline_key_move(void *dst, void *src, size_t key_size)
             ass_cache_dec_ref(s->u.glyph.font);
         return true;
     }
-    memcpy(dst, src, key_size);
+    memcpy(dst, src, sizeof(OutlineHashKey));
     if (s->type != OUTLINE_DRAWING)
         return true;
     d->u.drawing.text = strdup(s->u.drawing.text);
@@ -272,8 +291,12 @@ static void outline_destruct(void *key, void *value)
     outline_free(&v->border[0]);
     outline_free(&v->border[1]);
     switch (k->type) {
-        case OUTLINE_GLYPH: ass_cache_dec_ref(k->u.glyph.font); break;
-        case OUTLINE_DRAWING: free(k->u.drawing.text); break;
+    case OUTLINE_GLYPH:
+        ass_cache_dec_ref(k->u.glyph.font);
+        break;
+    case OUTLINE_DRAWING:
+        free(k->u.drawing.text);
+        break;
     }
 }
 
@@ -291,11 +314,11 @@ const CacheDesc outline_cache_desc = {
 
 
 // glyph metric cache
-static bool glyph_metrics_key_move(void *dst, void *src, size_t key_size)
+static bool glyph_metrics_key_move(void *dst, void *src)
 {
     if (!dst)
         return true;
-    memcpy(dst, src, key_size);
+    memcpy(dst, src, sizeof(GlyphMetricsHashKey));
     GlyphMetricsHashKey *k = src;
     ass_cache_inc_ref(k->font);
     return true;
@@ -379,10 +402,10 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
 {
     const CacheDesc *desc = cache->desc;
     size_t key_offs = CACHE_ITEM_SIZE + align_cache(desc->value_size);
-    unsigned bucket = desc->hash_func(key, desc->key_size) % cache->buckets;
+    unsigned bucket = desc->hash_func(key, FNV1_32A_INIT) % cache->buckets;
     CacheItem *item = cache->map[bucket];
     while (item) {
-        if (desc->compare_func(key, (char *) item + key_offs, desc->key_size)) {
+        if (desc->compare_func(key, (char *) item + key_offs)) {
             assert(item->size);
             if (!item->queue_prev || item->queue_next) {
                 if (item->queue_prev) {
@@ -396,7 +419,7 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
                 item->queue_next = NULL;
             }
             cache->hits++;
-            desc->key_move_func(NULL, key, desc->key_size);
+            desc->key_move_func(NULL, key);
             item->ref_count++;
             return (char *) item + CACHE_ITEM_SIZE;
         }
@@ -406,13 +429,13 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
 
     item = malloc(key_offs + desc->key_size);
     if (!item) {
-        desc->key_move_func(NULL, key, desc->key_size);
+        desc->key_move_func(NULL, key);
         return NULL;
     }
     item->cache = cache;
     item->desc = desc;
     void *new_key = (char *) item + key_offs;
-    if (!desc->key_move_func(new_key, key, desc->key_size)) {
+    if (!desc->key_move_func(new_key, key)) {
         free(item);
         return NULL;
     }

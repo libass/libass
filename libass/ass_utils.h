@@ -173,26 +173,26 @@ static inline int rot_key(double a)
 #define FNV1_32A_INIT 0x811c9dc5U
 #define FNV1_32A_PRIME 16777619U
 
-static inline unsigned fnv_32a_buf(void *buf, size_t len, unsigned hval)
+static inline uint32_t fnv_32a_buf(void *buf, size_t len, uint32_t hval)
 {
-    unsigned char *bp = (unsigned char*)buf;
+    unsigned char *bp = (unsigned char *) buf;
     size_t n = (len + 3) / 4;
 
     switch (len % 4) {
-    case 0: do { hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
-    case 3:      hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
-    case 2:      hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
-    case 1:      hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
+    case 0: do { hval ^= *bp++; hval *= FNV1_32A_PRIME;
+    case 3:      hval ^= *bp++; hval *= FNV1_32A_PRIME;
+    case 2:      hval ^= *bp++; hval *= FNV1_32A_PRIME;
+    case 1:      hval ^= *bp++; hval *= FNV1_32A_PRIME;
                } while (--n > 0);
     }
 
     return hval;
 }
-static inline unsigned fnv_32a_str(char *str, unsigned hval)
+static inline uint32_t fnv_32a_str(const char *str, uint32_t hval)
 {
     unsigned char *s = (unsigned char *) str;
     while (*s) {
-        hval ^= (unsigned) *s++;
+        hval ^= *s++;
         hval *= FNV1_32A_PRIME;
     }
     return hval;

@@ -8,15 +8,13 @@
         char *member;
 #define VECTOR(member) \
         ASS_Vector member;
-#define BITMAPHASHKEY(member) \
-        BitmapHashKey member;
 #define END(typedefnamename) \
     } typedefnamename;
 
 #elif defined(CREATE_COMPARISON_FUNCTIONS)
 #undef CREATE_COMPARISON_FUNCTIONS
 #define START(funcname, structname) \
-    static unsigned funcname##_compare(void *key1, void *key2, size_t key_size) \
+    static bool funcname##_compare(void *key1, void *key2) \
     { \
         struct structname *a = key1; \
         struct structname *b = key2; \
@@ -27,28 +25,21 @@
             strcmp(a->member, b->member) == 0 &&
 #define VECTOR(member) \
             a->member.x == b->member.x && a->member.y == b->member.y &&
-#define BITMAPHASHKEY(member) \
-            bitmap_compare(&a->member, &b->member, sizeof(a->member)) &&
 #define END(typedefname) \
-            1; \
+            true; \
     }
 
 #elif defined(CREATE_HASH_FUNCTIONS)
 #undef CREATE_HASH_FUNCTIONS
 #define START(funcname, structname) \
-    static unsigned funcname##_hash(void *buf, size_t len) \
+    static uint32_t funcname##_hash(void *buf, uint32_t hval) \
     { \
-        struct structname *p = buf; \
-        unsigned hval = FNV1_32A_INIT;
+        struct structname *p = buf;
 #define GENERIC(type, member) \
         hval = fnv_32a_buf(&p->member, sizeof(p->member), hval);
 #define STRING(member) \
         hval = fnv_32a_str(p->member, hval);
 #define VECTOR(member) GENERIC(, member.x); GENERIC(, member.y);
-#define BITMAPHASHKEY(member) { \
-        unsigned temp = bitmap_hash(&p->member, sizeof(p->member)); \
-        hval = fnv_32a_buf(&temp, sizeof(temp), hval); \
-        }
 #define END(typedefname) \
         return hval; \
     }
@@ -142,5 +133,4 @@ END(FilterDesc)
 #undef GENERIC
 #undef STRING
 #undef VECTOR
-#undef BITMAPHASHKEY
 #undef END
