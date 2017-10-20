@@ -1628,9 +1628,9 @@ fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
   * \brief Checks whether a glyph should start a new bitmap run
   * \param info Pointer to new GlyphInfo to check
   * \param current_info Pointer to CombinedBitmapInfo for current run (may be NULL)
-  * \return 1 if a new run should be started
+  * \return true if a new run should be started
   */
-static int is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
+static bool is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
 {
     // FIXME: Don't break on glyph substitutions
     return !last || info->effect || info->drawing_text || last->drawing_text ||
@@ -1698,14 +1698,14 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_pr
 
 // Parse event text.
 // Fill render_priv->text_info.
-static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
+static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
 {
     TextInfo *text_info = &render_priv->text_info;
 
     char *p = event->Text, *q;
 
     // Event parsing.
-    while (1) {
+    while (true) {
         // get next char, executing style override
         // this affects render_context
         unsigned code = 0;
@@ -1738,7 +1738,7 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         if (!render_priv->state.font) {
             free_render_context(render_priv);
             free(drawing_text);
-            return 1;
+            return false;
         }
 
         if (text_info->length >= text_info->max_glyphs) {
@@ -1809,7 +1809,7 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         render_priv->state.effect_skip_timing = 0;
     }
 
-    return 0;
+    return true;
 }
 
 // Process render_priv->text_info and load glyph outlines.
@@ -2290,30 +2290,30 @@ static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
  * \param event_images struct containing resulting images, will also be initialized
  * Process event, appending resulting ASS_Image's to images_root.
  */
-static int
+static bool
 ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                  EventImages *event_images)
 {
     if (event->Style >= render_priv->track->n_styles) {
         ass_msg(render_priv->library, MSGL_WARN, "No style found");
-        return 1;
+        return false;
     }
     if (!event->Text) {
         ass_msg(render_priv->library, MSGL_WARN, "Empty event");
-        return 1;
+        return false;
     }
 
     free_render_context(render_priv);
     init_render_context(render_priv, event);
 
-    if (parse_events(render_priv, event))
-        return 1;
+    if (!parse_events(render_priv, event))
+        return false;
 
     TextInfo *text_info = &render_priv->text_info;
     if (text_info->length == 0) {
         // no valid symbols in the event; this can be smth like {comment}
         free_render_context(render_priv);
-        return 1;
+        return false;
     }
 
     // Find shape runs and shape text
@@ -2324,7 +2324,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     if (ass_shaper_shape(render_priv->shaper, text_info) < 0) {
         ass_msg(render_priv->library, MSGL_ERR, "Failed to shape text");
         free_render_context(render_priv);
-        return 1;
+        return false;
     }
 
     retrieve_glyphs(render_priv);
@@ -2516,7 +2516,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     ass_shaper_cleanup(render_priv->shaper, text_info);
     free_render_context(render_priv);
 
-    return 0;
+    return true;
 }
 
 /**
@@ -2532,7 +2532,7 @@ static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
 /**
  * \brief Start a new frame
  */
-static int
+static bool
 ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
                 long long now)
 {
@@ -2540,16 +2540,16 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
 
     if (!render_priv->settings.frame_width
         && !render_priv->settings.frame_height)
-        return 1;               // library not initialized
+        return false;               // library not initialized
 
     if (!render_priv->fontselect)
-        return 1;
+        return false;
 
     if (render_priv->library != track->library)
-        return 1;
+        return false;
 
     if (track->n_events == 0)
-        return 1;               // nothing to do
+        return false;               // nothing to do
 
     render_priv->track = track;
     render_priv->time = now;
@@ -2580,7 +2580,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
 
     check_cache_limits(render_priv, &render_priv->cache);
 
-    return 0;
+    return true;
 }
 
 static int cmp_event_layer(const void *p1, const void *p2)
@@ -2835,22 +2835,16 @@ static int ass_detect_change(ASS_Renderer *priv)
 ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
                             long long now, int *detect_change)
 {
-    int i, cnt, rc;
-    EventImages *last;
-    ASS_Image **tail;
-
     // init frame
-    rc = ass_start_frame(priv, track, now);
-    if (rc != 0) {
-        if (detect_change) {
+    if (!ass_start_frame(priv, track, now)) {
+        if (detect_change)
             *detect_change = 2;
-        }
         return NULL;
     }
 
     // render events separately
-    cnt = 0;
-    for (i = 0; i < track->n_events; ++i) {
+    int cnt = 0;
+    for (int i = 0; i < track->n_events; i++) {
         ASS_Event *event = track->events + i;
         if ((event->Start <= now)
             && (now < (event->Start + event->Duration))) {
@@ -2860,9 +2854,8 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
                     realloc(priv->eimg,
                             priv->eimg_size * sizeof(EventImages));
             }
-            rc = ass_render_event(priv, event, priv->eimg + cnt);
-            if (!rc)
-                ++cnt;
+            if (ass_render_event(priv, event, priv->eimg + cnt))
+                cnt++;
         }
     }
 
@@ -2870,8 +2863,8 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
     qsort(priv->eimg, cnt, sizeof(EventImages), cmp_event_layer);
 
     // call fix_collisions for each group of events with the same layer
-    last = priv->eimg;
-    for (i = 1; i < cnt; ++i)
+    EventImages *last = priv->eimg;
+    for (int i = 1; i < cnt; i++)
         if (last->event->Layer != priv->eimg[i].event->Layer) {
             fix_collisions(priv, last, priv->eimg + i - last);
             last = priv->eimg + i;
@@ -2880,8 +2873,8 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
         fix_collisions(priv, last, priv->eimg + cnt - last);
 
     // concat lists
-    tail = &priv->images_root;
-    for (i = 0; i < cnt; ++i) {
+    ASS_Image **tail = &priv->images_root;
+    for (int i = 0; i < cnt; i++) {
         ASS_Image *cur = priv->eimg[i].imgs;
         while (cur) {
             *tail = cur;
