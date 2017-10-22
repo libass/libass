@@ -2315,11 +2315,11 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
     text_info->n_bitmaps = nb_bitmaps;
 }
 
-static inline void rectangle_combine(ASS_Rect *rect, const Bitmap *bm, int x, int y)
+static inline void rectangle_combine(ASS_Rect *rect, const Bitmap *bm, ASS_Vector pos)
 {
-    x += bm->left;
-    y += bm->top;
-    rectangle_update(rect, x, y, x + bm->w, y + bm->h);
+    pos.x += bm->left;
+    pos.y += bm->top;
+    rectangle_update(rect, pos.x, pos.y, pos.x + bm->w, pos.y + bm->h);
 }
 
 size_t ass_composite_construct(void *key, void *value, void *priv)
@@ -2338,12 +2338,12 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     for (int i = 0; i < k->bitmap_count; i++) {
         BitmapRef *ref = &k->bitmaps[i];
         if (ref->image && ref->image->bm) {
-            rectangle_combine(&rect, ref->image->bm, ref->pos.x, ref->pos.y);
+            rectangle_combine(&rect, ref->image->bm, ref->pos);
             last = ref;
             n_bm++;
         }
         if (ref->image_o && ref->image_o->bm) {
-            rectangle_combine(&rect_o, ref->image_o->bm, ref->pos_o.x, ref->pos_o.y);
+            rectangle_combine(&rect_o, ref->image_o->bm, ref->pos_o);
             last_o = ref;
             n_bm_o++;
         }
