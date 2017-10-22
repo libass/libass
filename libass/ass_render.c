@@ -1022,6 +1022,7 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
     double scale_x = d16_to_double(common->scale_x);
     double scale_y = d16_to_double(common->scale_y);
 
+    ASS_DVector scale, offset = {0};
     if (outline_key->type == OUTLINE_DRAWING) {
         DrawingHashKey *k = &outline_key->u.drawing;
 
@@ -1029,7 +1030,6 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
         if (!ass_drawing_parse(&v->outline, &bbox, k->text, render_priv->library))
             return 1;
 
-        ASS_DVector scale, offset = {0};
         double w = render_priv->font_scale / (1 << (k->scale - 1));
         scale.x = scale_x * w;
         scale.y = scale_y * w;
@@ -1040,16 +1040,9 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
         v->desc = double_to_d6(pbo * scale_y * render_priv->font_scale);
         v->asc = (bbox.y_max - bbox.y_min) * scale.y - v->desc;
         offset.y = -v->asc;
-
-        ASS_Outline *ol = &v->outline;
-        for (size_t i = 0; i < ol->n_points; i++) {
-            ol->points[i].x = lrint(ol->points[i].x * scale.x + offset.x);
-            ol->points[i].y = lrint(ol->points[i].y * scale.y + offset.y);
-        }
     } else {
         GlyphHashKey *k = &outline_key->u.glyph;
         ass_face_set_size(k->font->faces[k->face_index], k->size);
-        ass_font_set_transform(k->font, scale_x, scale_y);
         FT_Glyph glyph =
             ass_font_get_glyph(k->font, k->face_index, k->glyph_index,
                                render_priv->settings.hinting, k->flags);
@@ -1058,16 +1051,23 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
             if (!outline_convert(&v->outline, src))
                 return 1;
             if (render_priv->settings.shaper == ASS_SHAPING_SIMPLE)
-                v->advance = d16_to_d6(glyph->advance.x);
+                v->advance = d16_to_d6(glyph->advance.x * scale_x);
             FT_Done_Glyph(glyph);
             ass_font_get_asc_desc(k->font, k->face_index,
                                   &v->asc, &v->desc);
             v->asc  *= scale_y;
             v->desc *= scale_y;
         }
+        scale.x = scale_x;
+        scale.y = scale_y;
     }
     v->valid = true;
 
+    ASS_Outline *ol = &v->outline;
+    for (size_t i = 0; i < ol->n_points; i++) {
+        ol->points[i].x = lrint(ol->points[i].x * scale.x + offset.x);
+        ol->points[i].y = lrint(ol->points[i].y * scale.y + offset.y);
+    }
     outline_get_cbox(&v->outline, &v->bbox_scaled);
 
     if (common->border_style == 3) {

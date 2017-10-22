@@ -250,22 +250,12 @@ size_t ass_font_construct(void *key, void *value, void *priv)
     font->desc.italic = desc->italic;
     font->desc.vertical = desc->vertical;
 
-    font->scale_x = font->scale_y = 1.;
     font->size = 0.;
 
     int error = add_face(render_priv->fontselect, font, 0);
     if (error == -1)
         font->desc.family = NULL;
     return 1;
-}
-
-/**
- * \brief Set font transformation matrix
- **/
-void ass_font_set_transform(ASS_Font *font, double scale_x, double scale_y)
-{
-    font->scale_x = scale_x;
-    font->scale_y = scale_y;
 }
 
 void ass_face_set_size(FT_Face face, double size)
@@ -579,13 +569,6 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, int face_index, int index,
 
     ass_strike_outline_glyph(face, font, glyph, deco & DECO_UNDERLINE,
                              deco & DECO_STRIKETHROUGH);
-
-    // Apply scaling
-    FT_Matrix scale = { double_to_d16(font->scale_x), 0, 0,
-                        double_to_d16(font->scale_y) };
-    FT_Outline *outl = &((FT_OutlineGlyph) glyph)->outline;
-    FT_Outline_Transform(outl, &scale);
-    glyph->advance.x *= font->scale_x;
 
     return glyph;
 }
