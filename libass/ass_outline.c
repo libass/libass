@@ -201,7 +201,8 @@ fail:
     return false;
 }
 
-bool outline_copy(ASS_Outline *outline, const ASS_Outline *source)
+bool outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
+                        int scale_ord_x, int scale_ord_y)
 {
     if (!source || !source->n_points) {
         outline_clear(outline);
@@ -211,23 +212,74 @@ bool outline_copy(ASS_Outline *outline, const ASS_Outline *source)
     if (!outline_alloc(outline, source->n_points, source->n_segments))
         return false;
 
-    memcpy(outline->points, source->points, sizeof(ASS_Vector) * source->n_points);
+    int sx = scale_ord_x + 32;
+    int sy = scale_ord_y + 32;
+    const ASS_Vector *pt = source->points;
+    for (size_t i = 0; i < source->n_points; i++) {
+        // that's equivalent to pt[i].x << scale_ord_x,
+        // but works even for negative coordinate and/or shift amount
+        outline->points[i].x = pt[i].x * ((int64_t) 1 << sx) >> 32;
+        outline->points[i].y = pt[i].y * ((int64_t) 1 << sy) >> 32;
+    }
     memcpy(outline->segments, source->segments, source->n_segments);
     outline->n_points = source->n_points;
     outline->n_segments = source->n_segments;
     return true;
 }
 
-void outline_move(ASS_Outline *outline, ASS_Outline *source)
+bool outline_transform_2d(ASS_Outline *outline, const ASS_Outline *source,
+                         const double m[2][3])
 {
     if (!source || !source->n_points) {
         outline_clear(outline);
-        return;
+        return true;
     }
 
-    memcpy(outline, source, sizeof(*outline));
-    outline_clear(source);
+    if (!outline_alloc(outline, source->n_points, source->n_segments))
+        return false;
+
+    const ASS_Vector *pt = source->points;
+    for (size_t i = 0; i < source->n_points; i++) {
+        double v[2];
+        for (int k = 0; k < 2; k++)
+            v[k] = m[k][0] * pt[i].x + m[k][1] * pt[i].y + m[k][2];
+
+        outline->points[i].x = lrint(v[0]);
+        outline->points[i].y = lrint(v[1]);
+    }
+    memcpy(outline->segments, source->segments, source->n_segments);
+    outline->n_points = source->n_points;
+    outline->n_segments = source->n_segments;
+    return true;
 }
+
+bool outline_transform_3d(ASS_Outline *outline, const ASS_Outline *source,
+                         const double m[3][3])
+{
+    if (!source || !source->n_points) {
+        outline_clear(outline);
+        return true;
+    }
+
+    if (!outline_alloc(outline, source->n_points, source->n_segments))
+        return false;
+
+    const ASS_Vector *pt = source->points;
+    for (size_t i = 0; i < source->n_points; i++) {
+        double v[3];
+        for (int k = 0; k < 3; k++)
+            v[k] = m[k][0] * pt[i].x + m[k][1] * pt[i].y + m[k][2];
+
+        double w = 1 / FFMAX(v[2], 0.1);
+        outline->points[i].x = lrint(v[0] * w);
+        outline->points[i].y = lrint(v[1] * w);
+    }
+    memcpy(outline->segments, source->segments, source->n_segments);
+    outline->n_points = source->n_points;
+    outline->n_segments = source->n_segments;
+    return true;
+}
+
 
 void outline_free(ASS_Outline *outline)
 {

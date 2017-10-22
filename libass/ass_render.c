@@ -1187,14 +1187,9 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
                 break;
 
             ASS_Outline src;
-            if (!outline_copy(&src, &k->outline->outline[0]))
+            if (!outline_scale_pow2(&src, &k->outline->outline[0],
+                                    k->scale_ord_x, k->scale_ord_y))
                 return 1;
-            for (size_t i = 0; i < src.n_points; i++) {
-                // that's equivalent to src.points[i].x << k->scale_ord_x,
-                // but works even for negative coordinate and/or shift amount
-                src.points[i].x = src.points[i].x * ((int64_t) 1 << (32 + k->scale_ord_x)) >> 32;
-                src.points[i].y = src.points[i].y * ((int64_t) 1 << (32 + k->scale_ord_y)) >> 32;
-            }
 
             outline_alloc(&v->outline[0], 2 * src.n_points, 2 * src.n_segments);
             outline_alloc(&v->outline[1], 2 * src.n_points, 2 * src.n_segments);
@@ -1456,20 +1451,12 @@ size_t ass_bitmap_construct(void *key, void *value, void *priv)
     restore_transform(m, k);
 
     ASS_Outline outline[2];
-    outline_copy(&outline[0], &k->outline->outline[0]);
-    outline_copy(&outline[1], &k->outline->outline[1]);
-
-    for (int i = 0; i < 2; i++) {
-        ASS_Vector *p = outline[i].points;
-        for (size_t j = 0; j < outline[i].n_points; ++j) {
-            double v[3];
-            for (int k = 0; k < 3; k++)
-                v[k] = m[k][0] * p[j].x + m[k][1] * p[j].y + m[k][2];
-
-            double w = 1 / FFMAX(v[2], 0.1);
-            p[j].x = lrint(v[0] * w);
-            p[j].y = lrint(v[1] * w);
-        }
+    if (k->matrix_z.x || k->matrix_z.y) {
+        outline_transform_3d(&outline[0], &k->outline->outline[0], m);
+        outline_transform_3d(&outline[1], &k->outline->outline[1], m);
+    } else {
+        outline_transform_2d(&outline[0], &k->outline->outline[0], m);
+        outline_transform_2d(&outline[1], &k->outline->outline[1], m);
     }
 
     if (!outline_to_bitmap(render_priv, bm, &outline[0], &outline[1]))
