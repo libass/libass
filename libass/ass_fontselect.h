@@ -16,8 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef LIBASS_FONTCONFIG_H
-#define LIBASS_FONTCONFIG_H
+#ifndef LIBASS_FONTSELECT_H
+#define LIBASS_FONTSELECT_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -273,4 +273,4 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
  */
 void ass_font_provider_free(ASS_FontProvider *provider);
 
-#endif                          /* LIBASS_FONTCONFIG_H */
+#endif                          /* LIBASS_FONTSELECT_H */
