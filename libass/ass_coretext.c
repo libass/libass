@@ -20,7 +20,12 @@
 #include "ass_compat.h"
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
 #include <CoreText/CoreText.h>
+#else
+#include <ApplicationServices/ApplicationServices.h>
+#endif
 
 #include "ass_coretext.h"
 

@@ -159,24 +159,33 @@ fi
 AM_CONDITIONAL([FONTCONFIG], [test x$fontconfig = xtrue])
 
 if test x$enable_coretext != xno; then
-OLDLIBS="$LIBS"
-# Linking to CoreText directly only works from Mountain Lion and iOS6. In
-# earlier OS releases CoreText was part of the ApplicationServices umbrella
-# framework.
-LIBS="$LIBS -framework CoreText -framework CoreFoundation"
+# Linking to CoreText directly only works from Mountain Lion and iOS.
+# In earlier OS X releases CoreText was part of the ApplicationServices
+# umbrella framework.
 AC_MSG_CHECKING([for CORETEXT])
-AC_LINK_IFELSE([
+AC_COMPILE_IFELSE([
   AC_LANG_PROGRAM(
-    [[#include <CoreText/CoreText.h>]],
-    [[CTFontCreateWithFontDescriptor(NULL, 0.0, NULL);]],)
+    [[#include <ApplicationServices/ApplicationServices.h>]],
+    [[CTFontDescriptorCopyAttribute(NULL, kCTFontURLAttribute);]])
   ], [
-    AC_DEFINE(CONFIG_CORETEXT, 1, [found CoreText in System library])
+    LIBS="$LIBS -framework ApplicationServices -framework CoreFoundation"
+    AC_DEFINE(CONFIG_CORETEXT, 1, [found CoreText in ApplicationServices framework])
     coretext=true
     AC_MSG_RESULT([yes])
   ], [
-    LIBS="$OLDLIBS"
-    coretext=false
-    AC_MSG_RESULT([no])
+    AC_COMPILE_IFELSE([
+      AC_LANG_PROGRAM(
+        [[#include <CoreText/CoreText.h>]],
+        [[CTFontDescriptorCopyAttribute(NULL, kCTFontURLAttribute);]])
+      ], [
+        LIBS="$LIBS -framework CoreText -framework CoreFoundation"
+        AC_DEFINE(CONFIG_CORETEXT, 1, [found CoreText framework])
+        coretext=true
+        AC_MSG_RESULT([yes])
+      ], [
+        coretext=false
+        AC_MSG_RESULT([no])
+      ])
   ])
 fi
 AM_CONDITIONAL([CORETEXT], [test x$coretext = xtrue])
