@@ -163,7 +163,7 @@ OLDLIBS="$LIBS"
 # Linking to CoreText directly only works from Mountain Lion and iOS6. In
 # earlier OS releases CoreText was part of the ApplicationServices umbrella
 # framework.
-LIBS="$LIBS -framework CoreText -framework CoreFoundation -framework CoreGraphics"
+LIBS="$LIBS -framework CoreText -framework CoreFoundation"
 AC_MSG_CHECKING([for CORETEXT])
 AC_LINK_IFELSE([
   AC_LANG_PROGRAM(
