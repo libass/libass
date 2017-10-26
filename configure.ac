@@ -156,6 +156,7 @@ PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.10.92, [
 	fontconfig=true
     ], [fontconfig=false])
 fi
+AM_CONDITIONAL([FONTCONFIG], [test x$fontconfig = xtrue])
 
 if test x$enable_coretext != xno; then
 OLDLIBS="$LIBS"

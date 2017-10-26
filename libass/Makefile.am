@@ -17,6 +17,7 @@ SRC_INTEL = x86/rasterizer.asm x86/blend_bitmaps.asm x86/blur.asm x86/cpuid.asm 
             x86/cpuid.h
 SRC_INTEL64 = x86/be_blur.asm
 
+SRC_FONTCONFIG = ass_fontconfig.c ass_fontconfig.h
 SRC_DIRECTWRITE = ass_directwrite.c ass_directwrite.h dwrite_c.h
 SRC_CORETEXT = ass_coretext.c ass_coretext.h
 
@@ -24,7 +25,7 @@ lib_LTLIBRARIES = libass.la
 libass_la_SOURCES = ass.h ass.c ass_types.h ass_utils.h ass_utils.c \
                     ass_compat.h ass_string.h ass_string.c ass_strtod.c \
                     ass_library.h ass_library.c ass_cache.h ass_cache.c ass_cache_template.h \
-                    ass_font.h ass_font.c ass_fontselect.h ass_fontselect.c ass_fontconfig.h ass_fontconfig.c \
+                    ass_font.h ass_font.c ass_fontselect.h ass_fontselect.c \
                     ass_render.h ass_render.c ass_render_api.c \
                     ass_parse.h ass_parse.c ass_shaper.h ass_shaper.c \
                     ass_outline.h ass_outline.c ass_drawing.h ass_drawing.c \
@@ -33,6 +34,10 @@ libass_la_SOURCES = ass.h ass.c ass_types.h ass_utils.h ass_utils.c \
 
 libass_la_LDFLAGS = -no-undefined -version-info $(LIBASS_LT_CURRENT):$(LIBASS_LT_REVISION):$(LIBASS_LT_AGE)
 libass_la_LDFLAGS += -export-symbols $(srcdir)/libass.sym
+
+if FONTCONFIG
+libass_la_SOURCES += $(SRC_FONTCONFIG)
+endif
 
 if DIRECTWRITE
 libass_la_SOURCES += $(SRC_DIRECTWRITE)

@@ -19,8 +19,6 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#ifdef CONFIG_FONTCONFIG
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -322,5 +320,3 @@ ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
 
     return provider;
 }
-
-#endif
