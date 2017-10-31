@@ -49,8 +49,6 @@ AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
     [disable HarfBuzz support @<:@default=check@:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
-AC_ARG_ENABLE([rasterizer], AS_HELP_STRING([--disable-rasterizer],
-    [disable internal rasterizer @<:@default=enabled@:>@]))
 AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
     [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
 
