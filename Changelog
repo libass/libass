@@ -1,3 +1,13 @@
+libass (0.14.0)
+ * Brand new, faster and better outline stroker (replaces FreeType stroker)
+ * Remove option to use the FreeType rasterizer
+ * Fix spots of missing border around self-intersecting shapes
+ * Switch from Yasm to NASM for building hand-written assembler code
+ * Support Core Text font provider on Mac OS X 10.6 and 10.7
+ * Clear font cache in ass_set_fonts(). This fixes potentially incorrect
+   font choices and an occasional crash if this function is called midway
+   through rendering a file.
+
 libass (0.13.7)
  * Fix invalid memory accesses with BorderStyle=4
  * Fix change detection bug on frame resizes
