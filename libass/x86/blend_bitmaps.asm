@@ -311,8 +311,6 @@ cglobal mul_bitmaps, 8,12
 ;                 uint32_t color);
 ;------------------------------------------------------------------------------
 
-;INIT_XMM sse2
-;INIT_YMM avx2
 %macro RGBA_BLEND 0
 cglobal rgba_blend, 7,12
     cmp r6b, 0xFF
@@ -330,7 +328,7 @@ cglobal rgba_blend, 7,12
     %else
         vpbroadcastq m1, xm1
     %endif
-    por m1, [last_255 wrt rip]
+    por m1, [last_255]
     movd xm2, r6d ; m2 = alpha
     %if mmsize == 16
         punpcklbw m2, m2
@@ -353,40 +351,33 @@ cglobal rgba_blend, 7,12
     punpcklbw m3, m0
     punpcklwd m3, m0
     %if mmsize == 32
-        vpermq m3, m3, 0x98
+        vpermq m3, m3, q2120
     %endif
     punpckldq m3, m0
     psllq m3, 14
-    pmuludq m3, [magic_0x4000 wrt rip]
+    pmuludq m3, [magic_0x4000]
     psrlq m3, 39
     pshuflw m3, m3, 0
     pshufhw m3, m3, 0
-    %if mmsize == 16
-        movdqu m4, m3
-        pmulhuw m4, m2
-    %else
-        vpmulhuw m4, m3, m2
-    %endif
+    pmulhuw m4, m3, m2
     psubw m3, m4
     %if mmsize == 16
         movq m4, [r0 + r6 * 4]
-        punpcklbw m4, m0
     %else
-        vmovdqu xm4, [r0 + r6 * 4]
-        vpermq m4, m4, 0x98
-        punpcklbw m4, m0
+        movu xm4, [r0 + r6 * 4]
+        vpermq m4, m4, q2120
     %endif
+    punpcklbw m4, m0
     mova m5, m1
     psubw m5, m4
     psllw m5, 1
     pmulhrsw m5, m3
     paddw m4, m5
+    packuswb m4, m4
     %if mmsize == 16
-        packuswb m4, m4
         movh [r0 + r6 * 4], m4
     %else
-        vpackuswb m4, m4
-        vpermq m4, m4, 0x8
+        vpermq m4, m4, q0020
         movu [r0 + r6 * 4], xm4
     %endif
     add r6, mmsize / 8 ; i += 2 (or 4)
