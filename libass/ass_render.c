@@ -1712,8 +1712,7 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         code = 0;
         while (*p) {
             if ((*p == '{') && (q = strchr(p, '}'))) {
-                while (p < q)
-                    p = parse_tag(render_priv, p, q, 1.);
+                p = parse_tags(render_priv, p, q, 1.);
                 assert(*p == '}');
                 p++;
             } else if (render_priv->state.drawing_scale) {
