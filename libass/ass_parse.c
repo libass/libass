@@ -650,7 +650,17 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr)
                 k = pow(((double) (t - t1)) / delta_t, accel);
             }
             p = args[cnt].start;
-            p = parse_tags(render_priv, p, args[cnt].end, k);    // maybe k*pwr ? no, specs forbid nested \t's
+            if (args[cnt].end < end) {
+                p = parse_tags(render_priv, p, args[cnt].end, k);
+            } else {
+                assert(q == end);
+                // No other tags can possibly follow this \t tag,
+                // so we don't need to restore pwr after parsing \t.
+                // The recursive call is now essentially a tail call,
+                // so optimize it away.
+                pwr = k;
+                q = p;
+            }
         } else if (complex_tag("clip")) {
             if (nargs == 4) {
                 int x0, y0, x1, y1;

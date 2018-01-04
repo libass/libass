@@ -1,3 +1,6 @@
+libass (unreleased)
+ * Fix stack overflow on deeply nested \t tags
+
 libass (0.14.0)
  * Brand new, faster and better outline stroker (replaces FreeType stroker)
  * Remove option to use the FreeType rasterizer
