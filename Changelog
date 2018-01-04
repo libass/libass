@@ -1,4 +1,5 @@
 libass (unreleased)
+ * Treat invalid nested \t tags like VSFilter
  * Fix stack overflow on deeply nested \t tags
 
 libass (0.14.0)

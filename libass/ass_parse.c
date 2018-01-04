@@ -230,7 +230,8 @@ static int parse_vector_clip(ASS_Renderer *render_priv,
  *            of a number of spaces immediately preceding '}' or ')'
  * \param pwr multiplier for some tag effects (comes from \t tags)
  */
-char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr)
+char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
+                 bool nested)
 {
     for (char *q; p < end; p = q) {
         while (*p != '\\' && p != end)
@@ -630,12 +631,11 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr)
                 t1 = 0;
                 t2 = 0;
                 accel = argtod(args[0]);
-            } else if (cnt == 0) {
+            } else {
                 t1 = 0;
                 t2 = 0;
                 accel = 1.;
-            } else
-                continue;
+            }
             render_priv->state.detect_collisions = 0;
             if (t2 == 0)
                 t2 = render_priv->state.event->Duration;
@@ -649,9 +649,13 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr)
                 assert(delta_t != 0.);
                 k = pow(((double) (t - t1)) / delta_t, accel);
             }
+            if (nested)
+                pwr = k;
+            if (cnt < 0 || cnt > 3)
+                continue;
             p = args[cnt].start;
             if (args[cnt].end < end) {
-                p = parse_tags(render_priv, p, args[cnt].end, k);
+                p = parse_tags(render_priv, p, args[cnt].end, k, true);
             } else {
                 assert(q == end);
                 // No other tags can possibly follow this \t tag,
@@ -659,6 +663,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr)
                 // The recursive call is now essentially a tail call,
                 // so optimize it away.
                 pwr = k;
+                nested = true;
                 q = p;
             }
         } else if (complex_tag("clip")) {
