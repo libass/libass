@@ -691,8 +691,7 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     // The user style was set with ass_set_selective_style_override().
     ASS_Style *user = &render_priv->user_override_style;
     ASS_Style *new = &render_priv->state.override_style_temp_storage;
-    int explicit = event_has_hard_overrides(render_priv->state.event->Text) ||
-                   render_priv->state.evt_type != EVENT_NORMAL;
+    int explicit = render_priv->state.explicit;
     int requested = render_priv->settings.selective_style_overrides;
     double scale;
 
@@ -706,8 +705,6 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     // user_style (the user's override style). Copy only fields from the
     // script's style that are deemed necessary.
     *new = *rstyle;
-
-    render_priv->state.explicit = explicit;
 
     render_priv->state.apply_font_scale =
         !explicit || !(requested & ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE);
@@ -866,11 +863,8 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.parsed_tags = 0;
     render_priv->state.evt_type = EVENT_NORMAL;
 
-    reset_render_context(render_priv, NULL);
     render_priv->state.wrap_style = render_priv->track->WrapStyle;
 
-    render_priv->state.alignment = render_priv->state.style->Alignment;
-    render_priv->state.justify = render_priv->state.style->Justify;
     render_priv->state.pos_x = 0;
     render_priv->state.pos_y = 0;
     render_priv->state.org_x = 0;
@@ -890,6 +884,12 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.effect_skip_timing = 0;
 
     apply_transition_effects(render_priv, event);
+    render_priv->state.explicit = render_priv->state.evt_type != EVENT_NORMAL ||
+                                  event_has_hard_overrides(event->Text);
+
+    reset_render_context(render_priv, NULL);
+    render_priv->state.alignment = render_priv->state.style->Alignment;
+    render_priv->state.justify = render_priv->state.style->Justify;
 }
 
 static void free_render_context(ASS_Renderer *render_priv)
