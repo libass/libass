@@ -208,6 +208,24 @@ AC_LINK_IFELSE([
 fi
 AM_CONDITIONAL([DIRECTWRITE], [test x$directwrite = xtrue])
 
+
+if test x$enable_android != xno; then
+AC_MSG_CHECKING([for ANDROID])
+AC_LINK_IFELSE([
+  AC_LANG_PROGRAM(
+    [[#include <android/log.h>]],
+    [[;]],)
+  ], [
+    AC_DEFINE(CONFIG_ANDROID, 1, [found Android])
+    android=true
+    AC_MSG_RESULT([yes])
+  ], [
+    android=false
+    AC_MSG_RESULT([no])
+  ])
+fi
+AM_CONDITIONAL([ANDROID], [test x$android = xtrue])
+
 if test x$enable_harfbuzz != xno; then
 PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
     CFLAGS="$CFLAGS $HARFBUZZ_CFLAGS"
@@ -237,6 +255,9 @@ if test "$use_libiconv" = true; then
         pkg_libs="${pkg_libs} -liconv"
     fi
 fi
+if test x$android = xtrue; then
+	pkg_libs="${pkg_libs} -llog"
+fi
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
 if test x$fontconfig = xtrue; then
@@ -249,7 +270,8 @@ fi
 if test x$enable_require_system_font_provider != xno &&
    test x$fontconfig != xtrue &&
    test x$directwrite != xtrue &&
-   test x$coretext != xtrue
+   test x$coretext != xtrue &&
+   test x$android != xtrue
 then
     AC_MSG_ERROR([\
 Either DirectWrite (on Windows), CoreText (on OSX), or Fontconfig \

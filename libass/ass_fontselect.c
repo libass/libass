@@ -44,6 +44,7 @@
 #include "ass_fontconfig.h"
 #include "ass_coretext.h"
 #include "ass_directwrite.h"
+#include "ass_androidfonts.h"
 #include "ass_font.h"
 #include "ass_string.h"
 
@@ -976,8 +977,15 @@ struct font_constructors font_constructors[] = {
 #ifdef CONFIG_FONTCONFIG
     { ASS_FONTPROVIDER_FONTCONFIG,      &ass_fontconfig_add_provider,   "fontconfig"},
 #endif
+#ifdef CONFIG_ANDROID
+    { ASS_FONTPROVIDER_ANDROIDFONTS,    &ass_androidfonts_add_provider, "androidfonts"},
+#endif
     { ASS_FONTPROVIDER_NONE, NULL, NULL },
 };
+
+#ifdef CONFIG_ANDROID
+extern void *g_ftlibrary;
+#endif
 
 /**
  * \brief Init font selector.
@@ -1002,6 +1010,9 @@ ass_fontselect_init(ASS_Library *library,
     priv->path_default = path ? strdup(path) : NULL;
     priv->index_default = 0;
 
+#ifdef CONFIG_ANDROID
+    g_ftlibrary = ftlibrary;
+#endif
     priv->embedded_provider = ass_embedded_fonts_add_provider(library, priv,
             ftlibrary);
 

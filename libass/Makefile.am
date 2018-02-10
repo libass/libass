@@ -21,6 +21,7 @@ SRC_INTEL64 = x86/be_blur.asm
 SRC_FONTCONFIG = ass_fontconfig.c ass_fontconfig.h
 SRC_DIRECTWRITE = ass_directwrite.c ass_directwrite.h dwrite_c.h
 SRC_CORETEXT = ass_coretext.c ass_coretext.h
+SRC_ANDROID = ass_androidfonts.c ass_androidfonts.h
 
 lib_LTLIBRARIES = libass.la
 libass_la_SOURCES = ass.h ass.c ass_types.h ass_utils.h ass_utils.c \
@@ -46,6 +47,11 @@ endif
 
 if CORETEXT
 libass_la_SOURCES += $(SRC_CORETEXT)
+endif
+
+if ANDROID
+libass_la_SOURCES += $(SRC_ANDROID)
+libass_la_LDFLAGS += $(PKG_LIBS_PRIVATE)
 endif
 
 if ASM
