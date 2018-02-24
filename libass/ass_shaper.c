@@ -39,6 +39,10 @@ enum {
 #define NUM_FEATURES 5
 #endif
 
+#if FRIBIDI_MAJOR_VERSION >= 1
+#define USE_FRIBIDI_EX_API
+#endif
+
 struct ass_shaper {
     ASS_ShapingLevel shaping_level;
 
@@ -46,6 +50,9 @@ struct ass_shaper {
     int n_glyphs;
     FriBidiChar *event_text;
     FriBidiCharType *ctypes;
+#ifdef USE_FRIBIDI_EX_API
+    FriBidiBracketType *btypes;
+#endif
     FriBidiLevel *emblevels;
     FriBidiStrIndex *cmap;
     FriBidiParType base_direction;
@@ -97,6 +104,9 @@ static bool check_allocations(ASS_Shaper *shaper, size_t new_size)
     if (new_size > shaper->n_glyphs) {
         if (!ASS_REALLOC_ARRAY(shaper->event_text, new_size) ||
             !ASS_REALLOC_ARRAY(shaper->ctypes, new_size) ||
+#ifdef USE_FRIBIDI_EX_API
+            !ASS_REALLOC_ARRAY(shaper->btypes, new_size) ||
+#endif
             !ASS_REALLOC_ARRAY(shaper->emblevels, new_size) ||
             !ASS_REALLOC_ARRAY(shaper->cmap, new_size))
             return false;
@@ -116,6 +126,9 @@ void ass_shaper_free(ASS_Shaper *shaper)
 #endif
     free(shaper->event_text);
     free(shaper->ctypes);
+#ifdef USE_FRIBIDI_EX_API
+    free(shaper->btypes);
+#endif
     free(shaper->emblevels);
     free(shaper->cmap);
     free(shaper);
@@ -868,8 +881,17 @@ int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
             dir = shaper->base_direction;
             fribidi_get_bidi_types(shaper->event_text + last_break,
                     i - last_break + 1, shaper->ctypes + last_break);
+#ifdef USE_FRIBIDI_EX_API
+            fribidi_get_bracket_types(shaper->event_text + last_break,
+                    i - last_break + 1, shaper->ctypes + last_break,
+                    shaper->btypes + last_break);
+            ret = fribidi_get_par_embedding_levels_ex(
+                    shaper->ctypes + last_break, shaper->btypes + last_break,
+                    i - last_break + 1, &dir, shaper->emblevels + last_break);
+#else
             ret = fribidi_get_par_embedding_levels(shaper->ctypes + last_break,
                     i - last_break + 1, &dir, shaper->emblevels + last_break);
+#endif
             if (ret == 0)
                 return -1;
             last_break = i + 1;
