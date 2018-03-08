@@ -914,9 +914,8 @@ static void free_render_context(ASS_Renderer *render_priv)
  */
 static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
                             int asc, int desc, ASS_Outline *ol,
-                            ASS_Vector advance, int sx, int sy)
+                            int adv, int sx, int sy)
 {
-    int adv = advance.x;
     double scale_y = info->orig_scale_y;
     double scale_x = info->orig_scale_x;
 
@@ -1037,8 +1036,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                 ass_cache_dec_ref(val);
                 return;
             }
-            val->advance.x = drawing->advance.x;
-            val->advance.y = drawing->advance.y;
+            val->advance = drawing->advance;
             val->asc = drawing->asc;
             val->desc = drawing->desc;
         } else {
@@ -1056,10 +1054,8 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                     ass_cache_dec_ref(val);
                     return;
                 }
-                if (priv->settings.shaper == ASS_SHAPING_SIMPLE) {
-                    val->advance.x = d16_to_d6(glyph->advance.x);
-                    val->advance.y = d16_to_d6(glyph->advance.y);
-                }
+                if (priv->settings.shaper == ASS_SHAPING_SIMPLE)
+                    val->advance = d16_to_d6(glyph->advance.x);
                 FT_Done_Glyph(glyph);
                 ass_font_get_asc_desc(info->font, info->symbol,
                                       &val->asc, &val->desc);
@@ -1072,11 +1068,11 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
         outline_get_cbox(&val->outline, &val->bbox_scaled);
 
         if (info->border_style == 3) {
-            ASS_Vector advance;
+            int advance;
             if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing)
                 advance = val->advance;
             else
-                advance = info->advance;
+                advance = info->advance.x;
 
             draw_opaque_box(priv, info, val->asc, val->desc, &val->border[0], advance,
                             double_to_d6(info->border_x * priv->border_scale),
@@ -1112,8 +1108,8 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
     info->border[1] = &val->border[1];
     info->bbox = val->bbox_scaled;
     if (info->drawing || priv->settings.shaper == ASS_SHAPING_SIMPLE) {
-        info->cluster_advance.x = info->advance.x = val->advance.x;
-        info->cluster_advance.y = info->advance.y = val->advance.y;
+        info->cluster_advance.x = info->advance.x = val->advance;
+        info->cluster_advance.y = info->advance.y = 0;
     }
     info->asc = val->asc;
     info->desc = val->desc;

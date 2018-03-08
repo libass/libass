@@ -50,7 +50,7 @@ typedef struct {
     int asc;             // ascender
     int desc;            // descender
     ASS_Outline outline; // target outline
-    ASS_Vector advance;  // advance (from cbox)
+    int advance;         // advance (from cbox)
 
     // private
     ASS_Library *library;

@@ -46,7 +46,7 @@ typedef struct {
     ASS_Outline outline;
     ASS_Outline border[2];
     ASS_Rect bbox_scaled;       // bbox after scaling, but before rotation
-    ASS_Vector advance;         // 26.6, advance distance to the next outline in line
+    int advance;                // 26.6, advance distance to the next outline in line
     int asc, desc;              // ascender/descender
 } OutlineHashValue;
 

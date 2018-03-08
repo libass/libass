@@ -59,7 +59,7 @@ static void drawing_finish(ASS_Drawing *drawing, bool raw_mode)
     if (raw_mode)
         return;
 
-    drawing->advance.x = bbox.x_max - bbox.x_min;
+    drawing->advance = bbox.x_max - bbox.x_min;
 
     double pbo = drawing->pbo / (1 << (drawing->scale - 1));
     drawing->desc = double_to_d6(pbo * drawing->scale_y);
