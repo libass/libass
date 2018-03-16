@@ -284,6 +284,7 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
 
     dst_x += bm->left;
     dst_y += bm->top;
+    brk -= dst_x;
 
     // we still need to clip against screen boundaries
     zx = x2scr_pos_scaled(render_priv, 0);
@@ -395,7 +396,7 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
 
     dst_x += bm->left;
     dst_y += bm->top;
-    brk -= bm->left;
+    brk -= dst_x;
 
     // clipping
     clip_x0 = FFMINMAX(render_priv->state.clip_x0, 0, render_priv->width);
@@ -2263,7 +2264,6 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 memcpy(&current_info->c, &info->c, sizeof(info->c));
                 current_info->effect_type = info->effect_type;
                 current_info->effect_timing = info->effect_timing;
-                current_info->first_pos_x = info->bbox.x_max >> 6;
 
                 FilterDesc *filter = &current_info->filter;
                 filter->flags = flags;
@@ -2330,12 +2330,20 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 
     for (int i = 0; i < nb_bitmaps; i++) {
         CombinedBitmapInfo *info = &combined_info[i];
+        if (!info->bitmap_count)
+            continue;
+
+        int x_min = INT_MAX;
         for (int j = 0; j < info->bitmap_count; j++) {
+            if (info->bitmaps[j].bm)
+                x_min = FFMIN(x_min, info->bitmaps[j].pos.x + info->bitmaps[j].bm->left);
             info->bitmaps[j].pos.x -= info->x;
             info->bitmaps[j].pos.y -= info->y;
             info->bitmaps[j].pos_o.x -= info->x;
             info->bitmaps[j].pos_o.y -= info->y;
         }
+        info->effect_timing += x_min;
+        info->first_pos_x = x_min;
 
         CompositeHashKey key;
         key.filter = info->filter;
