@@ -87,11 +87,11 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
         if (!tmp)
             return;
         if (bm_o) {
-            unsigned passes = be;
-            unsigned w = bm_o->w;
-            unsigned h = bm_o->h;
-            unsigned stride = bm_o->stride;
-            unsigned char *buf = bm_o->buffer;
+            int passes = be;
+            int32_t w = bm_o->w;
+            int32_t h = bm_o->h;
+            ptrdiff_t stride = bm_o->stride;
+            uint8_t *buf = bm_o->buffer;
             if(w && h){
                 if(passes > 1){
                     be_blur_pre(buf, w, h, stride);
@@ -106,11 +106,11 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
             }
         }
         if (blur_g) {
-            unsigned passes = be;
-            unsigned w = bm_g->w;
-            unsigned h = bm_g->h;
-            unsigned stride = bm_g->stride;
-            unsigned char *buf = bm_g->buffer;
+            int passes = be;
+            int32_t w = bm_g->w;
+            int32_t h = bm_g->h;
+            ptrdiff_t stride = bm_g->stride;
+            uint8_t *buf = bm_g->buffer;
             if(w && h){
                 if(passes > 1){
                     be_blur_pre(buf, w, h, stride);
@@ -128,8 +128,8 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
     }
 }
 
-static bool alloc_bitmap_buffer(const BitmapEngine *engine, Bitmap *bm, int w, int h,
-                                bool zero)
+static bool alloc_bitmap_buffer(const BitmapEngine *engine, Bitmap *bm,
+                                int32_t w, int32_t h, bool zero)
 {
     unsigned align = 1 << engine->align_order;
     size_t s = ass_align(align, w);
@@ -146,7 +146,7 @@ static bool alloc_bitmap_buffer(const BitmapEngine *engine, Bitmap *bm, int w, i
     return true;
 }
 
-Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h, bool zero)
+Bitmap *alloc_bitmap(const BitmapEngine *engine, int32_t w, int32_t h, bool zero)
 {
     Bitmap *bm = malloc(sizeof(Bitmap));
     if (!bm)
@@ -159,7 +159,7 @@ Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h, bool zero)
     return bm;
 }
 
-bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int w, int h)
+bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h)
 {
     uint8_t *old = bm->buffer;
     if (!alloc_bitmap_buffer(engine, bm, w, h, false))
@@ -251,28 +251,17 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
  */
 void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
 {
-    int x, y;
-    const int l = bm_o->left > bm_g->left ? bm_o->left : bm_g->left;
-    const int t = bm_o->top > bm_g->top ? bm_o->top : bm_g->top;
-    const int r =
-        bm_o->left + bm_o->stride <
-        bm_g->left + bm_g->stride ? bm_o->left + bm_o->stride : bm_g->left + bm_g->stride;
-    const int b =
-        bm_o->top + bm_o->h <
-        bm_g->top + bm_g->h ? bm_o->top + bm_o->h : bm_g->top + bm_g->h;
+    int32_t l = FFMAX(bm_o->left, bm_g->left);
+    int32_t t = FFMAX(bm_o->top,  bm_g->top);
+    int32_t r = FFMIN(bm_o->left + bm_o->stride, bm_g->left + bm_g->stride);
+    int32_t b = FFMIN(bm_o->top  + bm_o->h,      bm_g->top  + bm_g->h);
 
-    unsigned char *g =
-        bm_g->buffer + (t - bm_g->top) * bm_g->stride + (l - bm_g->left);
-    unsigned char *o =
-        bm_o->buffer + (t - bm_o->top) * bm_o->stride + (l - bm_o->left);
+    uint8_t *g = bm_g->buffer + (t - bm_g->top) * bm_g->stride + (l - bm_g->left);
+    uint8_t *o = bm_o->buffer + (t - bm_o->top) * bm_o->stride + (l - bm_o->left);
 
-    for (y = 0; y < b - t; ++y) {
-        for (x = 0; x < r - l; ++x) {
-            unsigned char c_g, c_o;
-            c_g = g[x];
-            c_o = o[x];
-            o[x] = (c_o > c_g) ? c_o - (c_g / 2) : 0;
-        }
+    for (int32_t y = 0; y < b - t; y++) {
+        for (int32_t x = 0; x < r - l; x++)
+            o[x] = (o[x] > g[x]) ? o[x] - (g[x] / 2) : 0;
         g += bm_g->stride;
         o += bm_o->stride;
     }
@@ -284,31 +273,31 @@ void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
  */
 void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 {
-    int x, y, b;
-    int w = bm->w;
-    int h = bm->h;
-    int s = bm->stride;
-    unsigned char *buf = bm->buffer;
-
     assert((shift_x & ~63) == 0 && (shift_y & ~63) == 0);
 
+    int32_t w = bm->w, h = bm->h;
+    ptrdiff_t s = bm->stride;
+    uint8_t *buf = bm->buffer;
+
     // Shift in x direction
-    for (y = 0; y < h; y++) {
-        for (x = w - 1; x > 0; x--) {
-            b = (buf[x + y * s - 1] * shift_x) >> 6;
-            buf[x + y * s - 1] -= b;
-            buf[x + y * s] += b;
+    if (shift_x)
+        for (int32_t y = 0; y < h; y++) {
+            for (int32_t x = w - 1; x > 0; x--) {
+                uint8_t b = buf[x + y * s - 1] * shift_x >> 6;
+                buf[x + y * s - 1] -= b;
+                buf[x + y * s] += b;
+            }
         }
-    }
 
     // Shift in y direction
-    for (x = 0; x < w; x++) {
-        for (y = h - 1; y > 0; y--) {
-            b = (buf[x + (y - 1) * s] * shift_y) >> 6;
-            buf[x + (y - 1) * s] -= b;
-            buf[x + y * s] += b;
+    if (shift_y)
+        for (int32_t x = 0; x < w; x++) {
+            for (int32_t y = h - 1; y > 0; y--) {
+                uint8_t b = buf[x + y * s - s] * shift_y >> 6;
+                buf[x + y * s - s] -= b;
+                buf[x + y * s] += b;
+            }
         }
-    }
 }
 
 /**

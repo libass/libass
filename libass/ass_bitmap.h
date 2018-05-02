@@ -90,14 +90,14 @@ extern const BitmapEngine ass_bitmap_engine_avx2;
 
 
 typedef struct {
-    int left, top;
-    int w, h;                   // width, height
-    int stride;
-    unsigned char *buffer;      // h * stride buffer
+    int32_t left, top;
+    int32_t w, h;         // width, height
+    ptrdiff_t stride;
+    uint8_t *buffer;      // h * stride buffer
 } Bitmap;
 
-Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h, bool zero);
-bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int w, int h);
+Bitmap *alloc_bitmap(const BitmapEngine *engine, int32_t w, int32_t h, bool zero);
+bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h);
 Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src);
 void ass_free_bitmap(Bitmap *bm);
 
