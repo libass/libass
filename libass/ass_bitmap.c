@@ -62,14 +62,14 @@
 void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
                     double blur_radius, Bitmap *bm_g, Bitmap *bm_o)
 {
-    bool blur_g = !bm_o || opaque_box;
-    if (blur_g && !bm_g)
+    bool blur_g = !bm_o->buffer || opaque_box;
+    if (blur_g && !bm_g->buffer)
         return;
 
     // Apply gaussian blur
     double r2 = blur_radius * blur_radius / log(256);
     if (r2 > 0.001) {
-        if (bm_o)
+        if (bm_o->buffer)
             ass_gaussian_blur(engine, bm_o, r2);
         if (blur_g)
             ass_gaussian_blur(engine, bm_g, r2);
@@ -78,7 +78,7 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
     // Apply box blur (multiple passes, if requested)
     if (be) {
         size_t size_o = 0, size_g = 0;
-        if (bm_o)
+        if (bm_o->buffer)
             size_o = sizeof(uint16_t) * bm_o->stride * 2;
         if (blur_g)
             size_g = sizeof(uint16_t) * bm_g->stride * 2;
@@ -86,7 +86,7 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
         uint16_t *tmp = size ? ass_aligned_alloc(32, size, false) : NULL;
         if (!tmp)
             return;
-        if (bm_o) {
+        if (bm_o->buffer) {
             int passes = be;
             int32_t w = bm_o->w;
             int32_t h = bm_o->h;
@@ -128,8 +128,8 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
     }
 }
 
-static bool alloc_bitmap_buffer(const BitmapEngine *engine, Bitmap *bm,
-                                int32_t w, int32_t h, bool zero)
+bool alloc_bitmap(const BitmapEngine *engine, Bitmap *bm,
+                  int32_t w, int32_t h, bool zero)
 {
     unsigned align = 1 << engine->align_order;
     size_t s = ass_align(align, w);
@@ -146,23 +146,10 @@ static bool alloc_bitmap_buffer(const BitmapEngine *engine, Bitmap *bm,
     return true;
 }
 
-Bitmap *alloc_bitmap(const BitmapEngine *engine, int32_t w, int32_t h, bool zero)
-{
-    Bitmap *bm = malloc(sizeof(Bitmap));
-    if (!bm)
-        return NULL;
-    if (!alloc_bitmap_buffer(engine, bm, w, h, zero)) {
-        free(bm);
-        return NULL;
-    }
-    bm->left = bm->top = 0;
-    return bm;
-}
-
 bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h)
 {
     uint8_t *old = bm->buffer;
-    if (!alloc_bitmap_buffer(engine, bm, w, h, false))
+    if (!alloc_bitmap(engine, bm, w, h, false))
         return false;
     ass_aligned_free(old);
     return true;
@@ -170,77 +157,70 @@ bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h
 
 void ass_free_bitmap(Bitmap *bm)
 {
-    if (bm)
-        ass_aligned_free(bm->buffer);
-    free(bm);
+    ass_aligned_free(bm->buffer);
 }
 
-Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src)
+bool copy_bitmap(const BitmapEngine *engine, Bitmap *dst, const Bitmap *src)
 {
-    Bitmap *dst = alloc_bitmap(engine, src->w, src->h, false);
-    if (!dst)
-        return NULL;
+    if (!src->buffer) {
+        memset(dst, 0, sizeof(*dst));
+        return true;
+    }
+    if (!alloc_bitmap(engine, dst, src->w, src->h, false))
+        return false;
     dst->left = src->left;
-    dst->top = src->top;
+    dst->top  = src->top;
     memcpy(dst->buffer, src->buffer, src->stride * src->h);
-    return dst;
+    return true;
 }
 
-Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          ASS_Outline *outline1, ASS_Outline *outline2,
-                          int bord)
+bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
+                       ASS_Outline *outline1, ASS_Outline *outline2)
 {
     RasterizerData *rst = &render_priv->rasterizer;
     if (outline1 && !rasterizer_set_outline(rst, outline1, false)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
-        return NULL;
+        return false;
     }
     if (outline2 && !rasterizer_set_outline(rst, outline2, !!outline1)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
-        return NULL;
+        return false;
     }
-
     if (rst->bbox.x_min > rst->bbox.x_max || rst->bbox.y_min > rst->bbox.y_max)
-        return NULL;
+        return false;
 
-    if (bord < 0 || bord > INT_MAX / 2)
-        return NULL;
-    if (rst->bbox.x_max > INT_MAX - 63 || rst->bbox.y_max > INT_MAX - 63)
-        return NULL;
-
-    int x_min = rst->bbox.x_min >> 6;
-    int y_min = rst->bbox.y_min >> 6;
-    int x_max = (rst->bbox.x_max + 63) >> 6;
-    int y_max = (rst->bbox.y_max + 63) >> 6;
-    int w = x_max - x_min;
-    int h = y_max - y_min;
+    // enlarge by 1/64th of pixel to bypass slow rasterizer path, add 1 pixel for shift_bitmap
+    int32_t x_min = (rst->bbox.x_min -   1) >> 6;
+    int32_t y_min = (rst->bbox.y_min -   1) >> 6;
+    int32_t x_max = (rst->bbox.x_max + 127) >> 6;
+    int32_t y_max = (rst->bbox.y_max + 127) >> 6;
+    int32_t w = x_max - x_min;
+    int32_t h = y_max - y_min;
 
     int mask = (1 << render_priv->engine->tile_order) - 1;
 
-    if (w < 0 || h < 0 ||
-        w > INT_MAX - (2 * bord + mask) || h > INT_MAX - (2 * bord + mask)) {
-        ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
-                w, h);
-        return NULL;
+    // XXX: is that possible to trigger at all?
+    if (w < 0 || h < 0 || w > INT_MAX - mask || h > INT_MAX - mask) {
+        ass_msg(render_priv->library, MSGL_WARN,
+                "Glyph bounding box too large: %dx%dpx", w, h);
+        return false;
     }
 
-    int tile_w = (w + 2 * bord + mask) & ~mask;
-    int tile_h = (h + 2 * bord + mask) & ~mask;
-    Bitmap *bm = alloc_bitmap(render_priv->engine, tile_w, tile_h, false);
-    if (!bm)
-        return NULL;
-    bm->left = x_min - bord;
-    bm->top =  y_min - bord;
+    int32_t tile_w = (w + mask) & ~mask;
+    int32_t tile_h = (h + mask) & ~mask;
+    if (!alloc_bitmap(render_priv->engine, bm, tile_w, tile_h, false))
+        return false;
+    bm->left = x_min;
+    bm->top  = y_min;
 
     if (!rasterizer_fill(render_priv->engine, rst, bm->buffer,
-                         x_min - bord, y_min - bord,
-                         bm->stride, tile_h, bm->stride)) {
+                         x_min, y_min, bm->stride, tile_h, bm->stride)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph!\n");
         ass_free_bitmap(bm);
-        return NULL;
+        return false;
     }
 
-    return bm;
+    return true;
 }
 
 /**

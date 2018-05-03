@@ -96,14 +96,13 @@ typedef struct {
     uint8_t *buffer;      // h * stride buffer
 } Bitmap;
 
-Bitmap *alloc_bitmap(const BitmapEngine *engine, int32_t w, int32_t h, bool zero);
+bool alloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h, bool zero);
 bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h);
-Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src);
+bool copy_bitmap(const BitmapEngine *engine, Bitmap *dst, const Bitmap *src);
 void ass_free_bitmap(Bitmap *bm);
 
-Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          ASS_Outline *outline1, ASS_Outline *outline2,
-                          int bord);
+bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
+                       ASS_Outline *outline1, ASS_Outline *outline2);
 
 void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
                     double blur_radius, Bitmap *bm_g, Bitmap *bm_o);

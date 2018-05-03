@@ -104,9 +104,8 @@ static bool bitmap_key_move(void *dst, void *src)
 
 static void bitmap_destruct(void *key, void *value)
 {
-    BitmapHashValue *v = value;
     BitmapHashKey *k = key;
-    ass_free_bitmap(v->bm);
+    ass_free_bitmap(value);
     ass_cache_dec_ref(k->outline);
 }
 
@@ -119,7 +118,7 @@ const CacheDesc bitmap_cache_desc = {
     .construct_func = ass_bitmap_construct,
     .destruct_func = bitmap_destruct,
     .key_size = sizeof(BitmapHashKey),
-    .value_size = sizeof(BitmapHashValue)
+    .value_size = sizeof(Bitmap)
 };
 
 
@@ -155,8 +154,8 @@ static bool composite_key_move(void *dst, void *src)
     }
     CompositeHashKey *k = src;
     for (size_t i = 0; i < k->bitmap_count; i++) {
-        ass_cache_dec_ref(k->bitmaps[i].image);
-        ass_cache_dec_ref(k->bitmaps[i].image_o);
+        ass_cache_dec_ref(k->bitmaps[i].bm);
+        ass_cache_dec_ref(k->bitmaps[i].bm_o);
     }
     free(k->bitmaps);
     return true;
@@ -166,12 +165,12 @@ static void composite_destruct(void *key, void *value)
 {
     CompositeHashValue *v = value;
     CompositeHashKey *k = key;
-    ass_free_bitmap(v->bm);
-    ass_free_bitmap(v->bm_o);
-    ass_free_bitmap(v->bm_s);
+    ass_free_bitmap(&v->bm);
+    ass_free_bitmap(&v->bm_o);
+    ass_free_bitmap(&v->bm_s);
     for (size_t i = 0; i < k->bitmap_count; i++) {
-        ass_cache_dec_ref(k->bitmaps[i].image);
-        ass_cache_dec_ref(k->bitmaps[i].image_o);
+        ass_cache_dec_ref(k->bitmaps[i].bm);
+        ass_cache_dec_ref(k->bitmaps[i].bm_o);
     }
     free(k->bitmaps);
 }

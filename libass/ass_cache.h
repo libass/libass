@@ -30,13 +30,7 @@ typedef struct cache Cache;
 // cache values
 
 typedef struct {
-    Bitmap *bm;  // the actual bitmap
-} BitmapHashValue;
-
-typedef struct {
-    Bitmap *bm;
-    Bitmap *bm_o;
-    Bitmap *bm_s;
+    Bitmap bm, bm_o, bm_s;
 } CompositeHashValue;
 
 typedef struct {
