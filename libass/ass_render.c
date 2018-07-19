@@ -2291,6 +2291,7 @@ static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
     ASS_Image *img = my_draw_bitmap(nbuffer, w, h, w, left, top,
                                     render_priv->state.c[3], NULL);
     if (img) {
+        img->type = IMAGE_TYPE_BACKGROUND;
         img->next = event_images->imgs;
         event_images->imgs = img;
     }
