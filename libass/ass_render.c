@@ -2790,7 +2790,10 @@ static int ass_image_compare(ASS_Image *i1, ASS_Image *i2)
         return 2;
     if (i1->color != i2->color)
         return 2;
-    if (i1->bitmap != i2->bitmap)
+    if (i1->type != i2->type)
+        return 2;
+    if (i1->type != IMAGE_TYPE_BACKGROUND &&
+        i1->bitmap != i2->bitmap)
         return 2;
     if (i1->dst_x != i2->dst_x)
         return 1;
