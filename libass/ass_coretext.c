@@ -116,17 +116,17 @@ static void get_name(CTFontDescriptorRef fontd, CFStringRef attr,
 }
 
 static void get_trait(CFDictionaryRef traits, CFStringRef attribute,
-                      float *trait)
+                      double *trait)
 {
     CFNumberRef cftrait = CFDictionaryGetValue(traits, attribute);
-    if (!CFNumberGetValue(cftrait, kCFNumberFloatType, trait))
-        *trait = 0.0;
+    *trait = 0.0;
+    CFNumberGetValue(cftrait, kCFNumberDoubleType, trait);
 }
 
 static void get_font_traits(CTFontDescriptorRef fontd,
                             ASS_FontProviderMetaData *meta)
 {
-    float weight, slant, width;
+    double weight, slant, width;
 
     CFDictionaryRef traits =
         CTFontDescriptorCopyAttribute(fontd, kCTFontTraitsAttribute);
