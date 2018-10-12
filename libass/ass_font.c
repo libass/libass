@@ -303,6 +303,23 @@ void ass_font_set_size(ASS_Font *font, double size)
 }
 
 /**
+ * \brief Get face weight
+ **/
+int ass_face_get_weight(FT_Face face)
+{
+#if FREETYPE_MAJOR > 2 || (FREETYPE_MAJOR == 2 && FREETYPE_MINOR >= 6)
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
+#else
+    // This old name is still included (as a macro), but deprecated as of 2.6, so avoid using it if we can
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
+#endif
+    if (os2 && os2->version != 0xffff && os2->usWeightClass)
+        return os2->usWeightClass;
+    else
+        return 300 * !!(face->style_flags & FT_STYLE_FLAG_BOLD) + 400;
+}
+
+/**
  * \brief Get maximal font ascender and descender.
  **/
 void ass_font_get_asc_desc(ASS_Font *font, int face_index,
