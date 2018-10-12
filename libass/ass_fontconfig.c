@@ -117,12 +117,43 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         // fontconfig uses its own weight scale, apparently derived
         // from typographical weight. we're using truetype weights, so
         // convert appropriately
-        if (weight <= FC_WEIGHT_LIGHT)
-            meta.weight = FONT_WEIGHT_LIGHT;
-        else if (weight <= FC_WEIGHT_MEDIUM)
-            meta.weight = FONT_WEIGHT_MEDIUM;
+#if FC_VERSION >= 21191
+        meta.weight = FcWeightToOpenType(weight);
+#else
+        // On older fontconfig, FcWeightToOpenType is unavailable, and its inverse was
+        // implemented more simply, using an if/else ladder instead of linear interpolation.
+        // We implement an inverse of that ladder here.
+        // We don't expect actual FC caches from these versions to have intermediate
+        // values, so the average checks are only for completeness.
+#define AVG(x, y) ((x + y) / 2)
+#ifndef FC_WEIGHT_SEMILIGHT
+#define FC_WEIGHT_SEMILIGHT 55
+#endif
+        if (weight < AVG(FC_WEIGHT_THIN, FC_WEIGHT_EXTRALIGHT))
+            meta.weight = 100;
+        else if (weight < AVG(FC_WEIGHT_EXTRALIGHT, FC_WEIGHT_LIGHT))
+            meta.weight = 200;
+        else if (weight < AVG(FC_WEIGHT_LIGHT, FC_WEIGHT_SEMILIGHT))
+            meta.weight = 300;
+        else if (weight < AVG(FC_WEIGHT_SEMILIGHT, FC_WEIGHT_BOOK))
+            meta.weight = 350;
+        else if (weight < AVG(FC_WEIGHT_BOOK, FC_WEIGHT_REGULAR))
+            meta.weight = 380;
+        else if (weight < AVG(FC_WEIGHT_REGULAR, FC_WEIGHT_MEDIUM))
+            meta.weight = 400;
+        else if (weight < AVG(FC_WEIGHT_MEDIUM, FC_WEIGHT_SEMIBOLD))
+            meta.weight = 500;
+        else if (weight < AVG(FC_WEIGHT_SEMIBOLD, FC_WEIGHT_BOLD))
+            meta.weight = 600;
+        else if (weight < AVG(FC_WEIGHT_BOLD, FC_WEIGHT_EXTRABOLD))
+            meta.weight = 700;
+        else if (weight < AVG(FC_WEIGHT_EXTRABOLD, FC_WEIGHT_BLACK))
+            meta.weight = 800;
+        else if (weight < AVG(FC_WEIGHT_BLACK, FC_WEIGHT_EXTRABLACK))
+            meta.weight = 900;
         else
-            meta.weight = FONT_WEIGHT_BOLD;
+            meta.weight = 1000;
+#endif
 
         // path
         result = FcPatternGetString(pat, FC_FILE, 0, (FcChar8 **)&path);
