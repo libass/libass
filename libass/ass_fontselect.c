@@ -810,7 +810,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 
     // calculate sensible slant and weight from style attributes
     slant  = 110 * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
-    weight = 300 * !!(face->style_flags & FT_STYLE_FLAG_BOLD) + 400;
+    weight = ass_face_get_weight(face);
 
     // fill our struct
     info->slant  = slant;
