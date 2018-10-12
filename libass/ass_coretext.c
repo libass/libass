@@ -123,6 +123,20 @@ static void get_trait(CFDictionaryRef traits, CFStringRef attribute,
     CFNumberGetValue(cftrait, kCFNumberDoubleType, trait);
 }
 
+// These are available as kCTFontWeightUltraLight, etc. in newer SDKs.
+// For some reason they switched the terms "ultra light" and "thin"
+#define FontWeightUltraLight -0.8
+#define FontWeightThin -0.6
+#define FontWeightLight -0.4
+#define FontWeightRegular 0
+#define FontWeightMedium 0.23
+#define FontWeightSemibold 0.3
+#define FontWeightBold 0.4
+#define FontWeightHeavy 0.56
+#define FontWeightBlack 0.62
+
+#define AVG(x, y) ((x + y) / 2.)
+
 static void get_font_traits(CTFontDescriptorRef fontd,
                             ASS_FontProviderMetaData *meta)
 {
@@ -145,18 +159,24 @@ static void get_font_traits(CTFontDescriptorRef fontd,
     // libass:                   LIGHT  MEDIUM            BOLD
     // coretext:            -0.4         0.0   0.23  0.3   0.4   0.62
 
-    if (weight >= 0.62)
+    if (weight >= AVG(FontWeightHeavy, FontWeightBlack))
+        meta->weight = 900;
+    else if (weight >= AVG(FontWeightBold, FontWeightHeavy))
         meta->weight = 800;
-    else if (weight >= 0.4)
+    else if (weight >= AVG(FontWeightSemibold, FontWeightBold))
         meta->weight = 700;
-    else if (weight >= 0.3)
+    else if (weight >= AVG(FontWeightMedium, FontWeightSemibold))
         meta->weight = 600;
-    else if (weight >= 0.23)
+    else if (weight >= AVG(FontWeightRegular, FontWeightMedium))
         meta->weight = 500;
-    else if (weight >= -0.4)
+    else if (weight >= AVG(FontWeightLight, FontWeightMedium))
         meta->weight = 400;
-    else
+    else if (weight >= AVG(FontWeightThin, FontWeightLight))
+        meta->weight = 300;
+    else if (weight >= AVG(FontWeightUltraLight, FontWeightThin))
         meta->weight = 200;
+    else
+        meta->weight = 100;
 
     if (slant > 0.03)
         meta->slant  = FONT_SLANT_ITALIC;
