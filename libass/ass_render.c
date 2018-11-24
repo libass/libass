@@ -1234,7 +1234,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         return;
     }
 
-    const int n_outlines = 3;
+    enum { n_outlines = 3 };
     ASS_Outline outline[n_outlines];
     outline_copy(&outline[0], info->outline);
     outline_copy(&outline[1], info->border[0]);
