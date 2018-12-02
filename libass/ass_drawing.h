@@ -59,9 +59,6 @@ typedef struct {
     ASS_Rect cbox;   // bounding box, or let's say... VSFilter's idea of it
 } ASS_Drawing;
 
-ASS_Drawing *ass_drawing_new(ASS_Library *lib);
-void ass_drawing_free(ASS_Drawing *drawing);
-void ass_drawing_set_text(ASS_Drawing *drawing, char *str, size_t n);
-ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, bool raw_mode);
+ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, ASS_Library *lib, bool raw_mode);
 
 #endif /* LIBASS_DRAWING_H */

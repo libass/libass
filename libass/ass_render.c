@@ -456,15 +456,14 @@ static inline size_t bitmap_size(Bitmap *bm)
 static void blend_vector_clip(ASS_Renderer *render_priv,
                               ASS_Image *head)
 {
-    ASS_Drawing *drawing = render_priv->state.clip_drawing;
-    if (!drawing)
+    if (!render_priv->state.clip_drawing_text)
         return;
 
     // Try to get mask from cache
     BitmapHashKey key;
     memset(&key, 0, sizeof(key));
     key.type = BITMAP_CLIP;
-    key.u.clip.text = drawing->text;
+    key.u.clip.text = render_priv->state.clip_drawing_text;
 
     BitmapHashValue *val;
     if (!ass_cache_get(render_priv->cache.bitmap_cache, &key, &val)) {
@@ -473,8 +472,13 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         val->bm = val->bm_o = NULL;
 
         // Not found in cache, parse and rasterize it
-        ASS_Outline *outline = ass_drawing_parse(drawing, true);
-        if (!outline) {
+        ASS_Drawing drawing;
+        drawing.text = render_priv->state.clip_drawing_text;
+        drawing.scale = render_priv->state.clip_drawing_scale;
+        drawing.pbo = 0;
+        drawing.scale_x = render_priv->font_scale_x * render_priv->font_scale;
+        drawing.scale_y = render_priv->font_scale;
+        if (!ass_drawing_parse(&drawing, render_priv->library, true)) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
             ass_cache_commit(val, sizeof(BitmapHashKey) + sizeof(BitmapHashValue));
@@ -489,12 +493,13 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
                 .x = int_to_d6(render_priv->settings.left_margin),
                 .y = int_to_d6(render_priv->settings.top_margin),
             };
-            outline_translate(outline, trans.x, trans.y);
+            outline_translate(&drawing.outline, trans.x, trans.y);
         }
 
-        val->bm = outline_to_bitmap(render_priv, outline, NULL, 1);
+        val->bm = outline_to_bitmap(render_priv, &drawing.outline, NULL, 1);
         ass_cache_commit(val, bitmap_size(val->bm) +
                          sizeof(BitmapHashKey) + sizeof(BitmapHashValue));
+        outline_free(&drawing.outline);
     }
 
     Bitmap *clip_bm = val->bm;
@@ -896,15 +901,15 @@ static void free_render_context(ASS_Renderer *render_priv)
 {
     ass_cache_dec_ref(render_priv->state.font);
     free(render_priv->state.family);
-    ass_drawing_free(render_priv->state.clip_drawing);
+    free(render_priv->state.clip_drawing_text);
 
     render_priv->state.font = NULL;
     render_priv->state.family = NULL;
-    render_priv->state.clip_drawing = NULL;
+    render_priv->state.clip_drawing_text = NULL;
 
     TextInfo *text_info = &render_priv->text_info;
     for (int n = 0; n < text_info->length; n++)
-        ass_drawing_free(text_info->glyphs[n].drawing);
+        free(text_info->glyphs[n].drawing_text);
     text_info->length = 0;
 }
 
@@ -962,7 +967,7 @@ static void
 fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
                 GlyphInfo *info)
 {
-    if (info->drawing) {
+    if (info->drawing_text) {
         DrawingHashKey *key = &outline_key->u.drawing;
         outline_key->type = OUTLINE_DRAWING;
         key->scale_x = double_to_d16(info->scale_x);
@@ -974,9 +979,9 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
         // so for normal borders, maximize cache utility by ignoring it
         key->hspacing =
             info->border_style == 3 ? double_to_d16(info->hspacing) : 0;
-        key->text = info->drawing->text;
-        key->pbo = info->drawing->pbo;
-        key->scale = info->drawing->scale;
+        key->text = info->drawing_text;
+        key->pbo = info->drawing_pbo;
+        key->scale = info->drawing_scale;
     } else {
         GlyphHashKey *key = &outline_key->u.glyph;
         outline_key->type = OUTLINE_GLYPH;
@@ -1028,17 +1033,22 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             return;
         memset(val, 0, sizeof(*val));
 
-        if (info->drawing) {
-            ASS_Drawing *drawing = info->drawing;
-            if(!ass_drawing_parse(drawing, false) ||
-                    !outline_copy(&val->outline, &drawing->outline)) {
+        if (info->drawing_text) {
+            ASS_Drawing drawing;
+            drawing.text = info->drawing_text;
+            drawing.scale = info->drawing_scale;
+            drawing.pbo = info->drawing_pbo;
+            drawing.scale_x = info->scale_x * priv->font_scale;
+            drawing.scale_y = info->scale_y * priv->font_scale;
+            if (!ass_drawing_parse(&drawing, priv->library, false)) {
                 ass_cache_commit(val, 1);
                 ass_cache_dec_ref(val);
                 return;
             }
-            val->advance = drawing->advance;
-            val->asc = drawing->asc;
-            val->desc = drawing->desc;
+            outline_move(&val->outline, &drawing.outline);
+            val->advance = drawing.advance;
+            val->asc = drawing.asc;
+            val->desc = drawing.desc;
         } else {
             ass_face_set_size(info->font->faces[info->face_index],
                               info->font_size);
@@ -1069,7 +1079,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 
         if (info->border_style == 3) {
             int advance;
-            if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing)
+            if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing_text)
                 advance = val->advance;
             else
                 advance = info->advance.x;
@@ -1107,7 +1117,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
     info->border[0] = &val->border[0];
     info->border[1] = &val->border[1];
     info->bbox = val->bbox_scaled;
-    if (info->drawing || priv->settings.shaper == ASS_SHAPING_SIMPLE) {
+    if (info->drawing_text || priv->settings.shaper == ASS_SHAPING_SIMPLE) {
         info->cluster_advance.x = info->advance.x = val->advance;
         info->cluster_advance.y = info->advance.y = 0;
     }
@@ -1623,7 +1633,7 @@ fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
 static int is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
 {
     // FIXME: Don't break on glyph substitutions
-    return !last || info->effect || info->drawing || last->drawing ||
+    return !last || info->effect || info->drawing_text || last->drawing_text ||
         strcmp(last->font->desc.family, info->font->desc.family) ||
         last->font->desc.vertical != info->font->desc.vertical ||
         last->face_index != info->face_index ||
@@ -1691,18 +1701,15 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_pr
 static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
 {
     TextInfo *text_info = &render_priv->text_info;
-    ASS_Drawing *drawing = NULL;
-    unsigned code;
-    char *p, *q;
-    int i;
 
-    p = event->Text;
+    char *p = event->Text, *q;
 
     // Event parsing.
     while (1) {
         // get next char, executing style override
         // this affects render_context
-        code = 0;
+        unsigned code = 0;
+        char *drawing_text = NULL;
         while (*p) {
             if ((*p == '{') && (q = strchr(p, '}'))) {
                 p = parse_tags(render_priv, p, q, 1., false);
@@ -1714,12 +1721,7 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
                     q++;
                 while ((*q != '{') && (*q != 0))
                     q++;
-                if (!drawing) {
-                    drawing = ass_drawing_new(render_priv->library);
-                    if (!drawing)
-                        return 1;
-                }
-                ass_drawing_set_text(drawing, p, q - p);
+                drawing_text = strndup(p, q - p);
                 code = 0xfffc; // object replacement character
                 p = q;
                 break;
@@ -1735,7 +1737,7 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         // face could have been changed in get_next_char
         if (!render_priv->state.font) {
             free_render_context(render_priv);
-            ass_drawing_free(drawing);
+            free(drawing_text);
             return 1;
         }
 
@@ -1753,23 +1755,18 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         memset(info, 0, sizeof(GlyphInfo));
 
         // Parse drawing
-        if (drawing && drawing->text) {
-            drawing->scale_x = render_priv->state.scale_x *
-                                     render_priv->font_scale;
-            drawing->scale_y = render_priv->state.scale_y *
-                                     render_priv->font_scale;
-            drawing->scale = render_priv->state.drawing_scale;
-            drawing->pbo = render_priv->state.pbo;
-            info->drawing = drawing;
-            drawing = NULL;
+        if (drawing_text) {
+            info->drawing_text = drawing_text;
+            info->drawing_scale = render_priv->state.drawing_scale;
+            info->drawing_pbo = render_priv->state.pbo;
         }
 
         // Fill glyph information
         info->symbol = code;
         info->font = render_priv->state.font;
-        if (!info->drawing)
+        if (!drawing_text)
             ass_cache_inc_ref(info->font);
-        for (i = 0; i < 4; ++i) {
+        for (int i = 0; i < 4; i++) {
             uint32_t clr = render_priv->state.c[i];
             // VSFilter compatibility: apply fade only when it's positive
             if (render_priv->state.fade > 0)
@@ -1802,7 +1799,7 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         info->fax = render_priv->state.fax;
         info->fay = render_priv->state.fay;
 
-        if (!info->drawing)
+        if (!drawing_text)
             fix_glyph_scaling(render_priv, info);
 
         text_info->length++;
@@ -1811,8 +1808,6 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         render_priv->state.effect_timing = 0;
         render_priv->state.effect_skip_timing = 0;
     }
-
-    ass_drawing_free(drawing);
 
     return 0;
 }

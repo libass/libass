@@ -130,7 +130,9 @@ typedef struct glyph_info {
     int script;
 #endif
     double font_size;
-    ASS_Drawing *drawing;
+    char *drawing_text;
+    int drawing_scale;
+    int drawing_pbo;
     ASS_Outline *outline;
     ASS_Outline *border[2];
     ASS_Rect bbox;
@@ -229,7 +231,8 @@ typedef struct {
     double shadow_y;
     int drawing_scale;          // currently reading: regular text if 0, drawing otherwise
     double pbo;                 // drawing baseline offset
-    ASS_Drawing *clip_drawing;  // clip vector
+    char *clip_drawing_text;
+    int clip_drawing_scale;
     int clip_drawing_mode;      // 0 = regular clip, 1 = inverse clip
 
     Effect effect_type;

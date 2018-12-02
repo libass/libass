@@ -198,29 +198,20 @@ interpolate_alpha(long long now, long long t1, long long t2, long long t3,
  * Parse a vector clip into an outline, using the proper scaling
  * parameters.  Translate it to correct for screen borders, if needed.
  */
-static int parse_vector_clip(ASS_Renderer *render_priv,
-                             struct arg *args, int nargs)
+static bool parse_vector_clip(ASS_Renderer *render_priv,
+                              struct arg *args, int nargs)
 {
-    int scale = 1;
-    ASS_Drawing *drawing = render_priv->state.clip_drawing;
-
     if (nargs != 1 && nargs != 2)
-        return 0;
+        return false;
+
+    int scale = 1;
     if (nargs == 2)
         scale = argtoi(args[0]);
+
     struct arg text = args[nargs - 1];
-
-    ass_drawing_free(drawing);
-    render_priv->state.clip_drawing = ass_drawing_new(render_priv->library);
-    drawing = render_priv->state.clip_drawing;
-    if (drawing) {
-        drawing->scale = scale;
-        drawing->scale_x = render_priv->font_scale_x * render_priv->font_scale;
-        drawing->scale_y = render_priv->font_scale;
-        ass_drawing_set_text(drawing, text.start, text.end - text.start);
-    }
-
-    return 1;
+    render_priv->state.clip_drawing_text = strndup(text.start, text.end - text.start);
+    render_priv->state.clip_drawing_scale = scale;
+    return true;
 }
 
 /**
@@ -361,7 +352,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 render_priv->state.clip_y1 =
                     render_priv->state.clip_y1 * (1 - pwr) + y1 * pwr;
                 render_priv->state.clip_mode = 1;
-            } else if (!render_priv->state.clip_drawing) {
+            } else if (!render_priv->state.clip_drawing_text) {
                 if (parse_vector_clip(render_priv, args, nargs))
                     render_priv->state.clip_drawing_mode = 1;
             }
@@ -682,7 +673,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 render_priv->state.clip_y1 =
                     render_priv->state.clip_y1 * (1 - pwr) + y1 * pwr;
                 render_priv->state.clip_mode = 0;
-            } else if (!render_priv->state.clip_drawing) {
+            } else if (!render_priv->state.clip_drawing_text) {
                 if (parse_vector_clip(render_priv, args, nargs))
                     render_priv->state.clip_drawing_mode = 0;
             }

@@ -89,6 +89,7 @@ typedef struct {
 bool outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_segments);
 bool outline_convert(ASS_Outline *outline, const FT_Outline *source);
 bool outline_copy(ASS_Outline *outline, const ASS_Outline *source);
+void outline_move(ASS_Outline *outline, ASS_Outline *source);
 void outline_free(ASS_Outline *outline);
 
 bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment);

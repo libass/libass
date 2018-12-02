@@ -218,6 +218,17 @@ bool outline_copy(ASS_Outline *outline, const ASS_Outline *source)
     return true;
 }
 
+void outline_move(ASS_Outline *outline, ASS_Outline *source)
+{
+    if (!source || !source->n_points) {
+        outline_clear(outline);
+        return;
+    }
+
+    memcpy(outline, source, sizeof(*outline));
+    outline_clear(source);
+}
+
 void outline_free(ASS_Outline *outline)
 {
     if (!outline)

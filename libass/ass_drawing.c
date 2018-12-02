@@ -224,57 +224,21 @@ static bool drawing_add_curve(ASS_Drawing *drawing, ASS_DrawingToken *token,
 }
 
 /*
- * \brief Create and initialize a new drawing and return it
- */
-ASS_Drawing *ass_drawing_new(ASS_Library *lib)
-{
-    ASS_Drawing *drawing = calloc(1, sizeof(*drawing));
-    if (!drawing)
-        return NULL;
-    rectangle_reset(&drawing->cbox);
-    drawing->library = lib;
-    drawing->scale_x = 1.;
-    drawing->scale_y = 1.;
-
-    if (!outline_alloc(&drawing->outline, GLYPH_INITIAL_POINTS, GLYPH_INITIAL_SEGMENTS)) {
-        free(drawing);
-        return NULL;
-    }
-    return drawing;
-}
-
-/*
- * \brief Free a drawing
- */
-void ass_drawing_free(ASS_Drawing *drawing)
-{
-    if (drawing) {
-        free(drawing->text);
-        outline_free(&drawing->outline);
-    }
-    free(drawing);
-}
-
-/*
- * \brief Copy an ASCII string to the drawing text buffer
- */
-void ass_drawing_set_text(ASS_Drawing *drawing, char *str, size_t len)
-{
-    free(drawing->text);
-    drawing->text = strndup(str, len);
-}
-
-/*
  * \brief Convert token list to outline.  Calls the line and curve evaluators.
  */
-ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, bool raw_mode)
+ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, ASS_Library *lib, bool raw_mode)
 {
-    bool started = false;
-    ASS_Vector pen = {0, 0};
+    drawing->library = lib;
+    rectangle_reset(&drawing->cbox);
+    if (!outline_alloc(&drawing->outline, GLYPH_INITIAL_POINTS, GLYPH_INITIAL_SEGMENTS))
+        return NULL;
+    drawing->outline.n_points = drawing->outline.n_segments = 0;
 
     ASS_DrawingToken *tokens = drawing_tokenize(drawing->text);
     drawing_prepare(drawing);
 
+    bool started = false;
+    ASS_Vector pen = {0, 0};
     ASS_DrawingToken *token = tokens;
     while (token) {
         // Draw something according to current command
@@ -349,5 +313,6 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, bool raw_mode)
 
 error:
     drawing_free_tokens(tokens);
+    outline_free(&drawing->outline);
     return NULL;
 }
