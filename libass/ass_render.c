@@ -449,6 +449,7 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
 }
 
 static bool quantize_transform(double m[3][3], ASS_Vector *pos,
+                               ASS_DVector *offset, bool first,
                                BitmapHashKey *key)
 {
     // Full transform:
@@ -482,9 +483,16 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
         for (int j = 0; j < 2; j++)
             m[i][j] -= m[2][j] * center[i];
 
-    int32_t qr[2];
+    double delta[2] = {0};
+    if (!first) {
+        delta[0] = offset->x;
+        delta[1] = offset->y;
+    }
+
+    int32_t qr[2];  // quantized center position
     for (int i = 0; i < 2; i++) {
         center[i] /= 64 >> SUBPIXEL_ORDER;
+        center[i] -= delta[i];
         if (!(fabs(center[i]) < max_val))
             return false;
         qr[i] = lrint(center[i]);
@@ -574,6 +582,10 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
         qm[2][j] = lrint(val);
     }
 
+    if (first && offset) {
+        offset->x = center[0] - qr[0];
+        offset->y = center[1] - qr[1];
+    }
     pos->x = qr[0] >> SUBPIXEL_ORDER;
     pos->y = qr[1] >> SUBPIXEL_ORDER;
     key->offset.x = qr[0] & ((1 << SUBPIXEL_ORDER) - 1);
@@ -654,7 +666,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
     ASS_Vector pos;
     BitmapHashKey key;
     key.outline = ass_cache_get(render_priv->cache.outline_cache, &ol_key, render_priv);
-    if (!key.outline || !key.outline->valid || !quantize_transform(m, &pos, &key)) {
+    if (!key.outline || !key.outline->valid ||
+            !quantize_transform(m, &pos, NULL, true, &key)) {
         ass_cache_dec_ref(key.outline);
         return;
     }
@@ -1288,7 +1301,8 @@ static void calc_transform_matrix(ASS_Renderer *render_priv,
  */
 static void
 get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
-                 ASS_Vector *pos, ASS_Vector *pos_o, int flags)
+                 ASS_Vector *pos, ASS_Vector *pos_o,
+                 ASS_DVector *offset, bool first, int flags)
 {
     if (!info->outline || info->symbol == '\n' || info->symbol == 0 || info->skip) {
         ass_cache_dec_ref(info->outline);
@@ -1307,7 +1321,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
 
     BitmapHashKey key;
     key.outline = info->outline;
-    if (!quantize_transform(m, pos, &key)) {
+    if (!quantize_transform(m, pos, offset, first, &key)) {
         ass_cache_dec_ref(info->outline);
         return;
     }
@@ -1424,7 +1438,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
     }
 
     key.outline = ass_cache_get(render_priv->cache.outline_cache, &ol_key, render_priv);
-    if (!key.outline || !key.outline->valid || !quantize_transform(m, pos_o, &key)) {
+    if (!key.outline || !key.outline->valid ||
+            !quantize_transform(m, pos_o, offset, false, &key)) {
         ass_cache_dec_ref(key.outline);
         return;
     }
@@ -2209,6 +2224,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
     CombinedBitmapInfo *combined_info = text_info->combined_bitmaps;
     CombinedBitmapInfo *current_info = NULL;
     GlyphInfo *last_info = NULL;
+    ASS_DVector offset;
     for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + i;
         if (info->linebreak) linebreak = 1;
@@ -2230,19 +2246,13 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             if (flags == FILTER_NONZERO_SHADOW && (info->c[0] & 0xFF) == 0xFF)
                 flags = 0;
 
-            ASS_Vector pos, pos_o;
-            info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->font_scale_x);
-            info->pos.y = double_to_d6(device_y) + info->pos.y;
-            get_bitmap_glyph(render_priv, info, &pos, &pos_o, flags);
-
             if (linebreak || is_new_bm_run(info, last_info)) {
                 linebreak = 0;
                 last_info = NULL;
                 if (nb_bitmaps >= text_info->max_bitmaps) {
                     size_t new_size = 2 * text_info->max_bitmaps;
                     if (!ASS_REALLOC_ARRAY(text_info->combined_bitmaps, new_size)) {
-                        ass_cache_dec_ref(info->bm);
-                        ass_cache_dec_ref(info->bm_o);
+                        ass_cache_dec_ref(info->outline);
                         continue;
                     }
                     text_info->max_bitmaps = new_size;
@@ -2277,8 +2287,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 current_info->bitmap_count = current_info->max_bitmap_count = 0;
                 current_info->bitmaps = malloc(MAX_SUB_BITMAPS_INITIAL * sizeof(BitmapRef));
                 if (!current_info->bitmaps) {
-                    ass_cache_dec_ref(info->bm);
-                    ass_cache_dec_ref(info->bm_o);
+                    ass_cache_dec_ref(info->outline);
                     continue;
                 }
                 current_info->max_bitmap_count = MAX_SUB_BITMAPS_INITIAL;
@@ -2286,6 +2295,12 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 nb_bitmaps++;
             }
             last_info = info;
+
+            ASS_Vector pos, pos_o;
+            info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->font_scale_x);
+            info->pos.y = double_to_d6(device_y) + info->pos.y;
+            get_bitmap_glyph(render_priv, info, &pos, &pos_o,
+                             &offset, !current_info->bitmap_count, flags);
 
             if (!current_info || (!info->bm && !info->bm_o)) {
                 ass_cache_dec_ref(info->bm);
