@@ -1187,8 +1187,10 @@ transform_3d(ASS_Vector shift, ASS_Outline *outline, int n_outlines,
 static void
 get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 {
-    if (!info->outline || info->symbol == '\n' || info->symbol == 0 || info->skip)
+    if (!info->outline || info->symbol == '\n' || info->symbol == 0 || info->skip) {
+        ass_cache_dec_ref(info->hash_key.u.outline.outline);
         return;
+    }
 
     BitmapHashValue *val = ass_cache_get(render_priv->cache.bitmap_cache, &info->hash_key, render_priv);
     if (!val || !val->valid)
