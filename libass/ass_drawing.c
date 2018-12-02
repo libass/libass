@@ -29,67 +29,29 @@
 #include "ass_drawing.h"
 #include "ass_font.h"
 
-#define GLYPH_INITIAL_POINTS 100
-#define GLYPH_INITIAL_SEGMENTS 100
-
-/*
- * \brief Prepare drawing for parsing.  This just sets a few parameters.
- */
-static void drawing_prepare(ASS_Drawing *drawing)
-{
-    // Scaling parameters
-    drawing->point_scale_x = drawing->scale_x / (1 << (drawing->scale - 1));
-    drawing->point_scale_y = drawing->scale_y / (1 << (drawing->scale - 1));
-}
-
-/*
- * \brief Finish a drawing.  This only sets the horizontal advance according
- * to the outline's bbox at the moment.
- */
-static void drawing_finish(ASS_Drawing *drawing, bool raw_mode)
-{
-    ASS_Rect bbox = drawing->cbox;
-    ASS_Outline *ol = &drawing->outline;
-
-    if (drawing->library)
-        ass_msg(drawing->library, MSGL_V,
-                "Parsed drawing with %d points and %d segments",
-                ol->n_points, ol->n_segments);
-
-    if (raw_mode)
-        return;
-
-    drawing->advance = bbox.x_max - bbox.x_min;
-
-    double pbo = drawing->pbo / (1 << (drawing->scale - 1));
-    drawing->desc = double_to_d6(pbo * drawing->scale_y);
-    drawing->asc = bbox.y_max - bbox.y_min - drawing->desc;
-
-    // Place it onto the baseline
-    for (size_t i = 0; i < ol->n_points; i++)
-        ol->points[i].y -= drawing->asc;
-}
+#define DRAWING_INITIAL_POINTS 100
+#define DRAWING_INITIAL_SEGMENTS 100
 
 /*
  * \brief Check whether a number of items on the list is available
  */
-static int token_check_values(ASS_DrawingToken *token, int i, int type)
+static bool token_check_values(ASS_DrawingToken *token, int i, int type)
 {
     for (int j = 0; j < i; j++) {
-        if (!token || token->type != type) return 0;
+        if (!token || token->type != type) return false;
         token = token->next;
     }
 
-    return 1;
+    return true;
 }
 
 /*
  * \brief Tokenize a drawing string into a list of ASS_DrawingToken
  * This also expands points for closing b-splines
  */
-static ASS_DrawingToken *drawing_tokenize(char *str)
+static ASS_DrawingToken *drawing_tokenize(const char *str)
 {
-    char *p = str;
+    char *p = (char *) str;
     int type = -1, is_set = 0;
     double val;
     ASS_Vector point = {0, 0};
@@ -174,27 +136,15 @@ static void drawing_free_tokens(ASS_DrawingToken *token)
 }
 
 /*
- * \brief Translate and scale a point coordinate according to baseline
- * offset and scale.
- */
-static inline void translate_point(ASS_Drawing *drawing, ASS_Vector *point)
-{
-    point->x = lrint(drawing->point_scale_x * point->x);
-    point->y = lrint(drawing->point_scale_y * point->y);
-
-    rectangle_update(&drawing->cbox, point->x, point->y, point->x, point->y);
-}
-
-/*
  * \brief Add curve to drawing
  */
-static bool drawing_add_curve(ASS_Drawing *drawing, ASS_DrawingToken *token,
-                              bool spline, int started)
+static bool drawing_add_curve(ASS_Outline *outline, ASS_Rect *cbox,
+                              ASS_DrawingToken *token, bool spline, int started)
 {
     ASS_Vector p[4];
     for (int i = 0; i < 4; ++i) {
         p[i] = token->point;
-        translate_point(drawing, &p[i]);
+        rectangle_update(cbox, p[i].x, p[i].y, p[i].x, p[i].y);
         token = token->next;
     }
 
@@ -217,25 +167,24 @@ static bool drawing_add_curve(ASS_Drawing *drawing, ASS_DrawingToken *token,
     }
 
     return (started ||
-        outline_add_point(&drawing->outline, p[0], 0)) &&
-        outline_add_point(&drawing->outline, p[1], 0) &&
-        outline_add_point(&drawing->outline, p[2], 0) &&
-        outline_add_point(&drawing->outline, p[3], OUTLINE_CUBIC_SPLINE);
+        outline_add_point(outline, p[0], 0)) &&
+        outline_add_point(outline, p[1], 0) &&
+        outline_add_point(outline, p[2], 0) &&
+        outline_add_point(outline, p[3], OUTLINE_CUBIC_SPLINE);
 }
 
 /*
  * \brief Convert token list to outline.  Calls the line and curve evaluators.
  */
-ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, ASS_Library *lib, bool raw_mode)
+bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
+                       const char *text, ASS_Library *lib)
 {
-    drawing->library = lib;
-    rectangle_reset(&drawing->cbox);
-    if (!outline_alloc(&drawing->outline, GLYPH_INITIAL_POINTS, GLYPH_INITIAL_SEGMENTS))
-        return NULL;
-    drawing->outline.n_points = drawing->outline.n_segments = 0;
+    if (!outline_alloc(outline, DRAWING_INITIAL_POINTS, DRAWING_INITIAL_SEGMENTS))
+        return false;
+    outline->n_points = outline->n_segments = 0;
+    rectangle_reset(cbox);
 
-    ASS_DrawingToken *tokens = drawing_tokenize(drawing->text);
-    drawing_prepare(drawing);
+    ASS_DrawingToken *tokens = drawing_tokenize(text);
 
     bool started = false;
     ASS_Vector pen = {0, 0};
@@ -245,16 +194,16 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, ASS_Library *lib, bool raw_
         switch (token->type) {
         case TOKEN_MOVE_NC:
             pen = token->point;
-            translate_point(drawing, &pen);
+            rectangle_update(cbox, pen.x, pen.y, pen.x, pen.y);
             token = token->next;
             break;
         case TOKEN_MOVE:
             pen = token->point;
-            translate_point(drawing, &pen);
+            rectangle_update(cbox, pen.x, pen.y, pen.x, pen.y);
             if (started) {
-                if (!outline_add_segment(&drawing->outline, OUTLINE_LINE_SEGMENT))
+                if (!outline_add_segment(outline, OUTLINE_LINE_SEGMENT))
                     goto error;
-                if (!outline_close_contour(&drawing->outline))
+                if (!outline_close_contour(outline))
                     goto error;
                 started = false;
             }
@@ -262,10 +211,10 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, ASS_Library *lib, bool raw_
             break;
         case TOKEN_LINE: {
             ASS_Vector to = token->point;
-            translate_point(drawing, &to);
-            if (!started && !outline_add_point(&drawing->outline, pen, 0))
+            rectangle_update(cbox, to.x, to.y, to.x, to.y);
+            if (!started && !outline_add_point(outline, pen, 0))
                 goto error;
-            if (!outline_add_point(&drawing->outline, to, OUTLINE_LINE_SEGMENT))
+            if (!outline_add_point(outline, to, OUTLINE_LINE_SEGMENT))
                 goto error;
             started = true;
             token = token->next;
@@ -274,7 +223,7 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, ASS_Library *lib, bool raw_
         case TOKEN_CUBIC_BEZIER:
             if (token_check_values(token, 3, TOKEN_CUBIC_BEZIER) &&
                 token->prev) {
-                if (!drawing_add_curve(drawing, token->prev, false, started))
+                if (!drawing_add_curve(outline, cbox, token->prev, false, started))
                     goto error;
                 token = token->next;
                 token = token->next;
@@ -286,7 +235,7 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, ASS_Library *lib, bool raw_
         case TOKEN_B_SPLINE:
             if (token_check_values(token, 3, TOKEN_B_SPLINE) &&
                 token->prev) {
-                if (!drawing_add_curve(drawing, token->prev, true, started))
+                if (!drawing_add_curve(outline, cbox, token->prev, true, started))
                     goto error;
                 token = token->next;
                 started = true;
@@ -301,18 +250,22 @@ ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, ASS_Library *lib, bool raw_
 
     // Close the last contour
     if (started) {
-        if (!outline_add_segment(&drawing->outline, OUTLINE_LINE_SEGMENT))
+        if (!outline_add_segment(outline, OUTLINE_LINE_SEGMENT))
             goto error;
-        if (!outline_close_contour(&drawing->outline))
+        if (!outline_close_contour(outline))
             goto error;
     }
 
-    drawing_finish(drawing, raw_mode);
+    if (lib)
+        ass_msg(lib, MSGL_V,
+                "Parsed drawing with %d points and %d segments",
+                outline->n_points, outline->n_segments);
+
     drawing_free_tokens(tokens);
-    return &drawing->outline;
+    return true;
 
 error:
     drawing_free_tokens(tokens);
-    outline_free(&drawing->outline);
-    return NULL;
+    outline_free(outline);
+    return false;
 }

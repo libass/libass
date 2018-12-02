@@ -1025,18 +1025,27 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
     if (outline_key->type == OUTLINE_DRAWING) {
         DrawingHashKey *k = &outline_key->u.drawing;
 
-        ASS_Drawing drawing;
-        drawing.text = k->text;
-        drawing.scale = k->scale;
-        drawing.pbo = k->pbo;
-        drawing.scale_x = scale_x * render_priv->font_scale;
-        drawing.scale_y = scale_y * render_priv->font_scale;
-        if (!ass_drawing_parse(&drawing, render_priv->library, false))
+        ASS_Rect bbox;
+        if (!ass_drawing_parse(&v->outline, &bbox, k->text, render_priv->library))
             return 1;
-        outline_move(&v->outline, &drawing.outline);
-        v->advance = drawing.advance;
-        v->asc = drawing.asc;
-        v->desc = drawing.desc;
+
+        ASS_DVector scale, offset = {0};
+        double w = render_priv->font_scale / (1 << (k->scale - 1));
+        scale.x = scale_x * w;
+        scale.y = scale_y * w;
+
+        v->advance = (bbox.x_max - bbox.x_min) * scale.x;
+
+        double pbo = (double) k->pbo / (1 << (k->scale - 1));
+        v->desc = double_to_d6(pbo * scale_y * render_priv->font_scale);
+        v->asc = (bbox.y_max - bbox.y_min) * scale.y - v->desc;
+        offset.y = -v->asc;
+
+        ASS_Outline *ol = &v->outline;
+        for (size_t i = 0; i < ol->n_points; i++) {
+            ol->points[i].x = lrint(ol->points[i].x * scale.x + offset.x);
+            ol->points[i].y = lrint(ol->points[i].y * scale.y + offset.y);
+        }
     } else {
         GlyphHashKey *k = &outline_key->u.glyph;
         ass_face_set_size(k->font->faces[k->face_index], k->size);
@@ -1198,30 +1207,31 @@ size_t ass_bitmap_construct(void *key, void *value, void *priv)
     const size_t hdr = sizeof(BitmapHashKey) + sizeof(BitmapHashValue);
 
     if (bitmap_key->type == BITMAP_CLIP) {
-        ASS_Drawing drawing;
-        drawing.text = bitmap_key->u.clip.text;
-        drawing.scale = bitmap_key->u.clip.scale;
-        drawing.pbo = 0;
-        drawing.scale_x = render_priv->font_scale_x * render_priv->font_scale;
-        drawing.scale_y = render_priv->font_scale;
-        if (!ass_drawing_parse(&drawing, render_priv->library, true)) {
+        ASS_Rect cbox;
+        ASS_Outline outline;
+        if (!ass_drawing_parse(&outline, &cbox, bitmap_key->u.clip.text, render_priv->library)) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
             return hdr;
         }
 
-        // We need to translate the clip according to screen borders
-        if (render_priv->settings.left_margin != 0 ||
-            render_priv->settings.top_margin != 0) {
-            ASS_Vector trans = {
-                .x = int_to_d6(render_priv->settings.left_margin),
-                .y = int_to_d6(render_priv->settings.top_margin),
-            };
-            outline_translate(&drawing.outline, trans.x, trans.y);
+        ASS_DVector scale;
+        double w = render_priv->font_scale / (1 << (bitmap_key->u.clip.scale - 1));
+        scale.x = render_priv->font_scale_x * w;
+        scale.y = w;
+
+        ASS_DVector offset;
+        offset.x = int_to_d6(render_priv->settings.left_margin);
+        offset.y = int_to_d6(render_priv->settings.top_margin);
+
+        ASS_Outline *ol = &outline;
+        for (size_t i = 0; i < ol->n_points; i++) {
+            ol->points[i].x = lrint(ol->points[i].x * scale.x + offset.x);
+            ol->points[i].y = lrint(ol->points[i].y * scale.y + offset.y);
         }
 
-        v->bm = outline_to_bitmap(render_priv, &drawing.outline, NULL, 1);
-        outline_free(&drawing.outline);
+        v->bm = outline_to_bitmap(render_priv, &outline, NULL, 1);
+        outline_free(&outline);
         v->valid = !!v->bm;
 
         return bitmap_size(v->bm) + hdr;
