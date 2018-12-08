@@ -1846,43 +1846,6 @@ static bool is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
         ((last->flags ^ info->flags) & ~DECO_ROTATE);
 }
 
-static void make_shadow_bitmap(ASS_Renderer *render_priv,
-                               CompositeHashValue *val, const FilterDesc *filter)
-{
-    Bitmap *bm = &val->bm, *bm_o = &val->bm_o, *bm_s = &val->bm_s;
-
-    if (!(filter->flags & FILTER_NONZERO_SHADOW)) {
-        if (bm->buffer && bm_o->buffer && !(filter->flags & FILTER_BORDER_STYLE_3)) {
-            fix_outline(bm, bm_o);
-        } else if (bm_o->buffer && !(filter->flags & FILTER_NONZERO_BORDER)) {
-            ass_free_bitmap(bm_o);
-            memset(bm_o, 0, sizeof(*bm_o));
-        }
-        return;
-    }
-
-    // Create shadow and fix outline as needed
-    if (bm->buffer && bm_o->buffer && !(filter->flags & FILTER_BORDER_STYLE_3)) {
-        copy_bitmap(render_priv->engine, bm_s, bm_o);
-        fix_outline(bm, bm_o);
-    } else if (bm_o->buffer && (filter->flags & FILTER_NONZERO_BORDER)) {
-        copy_bitmap(render_priv->engine, bm_s, bm_o);
-    } else if (bm_o->buffer) {
-        *bm_s = *bm_o;
-        memset(bm_o, 0, sizeof(*bm_o));
-    } else if (bm->buffer)
-        copy_bitmap(render_priv->engine, bm_s, bm);
-
-    if (!bm_s->buffer)
-        return;
-
-    // Works right even for negative offsets
-    // '>>' rounds toward negative infinity, '&' returns correct remainder
-    bm_s->left += filter->shadow.x >> 6;
-    bm_s->top  += filter->shadow.y >> 6;
-    shift_bitmap(bm_s, filter->shadow.x & SUBPIXEL_MASK, filter->shadow.y & SUBPIXEL_MASK);
-}
-
 // Parse event text.
 // Fill render_priv->text_info.
 static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
@@ -2428,12 +2391,30 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
         }
     }
 
-    if (v->bm.buffer || v->bm_o.buffer) {
-        if (!v->bm_o.buffer || (k->filter.flags & FILTER_BORDER_STYLE_3))
-            ass_synth_blur(render_priv->engine, &v->bm, k->filter.be, k->filter.blur);
-        ass_synth_blur(render_priv->engine, &v->bm_o, k->filter.be, k->filter.blur);
-        make_shadow_bitmap(render_priv, v, &k->filter);
+    int flags = k->filter.flags;
+    bool no_blur = (flags & ~FILTER_NONZERO_SHADOW) == FILTER_NONZERO_BORDER;
+    if (!no_blur)
+        ass_synth_blur(render_priv->engine, &v->bm, k->filter.be, k->filter.blur);
+    ass_synth_blur(render_priv->engine, &v->bm_o, k->filter.be, k->filter.blur);
+
+    if (flags & FILTER_NONZERO_SHADOW) {
+        if (flags & FILTER_NONZERO_BORDER)
+            copy_bitmap(render_priv->engine, &v->bm_s, &v->bm_o);
+        else if (flags & FILTER_BORDER_STYLE_3) {
+            v->bm_s = v->bm_o;
+            memset(&v->bm_o, 0, sizeof(v->bm_o));
+        } else
+            copy_bitmap(render_priv->engine, &v->bm_s, &v->bm);
+
+        // Works right even for negative offsets
+        // '>>' rounds toward negative infinity, '&' returns correct remainder
+        v->bm_s.left += k->filter.shadow.x >> 6;
+        v->bm_s.top  += k->filter.shadow.y >> 6;
+        shift_bitmap(&v->bm_s, k->filter.shadow.x & SUBPIXEL_MASK, k->filter.shadow.y & SUBPIXEL_MASK);
     }
+
+    if (no_blur)
+        fix_outline(&v->bm, &v->bm_o);
 
     return sizeof(CompositeHashKey) + sizeof(CompositeHashValue) +
         bitmap_size(&v->bm) + bitmap_size(&v->bm_o) + bitmap_size(&v->bm_s);

@@ -199,6 +199,9 @@ bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
  */
 void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
 {
+    if (!bm_g->buffer || !bm_o->buffer)
+        return;
+
     int32_t l = FFMAX(bm_o->left, bm_g->left);
     int32_t t = FFMAX(bm_o->top,  bm_g->top);
     int32_t r = FFMIN(bm_o->left + bm_o->stride, bm_g->left + bm_g->stride);
@@ -222,6 +225,9 @@ void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
 void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 {
     assert((shift_x & ~63) == 0 && (shift_y & ~63) == 0);
+
+    if (!bm->buffer)
+        return;
 
     int32_t w = bm->w, h = bm->h;
     ptrdiff_t s = bm->stride;
