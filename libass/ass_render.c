@@ -1296,7 +1296,7 @@ static void calc_transform_matrix(ASS_Renderer *render_priv,
  */
 static void
 get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
-                 ASS_Vector *pos, ASS_Vector *pos_o)
+                 ASS_Vector *pos, ASS_Vector *pos_o, int flags)
 {
     if (!info->outline || info->symbol == '\n' || info->symbol == 0 || info->skip) {
         ass_cache_dec_ref(info->outline);
@@ -1327,7 +1327,10 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
     *pos_o = *pos;
 
     OutlineHashKey ol_key;
-    if (info->border_style == 3) {
+    if (flags & FILTER_BORDER_STYLE_3) {
+        if (!(flags & (FILTER_NONZERO_BORDER | FILTER_NONZERO_SHADOW)))
+            return;
+
         ol_key.type = OUTLINE_BOX;
 
         double w = 64 * render_priv->border_scale;
@@ -1361,6 +1364,9 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
             m[i][2] = m1[i][0] * offset.x + m1[i][1] * offset.y + m1[i][2];
         }
     } else {
+        if (!(flags & FILTER_NONZERO_BORDER))
+            return;
+
         ol_key.type = OUTLINE_BORDER;
         BorderHashKey *k = &ol_key.u.border;
         k->outline = info->outline;
@@ -2214,10 +2220,22 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             continue;
         }
         for (; info; info = info->next) {
+            int flags = 0;
+            if (info->border_style == 3)
+                flags |= FILTER_BORDER_STYLE_3;
+            if (info->border_x || info->border_y)
+                flags |= FILTER_NONZERO_BORDER;
+            if (info->shadow_x || info->shadow_y)
+                flags |= FILTER_NONZERO_SHADOW;
+            // VSFilter compatibility: invisible fill and no border?
+            // In this case no shadow is supposed to be rendered.
+            if (flags == FILTER_NONZERO_SHADOW && (info->c[0] & 0xFF) == 0xFF)
+                flags = 0;
+
             ASS_Vector pos, pos_o;
             info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->font_scale_x);
             info->pos.y = double_to_d6(device_y) + info->pos.y;
-            get_bitmap_glyph(render_priv, info, &pos, &pos_o);
+            get_bitmap_glyph(render_priv, info, &pos, &pos_o, flags);
 
             if (linebreak || is_new_bm_run(info, last_info)) {
                 linebreak = 0;
@@ -2239,22 +2257,14 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 current_info->effect_timing = info->effect_timing;
                 current_info->first_pos_x = info->bbox.x_max >> 6;
 
-                current_info->filter.flags = 0;
-                if (info->border_style == 3)
-                    current_info->filter.flags |= FILTER_BORDER_STYLE_3 | FILTER_DRAW_SHADOW;
-                if (info->border_x || info->border_y)
-                    current_info->filter.flags |= FILTER_NONZERO_BORDER | FILTER_DRAW_SHADOW;
-                if (info->shadow_x || info->shadow_y)
-                    current_info->filter.flags |= FILTER_NONZERO_SHADOW;
-                // VSFilter compatibility: invisible fill and no border?
-                // In this case no shadow is supposed to be rendered.
-                if ((info->c[0] & 0xFF) != 0xFF)
-                    current_info->filter.flags |= FILTER_DRAW_SHADOW;
-
+                current_info->filter.flags = flags;
                 current_info->filter.be = info->be;
                 current_info->filter.blur = 2 * info->blur * render_priv->blur_scale;
-                current_info->filter.shadow.x = double_to_d6(info->shadow_x * render_priv->border_scale);
-                current_info->filter.shadow.y = double_to_d6(info->shadow_y * render_priv->border_scale);
+                if (flags & FILTER_NONZERO_SHADOW) {
+                    current_info->filter.shadow.x = double_to_d6(info->shadow_x * render_priv->border_scale);
+                    current_info->filter.shadow.y = double_to_d6(info->shadow_y * render_priv->border_scale);
+                } else
+                    current_info->filter.shadow.x = current_info->filter.shadow.y = 0;
 
                 current_info->x = current_info->y = INT_MAX;
                 current_info->bm = current_info->bm_o = current_info->bm_s = NULL;
@@ -2419,8 +2429,7 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
         if (!v->bm_o.buffer || (k->filter.flags & FILTER_BORDER_STYLE_3))
             ass_synth_blur(render_priv->engine, &v->bm, k->filter.be, k->filter.blur);
         ass_synth_blur(render_priv->engine, &v->bm_o, k->filter.be, k->filter.blur);
-        if (k->filter.flags & FILTER_DRAW_SHADOW)
-            make_shadow_bitmap(render_priv, v, &k->filter);
+        make_shadow_bitmap(render_priv, v, &k->filter);
     }
 
     return sizeof(CompositeHashKey) + sizeof(CompositeHashValue) +
