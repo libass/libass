@@ -104,8 +104,8 @@ void ass_free_bitmap(Bitmap *bm);
 bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
                        ASS_Outline *outline1, ASS_Outline *outline2);
 
-void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
-                    double blur_radius, Bitmap *bm_g, Bitmap *bm_o);
+void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
+                    int be, double blur_radius);
 
 int be_padding(int be);
 void be_blur_pre(uint8_t *buf, intptr_t w,

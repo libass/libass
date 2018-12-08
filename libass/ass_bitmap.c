@@ -59,73 +59,41 @@
 #endif
 
 
-void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
-                    double blur_radius, Bitmap *bm_g, Bitmap *bm_o)
+void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
+                    int be, double blur_radius)
 {
-    bool blur_g = !bm_o->buffer || opaque_box;
-    if (blur_g && !bm_g->buffer)
+    if (!bm->buffer)
         return;
 
     // Apply gaussian blur
     double r2 = blur_radius * blur_radius / log(256);
-    if (r2 > 0.001) {
-        if (bm_o->buffer)
-            ass_gaussian_blur(engine, bm_o, r2);
-        if (blur_g)
-            ass_gaussian_blur(engine, bm_g, r2);
-    }
+    if (r2 > 0.001)
+        ass_gaussian_blur(engine, bm, r2);
+
+    if (!be)
+        return;
 
     // Apply box blur (multiple passes, if requested)
-    if (be) {
-        size_t size_o = 0, size_g = 0;
-        if (bm_o->buffer)
-            size_o = sizeof(uint16_t) * bm_o->stride * 2;
-        if (blur_g)
-            size_g = sizeof(uint16_t) * bm_g->stride * 2;
-        size_t size = FFMAX(size_o, size_g);
-        uint16_t *tmp = size ? ass_aligned_alloc(32, size, false) : NULL;
-        if (!tmp)
-            return;
-        if (bm_o->buffer) {
-            int passes = be;
-            int32_t w = bm_o->w;
-            int32_t h = bm_o->h;
-            ptrdiff_t stride = bm_o->stride;
-            uint8_t *buf = bm_o->buffer;
-            if(w && h){
-                if(passes > 1){
-                    be_blur_pre(buf, w, h, stride);
-                    while(--passes){
-                        memset(tmp, 0, stride * 2);
-                        engine->be_blur(buf, w, h, stride, tmp);
-                    }
-                    be_blur_post(buf, w, h, stride);
-                }
-                memset(tmp, 0, stride * 2);
-                engine->be_blur(buf, w, h, stride, tmp);
-            }
-        }
-        if (blur_g) {
-            int passes = be;
-            int32_t w = bm_g->w;
-            int32_t h = bm_g->h;
-            ptrdiff_t stride = bm_g->stride;
-            uint8_t *buf = bm_g->buffer;
-            if(w && h){
-                if(passes > 1){
-                    be_blur_pre(buf, w, h, stride);
-                    while(--passes){
-                        memset(tmp, 0, stride * 2);
-                        engine->be_blur(buf, w, h, stride, tmp);
-                    }
-                    be_blur_post(buf, w, h, stride);
-                }
-                memset(tmp, 0, stride * 2);
-                engine->be_blur(buf, w, h, stride, tmp);
-            }
-        }
-        ass_aligned_free(tmp);
+    size_t size = sizeof(uint16_t) * bm->stride * 2;
+    uint16_t *tmp = ass_aligned_alloc(32, size, false);
+    if (!tmp)
+        return;
+
+    int32_t w = bm->w;
+    int32_t h = bm->h;
+    ptrdiff_t stride = bm->stride;
+    uint8_t *buf = bm->buffer;
+    if (--be) {
+        be_blur_pre(buf, w, h, stride);
+        do {
+            memset(tmp, 0, stride * 2);
+            engine->be_blur(buf, w, h, stride, tmp);
+        } while (--be);
+        be_blur_post(buf, w, h, stride);
     }
+    memset(tmp, 0, stride * 2);
+    engine->be_blur(buf, w, h, stride, tmp);
+    ass_aligned_free(tmp);
 }
 
 bool alloc_bitmap(const BitmapEngine *engine, Bitmap *bm,

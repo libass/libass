@@ -2416,8 +2416,9 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     }
 
     if (v->bm.buffer || v->bm_o.buffer) {
-        ass_synth_blur(render_priv->engine, k->filter.flags & FILTER_BORDER_STYLE_3,
-                       k->filter.be, k->filter.blur, &v->bm, &v->bm_o);
+        if (!v->bm_o.buffer || (k->filter.flags & FILTER_BORDER_STYLE_3))
+            ass_synth_blur(render_priv->engine, &v->bm, k->filter.be, k->filter.blur);
+        ass_synth_blur(render_priv->engine, &v->bm_o, k->filter.be, k->filter.blur);
         if (k->filter.flags & FILTER_DRAW_SHADOW)
             make_shadow_bitmap(render_priv, v, &k->filter);
     }
