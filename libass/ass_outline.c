@@ -384,8 +384,8 @@ typedef struct {
     int first_skip, last_skip;
     // normal at first and last point
     ASS_DVector first_normal, last_normal;
-    // first point of current contour
-    ASS_Vector first_point;
+    // first and last points of current contour
+    ASS_Vector first_point, last_point;
 
     // cosinus of maximal angle that do not require cap
     double merge_cos;
@@ -648,26 +648,26 @@ static bool prepare_skip(StrokerState *str, ASS_Vector pt, int dir, bool first)
 /**
  * \brief Process source line segment
  * \param str stroker state
- * \param pt0 start point of the line segment
  * \param pt1 end point of the line segment
  * \param dir destination outline flags
  * \return false on allocation failure
  */
-static bool add_line(StrokerState *str, ASS_Vector pt0, ASS_Vector pt1, int dir)
+static bool add_line(StrokerState *str, ASS_Vector pt1, int dir)
 {
-    int32_t dx = pt1.x - pt0.x;
-    int32_t dy = pt1.y - pt0.y;
+    int32_t dx = pt1.x - str->last_point.x;
+    int32_t dy = pt1.y - str->last_point.y;
     if (dx > -str->eps && dx < str->eps && dy > -str->eps && dy < str->eps)
         return true;
 
     ASS_DVector deriv = { dy * str->yscale, -dx * str->xscale };
     double scale = 1 / vec_len(deriv);
     ASS_DVector normal = { deriv.x * scale, deriv.y * scale };
-    if (!start_segment(str, pt0, normal, dir))
+    if (!start_segment(str, str->last_point, normal, dir))
         return false;
-    if (!emit_first_point(str, pt0, OUTLINE_LINE_SEGMENT, dir))
+    if (!emit_first_point(str, str->last_point, OUTLINE_LINE_SEGMENT, dir))
         return false;
     str->last_normal = normal;
+    str->last_point = pt1;
     return true;
 }
 
@@ -810,21 +810,25 @@ static bool process_quadratic(StrokerState *str, const ASS_Vector *pt,
 /**
  * \brief Process source quadratic spline
  * \param str stroker state
- * \param pt array of 3 source spline points
+ * \param pt1 middle control point
+ * \param pt2 final spline point
  * \param dir destination outline flags
  * \return false on allocation failure
  */
-static bool add_quadratic(StrokerState *str, const ASS_Vector *pt, int dir)
+static bool add_quadratic(StrokerState *str, ASS_Vector pt1, ASS_Vector pt2, int dir)
 {
-    int32_t dx0 = pt[1].x - pt[0].x;
-    int32_t dy0 = pt[1].y - pt[0].y;
+    int32_t dx0 = pt1.x - str->last_point.x;
+    int32_t dy0 = pt1.y - str->last_point.y;
     if (dx0 > -str->eps && dx0 < str->eps && dy0 > -str->eps && dy0 < str->eps)
-        return add_line(str, pt[0], pt[2], dir);
+        return add_line(str, pt2, dir);
 
-    int32_t dx1 = pt[2].x - pt[1].x;
-    int32_t dy1 = pt[2].y - pt[1].y;
+    int32_t dx1 = pt2.x - pt1.x;
+    int32_t dy1 = pt2.y - pt1.y;
     if (dx1 > -str->eps && dx1 < str->eps && dy1 > -str->eps && dy1 < str->eps)
-        return add_line(str, pt[0], pt[2], dir);
+        return add_line(str, pt2, dir);
+
+    ASS_Vector pt[3] = { str->last_point, pt1, pt2 };
+    str->last_point = pt2;
 
     ASS_DVector deriv[2] = {
         { dy0 * str->yscale, -dx0 * str->xscale },
@@ -1198,36 +1202,41 @@ static bool process_cubic(StrokerState *str, const ASS_Vector *pt,
 /**
  * \brief Process source cubic spline
  * \param str stroker state
- * \param pt array of 4 source spline points
+ * \param pt1 first middle control point
+ * \param pt2 second middle control point
+ * \param pt3 final spline point
  * \param dir destination outline flags
  * \return false on allocation failure
  */
-static bool add_cubic(StrokerState *str, const ASS_Vector *pt, int dir)
+static bool add_cubic(StrokerState *str, ASS_Vector pt1, ASS_Vector pt2, ASS_Vector pt3, int dir)
 {
     int flags = 9;
 
-    int32_t dx0 = pt[1].x - pt[0].x;
-    int32_t dy0 = pt[1].y - pt[0].y;
+    int32_t dx0 = pt1.x - str->last_point.x;
+    int32_t dy0 = pt1.y - str->last_point.y;
     if (dx0 > -str->eps && dx0 < str->eps && dy0 > -str->eps && dy0 < str->eps) {
-        dx0 = pt[2].x - pt[0].x;
-        dy0 = pt[2].y - pt[0].y;
+        dx0 = pt2.x - str->last_point.x;
+        dy0 = pt2.y - str->last_point.y;
         if (dx0 > -str->eps && dx0 < str->eps && dy0 > -str->eps && dy0 < str->eps)
-            return add_line(str, pt[0], pt[3], dir);
+            return add_line(str, pt3, dir);
         flags ^= 1;
     }
 
-    int32_t dx2 = pt[3].x - pt[2].x;
-    int32_t dy2 = pt[3].y - pt[2].y;
+    int32_t dx2 = pt3.x - pt2.x;
+    int32_t dy2 = pt3.y - pt2.y;
     if (dx2 > -str->eps && dx2 < str->eps && dy2 > -str->eps && dy2 < str->eps) {
-        dx2 = pt[3].x - pt[1].x;
-        dy2 = pt[3].y - pt[1].y;
+        dx2 = pt3.x - pt1.x;
+        dy2 = pt3.y - pt1.y;
         if (dx2 > -str->eps && dx2 < str->eps && dy2 > -str->eps && dy2 < str->eps)
-            return add_line(str, pt[0], pt[3], dir);
+            return add_line(str, pt3, dir);
         flags ^= 4;
     }
 
     if (flags == 12)
-        return add_line(str, pt[0], pt[3], dir);
+        return add_line(str, pt3, dir);
+
+    ASS_Vector pt[4] = { str->last_point, pt1, pt2, pt3 };
+    str->last_point = pt3;
 
     int32_t dx1 = pt[flags >> 2].x - pt[flags & 3].x;
     int32_t dy1 = pt[flags >> 2].y - pt[flags & 3].y;
@@ -1253,19 +1262,18 @@ static bool add_cubic(StrokerState *str, const ASS_Vector *pt, int dir)
 /**
  * \brief Process contour closing
  * \param str stroker state
- * \param last_point last contour point
  * \param dir destination outline flags
  * \return false on allocation failure
  */
-static bool close_contour(StrokerState *str, ASS_Vector last_point, int dir)
+static bool close_contour(StrokerState *str, int dir)
 {
     if (str->contour_start) {
         if ((dir & 3) == 3)
             dir = 1;
-        if (!draw_circle(str, last_point, dir))
+        if (!draw_circle(str, str->last_point, dir))
             return false;
     } else {
-        if (!add_line(str, last_point, str->first_point, dir))
+        if (!add_line(str, str->first_point, dir))
             return false;
         if (!start_segment(str, str->first_point, str->first_normal, dir))
             return false;
@@ -1338,10 +1346,13 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
 
     ASS_Vector *start = path->points, *cur = start;
     for (size_t i = 0; i < path->n_segments; i++) {
+        if (start == cur)
+            str.last_point = *start;
+
         int n = path->segments[i] & OUTLINE_COUNT_MASK;
         cur += n;
 
-        ASS_Vector *end = cur, p[4];
+        ASS_Vector *end = cur;
         if (path->segments[i] & OUTLINE_CONTOUR_END) {
             end = start;
             start = cur;
@@ -1349,24 +1360,17 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
 
         switch (n) {
         case OUTLINE_LINE_SEGMENT:
-            if (!add_line(&str, cur[-1], *end, dir))
+            if (!add_line(&str, *end, dir))
                 return false;
             break;
 
         case OUTLINE_QUADRATIC_SPLINE:
-            p[0] = cur[-2];
-            p[1] = cur[-1];
-            p[2] = *end;
-            if (!add_quadratic(&str, p, dir))
+            if (!add_quadratic(&str, cur[-1], *end, dir))
                 return false;
             break;
 
         case OUTLINE_CUBIC_SPLINE:
-            p[0] = cur[-3];
-            p[1] = cur[-2];
-            p[2] = cur[-1];
-            p[3] = *end;
-            if (!add_cubic(&str, p, dir))
+            if (!add_cubic(&str, cur[-2], cur[-1], *end, dir))
                 return false;
             break;
 
@@ -1374,7 +1378,7 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
             return false;
         }
 
-        if (start == cur && !close_contour(&str, *end, dir))
+        if (start == cur && !close_contour(&str, dir))
             return false;
     }
     assert(start == cur && cur == path->points + path->n_points);
