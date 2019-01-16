@@ -848,6 +848,47 @@ error:
     return false;
 }
 
+bool ass_get_font_info(ASS_Library *lib, FT_Library ftlib, const char *path,
+                       const char *postscript_name, int index,
+                       ASS_FontProviderMetaData *info)
+{
+    bool ret = false;
+    FT_Face face = NULL;
+    int error = FT_New_Face(ftlib, path, index, &face);
+    if (error) {
+        ass_msg(lib, MSGL_WARN, "Error opening font: '%s', %d", path, index);
+        return false;
+    }
+
+    if (postscript_name && index < 0 && face->num_faces > 0) {
+        // The font provider gave us a postscript name and is not sure
+        // about the face index.. so use the postscript name to find the
+        // correct face_index in the collection!
+        for (int i = 0; i < face->num_faces; i++) {
+            FT_Done_Face(face);
+            error = FT_New_Face(ftlib, path, i, &face);
+            if (error) {
+                ass_msg(lib, MSGL_WARN, "Error opening font: '%s', %d", path, i);
+                return false;
+            }
+
+            const char *face_psname = FT_Get_Postscript_Name(face);
+            if (face_psname != NULL &&
+                strcmp(face_psname, postscript_name) == 0)
+                break;
+        }
+    }
+
+    if (face) {
+        ret = get_font_info(ftlib, face, info);
+        if (ret)
+            info->postscript_name = strdup(info->postscript_name);
+        FT_Done_Face(face);
+    }
+
+    return ret;
+}
+
 /**
  * \brief Free the dynamically allocated fields of metadata
  * created by get_font_info.

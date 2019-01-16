@@ -267,6 +267,20 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
                            int index, void *data);
 
 /**
+ * \brief Read a font's parameters
+ * \param lib a FT_Library to use (need not be the global one)
+ * \param path the path to the font file to read
+ * \param postscript_name the PS name of the specific face to read (set either this or index)
+ * \param index the face index to read, or -1 if not applicable
+ * \param info the struct to store results into
+ * \return success
+ *
+ */
+bool ass_get_font_info(ASS_Library *lib, FT_Library ftlib, const char *path,
+                       const char *postscript_name, int index,
+                       ASS_FontProviderMetaData *info);
+
+/**
  * \brief Free font provider and associated fonts.
  * \param provider the font provider
  *
