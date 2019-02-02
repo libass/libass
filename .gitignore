@@ -40,3 +40,6 @@ Makefile.in
 /missing
 /m4
 /test-driver
+
+# Meson
+/subprojects

@@ -7,6 +7,11 @@ AM_CFLAGS = -std=gnu99 -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter \
 
 EXTRA_DIST = libass.pc.in Changelog MAINTAINERS ltnasm.sh
 
+# Meson build setup
+EXTRA_DIST += gen_defs.py meson_options.txt meson.build \
+              libass/meson.build libass/ass/meson.build \
+              profile/meson.build test/meson.build
+
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libass.pc
 
