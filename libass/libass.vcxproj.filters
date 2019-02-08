@@ -1,0 +1,173 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="ass_bitmap.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_blur.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_cache.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_directwrite.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_drawing.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_font.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_fontselect.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_library.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_outline.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_parse.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_rasterizer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_rasterizer_c.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_render.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_render_api.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_shaper.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_string.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_strtod.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_utils.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ass_fontconfig.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(ProjectDir)..\msvc\config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ProjectDir)..\msvc\dirent.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ProjectDir)..\msvc\strings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ProjectDir)..\msvc\unistd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_render.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_shaper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="x86\cpuid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dwrite_c.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_string.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_rasterizer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_parse.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_outline.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_library.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_func_template.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_fontselect.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_fontconfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_font.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_drawing.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_directwrite.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_compat.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_cache.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_cache_template.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ass_bitmap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <NASM Include="x86\be_blur.asm">
+      <Filter>Assembly Files</Filter>
+    </NASM>
+    <NASM Include="x86\blend_bitmaps.asm">
+      <Filter>Assembly Files</Filter>
+    </NASM>
+    <NASM Include="x86\blur.asm">
+      <Filter>Assembly Files</Filter>
+    </NASM>
+    <NASM Include="x86\cpuid.asm">
+      <Filter>Assembly Files</Filter>
+    </NASM>
+    <NASM Include="x86\rasterizer.asm">
+      <Filter>Assembly Files</Filter>
+    </NASM>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{c340e39d-7f3e-40cf-89d8-de8cda0265ad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{33d3532f-e2d5-4619-bdd8-6a021dff50c1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assembly Files">
+      <UniqueIdentifier>{43bd7820-b70e-4a36-a371-4a6b969975ad}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
