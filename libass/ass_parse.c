@@ -620,12 +620,12 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             long long t1, t2, t, delta_t;
             double k;
             if (cnt == 3) {
-                t1 = argtoll(args[0]);
-                t2 = argtoll(args[1]);
+                t1 = FFMIN(FFMAX(argtoll(args[0]), INT_MIN), INT_MAX);
+                t2 = FFMIN(FFMAX(argtoll(args[1]), INT_MIN), INT_MAX);
                 accel = argtod(args[2]);
             } else if (cnt == 2) {
-                t1 = argtoll(args[0]);
-                t2 = argtoll(args[1]);
+                t1 = FFMIN(FFMAX(argtoll(args[0]), INT_MIN), INT_MAX);
+                t2 = FFMIN(FFMAX(argtoll(args[1]), INT_MIN), INT_MAX);
                 accel = 1.;
             } else if (cnt == 1) {
                 t1 = 0;
