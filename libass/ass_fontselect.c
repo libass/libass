@@ -766,6 +766,13 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
         return false;
 
+    if (face->family_name) {
+        families[0] = strdup(face->family_name);
+        if (families[0] == NULL)
+            goto error;
+        num_family++;
+    }
+
     for (i = 0; i < num_names; i++) {
         FT_SfntName name;
 
@@ -793,15 +800,6 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
                 num_family++;
             }
         }
-
-    }
-
-    // check if we got a valid family - if not use whatever FreeType gives us
-    if (num_family == 0 && face->family_name) {
-        families[0] = strdup(face->family_name);
-        if (families[0] == NULL)
-            goto error;
-        num_family++;
     }
 
     // we absolutely need a name
