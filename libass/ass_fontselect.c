@@ -786,14 +786,14 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
             ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
                                 name.string_len);
 
-            if (name.name_id == TT_NAME_ID_FULL_NAME) {
+            if (name.name_id == TT_NAME_ID_FULL_NAME && num_fullname < MAX_FULLNAME) {
                 fullnames[num_fullname] = strdup(buf);
                 if (fullnames[num_fullname] == NULL)
                     goto error;
                 num_fullname++;
             }
 
-            if (name.name_id == TT_NAME_ID_FONT_FAMILY) {
+            if (name.name_id == TT_NAME_ID_FONT_FAMILY && num_family < MAX_FULLNAME) {
                 families[num_family] = strdup(buf);
                 if (families[num_family] == NULL)
                     goto error;
