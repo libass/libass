@@ -616,27 +616,6 @@ static void restore_transform(double m[3][3], const BitmapHashKey *key)
         m[i][2] -= m[i][0] * x0 + m[i][1] * y0;
 }
 
-static BitmapHashValue *get_bitmap(ASS_Renderer *render_priv, OutlineHashValue *outline,
-                                   const ASS_Transform *trans, const double mat[3][3])
-{
-    if (!outline)
-        return NULL;
-
-    double m[3][3];
-    for (int i = 0; i < 3; i++) {
-        m[i][0] = mat[i][0] * trans->scale.x;
-        m[i][1] = mat[i][1] * trans->scale.y;
-        m[i][2] = mat[i][0] * trans->offset.x + mat[i][1] * trans->offset.y + mat[i][2];
-    }
-
-    BitmapHashKey k;
-    k.outline = outline;
-    if (quantize_transform(m, &k))
-        return ass_cache_get(render_priv->cache.bitmap_cache, &k, render_priv);
-    ass_cache_dec_ref(outline);
-    return NULL;
-}
-
 // Calculate bitmap memory footprint
 static inline size_t bitmap_size(Bitmap *bm)
 {
@@ -648,44 +627,36 @@ static inline size_t bitmap_size(Bitmap *bm)
  * applicable. The blended bitmaps are added to a free list which is freed
  * at the start of a new frame.
  */
-static void blend_vector_clip(ASS_Renderer *render_priv,
-                              ASS_Image *head)
+static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
 {
     if (!render_priv->state.clip_drawing_text)
         return;
 
-    OutlineHashKey key;
-    key.type = OUTLINE_DRAWING;
-    key.u.drawing.text = render_priv->state.clip_drawing_text;
-    OutlineHashValue *outline =
-        ass_cache_get(render_priv->cache.outline_cache, &key, render_priv);
-    if (!outline || !outline->valid) {
-        ass_cache_dec_ref(outline);
+    OutlineHashKey ol_key;
+    ol_key.type = OUTLINE_DRAWING;
+    ol_key.u.drawing.text = render_priv->state.clip_drawing_text;
+
+    double m[3][3] = {0};
+    double w = render_priv->font_scale / (1 << (render_priv->state.clip_drawing_scale - 1));
+    m[0][0] = render_priv->font_scale_x * w;
+    m[1][1] = w;
+    m[2][2] = 1;
+
+    m[0][2] = int_to_d6(render_priv->settings.left_margin);
+    m[1][2] = int_to_d6(render_priv->settings.top_margin);
+
+    BitmapHashKey key;
+    key.outline = ass_cache_get(render_priv->cache.outline_cache, &ol_key, render_priv);
+    if (!key.outline || !key.outline->valid || !quantize_transform(m, &key)) {
+        ass_cache_dec_ref(key.outline);
         return;
     }
-
-    ASS_Transform trans;
-    double w = render_priv->font_scale / (1 << (render_priv->state.clip_drawing_scale - 1));
-    trans.scale.x = render_priv->font_scale_x * w;
-    trans.scale.y = w;
-
-    trans.offset.x = int_to_d6(render_priv->settings.left_margin);
-    trans.offset.y = int_to_d6(render_priv->settings.top_margin);
-
-    double m[3][3] = {
-        { 1, 0, 0 },
-        { 0, 1, 0 },
-        { 0, 0, 1 },
-    };
-    BitmapHashValue *val = get_bitmap(render_priv, outline, &trans, m);
-    if (!val)
-        return;
-
-    Bitmap *clip_bm = val->bm;
-    if (!clip_bm) {
+    BitmapHashValue *val = ass_cache_get(render_priv->cache.bitmap_cache, &key, render_priv);
+    if (!val || !val->bm) {
         ass_cache_dec_ref(val);
         return;
     }
+    Bitmap *clip_bm = val->bm;
 
     // Iterate through bitmaps and blend/clip them
     for (ASS_Image *cur = head; cur; cur = cur->next) {
@@ -1326,10 +1297,27 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         return;
     }
 
-    ASS_Transform tr;
-    OutlineHashKey key;
+    double m1[3][3], m2[3][3], m[3][3];
+    const ASS_Transform *tr = &info->transform;
+    calc_transform_matrix(render_priv, info, m1);
+    for (int i = 0; i < 3; i++) {
+        m2[i][0] = m1[i][0] * tr->scale.x;
+        m2[i][1] = m1[i][1] * tr->scale.y;
+        m2[i][2] = m1[i][0] * tr->offset.x + m1[i][1] * tr->offset.y + m1[i][2];
+    }
+    memcpy(m, m2, sizeof(m));
+
+    BitmapHashKey key;
+    key.outline = info->outline;
+    if (!quantize_transform(m, &key)) {
+        ass_cache_dec_ref(info->outline);
+        return;
+    }
+    info->image = ass_cache_get(render_priv->cache.bitmap_cache, &key, render_priv);
+
+    OutlineHashKey ol_key;
     if (info->border_style == 3) {
-        key.type = OUTLINE_BOX;
+        ol_key.type = OUTLINE_BOX;
 
         double w = 64 * render_priv->border_scale;
         ASS_DVector bord = { info->border_x * w, info->border_y * w };
@@ -1351,37 +1339,84 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         bord.x = FFMAX(64, bord.x);
         bord.y = FFMAX(64, bord.y);
 
-        tr.scale.x = (width  + 2 * bord.x) / 64;
-        tr.scale.y = (height + 2 * bord.y) / 64;
-        tr.offset.x = -bord.x;
-        tr.offset.y = -bord.y - info->asc;
+        ASS_DVector scale = {
+            (width  + 2 * bord.x) / 64,
+            (height + 2 * bord.y) / 64,
+        };
+        ASS_DVector offset = { -bord.x, -bord.y - info->asc };
+        for (int i = 0; i < 3; i++) {
+            m[i][0] = m1[i][0] * scale.x;
+            m[i][1] = m1[i][1] * scale.y;
+            m[i][2] = m1[i][0] * offset.x + m1[i][1] * offset.y + m1[i][2];
+        }
     } else {
-        key.type = OUTLINE_BORDER;
-        BorderHashKey *k = &key.u.border;
+        ol_key.type = OUTLINE_BORDER;
+        BorderHashKey *k = &ol_key.u.border;
         k->outline = info->outline;
 
-        // XXX: account for full transformation instead of only scale
-        tr.scale.x = frexp(info->transform.scale.x, &k->scale_ord_x);
-        tr.scale.y = frexp(info->transform.scale.y, &k->scale_ord_y);
-        tr.offset = info->transform.offset;
+        double w = 64 * render_priv->border_scale;
+        double bord_x = w * info->border_x / tr->scale.x;
+        double bord_y = w * info->border_y / tr->scale.y;
 
-        double w = render_priv->border_scale * (64 / STROKER_PRECISION);
-        k->border.x = lrint(w * info->border_x / tr.scale.x);
-        k->border.y = lrint(w * info->border_y / tr.scale.y);
+        const ASS_Rect *bbox = &info->outline->cbox;
+        // Estimate bounding box half size after stroking
+        double dx = (bbox->x_max - bbox->x_min) / 2.0 + (bord_x + 64);
+        double dy = (bbox->y_max - bbox->y_min) / 2.0 + (bord_y + 64);
+
+        // Matrix after quantize_transform() has
+        // input and output origin at bounding box center.
+        double mxx = fabs(m[0][0]), mxy = fabs(m[0][1]);
+        double myx = fabs(m[1][0]), myy = fabs(m[1][1]);
+        double mzx = fabs(m[2][0]), mzy = fabs(m[2][1]);
+
+        double z0 = m[2][2] - mzx * dx - mzy * dy;
+        w = 1 / FFMAX(z0, m[2][2] / MAX_PERSP_SCALE);
+
+        // Notation from quantize_transform().
+        // Note that goal here is to estimate acceptable error for stroking, i. e. D(x) and D(y).
+        // Matrix coefficients are constants now, so D(m_??) = 0.
+
+        // D(z) <= |m_zx| * D(x) + |m_zy| * D(y),
+        // D(x_out) = D((m_xx * x + m_xy * y) / z)
+        //  <= (|m_xx| * D(x) + |m_xy| * D(y)) / z0 + x_lim * D(z) / z0^2
+        //  <= (|m_xx| / z0 + |m_zx| * x_lim / z0^2) * D(x)
+        //   + (|m_xy| / z0 + |m_zy| * x_lim / z0^2) * D(y),
+        // D(y_out) = D((m_yx * x + m_yy * y) / z)
+        //  <= (|m_yx| * D(x) + |m_yy| * D(y)) / z0 + y_lim * D(z) / z0^2
+        //  <= (|m_yx| / z0 + |m_zx| * y_lim / z0^2) * D(x)
+        //   + (|m_yy| / z0 + |m_zy| * y_lim / z0^2) * D(y).
+
+        // Quantization steps (ACCURACY ~ POSITION_PRECISION):
+        // STROKER_PRECISION / 2^scale_ord_x ~ D(x) ~ POSITION_PRECISION /
+        //   (max(|m_xx|, |m_yx|) / z0 + |m_zx| * max(x_lim, y_lim) / z0^2),
+        // STROKER_PRECISION / 2^scale_ord_y ~ D(y) ~ POSITION_PRECISION /
+        //   (max(|m_xy|, |m_yy|) / z0 + |m_zy| * max(x_lim, y_lim) / z0^2).
+
+        double x_lim = mxx * dx + mxy * dy;
+        double y_lim = myx * dx + myy * dy;
+        double rz = FFMAX(x_lim, y_lim) * w;
+
+        w *= STROKER_PRECISION / POSITION_PRECISION;
+        frexp(w * (FFMAX(mxx, myx) + mzx * rz), &k->scale_ord_x);
+        frexp(w * (FFMAX(mxy, myy) + mzy * rz), &k->scale_ord_y);
+        k->border.x = lrint(ldexp(bord_x, k->scale_ord_x) / STROKER_PRECISION);
+        k->border.y = lrint(ldexp(bord_y, k->scale_ord_y) / STROKER_PRECISION);
+        if (!k->border.x && !k->border.y)
+            return;
+
+        for (int i = 0; i < 3; i++) {
+            m[i][0] = ldexp(m2[i][0], -k->scale_ord_x);
+            m[i][1] = ldexp(m2[i][1], -k->scale_ord_y);
+            m[i][2] = m2[i][2];
+        }
     }
 
-    OutlineHashValue *border =
-        ass_cache_get(render_priv->cache.outline_cache, &key, render_priv);
-    if (!border || !border->valid) {
-        ass_cache_dec_ref(border);
-        border = NULL;
+    key.outline = ass_cache_get(render_priv->cache.outline_cache, &ol_key, render_priv);
+    if (!key.outline || !key.outline->valid || !quantize_transform(m, &key)) {
+        ass_cache_dec_ref(key.outline);
+        return;
     }
-
-    double m[3][3];
-    calc_transform_matrix(render_priv, info, m);
-
-    info->image = get_bitmap(render_priv, info->outline, &info->transform, m);
-    info->image_o = get_bitmap(render_priv, border, &tr, m);
+    info->image_o = ass_cache_get(render_priv->cache.bitmap_cache, &key, render_priv);
 }
 
 size_t ass_bitmap_construct(void *key, void *value, void *priv)
