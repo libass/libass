@@ -97,7 +97,7 @@ END(BorderHashKey)
 START(filter, filter_desc)
     GENERIC(int, flags)
     GENERIC(int, be)
-    GENERIC(double, blur)
+    GENERIC(int, blur)
     VECTOR(shadow)
 END(FilterDesc)
 

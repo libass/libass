@@ -60,15 +60,14 @@
 
 
 void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
-                    int be, double blur_radius)
+                    int be, double blur_r2)
 {
     if (!bm->buffer)
         return;
 
     // Apply gaussian blur
-    double r2 = blur_radius * blur_radius / log(256);
-    if (r2 > 0.001)
-        ass_gaussian_blur(engine, bm, r2);
+    if (blur_r2 > 0.001)
+        ass_gaussian_blur(engine, bm, blur_r2);
 
     if (!be)
         return;

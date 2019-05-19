@@ -39,6 +39,7 @@
 #define POSITION_PRECISION 8.0   // rough estimate of transform error in 1/64 pixel units
 #define MAX_PERSP_SCALE 16.0
 #define SUBPIXEL_ORDER 3  // ~ log2(64 / POSITION_PRECISION)
+#define BLUR_PRECISION (1.0 / 256)  // blur error as fraction of full input range
 
 
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
@@ -2165,6 +2166,54 @@ static void calculate_rotation_params(ASS_Renderer *render_priv, ASS_DRect *bbox
 }
 
 
+static int quantize_blur(double radius, int32_t *shadow_mask)
+{
+    // Gaussian filter kernel (1D):
+    // G(x, r2) = exp(-x^2 / (2 * r2)) / sqrt(2 * pi * r2),
+    // position unit is 1/64th of pixel, r = 64 * radius, r2 = r^2.
+
+    // Difference between kernels with different but near r2:
+    // G(x, r2 + dr2) - G(x, r2) ~= dr2 * G(x, r2) * (x^2 - r2) / (2 * r2^2).
+    // Maximal possible error relative to full pixel value is half of
+    // integral (from -inf to +inf) of absolute value of that difference.
+    // E_max ~= dr2 / 2 * integral(G(x, r2) * |x^2 - r2| / (2 * r2^2), x)
+    //  = dr2 / (4 * r2) * integral(G(y, 1) * |y^2 - 1|, y)
+    //  = dr2 / (4 * r2) * 4 / sqrt(2 * pi * e)
+    //  ~ dr2 / (4 * r2) ~= dr / (2 * r).
+    // E_max ~ BLUR_PRECISION / 2 as we have 2 dimensions.
+
+    // To get discretized blur radius solve the following
+    // differential equation (n--quantization index):
+    // dr(n) / dn = BLUR_PRECISION * r + POSITION_PRECISION, r(0) = 0,
+    // r(n) = (exp(BLUR_PRECISION * n) - 1) * POSITION_PRECISION / BLUR_PRECISION,
+    // n = log(1 + r * BLUR_PRECISION / POSITION_PRECISION) / BLUR_PRECISION.
+
+    // To get shadow offset quantization estimate difference of
+    // G(x + dx, r2) - G(x, r2) ~= dx * G(x, r2) * (-x / r2).
+    // E_max ~= dx / 2 * integral(G(x, r2) * |x| / r2, x)
+    //  = dx / sqrt(2 * pi * r2) ~ dx / (2 * r).
+    // 2^ord ~ dx ~ BLUR_PRECISION * r + POSITION_PRECISION.
+
+    const double scale = 64 * BLUR_PRECISION / POSITION_PRECISION;
+    radius *= scale;
+
+    int ord;
+    // ord = floor(log2(BLUR_PRECISION * r + POSITION_PRECISION))
+    //     = floor(log2(64 * radius * BLUR_PRECISION + POSITION_PRECISION))
+    //     = floor(log2((radius * scale + 1) * POSITION_PRECISION)),
+    // floor(log2(x)) = frexp(x) - 1 = frexp(x / 2).
+    frexp((1 + radius) * (POSITION_PRECISION / 2), &ord);
+    *shadow_mask = ((uint32_t) 1 << ord) - 1;
+    return lrint(log1p(radius) / BLUR_PRECISION);
+}
+
+static double restore_blur(int qblur)
+{
+    const double scale = 64 * BLUR_PRECISION / POSITION_PRECISION;
+    double sigma = expm1(BLUR_PRECISION * qblur) / scale;
+    return sigma * sigma;
+}
+
 // Convert glyphs to bitmaps, combine them, apply blur, generate shadows.
 static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                                       double device_x, double device_y)
@@ -2223,14 +2272,20 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 current_info->effect_timing = info->effect_timing;
                 current_info->first_pos_x = info->bbox.x_max >> 6;
 
-                current_info->filter.flags = flags;
-                current_info->filter.be = info->be;
-                current_info->filter.blur = 2 * info->blur * render_priv->blur_scale;
+                FilterDesc *filter = &current_info->filter;
+                filter->flags = flags;
+                filter->be = info->be;
+
+                int32_t shadow_mask;
+                double blur_scale = render_priv->blur_scale * (2 / sqrt(log(256)));
+                filter->blur = quantize_blur(info->blur * blur_scale, &shadow_mask);
                 if (flags & FILTER_NONZERO_SHADOW) {
-                    current_info->filter.shadow.x = double_to_d6(info->shadow_x * render_priv->border_scale);
-                    current_info->filter.shadow.y = double_to_d6(info->shadow_y * render_priv->border_scale);
+                    int32_t x = double_to_d6(info->shadow_x * render_priv->border_scale);
+                    int32_t y = double_to_d6(info->shadow_y * render_priv->border_scale);
+                    filter->shadow.x = (x + (shadow_mask >> 1)) & ~shadow_mask;
+                    filter->shadow.y = (y + (shadow_mask >> 1)) & ~shadow_mask;
                 } else
-                    current_info->filter.shadow.x = current_info->filter.shadow.y = 0;
+                    filter->shadow.x = filter->shadow.y = 0;
 
                 current_info->x = current_info->y = INT_MAX;
                 current_info->bm = current_info->bm_o = current_info->bm_s = NULL;
@@ -2392,10 +2447,11 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     }
 
     int flags = k->filter.flags;
+    double r2 = restore_blur(k->filter.blur);
     bool no_blur = (flags & ~FILTER_NONZERO_SHADOW) == FILTER_NONZERO_BORDER;
     if (!no_blur)
-        ass_synth_blur(render_priv->engine, &v->bm, k->filter.be, k->filter.blur);
-    ass_synth_blur(render_priv->engine, &v->bm_o, k->filter.be, k->filter.blur);
+        ass_synth_blur(render_priv->engine, &v->bm, k->filter.be, r2);
+    ass_synth_blur(render_priv->engine, &v->bm_o, k->filter.be, r2);
 
     if (flags & FILTER_NONZERO_SHADOW) {
         if (flags & FILTER_NONZERO_BORDER)

@@ -105,7 +105,7 @@ bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
                        ASS_Outline *outline1, ASS_Outline *outline2);
 
 void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
-                    int be, double blur_radius);
+                    int be, double blur_r2);
 
 int be_padding(int be);
 void be_blur_pre(uint8_t *buf, intptr_t w,
