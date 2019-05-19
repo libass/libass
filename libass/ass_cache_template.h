@@ -77,42 +77,55 @@ END(OutlineBitmapHashKey)
 
 // describe a clip mask bitmap
 START(clip_bitmap, clip_bitmap_hash_key)
+    GENERIC(int, scale)
     STRING(text)
 END(ClipMaskHashKey)
-
-// describes an outline glyph
-START(glyph, glyph_hash_key)
-    GENERIC(ASS_Font *, font)
-    GENERIC(double, size) // font size
-    GENERIC(int, face_index)
-    GENERIC(int, glyph_index)
-    GENERIC(int, bold)
-    GENERIC(int, italic)
-    GENERIC(unsigned, scale_x) // 16.16
-    GENERIC(unsigned, scale_y) // 16.16
-    VECTOR(outline) // border width, 26.6
-    GENERIC(unsigned, flags)    // glyph decoration flags
-    GENERIC(unsigned, border_style)
-    GENERIC(int, hspacing) // 16.16
-END(GlyphHashKey)
 
 START(glyph_metrics, glyph_metrics_hash_key)
     GENERIC(ASS_Font *, font)
     GENERIC(double, size)
     GENERIC(int, face_index)
     GENERIC(int, glyph_index)
-    GENERIC(unsigned, scale_x)
-    GENERIC(unsigned, scale_y)
 END(GlyphMetricsHashKey)
+
+// common outline data
+START(outline_common, outline_common_hash_key)
+    GENERIC(unsigned, scale_x) // 16.16
+    GENERIC(unsigned, scale_y) // 16.16
+    VECTOR(outline) // border width, 26.6
+    GENERIC(unsigned, border_style)
+    GENERIC(int, scale_fix)    // 16.16
+    GENERIC(int, advance)      // 26.6
+END(OutlineCommonKey)
+
+// describes an outline glyph
+START(glyph, glyph_hash_key)
+    GENERIC(unsigned, scale_x) // 16.16
+    GENERIC(unsigned, scale_y) // 16.16
+    VECTOR(outline) // border width, 26.6
+    GENERIC(unsigned, border_style)
+    GENERIC(int, scale_fix)    // 16.16
+    GENERIC(int, advance)      // 26.6
+
+    GENERIC(ASS_Font *, font)
+    GENERIC(double, size) // font size
+    GENERIC(int, face_index)
+    GENERIC(int, glyph_index)
+    GENERIC(int, bold)
+    GENERIC(int, italic)
+    GENERIC(unsigned, flags) // glyph decoration flags
+END(GlyphHashKey)
 
 // describes an outline drawing
 START(drawing, drawing_hash_key)
-    GENERIC(unsigned, scale_x)
-    GENERIC(unsigned, scale_y)
-    GENERIC(int, pbo)
-    VECTOR(outline)
+    GENERIC(unsigned, scale_x) // 16.16
+    GENERIC(unsigned, scale_y) // 16.16
+    VECTOR(outline) // border width, 26.6
     GENERIC(unsigned, border_style)
-    GENERIC(int, hspacing)
+    GENERIC(int, scale_fix)    // 16.16
+    GENERIC(int, advance)      // 26.6
+
+    GENERIC(int, pbo)
     GENERIC(int, scale)
     STRING(text)
 END(DrawingHashKey)

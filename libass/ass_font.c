@@ -224,26 +224,28 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 /**
  * \brief Create a new ASS_Font according to "desc" argument
  */
-ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
-                       FT_Library ftlibrary, ASS_FontSelector *fontsel,
-                       ASS_FontDesc *desc)
+ASS_Font *ass_font_new(ASS_Renderer *render_priv, ASS_FontDesc *desc)
 {
-    ASS_Font *font;
-    if (ass_cache_get(font_cache, desc, &font)) {
-        if (font->desc.family)
-            return font;
-        ass_cache_dec_ref(font);
-        return NULL;
-    }
+    ASS_Font *font = ass_cache_get(render_priv->cache.font_cache, desc, render_priv);
     if (!font)
         return NULL;
+    if (font->desc.family)
+        return font;
+    ass_cache_dec_ref(font);
+    return NULL;
+}
 
-    font->library = library;
-    font->ftlibrary = ftlibrary;
+size_t ass_font_construct(void *key, void *value, void *priv)
+{
+    ASS_Renderer *render_priv = priv;
+    ASS_FontDesc *desc = key;
+    ASS_Font *font = value;
+
+    font->library = render_priv->library;
+    font->ftlibrary = render_priv->ftlibrary;
     font->shaper_priv = NULL;
     font->n_faces = 0;
-    ASS_FontDesc *new_desc = ass_cache_key(font);
-    font->desc.family = new_desc->family;
+    font->desc.family = desc->family;
     font->desc.bold = desc->bold;
     font->desc.italic = desc->italic;
     font->desc.vertical = desc->vertical;
@@ -251,15 +253,10 @@ ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
     font->scale_x = font->scale_y = 1.;
     font->size = 0.;
 
-    int error = add_face(fontsel, font, 0);
-    if (error == -1) {
+    int error = add_face(render_priv->fontselect, font, 0);
+    if (error == -1)
         font->desc.family = NULL;
-        ass_cache_commit(font, 1);
-        ass_cache_dec_ref(font);
-        return NULL;
-    }
-    ass_cache_commit(font, 1);
-    return font;
+    return 1;
 }
 
 /**

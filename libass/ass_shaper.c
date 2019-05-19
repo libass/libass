@@ -211,39 +211,46 @@ static void update_hb_size(hb_font_t *hb_font, FT_Face face)
  */
 
 GlyphMetricsHashValue *
-get_cached_metrics(struct ass_shaper_metrics_data *metrics, FT_Face face,
+get_cached_metrics(struct ass_shaper_metrics_data *metrics,
                    hb_codepoint_t unicode, hb_codepoint_t glyph)
 {
-    GlyphMetricsHashValue *val;
+    bool rotate = false;
+    // if @font rendering is enabled and the glyph should be rotated,
+    // make cached_h_advance pick up the right advance later
+    if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
+        rotate = true;
+
     metrics->hash_key.glyph_index = glyph;
-    if (ass_cache_get(metrics->metrics_cache, &metrics->hash_key, &val)) {
-        if (val->metrics.width >= 0)
-            return val;
-        ass_cache_dec_ref(val);
-        return NULL;
-    }
+    GlyphMetricsHashValue *val = ass_cache_get(metrics->metrics_cache, &metrics->hash_key,
+                                               rotate ? metrics : NULL);
     if (!val)
         return NULL;
+    if (val->metrics.width >= 0)
+        return val;
+    ass_cache_dec_ref(val);
+    return NULL;
+}
+
+size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
+{
+    GlyphMetricsHashKey *k = key;
+    GlyphMetricsHashValue *v = value;
 
     int load_flags = FT_LOAD_DEFAULT | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
         | FT_LOAD_IGNORE_TRANSFORM;
 
-    if (FT_Load_Glyph(face, glyph, load_flags)) {
-        val->metrics.width = -1;
-        ass_cache_commit(val, 1);
-        ass_cache_dec_ref(val);
-        return NULL;
+    FT_Face face = k->font->faces[k->face_index];
+    if (FT_Load_Glyph(face, k->glyph_index, load_flags)) {
+        v->metrics.width = -1;
+        return 1;
     }
 
-    memcpy(&val->metrics, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
+    memcpy(&v->metrics, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
 
-    // if @font rendering is enabled and the glyph should be rotated,
-    // make cached_h_advance pick up the right advance later
-    if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
-        val->metrics.horiAdvance = val->metrics.vertAdvance;
+    if (priv)  // rotate
+        v->metrics.horiAdvance = v->metrics.vertAdvance;
 
-    ass_cache_commit(val, 1);
-    return val;
+    return 1;
 }
 
 static hb_bool_t
@@ -261,7 +268,7 @@ get_glyph(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
         return false;
 
     // rotate glyph advances for @fonts while we still know the Unicode codepoints
-    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, unicode, *glyph);
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, unicode, *glyph);
     ass_cache_dec_ref(metrics);
     return true;
 }
@@ -270,9 +277,8 @@ static hb_position_t
 cached_h_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                  void *user_data)
 {
-    FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
-    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, 0, glyph);
     if (!metrics)
         return 0;
 
@@ -285,9 +291,8 @@ static hb_position_t
 cached_v_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                  void *user_data)
 {
-    FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
-    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, 0, glyph);
     if (!metrics)
         return 0;
 
@@ -307,14 +312,13 @@ static hb_bool_t
 cached_v_origin(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                 hb_position_t *x, hb_position_t *y, void *user_data)
 {
-    FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
-    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, 0, glyph);
     if (!metrics)
         return false;
 
     *x = metrics->metrics.horiBearingX - metrics->metrics.vertBearingX;
-    *y = metrics->metrics.horiBearingY - (-metrics->metrics.vertBearingY);
+    *y = metrics->metrics.horiBearingY + metrics->metrics.vertBearingY;
     ass_cache_dec_ref(metrics);
     return true;
 }
@@ -343,9 +347,8 @@ static hb_bool_t
 cached_extents(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                hb_glyph_extents_t *extents, void *user_data)
 {
-    FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
-    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, 0, glyph);
     if (!metrics)
         return false;
 
@@ -438,8 +441,6 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
     metrics->hash_key.font = info->font;
     metrics->hash_key.face_index = info->face_index;
     metrics->hash_key.size = info->font_size;
-    metrics->hash_key.scale_x = double_to_d6(info->scale_x);
-    metrics->hash_key.scale_y = double_to_d6(info->scale_y);
 
     return hb_fonts[info->face_index];
 }
@@ -686,6 +687,14 @@ void ass_shaper_determine_script(ASS_Shaper *shaper, GlyphInfo *glyphs,
         }
     }
 }
+
+#else
+
+size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
+{
+    return 0;  // that function should be never used
+}
+
 #endif
 
 /**

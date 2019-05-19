@@ -62,6 +62,7 @@ typedef struct {
 typedef unsigned(*HashFunction)(void *key, size_t key_size);
 typedef unsigned(*HashCompare)(void *a, void *b, size_t key_size);
 typedef bool(*CacheKeyMove)(void *dst, void *src, size_t key_size);
+typedef size_t(*CacheValueConstructor)(void *key, void *value, void *priv);
 typedef void(*CacheItemDestructor)(void *key, void *value);
 
 // cache hash keys
@@ -74,6 +75,7 @@ typedef struct outline_hash_key {
     union {
         GlyphHashKey glyph;
         DrawingHashKey drawing;
+        OutlineCommonKey common;
     } u;
 } OutlineHashKey;
 
@@ -111,15 +113,15 @@ typedef struct
     HashFunction hash_func;
     HashCompare compare_func;
     CacheKeyMove key_move_func;
+    CacheValueConstructor construct_func;
     CacheItemDestructor destruct_func;
     size_t key_size;
     size_t value_size;
 } CacheDesc;
 
 Cache *ass_cache_create(const CacheDesc *desc);
-bool ass_cache_get(Cache *cache, void *key, void *value_ptr);
+void *ass_cache_get(Cache *cache, void *key, void *priv);
 void *ass_cache_key(void *value);
-void ass_cache_commit(void *value, size_t item_size);
 void ass_cache_inc_ref(void *value);
 void ass_cache_dec_ref(void *value);
 void ass_cache_cut(Cache *cache, size_t max_size);

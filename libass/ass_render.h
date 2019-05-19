@@ -109,9 +109,6 @@ typedef struct {
     BitmapRef *bitmaps;
 
     int x, y;
-    ASS_Rect rect, rect_o;
-    size_t n_bm, n_bm_o;
-
     Bitmap *bm, *bm_o, *bm_s;   // glyphs, outline, shadow bitmaps
     CompositeHashValue *image;
 } CombinedBitmapInfo;
@@ -156,10 +153,13 @@ typedef struct glyph_info {
     double frx, fry, frz;       // rotation
     double fax, fay;            // text shearing
     double scale_x, scale_y;
-    double orig_scale_x, orig_scale_y; // scale_x,y before fix_glyph_scaling
+    // amount of scale_x,y change due to fix_glyph_scaling
+    // scale_fix = before / after
+    double scale_fix;
     int border_style;
     double border_x, border_y;
     double hspacing;
+    int hspacing_scaled;        // 26.6
     unsigned italic;
     unsigned bold;
     int flags;

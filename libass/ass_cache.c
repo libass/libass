@@ -79,10 +79,13 @@ static void font_destruct(void *key, void *value)
     ass_font_clear(value);
 }
 
+size_t ass_font_construct(void *key, void *value, void *priv);
+
 const CacheDesc font_cache_desc = {
     .hash_func = font_hash,
     .compare_func = font_compare,
     .key_move_func = font_key_move,
+    .construct_func = ass_font_construct,
     .destruct_func = font_destruct,
     .key_size = sizeof(ASS_FontDesc),
     .value_size = sizeof(ASS_Font)
@@ -141,10 +144,13 @@ static void bitmap_destruct(void *key, void *value)
     }
 }
 
+size_t ass_bitmap_construct(void *key, void *value, void *priv);
+
 const CacheDesc bitmap_cache_desc = {
     .hash_func = bitmap_hash,
     .compare_func = bitmap_compare,
     .key_move_func = bitmap_key_move,
+    .construct_func = ass_bitmap_construct,
     .destruct_func = bitmap_destruct,
     .key_size = sizeof(BitmapHashKey),
     .value_size = sizeof(BitmapHashValue)
@@ -207,10 +213,13 @@ static void composite_destruct(void *key, void *value)
     free(k->bitmaps);
 }
 
+size_t ass_composite_construct(void *key, void *value, void *priv);
+
 const CacheDesc composite_cache_desc = {
     .hash_func = composite_hash,
     .compare_func = composite_compare,
     .key_move_func = composite_key_move,
+    .construct_func = ass_composite_construct,
     .destruct_func = composite_destruct,
     .key_size = sizeof(CompositeHashKey),
     .value_size = sizeof(CompositeHashValue)
@@ -224,7 +233,7 @@ static unsigned outline_hash(void *key, size_t key_size)
     switch (k->type) {
         case OUTLINE_GLYPH: return glyph_hash(&k->u, key_size);
         case OUTLINE_DRAWING: return drawing_hash(&k->u, key_size);
-        default: return 0;
+        default: return outline_common_hash(&k->u, key_size);
     }
 }
 
@@ -236,7 +245,7 @@ static unsigned outline_compare(void *a, void *b, size_t key_size)
     switch (ak->type) {
         case OUTLINE_GLYPH: return glyph_compare(&ak->u, &bk->u, key_size);
         case OUTLINE_DRAWING: return drawing_compare(&ak->u, &bk->u, key_size);
-        default: return 0;
+        default: return outline_common_compare(&ak->u, &bk->u, key_size);
     }
 }
 
@@ -268,10 +277,13 @@ static void outline_destruct(void *key, void *value)
     }
 }
 
+size_t ass_outline_construct(void *key, void *value, void *priv);
+
 const CacheDesc outline_cache_desc = {
     .hash_func = outline_hash,
     .compare_func = outline_compare,
     .key_move_func = outline_key_move,
+    .construct_func = ass_outline_construct,
     .destruct_func = outline_destruct,
     .key_size = sizeof(OutlineHashKey),
     .value_size = sizeof(OutlineHashValue)
@@ -295,10 +307,13 @@ static void glyph_metrics_destruct(void *key, void *value)
     ass_cache_dec_ref(k->font);
 }
 
+size_t ass_glyph_metrics_construct(void *key, void *value, void *priv);
+
 const CacheDesc glyph_metrics_cache_desc = {
     .hash_func = glyph_metrics_hash,
     .compare_func = glyph_metrics_compare,
     .key_move_func = glyph_metrics_key_move,
+    .construct_func = ass_glyph_metrics_construct,
     .destruct_func = glyph_metrics_destruct,
     .key_size = sizeof(GlyphMetricsHashKey),
     .value_size = sizeof(GlyphMetricsHashValue)
@@ -360,9 +375,8 @@ Cache *ass_cache_create(const CacheDesc *desc)
     return cache;
 }
 
-bool ass_cache_get(Cache *cache, void *key, void *value_ptr)
+void *ass_cache_get(Cache *cache, void *key, void *priv)
 {
-    char **value = (char **) value_ptr;
     const CacheDesc *desc = cache->desc;
     size_t key_offs = CACHE_ITEM_SIZE + align_cache(desc->value_size);
     unsigned bucket = desc->hash_func(key, desc->key_size) % cache->buckets;
@@ -383,9 +397,8 @@ bool ass_cache_get(Cache *cache, void *key, void *value_ptr)
             }
             cache->hits++;
             desc->key_move_func(NULL, key, desc->key_size);
-            *value = (char *) item + CACHE_ITEM_SIZE;
             item->ref_count++;
-            return true;
+            return (char *) item + CACHE_ITEM_SIZE;
         }
         item = item->next;
     }
@@ -394,18 +407,18 @@ bool ass_cache_get(Cache *cache, void *key, void *value_ptr)
     item = malloc(key_offs + desc->key_size);
     if (!item) {
         desc->key_move_func(NULL, key, desc->key_size);
-        *value = NULL;
-        return false;
+        return NULL;
     }
-    item->size = 0;
     item->cache = cache;
     item->desc = desc;
-    if (!desc->key_move_func((char *) item + key_offs, key, desc->key_size)) {
+    void *new_key = (char *) item + key_offs;
+    if (!desc->key_move_func(new_key, key, desc->key_size)) {
         free(item);
-        *value = NULL;
-        return false;
+        return NULL;
     }
-    *value = (char *) item + CACHE_ITEM_SIZE;
+    void *value = (char *) item + CACHE_ITEM_SIZE;
+    item->size = desc->construct_func(new_key, value, priv);
+    assert(item->size);
 
     CacheItem **bucketptr = &cache->map[bucket];
     if (*bucketptr)
@@ -414,31 +427,21 @@ bool ass_cache_get(Cache *cache, void *key, void *value_ptr)
     item->next = *bucketptr;
     *bucketptr = item;
 
-    item->queue_prev = NULL;
+    *cache->queue_last = item;
+    item->queue_prev = cache->queue_last;
+    cache->queue_last = &item->queue_next;
     item->queue_next = NULL;
-    item->ref_count = 1;
-    return false;
+    item->ref_count = 2;
+
+    cache->cache_size += item->size;
+    cache->items++;
+    return value;
 }
 
 void *ass_cache_key(void *value)
 {
     CacheItem *item = value_to_item(value);
     return (char *) value + align_cache(item->desc->value_size);
-}
-
-void ass_cache_commit(void *value, size_t item_size)
-{
-    CacheItem *item = value_to_item(value);
-    assert(!item->size && item_size);
-    item->size = item_size;
-    Cache *cache = item->cache;
-    cache->cache_size += item_size;
-    cache->items++;
-
-    *cache->queue_last = item;
-    item->queue_prev = cache->queue_last;
-    cache->queue_last = &item->queue_next;
-    item->ref_count++;
 }
 
 static inline void destroy_item(const CacheDesc *desc, CacheItem *item)
