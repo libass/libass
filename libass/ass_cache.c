@@ -128,12 +128,8 @@ static uint32_t composite_hash(void *key, uint32_t hval)
 {
     CompositeHashKey *k = key;
     hval = filter_hash(&k->filter, hval);
-    for (size_t i = 0; i < k->bitmap_count; i++) {
-        hval = fnv_32a_buf(&k->bitmaps[i].image,   sizeof(k->bitmaps[i].image),   hval);
-        hval = fnv_32a_buf(&k->bitmaps[i].image_o, sizeof(k->bitmaps[i].image_o), hval);
-        hval = fnv_32a_buf(&k->bitmaps[i].x, sizeof(k->bitmaps[i].x), hval);
-        hval = fnv_32a_buf(&k->bitmaps[i].y, sizeof(k->bitmaps[i].y), hval);
-    }
+    for (size_t i = 0; i < k->bitmap_count; i++)
+        hval = bitmap_ref_hash(&k->bitmaps[i], hval);
     return hval;
 }
 
@@ -141,16 +137,14 @@ static bool composite_compare(void *a, void *b)
 {
     CompositeHashKey *ak = a;
     CompositeHashKey *bk = b;
+    if (!filter_compare(&ak->filter, &bk->filter))
+        return false;
     if (ak->bitmap_count != bk->bitmap_count)
         return false;
-    for (size_t i = 0; i < ak->bitmap_count; i++) {
-        if (ak->bitmaps[i].image   != bk->bitmaps[i].image   ||
-            ak->bitmaps[i].image_o != bk->bitmaps[i].image_o ||
-            ak->bitmaps[i].x != bk->bitmaps[i].x ||
-            ak->bitmaps[i].y != bk->bitmaps[i].y)
+    for (size_t i = 0; i < ak->bitmap_count; i++)
+        if (!bitmap_ref_compare(&ak->bitmaps[i], &bk->bitmaps[i]))
             return false;
-    }
-    return filter_compare(&ak->filter, &bk->filter);
+    return true;
 }
 
 static bool composite_key_move(void *dst, void *src)

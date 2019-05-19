@@ -101,6 +101,14 @@ START(filter, filter_desc)
     VECTOR(shadow)
 END(FilterDesc)
 
+// describes glyph bitmap reference
+START(bitmap_ref, bitmap_ref_key)
+    GENERIC(BitmapHashValue *, image)
+    GENERIC(BitmapHashValue *, image_o)
+    VECTOR(pos)
+    VECTOR(pos_o)
+END(BitmapRef)
+
 #undef START
 #undef GENERIC
 #undef STRING

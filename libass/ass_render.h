@@ -171,7 +171,6 @@ typedef struct glyph_info {
     int shape_run_id;
 
     ASS_Vector shift;
-    ASS_Vector bitmap_advance;
     BitmapHashValue *image, *image_o;
 
     // next glyph in this cluster

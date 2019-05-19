@@ -78,11 +78,6 @@ typedef struct outline_hash_key {
     } u;
 } OutlineHashKey;
 
-typedef struct {
-    BitmapHashValue *image, *image_o;
-    int x, y;
-} BitmapRef;
-
 enum {
     FILTER_BORDER_STYLE_3 = 1,
     FILTER_NONZERO_BORDER = 2,

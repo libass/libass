@@ -38,6 +38,7 @@
 #define RASTERIZER_PRECISION 16  // rasterizer spline approximation error in 1/64 pixel units
 #define POSITION_PRECISION 8.0   // rough estimate of transform error in 1/64 pixel units
 #define MAX_PERSP_SCALE 16.0
+#define SUBPIXEL_ORDER 3  // ~ log2(64 / POSITION_PRECISION)
 
 
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
@@ -446,7 +447,8 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
     return tail;
 }
 
-static bool quantize_transform(double m[3][3], BitmapHashKey *key)
+static bool quantize_transform(double m[3][3], ASS_Vector *pos,
+                               BitmapHashKey *key)
 {
     // Full transform:
     // x_out = (m_xx * x + m_xy * y + m_xz) / z,
@@ -481,7 +483,7 @@ static bool quantize_transform(double m[3][3], BitmapHashKey *key)
 
     int32_t qr[2];
     for (int i = 0; i < 2; i++) {
-        center[i] /= POSITION_PRECISION;
+        center[i] /= 64 >> SUBPIXEL_ORDER;
         if (!(fabs(center[i]) < max_val))
             return false;
         qr[i] = lrint(center[i]);
@@ -571,7 +573,10 @@ static bool quantize_transform(double m[3][3], BitmapHashKey *key)
         qm[2][j] = lrint(val);
     }
 
-    key->offset.x = qr[0];  key->offset.y = qr[1];
+    pos->x = qr[0] >> SUBPIXEL_ORDER;
+    pos->y = qr[1] >> SUBPIXEL_ORDER;
+    key->offset.x = qr[0] & ((1 << SUBPIXEL_ORDER) - 1);
+    key->offset.y = qr[1] & ((1 << SUBPIXEL_ORDER) - 1);
     key->matrix_x.x = qm[0][0];  key->matrix_x.y = qm[0][1];
     key->matrix_y.x = qm[1][0];  key->matrix_y.y = qm[1][1];
     key->matrix_z.x = qm[2][0];  key->matrix_z.y = qm[2][1];
@@ -605,8 +610,8 @@ static void restore_transform(double m[3][3], const BitmapHashKey *key)
     m[2][2] = FFMIN(m[2][2], MAX_PERSP_SCALE);
 
     double center[2] = {
-        key->offset.x * POSITION_PRECISION,
-        key->offset.y * POSITION_PRECISION,
+        key->offset.x * (64 >> SUBPIXEL_ORDER),
+        key->offset.y * (64 >> SUBPIXEL_ORDER),
     };
     for (int i = 0; i < 2; i++)
         for (int j = 0; j < 3; j++)
@@ -645,9 +650,10 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
     m[0][2] = int_to_d6(render_priv->settings.left_margin);
     m[1][2] = int_to_d6(render_priv->settings.top_margin);
 
+    ASS_Vector pos;
     BitmapHashKey key;
     key.outline = ass_cache_get(render_priv->cache.outline_cache, &ol_key, render_priv);
-    if (!key.outline || !key.outline->valid || !quantize_transform(m, &key)) {
+    if (!key.outline || !key.outline->valid || !quantize_transform(m, &pos, &key)) {
         ass_cache_dec_ref(key.outline);
         return;
     }
@@ -673,8 +679,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
         aw = cur->w;
         ah = cur->h;
         as = cur->stride;
-        bx = clip_bm->left;
-        by = clip_bm->top;
+        bx = pos.x + clip_bm->left;
+        by = pos.y + clip_bm->top;
         bw = clip_bm->w;
         bh = clip_bm->h;
         bs = clip_bm->stride;
@@ -1272,8 +1278,8 @@ static void calc_transform_matrix(ASS_Renderer *render_priv,
     z4[2] += dist;
 
     double scale_x = dist * render_priv->font_scale_x;
-    double offs_x = info->bitmap_advance.x - info->shift.x * render_priv->font_scale_x;
-    double offs_y = info->bitmap_advance.y - info->shift.y;
+    double offs_x = info->pos.x - info->shift.x * render_priv->font_scale_x;
+    double offs_y = info->pos.y - info->shift.y;
     for (int i = 0; i < 3; i++) {
         m[0][i] = z4[i] * offs_x + x4[i] * scale_x;
         m[1][i] = z4[i] * offs_y + y3[i] * dist;
@@ -1290,7 +1296,8 @@ static void calc_transform_matrix(ASS_Renderer *render_priv,
  * They are returned in info->image (glyph), info->image_o (outline).
  */
 static void
-get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
+get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
+                 ASS_Vector *pos, ASS_Vector *pos_o)
 {
     if (!info->outline || info->symbol == '\n' || info->symbol == 0 || info->skip) {
         ass_cache_dec_ref(info->outline);
@@ -1309,11 +1316,12 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 
     BitmapHashKey key;
     key.outline = info->outline;
-    if (!quantize_transform(m, &key)) {
+    if (!quantize_transform(m, pos, &key)) {
         ass_cache_dec_ref(info->outline);
         return;
     }
     info->image = ass_cache_get(render_priv->cache.bitmap_cache, &key, render_priv);
+    *pos_o = *pos;
 
     OutlineHashKey ol_key;
     if (info->border_style == 3) {
@@ -1412,7 +1420,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
     }
 
     key.outline = ass_cache_get(render_priv->cache.outline_cache, &ol_key, render_priv);
-    if (!key.outline || !key.outline->valid || !quantize_transform(m, &key)) {
+    if (!key.outline || !key.outline->valid || !quantize_transform(m, pos_o, &key)) {
         ass_cache_dec_ref(key.outline);
         return;
     }
@@ -2195,12 +2203,10 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             continue;
         }
         for (; info; info = info->next) {
+            ASS_Vector pos, pos_o;
             info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->font_scale_x);
             info->pos.y = double_to_d6(device_y) + info->pos.y;
-            info->bitmap_advance.x = info->pos.x & SUBPIXEL_MASK;
-            info->bitmap_advance.y = info->pos.y & SUBPIXEL_MASK;
-            int x = info->pos.x >> 6, y = info->pos.y >> 6;
-            get_bitmap_glyph(render_priv, info);
+            get_bitmap_glyph(render_priv, info, &pos, &pos_o);
 
             if (linebreak || is_new_bm_run(info, last_info)) {
                 linebreak = 0;
@@ -2273,20 +2279,22 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             }
             current_info->bitmaps[current_info->bitmap_count].image   = info->image;
             current_info->bitmaps[current_info->bitmap_count].image_o = info->image_o;
-            current_info->bitmaps[current_info->bitmap_count].x = x;
-            current_info->bitmaps[current_info->bitmap_count].y = y;
+            current_info->bitmaps[current_info->bitmap_count].pos   = pos;
+            current_info->bitmaps[current_info->bitmap_count].pos_o = pos_o;
             current_info->bitmap_count++;
 
-            current_info->x = FFMIN(current_info->x, x);
-            current_info->y = FFMIN(current_info->y, y);
+            current_info->x = FFMIN(current_info->x, pos.x);
+            current_info->y = FFMIN(current_info->y, pos.y);
         }
     }
 
     for (int i = 0; i < nb_bitmaps; i++) {
         CombinedBitmapInfo *info = &combined_info[i];
         for (int j = 0; j < info->bitmap_count; j++) {
-            info->bitmaps[j].x -= info->x;
-            info->bitmaps[j].y -= info->y;
+            info->bitmaps[j].pos.x -= info->x;
+            info->bitmaps[j].pos.y -= info->y;
+            info->bitmaps[j].pos_o.x -= info->x;
+            info->bitmaps[j].pos_o.y -= info->y;
         }
 
         CompositeHashKey key;
@@ -2330,12 +2338,12 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     for (int i = 0; i < k->bitmap_count; i++) {
         BitmapRef *ref = &k->bitmaps[i];
         if (ref->image && ref->image->bm) {
-            rectangle_combine(&rect, ref->image->bm, ref->x, ref->y);
+            rectangle_combine(&rect, ref->image->bm, ref->pos.x, ref->pos.y);
             last = ref;
             n_bm++;
         }
         if (ref->image_o && ref->image_o->bm) {
-            rectangle_combine(&rect_o, ref->image_o->bm, ref->x, ref->y);
+            rectangle_combine(&rect_o, ref->image_o->bm, ref->pos_o.x, ref->pos_o.y);
             last_o = ref;
             n_bm_o++;
         }
@@ -2345,8 +2353,8 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     if (!bord && n_bm == 1) {
         v->bm = copy_bitmap(render_priv->engine, last->image->bm);
         if (v->bm) {
-            v->bm->left += last->x;
-            v->bm->top  += last->y;
+            v->bm->left += last->pos.x;
+            v->bm->top  += last->pos.y;
         }
     } else if (n_bm) {
         v->bm = alloc_bitmap(render_priv->engine,
@@ -2362,8 +2370,8 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
                 Bitmap *src = k->bitmaps[i].image->bm;
                 if (!src)
                     continue;
-                int x = k->bitmaps[i].x + src->left - dst->left;
-                int y = k->bitmaps[i].y + src->top  - dst->top;
+                int x = k->bitmaps[i].pos.x + src->left - dst->left;
+                int y = k->bitmaps[i].pos.y + src->top  - dst->top;
                 assert(x >= 0 && x + src->w <= dst->w);
                 assert(y >= 0 && y + src->h <= dst->h);
                 unsigned char *buf = dst->buffer + y * dst->stride + x;
@@ -2376,8 +2384,8 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     if (!bord && n_bm_o == 1) {
         v->bm_o = copy_bitmap(render_priv->engine, last_o->image_o->bm);
         if (v->bm_o) {
-            v->bm_o->left += last_o->x;
-            v->bm_o->top  += last_o->y;
+            v->bm_o->left += last_o->pos_o.x;
+            v->bm_o->top  += last_o->pos_o.y;
         }
     } else if (n_bm_o) {
         v->bm_o = alloc_bitmap(render_priv->engine,
@@ -2393,8 +2401,8 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
                 Bitmap *src = k->bitmaps[i].image_o->bm;
                 if (!src)
                     continue;
-                int x = k->bitmaps[i].x + src->left - dst->left;
-                int y = k->bitmaps[i].y + src->top  - dst->top;
+                int x = k->bitmaps[i].pos_o.x + src->left - dst->left;
+                int y = k->bitmaps[i].pos_o.y + src->top  - dst->top;
                 assert(x >= 0 && x + src->w <= dst->w);
                 assert(y >= 0 && y + src->h <= dst->h);
                 unsigned char *buf = dst->buffer + y * dst->stride + x;
