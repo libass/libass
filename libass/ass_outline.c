@@ -35,6 +35,7 @@ bool outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_segments)
 
     outline->max_points = n_points;
     outline->max_segments = n_segments;
+    outline->n_points = outline->n_segments = 0;
     return true;
 }
 
@@ -61,7 +62,6 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
         S_ON, S_Q, S_C1, S_C2
     };
 
-    outline->n_points = outline->n_segments = 0;
     for (size_t i = 0, j = 0; i < source->n_contours; i++) {
         ASS_Vector pt;
         bool skip_last = false;
@@ -1344,12 +1344,14 @@ static bool close_contour(StrokerState *str, int dir)
 bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
                     const ASS_Outline *path, int xbord, int ybord, int eps)
 {
+    outline_alloc(result,  2 * path->n_points, 2 * path->n_segments);
+    outline_alloc(result1, 2 * path->n_points, 2 * path->n_segments);
+    if (!result->max_points || !result1->max_points)
+        return false;
+
     const int dir = 3;
     int rad = FFMAX(xbord, ybord);
     assert(rad >= eps);
-
-    result->n_points = result->n_segments = 0;
-    result1->n_points = result1->n_segments = 0;
 
     StrokerState str;
     str.result[0] = result;

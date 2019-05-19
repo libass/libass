@@ -1190,14 +1190,10 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
             if (!outline_scale_pow2(&src, &k->outline->outline[0],
                                     k->scale_ord_x, k->scale_ord_y))
                 return 1;
-
-            outline_alloc(&v->outline[0], 2 * src.n_points, 2 * src.n_segments);
-            outline_alloc(&v->outline[1], 2 * src.n_points, 2 * src.n_segments);
-            if (!v->outline[0].max_points || !v->outline[1].max_points ||
-                    !outline_stroke(&v->outline[0], &v->outline[1], &src,
-                                    k->border.x * STROKER_PRECISION,
-                                    k->border.y * STROKER_PRECISION,
-                                    STROKER_PRECISION)) {
+            if (!outline_stroke(&v->outline[0], &v->outline[1], &src,
+                                k->border.x * STROKER_PRECISION,
+                                k->border.y * STROKER_PRECISION,
+                                STROKER_PRECISION)) {
                 ass_msg(render_priv->library, MSGL_WARN, "Cannot stroke outline");
                 outline_free(&v->outline[0]);
                 outline_free(&v->outline[1]);

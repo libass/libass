@@ -181,7 +181,6 @@ bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
 {
     if (!outline_alloc(outline, DRAWING_INITIAL_POINTS, DRAWING_INITIAL_SEGMENTS))
         return false;
-    outline->n_points = outline->n_segments = 0;
     rectangle_reset(cbox);
 
     ASS_DrawingToken *tokens = drawing_tokenize(text);
