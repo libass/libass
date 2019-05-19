@@ -134,9 +134,8 @@ typedef struct glyph_info {
     char *drawing_text;
     int drawing_scale;
     int drawing_pbo;
-    OutlineHashValue *outline, *border;
-    ASS_Transform outline_transform;
-    ASS_Transform border_transform;
+    OutlineHashValue *outline;
+    ASS_Transform transform;
     ASS_Rect bbox;
     ASS_Vector pos;
     ASS_Vector offset;

@@ -1147,8 +1147,8 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
     }
 
     info->outline = val;
-    info->outline_transform.scale = scale;
-    info->outline_transform.offset = offset;
+    info->transform.scale = scale;
+    info->transform.offset = offset;
 
     info->bbox.x_min = lrint(val->cbox.x_min * scale.x + offset.x);
     info->bbox.y_min = lrint(val->cbox.y_min * scale.y + offset.y);
@@ -1161,62 +1161,6 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
     }
     info->asc  = lrint(asc  * scale.y);
     info->desc = lrint(desc * scale.y);
-
-    if (info->border_style == 3) {
-        key.type = OUTLINE_BOX;
-        val = ass_cache_get(priv->cache.outline_cache, &key, priv);
-        if (!val || !val->valid) {
-            ass_cache_dec_ref(val);
-            return;
-        }
-
-        double w = 64 * priv->border_scale;
-        ASS_DVector bord = { info->border_x * w, info->border_y * w };
-        double width = info->hspacing_scaled + info->advance.x;
-        double height = info->asc + info->desc;
-
-        ASS_DVector orig_scale;
-        orig_scale.x = info->scale_x * info->scale_fix;
-        orig_scale.y = info->scale_y * info->scale_fix;
-
-        // Emulate the WTFish behavior of VSFilter, i.e. double-scale
-        // the sizes of the opaque box.
-        bord.x *= orig_scale.x;
-        bord.y *= orig_scale.y;
-        width  *= orig_scale.x;
-        height *= orig_scale.y;
-
-        // to avoid gaps
-        bord.x = FFMAX(64, bord.x);
-        bord.y = FFMAX(64, bord.y);
-
-        scale.x = (width  + 2 * bord.x) / 64;
-        scale.y = (height + 2 * bord.y) / 64;
-        offset.x = -bord.x;
-        offset.y = -bord.y - info->asc;
-    } else {
-        key.type = OUTLINE_BORDER;
-        BorderHashKey *k = &key.u.border;
-        k->outline = val;
-
-        // XXX: account for full transformation instead of only scale
-        scale.x = frexp(scale.x, &k->scale_ord_x);
-        scale.y = frexp(scale.y, &k->scale_ord_y);
-
-        double w = priv->border_scale * (64 / STROKER_PRECISION);
-        k->border.x = lrint(w * info->border_x / scale.x);
-        k->border.y = lrint(w * info->border_y / scale.y);
-
-        val = ass_cache_get(priv->cache.outline_cache, &key, priv);
-        if (!val || !val->valid) {
-            ass_cache_dec_ref(val);
-            return;
-        }
-    }
-
-    info->border = val;
-    info->border_transform.scale = scale;
-    info->border_transform.offset = offset;
 }
 
 size_t ass_outline_construct(void *key, void *value, void *priv)
@@ -1379,15 +1323,65 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 {
     if (!info->outline || info->symbol == '\n' || info->symbol == 0 || info->skip) {
         ass_cache_dec_ref(info->outline);
-        ass_cache_dec_ref(info->border);
         return;
+    }
+
+    ASS_Transform tr;
+    OutlineHashKey key;
+    if (info->border_style == 3) {
+        key.type = OUTLINE_BOX;
+
+        double w = 64 * render_priv->border_scale;
+        ASS_DVector bord = { info->border_x * w, info->border_y * w };
+        double width = info->hspacing_scaled + info->advance.x;
+        double height = info->asc + info->desc;
+
+        ASS_DVector orig_scale;
+        orig_scale.x = info->scale_x * info->scale_fix;
+        orig_scale.y = info->scale_y * info->scale_fix;
+
+        // Emulate the WTFish behavior of VSFilter, i.e. double-scale
+        // the sizes of the opaque box.
+        bord.x *= orig_scale.x;
+        bord.y *= orig_scale.y;
+        width  *= orig_scale.x;
+        height *= orig_scale.y;
+
+        // to avoid gaps
+        bord.x = FFMAX(64, bord.x);
+        bord.y = FFMAX(64, bord.y);
+
+        tr.scale.x = (width  + 2 * bord.x) / 64;
+        tr.scale.y = (height + 2 * bord.y) / 64;
+        tr.offset.x = -bord.x;
+        tr.offset.y = -bord.y - info->asc;
+    } else {
+        key.type = OUTLINE_BORDER;
+        BorderHashKey *k = &key.u.border;
+        k->outline = info->outline;
+
+        // XXX: account for full transformation instead of only scale
+        tr.scale.x = frexp(info->transform.scale.x, &k->scale_ord_x);
+        tr.scale.y = frexp(info->transform.scale.y, &k->scale_ord_y);
+        tr.offset = info->transform.offset;
+
+        double w = render_priv->border_scale * (64 / STROKER_PRECISION);
+        k->border.x = lrint(w * info->border_x / tr.scale.x);
+        k->border.y = lrint(w * info->border_y / tr.scale.y);
+    }
+
+    OutlineHashValue *border =
+        ass_cache_get(render_priv->cache.outline_cache, &key, render_priv);
+    if (!border || !border->valid) {
+        ass_cache_dec_ref(border);
+        border = NULL;
     }
 
     double m[3][3];
     calc_transform_matrix(render_priv, info, m);
 
-    info->image   = get_bitmap(render_priv, info->outline, &info->outline_transform, m);
-    info->image_o = get_bitmap(render_priv, info->border,  &info->border_transform,  m);
+    info->image = get_bitmap(render_priv, info->outline, &info->transform, m);
+    info->image_o = get_bitmap(render_priv, border, &tr, m);
 }
 
 size_t ass_bitmap_construct(void *key, void *value, void *priv)
@@ -2161,10 +2155,8 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
         GlyphInfo *info = text_info->glyphs + i;
         if (info->linebreak) linebreak = 1;
         if (info->skip) {
-            for (; info; info = info->next) {
+            for (; info; info = info->next)
                 ass_cache_dec_ref(info->outline);
-                ass_cache_dec_ref(info->border);
-            }
             continue;
         }
         for (; info; info = info->next) {
