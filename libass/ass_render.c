@@ -1055,7 +1055,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             ass_font_set_transform(info->font, info->scale_x, info->scale_y);
             FT_Glyph glyph =
                 ass_font_get_glyph(info->font,
-                        info->symbol, info->face_index, info->glyph_index,
+                        info->face_index, info->glyph_index,
                         priv->settings.hinting, info->flags);
             if (glyph != NULL) {
                 FT_Outline *src = &((FT_OutlineGlyph) glyph)->outline;
@@ -1067,7 +1067,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                 if (priv->settings.shaper == ASS_SHAPING_SIMPLE)
                     val->advance = d16_to_d6(glyph->advance.x);
                 FT_Done_Glyph(glyph);
-                ass_font_get_asc_desc(info->font, info->symbol,
+                ass_font_get_asc_desc(info->font, info->face_index,
                                       &val->asc, &val->desc);
                 val->asc  *= info->scale_y;
                 val->desc *= info->scale_y;
@@ -1659,7 +1659,7 @@ static bool is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
         last->hspacing != info->hspacing ||
         last->italic != info->italic ||
         last->bold != info->bold ||
-        last->flags != info->flags;
+        ((last->flags ^ info->flags) & ~DECO_ROTATE);
 }
 
 static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
@@ -1793,6 +1793,8 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         info->bold = render_priv->state.bold;
         info->italic = render_priv->state.italic;
         info->flags = render_priv->state.flags;
+        if (info->font->desc.vertical && code >= VERTICAL_LOWER_BOUND)
+            info->flags |= DECO_ROTATE;
         info->frx = render_priv->state.frx;
         info->fry = render_priv->state.fry;
         info->frz = render_priv->state.frz;

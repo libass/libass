@@ -317,30 +317,23 @@ void ass_font_set_size(ASS_Font *font, double size)
 
 /**
  * \brief Get maximal font ascender and descender.
- * \param ch character code
- * The values are extracted from the font face that provides glyphs for the given character
  **/
-void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
-                           int *desc)
+void ass_font_get_asc_desc(ASS_Font *font, int face_index,
+                           int *asc, int *desc)
 {
-    int i;
-    for (i = 0; i < font->n_faces; ++i) {
-        FT_Face face = font->faces[i];
-        TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
-        if (FT_Get_Char_Index(face, ass_font_index_magic(face, ch))) {
-            int y_scale = face->size->metrics.y_scale;
-            if (os2) {
-                *asc = FT_MulFix((short)os2->usWinAscent, y_scale);
-                *desc = FT_MulFix((short)os2->usWinDescent, y_scale);
-            } else {
-                *asc = FT_MulFix(face->ascender, y_scale);
-                *desc = FT_MulFix(-face->descender, y_scale);
-            }
-            return;
-        }
+    FT_Long a, d;
+    FT_Face face = font->faces[face_index];
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
+    if (os2) {
+        a = (short) os2->usWinAscent;
+        d = (short) os2->usWinDescent;
+    } else {
+        a =  face->ascender;
+        d = -face->descender;
     }
-
-    *asc = *desc = 0;
+    int y_scale = face->size->metrics.y_scale;
+    *asc  = FT_MulFix(a, y_scale);
+    *desc = FT_MulFix(d, y_scale);
 }
 
 static void add_line(FT_Outline *ol, int bear, int advance, int dir, int pos, int size) {
@@ -525,14 +518,13 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
  * \brief Get a glyph
  * \param ch character code
  **/
-FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
-                            int index, ASS_Hinting hinting, int deco)
+FT_Glyph ass_font_get_glyph(ASS_Font *font, int face_index, int index,
+                            ASS_Hinting hinting, int deco)
 {
     int error;
     FT_Glyph glyph;
     FT_Face face = font->faces[face_index];
     int flags = 0;
-    int vertical = font->desc.vertical;
 
     flags = FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
             | FT_LOAD_IGNORE_TRANSFORM;
@@ -573,7 +565,7 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
     }
 
     // Rotate glyph, if needed
-    if (vertical && ch >= VERTICAL_LOWER_BOUND) {
+    if (deco & DECO_ROTATE) {
         FT_Matrix m = { 0, double_to_d16(-1.0), double_to_d16(1.0), 0 };
         TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
         int desc = 0;
