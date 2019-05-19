@@ -30,9 +30,7 @@ typedef struct cache Cache;
 // cache values
 
 typedef struct {
-    bool valid;
-    Bitmap *bm;               // the actual bitmaps
-    Bitmap *bm_o;
+    Bitmap *bm;  // the actual bitmap
 } BitmapHashValue;
 
 typedef struct {
@@ -43,11 +41,10 @@ typedef struct {
 
 typedef struct {
     bool valid;
-    ASS_Outline outline;
-    ASS_Outline border[2];
-    ASS_Rect bbox_scaled;       // bbox after scaling, but before rotation
-    int advance;                // 26.6, advance distance to the next outline in line
-    int asc, desc;              // ascender/descender
+    ASS_Outline outline[2];
+    ASS_Rect cbox;  // bounding box of all control points
+    int advance;    // 26.6, advance distance to the next outline in line
+    int asc, desc;  // ascender/descender
 } OutlineHashValue;
 
 typedef struct {
@@ -71,27 +68,18 @@ typedef struct outline_hash_key {
     enum {
         OUTLINE_GLYPH,
         OUTLINE_DRAWING,
+        OUTLINE_BORDER,
+        OUTLINE_BOX,
     } type;
     union {
         GlyphHashKey glyph;
         DrawingHashKey drawing;
-        OutlineCommonKey common;
+        BorderHashKey border;
     } u;
 } OutlineHashKey;
 
-typedef struct bitmap_hash_key {
-    enum {
-        BITMAP_OUTLINE,
-        BITMAP_CLIP,
-    } type;
-    union {
-        OutlineBitmapHashKey outline;
-        ClipMaskHashKey clip;
-    } u;
-} BitmapHashKey;
-
 typedef struct {
-    BitmapHashValue *image;
+    BitmapHashValue *image, *image_o;
     int x, y;
 } BitmapRef;
 

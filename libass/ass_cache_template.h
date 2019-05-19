@@ -51,26 +51,14 @@
 
 
 // describes an outline bitmap
-START(outline_bitmap, outline_bitmap_hash_key)
+START(bitmap, bitmap_hash_key)
     GENERIC(OutlineHashValue *, outline)
-    GENERIC(int, frx) // signed 10.22
-    GENERIC(int, fry) // signed 10.22
-    GENERIC(int, frz) // signed 10.22
-    GENERIC(int, fax) // signed 16.16
-    GENERIC(int, fay) // signed 16.16
-    // shift vector that was added to glyph before applying rotation
-    // = 0, if frx = fry = frx = 0
-    // = (glyph base point) - (rotation origin), otherwise
-    GENERIC(int, shift_x)
-    GENERIC(int, shift_y)
-    VECTOR(advance) // subpixel shift vector
-END(OutlineBitmapHashKey)
-
-// describe a clip mask bitmap
-START(clip_bitmap, clip_bitmap_hash_key)
-    GENERIC(int, scale)
-    STRING(text)
-END(ClipMaskHashKey)
+    // quantized transform matrix
+    VECTOR(offset)
+    VECTOR(matrix_x)
+    VECTOR(matrix_y)
+    VECTOR(matrix_z)
+END(BitmapHashKey)
 
 START(glyph_metrics, glyph_metrics_hash_key)
     GENERIC(ASS_Font *, font)
@@ -79,25 +67,8 @@ START(glyph_metrics, glyph_metrics_hash_key)
     GENERIC(int, glyph_index)
 END(GlyphMetricsHashKey)
 
-// common outline data
-START(outline_common, outline_common_hash_key)
-    GENERIC(unsigned, scale_x) // 16.16
-    GENERIC(unsigned, scale_y) // 16.16
-    VECTOR(outline) // border width, 26.6
-    GENERIC(unsigned, border_style)
-    GENERIC(int, scale_fix)    // 16.16
-    GENERIC(int, advance)      // 26.6
-END(OutlineCommonKey)
-
 // describes an outline glyph
 START(glyph, glyph_hash_key)
-    GENERIC(unsigned, scale_x) // 16.16
-    GENERIC(unsigned, scale_y) // 16.16
-    VECTOR(outline) // border width, 26.6
-    GENERIC(unsigned, border_style)
-    GENERIC(int, scale_fix)    // 16.16
-    GENERIC(int, advance)      // 26.6
-
     GENERIC(ASS_Font *, font)
     GENERIC(double, size) // font size
     GENERIC(int, face_index)
@@ -109,17 +80,18 @@ END(GlyphHashKey)
 
 // describes an outline drawing
 START(drawing, drawing_hash_key)
-    GENERIC(unsigned, scale_x) // 16.16
-    GENERIC(unsigned, scale_y) // 16.16
-    VECTOR(outline) // border width, 26.6
-    GENERIC(unsigned, border_style)
-    GENERIC(int, scale_fix)    // 16.16
-    GENERIC(int, advance)      // 26.6
-
-    GENERIC(int, pbo)
-    GENERIC(int, scale)
     STRING(text)
 END(DrawingHashKey)
+
+// describes an offset outline
+START(border, border_hash_key)
+    GENERIC(OutlineHashValue *, outline)
+    // outline is scaled by 2^scale_ord_x|y before stroking
+    // to keep stoker error in allowable range
+    GENERIC(int, scale_ord_x)
+    GENERIC(int, scale_ord_y)
+    VECTOR(border)  // border size in STROKER_ACCURACY units
+END(BorderHashKey)
 
 // describes post-combining effects
 START(filter, filter_desc)

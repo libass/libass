@@ -113,6 +113,10 @@ typedef struct {
     CompositeHashValue *image;
 } CombinedBitmapInfo;
 
+typedef struct {
+    ASS_DVector scale, offset;
+} ASS_Transform;
+
 // describes a glyph
 // GlyphInfo and TextInfo are used for text centering and word-wrapping operations
 typedef struct glyph_info {
@@ -130,8 +134,9 @@ typedef struct glyph_info {
     char *drawing_text;
     int drawing_scale;
     int drawing_pbo;
-    ASS_Outline *outline;
-    ASS_Outline *border[2];
+    OutlineHashValue *outline, *border;
+    ASS_Transform outline_transform;
+    ASS_Transform border_transform;
     ASS_Rect bbox;
     ASS_Vector pos;
     ASS_Vector offset;
@@ -166,8 +171,9 @@ typedef struct glyph_info {
 
     int shape_run_id;
 
-    BitmapHashKey hash_key;
-    BitmapHashValue *image;
+    ASS_Vector shift;
+    ASS_Vector bitmap_advance;
+    BitmapHashValue *image, *image_o;
 
     // next glyph in this cluster
     struct glyph_info *next;

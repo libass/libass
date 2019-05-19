@@ -96,9 +96,7 @@ bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment);
 bool outline_add_segment(ASS_Outline *outline, char segment);
 bool outline_close_contour(ASS_Outline *outline);
 
-void outline_translate(const ASS_Outline *outline, int32_t dx, int32_t dy);
-void outline_adjust(const ASS_Outline *outline, double scale_x, int32_t dx, int32_t dy);
-void outline_get_cbox(const ASS_Outline *outline, ASS_Rect *cbox);
+void outline_update_cbox(const ASS_Outline *outline, ASS_Rect *cbox);
 
 bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
                     const ASS_Outline *path, int xbord, int ybord, int eps);

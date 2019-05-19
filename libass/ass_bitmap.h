@@ -108,18 +108,6 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
                     double blur_radius, Bitmap *bm_g, Bitmap *bm_o);
 
-/**
- * \brief perform glyph rendering
- * \param outline original glyph
- * \param border1 inside "border" outline, produced by stroker
- * \param border2 outside "border" outline, produced by stroker
- * \param bm_g out: pointer to the bitmap of original glyph is returned here
- * \param bm_o out: pointer to the bitmap of border glyph is returned here
- */
-bool outline_to_bitmap2(ASS_Renderer *render_priv, ASS_Outline *outline,
-                        ASS_Outline *border1, ASS_Outline *border2,
-                        Bitmap **bm_g, Bitmap **bm_o);
-
 int be_padding(int be);
 void be_blur_pre(uint8_t *buf, intptr_t w,
                  intptr_t h, intptr_t stride);

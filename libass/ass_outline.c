@@ -287,43 +287,15 @@ bool outline_close_contour(ASS_Outline *outline)
 }
 
 
-void outline_translate(const ASS_Outline *outline, int32_t dx, int32_t dy)
+/*
+ * \brief Update bounding box of control points.
+ */
+void outline_update_cbox(const ASS_Outline *outline, ASS_Rect *cbox)
 {
-    for (size_t i = 0; i < outline->n_points; i++) {
-        outline->points[i].x += dx;
-        outline->points[i].y += dy;
-    }
-}
-
-void outline_adjust(const ASS_Outline *outline, double scale_x, int32_t dx, int32_t dy)
-{
-    int32_t mul = lrint(scale_x * 0x10000);
-    if (mul == 0x10000) {
-        outline_translate(outline, dx, dy);
-        return;
-    }
-    for (size_t i = 0; i < outline->n_points; i++) {
-        int32_t x = (int64_t) outline->points[i].x * mul >> 16;
-        outline->points[i].x = x + dx;
-        outline->points[i].y += dy;
-    }
-}
-
-void outline_get_cbox(const ASS_Outline *outline, ASS_Rect *cbox)
-{
-    if (!outline->n_points) {
-        cbox->x_min = cbox->x_max = 0;
-        cbox->y_min = cbox->y_max = 0;
-        return;
-    }
-    cbox->x_min = cbox->x_max = outline->points[0].x;
-    cbox->y_min = cbox->y_max = outline->points[0].y;
-    for (size_t i = 1; i < outline->n_points; i++) {
-        cbox->x_min = FFMIN(cbox->x_min, outline->points[i].x);
-        cbox->x_max = FFMAX(cbox->x_max, outline->points[i].x);
-        cbox->y_min = FFMIN(cbox->y_min, outline->points[i].y);
-        cbox->y_max = FFMAX(cbox->y_max, outline->points[i].y);
-    }
+    for (size_t i = 0; i < outline->n_points; i++)
+        rectangle_update(cbox,
+                         outline->points[i].x, outline->points[i].y,
+                         outline->points[i].x, outline->points[i].y);
 }
 
 
