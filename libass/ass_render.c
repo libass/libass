@@ -1418,8 +1418,11 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
         frexp(w * (FFMAX(mxy, myy) + mzy * rz), &k->scale_ord_y);
         k->border.x = lrint(ldexp(bord_x, k->scale_ord_x) / STROKER_PRECISION);
         k->border.y = lrint(ldexp(bord_y, k->scale_ord_y) / STROKER_PRECISION);
-        if (!k->border.x && !k->border.y)
+        if (!k->border.x && !k->border.y) {
+            ass_cache_inc_ref(info->bm);
+            info->bm_o = info->bm;
             return;
+        }
 
         for (int i = 0; i < 3; i++) {
             m[i][0] = ldexp(m2[i][0], -k->scale_ord_x);
