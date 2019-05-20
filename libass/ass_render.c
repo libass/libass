@@ -2295,6 +2295,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 nb_bitmaps++;
             }
             last_info = info;
+            assert(current_info);
 
             ASS_Vector pos, pos_o;
             info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->font_scale_x);
@@ -2302,7 +2303,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             get_bitmap_glyph(render_priv, info, &pos, &pos_o,
                              &offset, !current_info->bitmap_count, flags);
 
-            if (!current_info || (!info->bm && !info->bm_o)) {
+            if (!info->bm && !info->bm_o) {
                 ass_cache_dec_ref(info->bm);
                 ass_cache_dec_ref(info->bm_o);
                 continue;
@@ -3080,7 +3081,8 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
     }
 
     // sort by layer
-    qsort(priv->eimg, cnt, sizeof(EventImages), cmp_event_layer);
+    if (cnt > 0)
+        qsort(priv->eimg, cnt, sizeof(EventImages), cmp_event_layer);
 
     // call fix_collisions for each group of events with the same layer
     EventImages *last = priv->eimg;
