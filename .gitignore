@@ -19,6 +19,7 @@ Makefile.in
 
 # Test programs
 /test/test*
+/compare/compare*
 /profile/profile*
 
 # pkgconfig

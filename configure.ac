@@ -35,6 +35,8 @@ LIBS="$OLDLIBS $LIBS"
 # Check for libraries via pkg-config
 AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
     [enable test program (requires libpng) @<:@default=no@:>@]))
+AC_ARG_ENABLE([compare], AS_HELP_STRING([--enable-compare],
+    [enable compare program (requires libpng) @<:@default=no@:>@]))
 AC_ARG_ENABLE([profile], AS_HELP_STRING([--enable-profile],
     [enable profiling program @<:@default=no@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
@@ -218,14 +220,15 @@ PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
 fi
 
 libpng=false
-if test x$enable_test = xyes; then
+if test x$enable_test = xyes || test x$enable_compare = xyes; then
 PKG_CHECK_MODULES([LIBPNG], libpng >= 1.2.0, [
     CFLAGS="$CFLAGS $LIBPNG_CFLAGS"
     AC_DEFINE(CONFIG_LIBPNG, 1, [found libpng via pkg-config])
     libpng=true])
 fi
 
-AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
+AM_CONDITIONAL([ENABLE_TEST], [test x$enable_test = xyes && test x$libpng = xtrue])
+AM_CONDITIONAL([ENABLE_COMPARE], [test x$enable_compare = xyes && test x$libpng = xtrue])
 
 AM_CONDITIONAL([ENABLE_PROFILE], [test x$enable_profile = xyes])
 
@@ -265,5 +268,5 @@ AC_SUBST([PKG_REQUIRES_PRIVATE], [$(test x$enable_shared = xno || echo ${pkg_req
 # Setup output beautifier.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile profile/Makefile libass.pc])
+AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile compare/Makefile profile/Makefile libass.pc])
 AC_OUTPUT
