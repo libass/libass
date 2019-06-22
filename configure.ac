@@ -49,8 +49,8 @@ AC_ARG_ENABLE([require-system-font-provider], AS_HELP_STRING([--disable-require-
     [allow compilation even if no system font provider was found @<:@default=enabled:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
-AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
-    [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
+AC_ARG_ENABLE([render-lq], AS_HELP_STRING([--enable-render-lq],
+    [adjust various spatial accuracy parameters for better performance but slightly worse quality @<:@default=disabled@:>@]))
 
 AS_IF([test x$enable_asm != xno], [
     AS_CASE([$host],
@@ -126,11 +126,11 @@ AM_COND_IF([ASM],
     [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])]
     )
 
-AM_CONDITIONAL([ENABLE_LARGE_TILES], [test x$enable_large_tiles = xyes])
+AM_CONDITIONAL([ENABLE_RENDER_LQ], [test x$enable_render_lq = xyes])
 
-AM_COND_IF([ENABLE_LARGE_TILES],
-    [AC_DEFINE(CONFIG_LARGE_TILES, 1, [use large tiles])]
-    [AC_DEFINE(CONFIG_LARGE_TILES, 0, [use small tiles])],
+AM_COND_IF([ENABLE_RENDER_LQ],
+    [AC_DEFINE(CONFIG_RENDER_LQ, 1, [enable optimizations])]
+    [AC_DEFINE(CONFIG_RENDER_LQ, 0, [disable optimizations])],
     )
 
 PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.10.3, [
