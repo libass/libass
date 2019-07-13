@@ -52,6 +52,7 @@
 typedef struct {
     ASS_Image result;
     CompositeHashValue *source;
+    unsigned char *buffer;
     size_t ref_count;
 } ASS_ImagePriv;
 

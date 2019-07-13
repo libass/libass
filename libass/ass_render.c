@@ -179,6 +179,7 @@ static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
 
     img->source = source;
     ass_cache_inc_ref(source);
+    img->buffer = source ? NULL : bitmap;
     img->ref_count = 0;
 
     return &img->result;
@@ -754,8 +755,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
             cur->stride = ns;
         }
 
-        cur->bitmap = nbuffer;
         ASS_ImagePriv *priv = (ASS_ImagePriv *) cur;
+        priv->buffer = cur->bitmap = nbuffer;
         ass_cache_dec_ref(priv->source);
         priv->source = NULL;
     }
@@ -3138,10 +3139,8 @@ void ass_frame_unref(ASS_Image *img)
     do {
         ASS_ImagePriv *priv = (ASS_ImagePriv *) img;
         img = img->next;
-        if (priv->source)
-            ass_cache_dec_ref(priv->source);
-        else
-            ass_aligned_free(priv->result.bitmap);
+        ass_cache_dec_ref(priv->source);
+        ass_aligned_free(priv->buffer);
         free(priv);
     } while (img);
 }
