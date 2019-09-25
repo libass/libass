@@ -45,7 +45,7 @@ typedef struct ass_font_provider_meta_data ASS_FontProviderMetaData;
  * font path (i.e. the path was set to NULL).
  *
  * \param font_priv font private data
- * \param output buffer; set to NULL to query stream size
+ * \param data output buffer; set to NULL to query stream size
  * \param offset stream offset
  * \param len bytes to read into output buffer from stream
  * \return actual number of bytes read, or stream size if data == NULL
@@ -65,7 +65,7 @@ typedef bool    (*CheckPostscriptFunc)(void *font_priv);
  * Check if a glyph is supported by a font.
  *
  * \param font_priv font private data
- * \param codepont Unicode codepoint (UTF-32)
+ * \param codepoint Unicode codepoint (UTF-32)
  * \return true if codepoint is supported by the font
  */
 typedef bool    (*CheckGlyphFunc)(void *font_priv, uint32_t codepoint);
@@ -243,7 +243,7 @@ ASS_FontProvider *ass_font_provider_new(ASS_FontSelector *selector,
  * provide additional fonts to libass.
  * \param priv parent renderer
  * \param funcs callback functions
- * \param private data for provider callbacks
+ * \param data private data for provider callbacks
  *
  */
 ASS_FontProvider *
