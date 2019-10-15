@@ -843,6 +843,9 @@ error:
     free(info->families);
     free(info->fullnames);
 
+    info->families = info->fullnames = NULL;
+    info->n_family = info->n_fullname = 0;
+
     return false;
 }
 
