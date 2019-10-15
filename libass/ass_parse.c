@@ -629,7 +629,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 t2 = render_priv->state.event->Duration;
             delta_t = t2 - t1;
             t = render_priv->time - render_priv->state.event->Start;        // FIXME: move to render_context
-            if (t <= t1)
+            if (t < t1)
                 k = 0.;
             else if (t >= t2)
                 k = 1.;
