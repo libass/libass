@@ -117,8 +117,6 @@ static char *get_name(CTFontDescriptorRef fontd, CFStringRef attr)
 static void process_descriptors(ASS_Library *lib, ASS_FontProvider *provider,
                                 CFArrayRef fontsd)
 {
-    ASS_FontProviderMetaData meta;
-
     if (!fontsd)
         return;
 
@@ -129,6 +127,7 @@ static void process_descriptors(ASS_Library *lib, ASS_FontProvider *provider,
     }
 
     for (int i = 0; i < CFArrayGetCount(fontsd); i++) {
+        ASS_FontProviderMetaData meta = {0};
         CTFontDescriptorRef fontd = CFArrayGetValueAtIndex(fontsd, i);
         int index = -1;
 
@@ -138,8 +137,6 @@ static void process_descriptors(ASS_Library *lib, ASS_FontProvider *provider,
             free(path);
             continue;
         }
-
-        memset(&meta, 0, sizeof(meta));
 
         char *ps_name = get_name(fontd, kCTFontNameAttribute);
 
