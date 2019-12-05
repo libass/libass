@@ -57,11 +57,24 @@ struct ass_font {
     double size;
 };
 
+typedef enum WidthClass { 
+  FWIDTH_ULTRA_CONDENSED = 1, 
+  FWIDTH_EXTRA_CONDENSED = 2, 
+  FWIDTH_CONDENSED = 3, 
+  FWIDTH_SEMI_CONDENSED = 4, 
+  FWIDTH_NORMAL = 5, 
+  FWIDTH_SEMI_EXPANDED = 6, 
+  FWIDTH_EXPANDED = 7, 
+  FWIDTH_EXTRA_EXPANDED = 8, 
+  FWIDTH_ULTRA_EXPANDED = 9 
+} WidthClass;
+
 void charmap_magic(ASS_Library *library, FT_Face face);
 ASS_Font *ass_font_new(ASS_Renderer *render_priv, ASS_FontDesc *desc);
 void ass_face_set_size(FT_Face face, double size);
 void ass_font_set_size(ASS_Font *font, double size);
 int ass_face_get_weight(FT_Face face);
+int ass_face_get_width(FT_Face face);
 void ass_font_get_asc_desc(ASS_Font *font, int face_index,
                            int *asc, int *desc);
 int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
