@@ -45,9 +45,10 @@ Information about the ASS format:
 Other ASS/SSA implementations:
 ==============================
 - VSFilter:
-  - [xy-VSFilter/XySubFilter](https://code.google.com/p/xy-vsfilter/)
-  - VSFilter in [MPC-HC](http://mpc-hc.org/)
-  - [VSFilterMod](https://code.google.com/p/vsfiltermod/) (with custom format extensions)
+  - [xy-VSFilter/XySubFilter](https://github.com/Cyberbeing/xy-VSFilter/)
+    - [pfmod](https://github.com/pinterf/xy-VSFilter/)
+  - VSFilter in [MPC-HC](https://github.com/clsid2/mpc-hc/tree/develop/src/filters/transform/VSFilter/)
+  - [VSFilterMod](https://github.com/sorayuki/VSFilterMod/) (with custom format extensions)
   - [Threaded VSFilter](https://code.google.com/p/threaded-vsfilter/) (defunct)
   - VSFilter in [Guliverkli2](http://sourceforge.net/projects/guliverkli2/) (defunct, subsumed by all of the above)
   - VSFilter in [guliverkli](http://sourceforge.net/projects/guliverkli/) (defunct, forked as Guliverkli2)
