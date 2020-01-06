@@ -95,14 +95,30 @@ uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol)
     }
 }
 
-static void buggy_font_workaround(FT_Face face)
+static void set_font_metrics(FT_Face face)
 {
-    // Some fonts have zero Ascender/Descender fields in 'hhea' table.
-    // In this case, get the information from 'os2' table or, as
-    // a last resort, from face.bbox.
+    // Mimicking GDI's behavior for asc/desc/height.
+    // These fields are (apparently) sometimes used for signed values,
+    // despite being unsigned in the spec.
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
+    if (os2 && ((short)os2->usWinAscent + (short)os2->usWinDescent != 0)) {
+        face->ascender  =  (short)os2->usWinAscent;
+        face->descender = -(short)os2->usWinDescent;
+        face->height    = face->ascender - face->descender;
+    }
+
+    // If we didn't have usable Win values in the OS/2 table,
+    // then the values from FreeType will still be in these fields.
+    // It'll use either the OS/2 typo metrics or the hhea ones.
+    // If the font has typo metrics but FreeType didn't use them
+    // (either old FT or USE_TYPO_METRICS not set), we'll try those.
+    // In the case of a very broken font that has none of those options,
+    // we fall back on using face.bbox.
+    // Anything without valid OS/2 Win values isn't supported by VSFilter,
+    // so at this point compatibility's out the window and we're just
+    // trying to render _something_ readable.
     if (face->ascender + face->descender == 0 || face->height == 0) {
-        TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
-        if (os2) {
+        if (os2 && (os2->sTypoAscender - os2->sTypoDescender) != 0) {
             face->ascender = os2->sTypoAscender;
             face->descender = os2->sTypoDescender;
             face->height = face->ascender - face->descender;
@@ -213,7 +229,7 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     }
 
     charmap_magic(font->library, face);
-    buggy_font_workaround(face);
+    set_font_metrics(face);
 
     font->faces[font->n_faces] = face;
     font->faces_uid[font->n_faces++] = uid;
@@ -260,33 +276,13 @@ size_t ass_font_construct(void *key, void *value, void *priv)
 
 void ass_face_set_size(FT_Face face, double size)
 {
-    TT_HoriHeader *hori = FT_Get_Sfnt_Table(face, ft_sfnt_hhea);
-    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
-    double mscale = 1.;
     FT_Size_RequestRec rq;
-    FT_Size_Metrics *m = &face->size->metrics;
-    // VSFilter uses metrics from TrueType OS/2 table
-    // The idea was borrowed from asa (http://asa.diac24.net)
-    if (os2) {
-        int ft_height = 0;
-        if (hori)
-            ft_height = hori->Ascender - hori->Descender;
-        if (!ft_height)
-            ft_height = os2->sTypoAscender - os2->sTypoDescender;
-        /* sometimes used for signed values despite unsigned in spec */
-        int os2_height = (short)os2->usWinAscent + (short)os2->usWinDescent;
-        if (ft_height && os2_height)
-            mscale = (double) ft_height / os2_height;
-    }
     memset(&rq, 0, sizeof(rq));
     rq.type = FT_SIZE_REQUEST_TYPE_REAL_DIM;
     rq.width = 0;
-    rq.height = double_to_d6(size * mscale);
+    rq.height = double_to_d6(size);
     rq.horiResolution = rq.vertResolution = 0;
     FT_Request_Size(face, &rq);
-    m->ascender /= mscale;
-    m->descender /= mscale;
-    m->height /= mscale;
 }
 
 /**
@@ -325,19 +321,10 @@ int ass_face_get_weight(FT_Face face)
 void ass_font_get_asc_desc(ASS_Font *font, int face_index,
                            int *asc, int *desc)
 {
-    FT_Long a, d;
     FT_Face face = font->faces[face_index];
-    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
-    if (os2) {
-        a = (short) os2->usWinAscent;
-        d = (short) os2->usWinDescent;
-    } else {
-        a =  face->ascender;
-        d = -face->descender;
-    }
     int y_scale = face->size->metrics.y_scale;
-    *asc  = FT_MulFix(a, y_scale);
-    *desc = FT_MulFix(d, y_scale);
+    *asc  = FT_MulFix(face->ascender, y_scale);
+    *desc = FT_MulFix(-face->descender, y_scale);
 }
 
 static void add_line(FT_Outline *ol, int bear, int advance, int dir, int pos, int size) {
