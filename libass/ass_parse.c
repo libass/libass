@@ -91,11 +91,6 @@ double ensure_font_size(ASS_Renderer *priv, double size)
     return size;
 }
 
-static void change_font_size(ASS_Renderer *render_priv, double sz)
-{
-    render_priv->state.font_size = sz;
-}
-
 /**
  * \brief Change current font, using setting from render_priv->state.
  */
@@ -129,9 +124,6 @@ void update_font(ASS_Renderer *render_priv)
 
     ass_cache_dec_ref(render_priv->state.font);
     render_priv->state.font = ass_font_new(render_priv, &desc);
-
-    if (render_priv->state.font)
-        change_font_size(render_priv, render_priv->state.font_size);
 }
 
 /**
@@ -404,8 +396,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             }
             if (val <= 0)
                 val = render_priv->state.style->FontSize;
-            if (render_priv->state.font)
-                change_font_size(render_priv, val);
+            render_priv->state.font_size = val;
         } else if (tag("bord")) {
             double val, xval, yval;
             if (nargs) {
