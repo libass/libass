@@ -1954,6 +1954,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         for (int i = 0; i < 4; i++) {
             uint32_t clr = render_priv->state.c[i];
             // VSFilter compatibility: apply fade only when it's positive
+            info->a_pre_fade[i] = _a(clr);
             if (render_priv->state.fade > 0)
                 change_alpha(&clr,
                              mult_alpha(_a(clr), render_priv->state.fade), 1.);
@@ -2285,10 +2286,21 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 flags |= FILTER_NONZERO_BORDER;
             if (info->shadow_x || info->shadow_y)
                 flags |= FILTER_NONZERO_SHADOW;
-            // VSFilter compatibility: invisible fill and no border?
-            // In this case no shadow is supposed to be rendered.
-            if (flags == FILTER_NONZERO_SHADOW && (info->c[0] & 0xFF) == 0xFF)
-                flags = 0;
+            if (flags & FILTER_NONZERO_SHADOW &&
+                (info->effect_type == EF_KARAOKE_KF ||
+                 info->effect_type == EF_KARAOKE_KO ||
+                 (info->a_pre_fade[0]) != 0xFF ||
+                 info->border_style == 3))
+                flags |= FILTER_FILL_IN_SHADOW;
+            if (!(flags & FILTER_NONZERO_BORDER) &&
+                !(flags & FILTER_FILL_IN_SHADOW))
+                flags &= ~FILTER_NONZERO_SHADOW;
+            if ((flags & FILTER_NONZERO_BORDER &&
+                 info->a_pre_fade[0] == 0 &&
+                 info->a_pre_fade[1] == 0 &&
+                 _a(info->c[2]) == 0) ||
+                info->border_style == 3)
+                flags |= FILTER_FILL_IN_BORDER;
 
             if (linebreak || is_new_bm_run(info, last_info)) {
                 linebreak = 0;
@@ -2491,19 +2503,24 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
 
     int flags = k->filter.flags;
     double r2 = restore_blur(k->filter.blur);
-    bool no_blur = (flags & ~FILTER_NONZERO_SHADOW) == FILTER_NONZERO_BORDER;
-    if (!no_blur)
+    if (!(flags & FILTER_NONZERO_BORDER) || (flags & FILTER_BORDER_STYLE_3))
         ass_synth_blur(render_priv->engine, &v->bm, k->filter.be, r2);
     ass_synth_blur(render_priv->engine, &v->bm_o, k->filter.be, r2);
 
+    if (!(flags & FILTER_FILL_IN_BORDER) && !(flags & FILTER_FILL_IN_SHADOW))
+        fix_outline(&v->bm, &v->bm_o);
+
     if (flags & FILTER_NONZERO_SHADOW) {
-        if (flags & FILTER_NONZERO_BORDER)
+        if (flags & FILTER_NONZERO_BORDER) {
             copy_bitmap(render_priv->engine, &v->bm_s, &v->bm_o);
-        else if (flags & FILTER_BORDER_STYLE_3) {
+            if ((flags & FILTER_FILL_IN_BORDER) && !(flags & FILTER_FILL_IN_SHADOW))
+                fix_outline(&v->bm, &v->bm_s);
+        } else if (flags & FILTER_BORDER_STYLE_3) {
             v->bm_s = v->bm_o;
             memset(&v->bm_o, 0, sizeof(v->bm_o));
-        } else
+        } else {
             copy_bitmap(render_priv->engine, &v->bm_s, &v->bm);
+        }
 
         // Works right even for negative offsets
         // '>>' rounds toward negative infinity, '&' returns correct remainder
@@ -2512,7 +2529,7 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
         shift_bitmap(&v->bm_s, k->filter.shadow.x & SUBPIXEL_MASK, k->filter.shadow.y & SUBPIXEL_MASK);
     }
 
-    if (no_blur)
+    if ((flags & FILTER_FILL_IN_SHADOW) && !(flags & FILTER_FILL_IN_BORDER))
         fix_outline(&v->bm, &v->bm_o);
 
     return sizeof(CompositeHashKey) + sizeof(CompositeHashValue) +

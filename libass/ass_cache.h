@@ -69,9 +69,11 @@ typedef struct outline_hash_key {
 } OutlineHashKey;
 
 enum {
-    FILTER_BORDER_STYLE_3 = 1,
-    FILTER_NONZERO_BORDER = 2,
-    FILTER_NONZERO_SHADOW = 4,
+    FILTER_BORDER_STYLE_3 = 0x01,
+    FILTER_NONZERO_BORDER = 0x02,
+    FILTER_NONZERO_SHADOW = 0x04,
+    FILTER_FILL_IN_SHADOW = 0x08,
+    FILTER_FILL_IN_BORDER = 0x10,
 };
 
 typedef struct {
