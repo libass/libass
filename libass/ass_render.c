@@ -40,6 +40,8 @@
 #define MAX_PERSP_SCALE 16.0
 #define SUBPIXEL_ORDER 3  // ~ log2(64 / POSITION_PRECISION)
 #define BLUR_PRECISION (1.0 / 256)  // blur error as fraction of full input range
+#define CJK_START 0x3000
+#define CJK_END 0xFF9F
 
 
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
@@ -1590,6 +1592,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     int i;
     GlyphInfo *cur, *s1, *e1, *s2, *s3;
     int last_space;
+    int last_cjk;
     int break_type;
     int exit;
     double pen_shift_x;
@@ -1598,6 +1601,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     TextInfo *text_info = &render_priv->text_info;
 
     last_space = -1;
+    last_cjk = -1;
     text_info->n_lines = 1;
     break_type = 0;
     s1 = text_info->glyphs;     // current line start
@@ -1607,6 +1611,10 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
         cur = text_info->glyphs + i;
         s_offset = d6_to_double(s1->bbox.x_min + s1->pos.x);
         len = d6_to_double(cur->bbox.x_max + cur->pos.x) - s_offset;
+
+        if (cur->symbol >= CJK_START && cur->symbol <= CJK_END) {
+            last_cjk = i;
+        }
 
         if (cur->symbol == '\n') {
             break_type = 2;
@@ -1618,7 +1626,11 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
         } else if (len >= max_text_width
                    && (render_priv->state.wrap_style != 2)) {
             break_type = 1;
-            break_at = last_space;
+            if (last_space != -1) {
+                break_at = last_space;
+            } else if (last_cjk != -1) {
+                break_at = last_cjk - 1;
+            }
             if (break_at >= 0)
                 ass_msg(render_priv->library, MSGL_DBG2, "line break at %d",
                         break_at);
@@ -1638,6 +1650,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
             if (lead < text_info->length) {
                 text_info->glyphs[lead].linebreak = break_type;
                 last_space = -1;
+                last_cjk = -1;
                 s1 = text_info->glyphs + lead;
                 text_info->n_lines++;
             }
