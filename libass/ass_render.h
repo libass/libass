@@ -74,6 +74,8 @@ typedef struct {
     ASS_Hinting hinting;
     ASS_ShapingLevel shaper;
     int selective_style_overrides; // ASS_OVERRIDE_* flags
+    int wrap_cjk;               // 0 - don't allow word wrap between CJK characters
+    // 1 - prefer spaces for wrapping, but allow wrapping between CJK characters
 
     char *default_font;
     char *default_family;

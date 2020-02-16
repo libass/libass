@@ -106,6 +106,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
     priv->settings.font_size_coeff = 1.;
     priv->settings.selective_style_overrides = ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE;
+    priv->settings.wrap_cjk = 0;
 
     priv->shaper = ass_shaper_new(0);
     ass_shaper_info(library);
@@ -1628,7 +1629,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
             break_type = 1;
             if (last_space != -1) {
                 break_at = last_space;
-            } else if (last_cjk != -1) {
+            } else if (last_cjk != -1 && render_priv->settings.wrap_cjk) {
                 break_at = last_cjk - 1;
             }
             if (break_at >= 0)
