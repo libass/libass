@@ -1599,11 +1599,9 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     int cur_line;
     TextInfo *text_info = &render_priv->text_info;
     char brks[text_info->length];
-    char *brksPtr;
 
     if (render_priv->settings.wrap_tr14) {
-        brksPtr = brks;
-        set_linebreaks(text_info, text_info->length, "ja", brksPtr,
+        set_linebreaks(text_info, text_info->length, "ja", brks,
                        (get_next_char_t)text_info_get_next_char_utf32);
     }
 
