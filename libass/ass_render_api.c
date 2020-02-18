@@ -172,9 +172,9 @@ void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style)
     user_style->FontName = strdup(user_style->FontName);
 }
 
-void ass_set_wrap_cjk(ASS_Renderer *priv, int wrap)
+void ass_set_wrap_tr14(ASS_Renderer *priv, int wrap)
 {
-    priv->settings.wrap_cjk = wrap;
+    priv->settings.wrap_tr14 = wrap;
 }
 
 int ass_fonts_update(ASS_Renderer *render_priv)

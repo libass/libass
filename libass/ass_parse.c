@@ -1025,6 +1025,25 @@ unsigned get_next_char(ASS_Renderer *render_priv, char **str)
     return chr;
 }
 
+utf32_t text_info_get_next_char_utf32(
+        TextInfo *text_info,
+        size_t len,
+        size_t *ip)
+{
+    GlyphInfo *cur;
+    unsigned ch;
+
+    assert(*ip <= len);
+    if (*ip == len)
+        return EOS;
+
+    cur = text_info->glyphs + *ip;
+    ch = cur->symbol;
+    *ip += 1;
+
+    return ch;
+}
+
 // Return 1 if the event contains tags that will apply overrides the selective
 // style override code should not touch. Return 0 otherwise.
 int event_has_hard_overrides(char *str)

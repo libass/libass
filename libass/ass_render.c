@@ -40,8 +40,6 @@
 #define MAX_PERSP_SCALE 16.0
 #define SUBPIXEL_ORDER 3  // ~ log2(64 / POSITION_PRECISION)
 #define BLUR_PRECISION (1.0 / 256)  // blur error as fraction of full input range
-#define CJK_START 0x3000
-#define CJK_END 0xFF9F
 
 
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
@@ -106,7 +104,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
     priv->settings.font_size_coeff = 1.;
     priv->settings.selective_style_overrides = ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE;
-    priv->settings.wrap_cjk = 0;
+    priv->settings.wrap_tr14 = 0;
 
     priv->shaper = ass_shaper_new(0);
     ass_shaper_info(library);
@@ -1593,16 +1591,24 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     int i;
     GlyphInfo *cur, *s1, *e1, *s2, *s3;
     int last_space;
-    int last_cjk;
+    int last_break;
     int break_type;
     int exit;
     double pen_shift_x;
     double pen_shift_y;
     int cur_line;
     TextInfo *text_info = &render_priv->text_info;
+    char brks[text_info->length];
+    char *brksPtr;
+
+    if (render_priv->settings.wrap_tr14) {
+        brksPtr = brks;
+        set_linebreaks(text_info, text_info->length, "ja", brksPtr,
+                       (get_next_char_t)text_info_get_next_char_utf32);
+    }
 
     last_space = -1;
-    last_cjk = -1;
+    last_break = 0;
     text_info->n_lines = 1;
     break_type = 0;
     s1 = text_info->glyphs;     // current line start
@@ -1613,28 +1619,48 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
         s_offset = d6_to_double(s1->bbox.x_min + s1->pos.x);
         len = d6_to_double(cur->bbox.x_max + cur->pos.x) - s_offset;
 
-        if (cur->symbol >= CJK_START && cur->symbol <= CJK_END) {
-            last_cjk = i;
-        }
-
-        if (cur->symbol == '\n') {
-            break_type = 2;
-            break_at = i;
-            ass_msg(render_priv->library, MSGL_DBG2,
-                    "forced line break at %d", break_at);
-        } else if (cur->symbol == ' ') {
-            last_space = i;
-        } else if (len >= max_text_width
-                   && (render_priv->state.wrap_style != 2)) {
-            break_type = 1;
-            if (last_space != -1) {
-                break_at = last_space;
-            } else if (last_cjk != -1 && render_priv->settings.wrap_cjk) {
-                break_at = last_cjk - 1;
+        if (render_priv->settings.wrap_tr14) {
+            GlyphInfo *next;
+            if ((i - 1) < text_info->length)
+                next = cur + 1;
+            else
+                next = cur;
+            double len_next = d6_to_double(next->bbox.x_max + next->pos.x) - s_offset;
+            if (brks[i] == LINEBREAK_MUSTBREAK) {
+                break_type = 2;
+                break_at = i;
+                ass_msg(render_priv->library, MSGL_DBG2,
+                        "forced line break at %d", break_at);
+            } else if (len_next >= max_text_width
+                       && (render_priv->state.wrap_style != 2)) {
+                for (int j = i; j > last_break; --j) {
+                    if (brks[j] == LINEBREAK_ALLOWBREAK) {
+                        break_at = j;
+                        last_break = break_at;
+                        break;
+                    }
+                }
+                break_type = 1;
+                if (break_at >= 0)
+                    ass_msg(render_priv->library, MSGL_DBG2, "line break at %d",
+                            break_at);
             }
-            if (break_at >= 0)
-                ass_msg(render_priv->library, MSGL_DBG2, "line break at %d",
-                        break_at);
+        } else {
+            if (cur->symbol == '\n') {
+                break_type = 2;
+                break_at = i;
+                ass_msg(render_priv->library, MSGL_DBG2,
+                        "forced line break at %d", break_at);
+            } else if (cur->symbol == ' ') {
+                last_space = i;
+            } else if (len >= max_text_width
+                       && (render_priv->state.wrap_style != 2)) {
+                break_type = 1;
+                break_at = last_space;
+                if (break_at >= 0)
+                    ass_msg(render_priv->library, MSGL_DBG2, "line break at %d",
+                            break_at);
+            }
         }
 
         if (break_at != -1) {
@@ -1651,7 +1677,6 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
             if (lead < text_info->length) {
                 text_info->glyphs[lead].linebreak = break_type;
                 last_space = -1;
-                last_cjk = -1;
                 s1 = text_info->glyphs + lead;
                 text_info->n_lines++;
             }
