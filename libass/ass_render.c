@@ -1601,7 +1601,9 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     char brks[text_info->length];
 
     if (render_priv->settings.wrap_tr14) {
-        set_linebreaks(text_info, text_info->length, "ja", brks,
+        char *ub_lang = render_priv->track->Language;
+        ub_lang = text_info_choose_ub_lang(text_info, ub_lang);
+        set_linebreaks(text_info, text_info->length, ub_lang, brks,
                        (get_next_char_t)text_info_get_next_char_utf32);
     }
 
