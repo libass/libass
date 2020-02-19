@@ -1044,62 +1044,19 @@ utf32_t text_info_get_next_char_utf32(
     return ch;
 }
 
-char *text_info_choose_ub_lang(TextInfo *text_info, char *track_lang)
+int is_valid_ub_lang(char *lang)
 {
-    // use track_lang if it's supported
-    if (track_lang) {
-        if      (strncmp(track_lang, "de", 2) == 0) return "de";
-        else if (strncmp(track_lang, "en", 2) == 0) return "en";
-        else if (strncmp(track_lang, "es", 2) == 0) return "es";
-        else if (strncmp(track_lang, "fr", 2) == 0) return "fr";
-        else if (strncmp(track_lang, "ja", 2) == 0) return "ja";
-        else if (strncmp(track_lang, "ko", 2) == 0) return "ko";
-        else if (strncmp(track_lang, "ru", 2) == 0) return "ru";
-        else if (strncmp(track_lang, "zh", 2) == 0) return "zh";
+    if (lang) {
+        if      (strncmp(lang, "de", 2) == 0) return 1;
+        else if (strncmp(lang, "en", 2) == 0) return 1;
+        else if (strncmp(lang, "es", 2) == 0) return 1;
+        else if (strncmp(lang, "fr", 2) == 0) return 1;
+        else if (strncmp(lang, "ja", 2) == 0) return 1;
+        else if (strncmp(lang, "ko", 2) == 0) return 1;
+        else if (strncmp(lang, "ru", 2) == 0) return 1;
+        else if (strncmp(lang, "zh", 2) == 0) return 1;
     }
-
-    char *lang = NULL;
-    GlyphInfo *cur;
-    unsigned symbol;
-
-    int kana_count = 0;
-    int cyrillic_count = 0;
-    int hangul_count = 0;
-    int cjk_count = 0;
-    for (int i = 0; i < text_info->length; ++i) {
-        cur = text_info->glyphs + i;
-        symbol = cur->symbol;
-        if (symbol < CYRILLIC_START) { // optimize
-            continue;
-        } else if (CJK_START <= symbol && CJK_END >= symbol) {
-            cjk_count += 1;
-        } else if (KANA_START <= symbol && KANA_END >= symbol) {
-            kana_count += 1;
-            break;
-        } else if (CYRILLIC_START <= symbol && CYRILLIC_END >= symbol) {
-            cyrillic_count += 1;
-            break;
-        } else if ((HANGUL_SYLLABLES_START  <= symbol &&  HANGUL_SYLLABLES_END  >= symbol) ||
-                   (HANGUL_JAMO_START       <= symbol &&  HANGUL_JAMO_END       >= symbol) ||
-                   (HANGUL_COMP_JAMO_START  <= symbol &&  HANGUL_COMP_JAMO_END  >= symbol) ||
-                   (HANGUL_EXTENDED_A_START <= symbol &&  HANGUL_EXTENDED_A_END >= symbol) ||
-                   (HANGUL_EXTENDED_B_START <= symbol &&  HANGUL_EXTENDED_B_END >= symbol)) {
-            hangul_count += 1;
-            break;
-        }
-    }
-
-    if (kana_count > 0) {
-        lang = "ja";
-    } else if (cyrillic_count > 0) {
-        lang = "ru";
-    } else if (hangul_count > 0) {
-        lang = "ko";
-    } else if (cjk_count > 0) {
-        lang = "zh";
-    }
-
-    return lang;
+    return 0;
 }
 
 // Return 1 if the event contains tags that will apply overrides the selective
