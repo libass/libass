@@ -1617,6 +1617,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
         int break_at = -1;
         double s_offset, len;
         cur = text_info->glyphs + i;
+        cur->allowbreak = 0;
         s_offset = d6_to_double(s1->bbox.x_min + s1->pos.x);
         len = d6_to_double(cur->bbox.x_max + cur->pos.x) - s_offset;
 
@@ -1627,6 +1628,10 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
             else
                 next = cur;
             double len_next = d6_to_double(next->bbox.x_max + next->pos.x) - s_offset;
+            // line length adjusting algorithm needs words longer than 1 character
+            if (i % 2 == 0 && brks[i] == LINEBREAK_ALLOWBREAK) {
+                cur->allowbreak = 1;
+            }
             if (brks[i] == LINEBREAK_MUSTBREAK) {
                 break_type = 2;
                 break_at = i;
@@ -1653,6 +1658,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
                 ass_msg(render_priv->library, MSGL_DBG2,
                         "forced line break at %d", break_at);
             } else if (cur->symbol == ' ') {
+                cur->allowbreak = 1;
                 last_space = i;
             } else if (len >= max_text_width
                        && (render_priv->state.wrap_style != 2)) {
@@ -1701,15 +1707,15 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
 
                     do {
                         --w;
-                    } while ((w > s1) && (w->symbol == ' '));
-                    while ((w > s1) && (w->symbol != ' ')) {
+                    } while ((w > s1) && (w->allowbreak));
+                    while ((w > s1) && (!w->allowbreak)) {
                         --w;
                     }
                     e1 = w;
-                    while ((e1 > s1) && (e1->symbol == ' ')) {
+                    while ((e1 > s1) && (e1->allowbreak)) {
                         --e1;
                     }
-                    if (w->symbol == ' ')
+                    if (w->allowbreak)
                         ++w;
 
                     l1 = d6_to_double(((s2 - 1)->bbox.x_max + (s2 - 1)->pos.x) -

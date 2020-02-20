@@ -143,6 +143,7 @@ typedef struct glyph_info {
     ASS_Vector pos;
     ASS_Vector offset;
     char linebreak;             // the first (leading) glyph of some line ?
+    int allowbreak;             // break opportunity
     uint32_t c[4];              // colors
     ASS_Vector advance;         // 26.6
     ASS_Vector cluster_advance;
