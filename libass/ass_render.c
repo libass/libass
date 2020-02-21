@@ -104,7 +104,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
     priv->settings.font_size_coeff = 1.;
     priv->settings.selective_style_overrides = ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE;
-    priv->settings.wrap_tr14 = 0;
+    priv->settings.improve_rendering = 0;
 
     priv->shaper = ass_shaper_new(0);
     ass_shaper_info(library);
@@ -1601,7 +1601,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     int last_break;
     char brks[text_info->length];
 
-    if (render_priv->settings.wrap_tr14) {
+    if (render_priv->settings.improve_rendering) {
         char *ub_lang = render_priv->track->Language;
         if (!is_valid_ub_lang(ub_lang))
             ub_lang = NULL;
@@ -1624,7 +1624,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
         len = d6_to_double(cur->bbox.x_max + cur->pos.x) - s_offset;
 
 #ifdef CONFIG_LIBUNIBREAK
-        if (render_priv->settings.wrap_tr14) {
+        if (render_priv->settings.improve_rendering) {
             GlyphInfo *next;
             if ((i - 1) < text_info->length)
                 next = cur + 1;

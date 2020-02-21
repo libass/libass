@@ -74,8 +74,8 @@ typedef struct {
     ASS_Hinting hinting;
     ASS_ShapingLevel shaper;
     int selective_style_overrides; // ASS_OVERRIDE_* flags
-    int wrap_tr14;               // 0 - word wrap only from newlines or spaces
-    // 1 - word wrap according to https://unicode.org/reports/tr14/
+    int improve_rendering;         // 0 - maintain VSFilter compatibility
+    // 1 - enable improvements that can break VSFilter compatibility
 
     char *default_font;
     char *default_family;
