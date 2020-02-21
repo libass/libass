@@ -51,6 +51,8 @@ AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
 AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
     [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
+AC_ARG_ENABLE([libunibreak], AS_HELP_STRING([--disable-libunibreak],
+    [disable libunibreak support @<:@default=check@:>@]))
 
 AS_IF([test x$enable_asm != xno], [
     AS_CASE([$host],
@@ -217,6 +219,14 @@ PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
     ], [harfbuzz=false])
 fi
 
+if test x$enable_libunibreak != xno; then
+PKG_CHECK_MODULES([LIBUNIBREAK], libunibreak >= 1.1, [
+    CFLAGS="$CFLAGS $LIBUNIBREAK_CFLAGS"
+    AC_DEFINE(CONFIG_LIBUNIBREAK, 1, [found libunibreak via pkg-config])
+	libunibreak=true
+    ], [libunibreak=false])
+fi
+
 libpng=false
 if test x$enable_test = xyes; then
 PKG_CHECK_MODULES([LIBPNG], libpng >= 1.2.0, [
@@ -244,6 +254,9 @@ if test x$fontconfig = xtrue; then
 fi
 if test x$harfbuzz = xtrue; then
     pkg_requires="harfbuzz >= 0.9.5, ${pkg_requires}"
+fi
+if test x$libunibreak = xtrue; then
+    pkg_requires="libunibreak >= 1.1, ${pkg_requires}"
 fi
 
 if test x$enable_require_system_font_provider != xno &&

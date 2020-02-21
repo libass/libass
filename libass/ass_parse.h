@@ -19,8 +19,10 @@
 #ifndef LIBASS_PARSE_H
 #define LIBASS_PARSE_H
 
+#ifdef CONFIG_LIBUNIBREAK
 #include <linebreakdef.h>
 #include <linebreak.h>
+#endif
 
 #define BLUR_MAX_RADIUS 100.0
 
@@ -34,8 +36,10 @@ double ensure_font_size(ASS_Renderer *priv, double size);
 void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event);
 void process_karaoke_effects(ASS_Renderer *render_priv);
 unsigned get_next_char(ASS_Renderer *render_priv, char **str);
+#ifdef CONFIG_LIBUNIBREAK
 utf32_t text_info_get_next_char_utf32(TextInfo *text_info, size_t len, size_t *ip);
 int is_valid_ub_lang(char *lang);
+#endif
 char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                  bool nested);
 int event_has_hard_overrides(char *str);

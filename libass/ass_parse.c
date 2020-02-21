@@ -1025,6 +1025,7 @@ unsigned get_next_char(ASS_Renderer *render_priv, char **str)
     return chr;
 }
 
+#ifdef CONFIG_LIBUNIBREAK
 utf32_t text_info_get_next_char_utf32(
         TextInfo *text_info,
         size_t len,
@@ -1058,6 +1059,7 @@ int is_valid_ub_lang(char *lang)
     }
     return 0;
 }
+#endif
 
 // Return 1 if the event contains tags that will apply overrides the selective
 // style override code should not touch. Return 0 otherwise.
