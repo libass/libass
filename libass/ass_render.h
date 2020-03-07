@@ -228,6 +228,8 @@ typedef struct {
     uint32_t c[4];              // colors(Primary, Secondary, so on) in RGBA
     int clip_x0, clip_y0, clip_x1, clip_y1;
     char clip_mode;             // 1 = iclip
+    int margin_x0, margin_y0, margin_x1, margin_y1;
+    char margin_set;
     char detect_collisions;
     int fade;                   // alpha from \fad
     char be;                    // blur edges
