@@ -166,6 +166,7 @@ typedef enum ASS_YCbCrMatrix {
     YCBCR_SMPTE240M_PC,
     YCBCR_FCC_TV,
     YCBCR_FCC_PC
+    // New enum values can be added here in new ABI-compatible library releases.
 } ASS_YCbCrMatrix;
 
 /*
@@ -205,6 +206,8 @@ typedef struct ass_track {
 
     ASS_Library *library;
     ASS_ParserPriv *parser_priv;
+
+    // New fields can be added here in new ABI-compatible library releases.
 } ASS_Track;
 
 #endif /* LIBASS_TYPES_H */

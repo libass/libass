@@ -56,6 +56,7 @@ typedef struct ass_image {
         IMAGE_TYPE_SHADOW
     } type;
 
+    // New fields can be added here in new ABI-compatible library releases.
 } ASS_Image;
 
 /*
@@ -170,6 +171,7 @@ typedef enum {
      * On dialogue events override: Justify
      */
     ASS_OVERRIDE_BIT_JUSTIFY = 1 << 10,
+    // New enum values can be added here in new ABI-compatible library releases.
 } ASS_OverrideBits;
 
 /**
