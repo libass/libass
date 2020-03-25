@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01400000
+#define LIBASS_VERSION 0x01400001
 
 #ifdef __cplusplus
 extern "C" {
@@ -198,6 +198,19 @@ typedef enum {
     ASS_FONTPROVIDER_FONTCONFIG,
     ASS_FONTPROVIDER_DIRECTWRITE,
 } ASS_DefaultFontProvider;
+
+typedef enum {
+    /**
+     * Enable libass extensions that would display ASS subtitles incorrectly.
+     * These may be useful for applications, which use libass as renderer for
+     * subtitles converted from another format, or which use libass for other
+     * purposes that do not involve actual ASS subtitles authored for
+     * distribution.
+     */
+    ASS_FEATURE_INCOMPATIBLE_EXTENSIONS,
+
+    // New enum values can be added here in new ABI-compatible library releases.
+} ASS_Feature;
 
 /**
  * \brief Initialize the library.
@@ -511,6 +524,23 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
  * \return pointer to empty track
  */
 ASS_Track *ass_new_track(ASS_Library *);
+
+/**
+ * \brief Enable or disable certain features
+ * This manages flags that control the behavior of the renderer and how certain
+ * tags etc. within the track are interpreted. The defaults on a newly created
+ * ASS_Track are such that rendering is compatible with traditional renderers
+ * like VSFilter, and/or old versions of libass. Calling ass_process_data() or
+ * ass_process_codec_private() may change some of these flags according to file
+ * headers. (ass_process_chunk() will not change any of the flags.)
+ * Additions to ASS_Feature are backward compatible to old libass releases (ABI
+ * compatibility).
+ * \param track track
+ * \param feature the specific feature to enable or disable
+ * \param enable 0 for disable, any non-0 value for enable
+ * \return 0 if feature set, -1 if feature is unknown
+ */
+int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable);
 
 /**
  * \brief Deallocate track and all its child objects (styles and events).

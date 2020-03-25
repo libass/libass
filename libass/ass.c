@@ -58,6 +58,8 @@ struct parser_priv {
     uint32_t *read_order_bitmap;
     int read_order_elems; // size in uint32_t units of read_order_bitmap
     int check_readorder;
+
+    int enable_extensions;
 };
 
 #define ASS_STYLES_ALLOC 20
@@ -1325,6 +1327,17 @@ ASS_Track *ass_new_track(ASS_Library *library)
     }
     track->parser_priv->check_readorder = 1;
     return track;
+}
+
+int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable)
+{
+    switch (feature) {
+    case ASS_FEATURE_INCOMPATIBLE_EXTENSIONS:
+        track->parser_priv->enable_extensions = !!enable;
+        return 0;
+    default:
+        return -1;
+    }
 }
 
 /**
