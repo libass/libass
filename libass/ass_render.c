@@ -2714,6 +2714,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         render_priv->state.clip_y0 = render_priv->state.clip_y0 < zy ? zy : render_priv->state.clip_y0;
         render_priv->state.clip_x1 = render_priv->state.clip_x1 > sx ? sx : render_priv->state.clip_x1;
         render_priv->state.clip_y1 = render_priv->state.clip_y1 > sy ? sy : render_priv->state.clip_y1;
+    } else if (render_priv->settings.use_margins) {
+        // no \clip (explicit==0) and use_margins => only clip to screen with margins
+        render_priv->state.clip_x0 = 0;
+        render_priv->state.clip_y0 = 0;
+        render_priv->state.clip_x1 = render_priv->settings.frame_width;
+        render_priv->state.clip_y1 = render_priv->settings.frame_height;
     }
 
     calculate_rotation_params(render_priv, &bbox, device_x, device_y);
