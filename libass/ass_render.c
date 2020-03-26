@@ -188,13 +188,27 @@ static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
 /**
  * \brief Mapping between script and screen coordinates
  */
+
+static double x2scr_sane(ASS_Renderer *render_priv, double x, double scale)
+{
+    if (!render_priv->state.explicit && render_priv->settings.use_margins) {
+        return x * render_priv->settings.frame_width /
+               scale / render_priv->track->PlayResX;
+    }
+    return x * render_priv->orig_width / scale / render_priv->track->PlayResX +
+        render_priv->settings.left_margin;
+}
 static double x2scr_pos(ASS_Renderer *render_priv, double x)
 {
+    if (render_priv->settings.selective_style_overrides & ASS_OVERRIDE_BIT_SANE_MARGINS)
+        return x2scr_sane(render_priv, x, render_priv->font_scale_x);
     return x * render_priv->orig_width / render_priv->font_scale_x / render_priv->track->PlayResX +
         render_priv->settings.left_margin;
 }
 static double x2scr(ASS_Renderer *render_priv, double x)
 {
+    if (render_priv->settings.selective_style_overrides & ASS_OVERRIDE_BIT_SANE_MARGINS)
+        return x2scr_sane(render_priv, x, render_priv->font_scale_x);
     if (render_priv->state.explicit)
         return x2scr_pos(render_priv, x);
     return x * render_priv->orig_width_nocrop / render_priv->font_scale_x /
@@ -203,11 +217,15 @@ static double x2scr(ASS_Renderer *render_priv, double x)
 }
 static double x2scr_pos_scaled(ASS_Renderer *render_priv, double x)
 {
+    if (render_priv->settings.selective_style_overrides & ASS_OVERRIDE_BIT_SANE_MARGINS)
+        return x2scr_sane(render_priv, x, 1);
     return x * render_priv->orig_width / render_priv->track->PlayResX +
         render_priv->settings.left_margin;
 }
 static double x2scr_scaled(ASS_Renderer *render_priv, double x)
 {
+    if (render_priv->settings.selective_style_overrides & ASS_OVERRIDE_BIT_SANE_MARGINS)
+        return x2scr_sane(render_priv, x, 1);
     if (render_priv->state.explicit)
         return x2scr_pos_scaled(render_priv, x);
     return x * render_priv->orig_width_nocrop /
@@ -219,11 +237,19 @@ static double x2scr_scaled(ASS_Renderer *render_priv, double x)
  */
 static double y2scr_pos(ASS_Renderer *render_priv, double y)
 {
+    if ((render_priv->settings.selective_style_overrides & ASS_OVERRIDE_BIT_SANE_MARGINS) &&
+        !render_priv->state.explicit && render_priv->settings.use_margins)
+    {
+        return y * render_priv->settings.frame_height /
+               render_priv->track->PlayResY;
+    }
     return y * render_priv->orig_height / render_priv->track->PlayResY +
         render_priv->settings.top_margin;
 }
 static double y2scr(ASS_Renderer *render_priv, double y)
 {
+    if (render_priv->settings.selective_style_overrides & ASS_OVERRIDE_BIT_SANE_MARGINS)
+        return y2scr_pos(render_priv, y);
     if (render_priv->state.explicit)
         return y2scr_pos(render_priv, y);
     return y * render_priv->orig_height_nocrop /
@@ -234,6 +260,8 @@ static double y2scr(ASS_Renderer *render_priv, double y)
 // the same for toptitles
 static double y2scr_top(ASS_Renderer *render_priv, double y)
 {
+    if (render_priv->settings.selective_style_overrides & ASS_OVERRIDE_BIT_SANE_MARGINS)
+        return y2scr_pos(render_priv, y);
     if (render_priv->state.explicit)
         return y2scr_pos(render_priv, y);
     if (render_priv->settings.use_margins)
@@ -247,6 +275,8 @@ static double y2scr_top(ASS_Renderer *render_priv, double y)
 // the same for subtitles
 static double y2scr_sub(ASS_Renderer *render_priv, double y)
 {
+    if (render_priv->settings.selective_style_overrides & ASS_OVERRIDE_BIT_SANE_MARGINS)
+        return y2scr_pos(render_priv, y);
     if (render_priv->state.explicit)
         return y2scr_pos(render_priv, y);
     if (render_priv->settings.use_margins)
@@ -961,17 +991,18 @@ static void init_font_scale(ASS_Renderer *render_priv)
 {
     ASS_Settings *settings_priv = &render_priv->settings;
 
-    render_priv->font_scale = ((double) render_priv->orig_height) /
-                              render_priv->track->PlayResY;
+    double font_scr_h = render_priv->orig_height;
+    if ((render_priv->settings.selective_style_overrides & ASS_OVERRIDE_BIT_SANE_MARGINS) &&
+        !render_priv->state.explicit && render_priv->settings.use_margins)
+        font_scr_h = render_priv->settings.frame_height;
+
+    render_priv->font_scale = font_scr_h / render_priv->track->PlayResY;
     if (settings_priv->storage_height)
-        render_priv->blur_scale = ((double) render_priv->orig_height) /
-            settings_priv->storage_height;
+        render_priv->blur_scale = font_scr_h / settings_priv->storage_height;
     else
         render_priv->blur_scale = 1.;
     if (render_priv->track->ScaledBorderAndShadow)
-        render_priv->border_scale =
-            ((double) render_priv->orig_height) /
-            render_priv->track->PlayResY;
+        render_priv->border_scale = font_scr_h / render_priv->track->PlayResY;
     else
         render_priv->border_scale = render_priv->blur_scale;
     if (!settings_priv->storage_height)

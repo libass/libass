@@ -170,6 +170,12 @@ typedef enum {
      * On dialogue events override: Justify
      */
     ASS_OVERRIDE_BIT_JUSTIFY = 1 << 10,
+    /**
+     * Change behavior if ass_set_margins() with non-0 values is called: do not
+     * attempt to apply scaling to normal dialogue text based on the margins,
+     * and use the screen size instead.
+     */
+    ASS_OVERRIDE_BIT_SANE_MARGINS = 1 << 11,
 } ASS_OverrideBits;
 
 /**
