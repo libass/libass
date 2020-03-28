@@ -64,12 +64,12 @@ typedef struct {
     double font_size_coeff;     // font size multiplier
     double line_spacing;        // additional line spacing (in frame pixels)
     double line_position;       // vertical position for subtitles, 0-100 (0 = no change)
-    int top_margin;             // height of top margin. Everything except toptitles is shifted down by top_margin.
+    int top_margin;             // height of top margin. Video frame is shifted down by top_margin.
     int bottom_margin;          // height of bottom margin. (frame_height - top_margin - bottom_margin) is original video height.
     int left_margin;
     int right_margin;
     int use_margins;            // 0 - place all subtitles inside original frame
-    // 1 - use margins for placing toptitles and subtitles
+    // 1 - place subtitles (incl. toptitles) in full display frame incl. margins
     double par;                 // user defined pixel aspect ratio (0 = unset)
     ASS_Hinting hinting;
     ASS_ShapingLevel shaper;
@@ -302,8 +302,8 @@ struct ass_renderer {
     int width, height;          // screen dimensions
     int orig_height;            // frame height ( = screen height - margins )
     int orig_width;             // frame width ( = screen width - margins )
-    int orig_height_nocrop;     // frame height ( = screen height - margins + cropheight)
-    int orig_width_nocrop;      // frame width ( = screen width - margins + cropwidth)
+    double fit_height;          // frame height without zoom & pan (fit to screen & letterboxed)
+    double fit_width;           // frame width without zoom & pan (fit to screen & letterboxed)
     ASS_Track *track;
     long long time;             // frame's timestamp, ms
     double font_scale;

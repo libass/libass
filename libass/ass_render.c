@@ -203,26 +203,40 @@ static double x2scr_pos(ASS_Renderer *render_priv, double x)
     return x * render_priv->orig_width / render_priv->font_scale_x / render_priv->track->PlayResX +
         render_priv->settings.left_margin;
 }
-static double x2scr(ASS_Renderer *render_priv, double x)
+static double x2scr_left(ASS_Renderer *render_priv, double x)
 {
-    if (render_priv->state.explicit)
+    if (render_priv->state.explicit || !render_priv->settings.use_margins)
         return x2scr_pos(render_priv, x);
-    return x * render_priv->orig_width_nocrop / render_priv->font_scale_x /
+    return x * render_priv->fit_width / render_priv->font_scale_x /
+        render_priv->track->PlayResX;
+}
+static double x2scr_right(ASS_Renderer *render_priv, double x)
+{
+    if (render_priv->state.explicit || !render_priv->settings.use_margins)
+        return x2scr_pos(render_priv, x);
+    return x * render_priv->fit_width / render_priv->font_scale_x /
         render_priv->track->PlayResX +
-        FFMAX(render_priv->settings.left_margin, 0);
+        (render_priv->width - render_priv->fit_width);
 }
 static double x2scr_pos_scaled(ASS_Renderer *render_priv, double x)
 {
     return x * render_priv->orig_width / render_priv->track->PlayResX +
         render_priv->settings.left_margin;
 }
-static double x2scr_scaled(ASS_Renderer *render_priv, double x)
+static double x2scr_left_scaled(ASS_Renderer *render_priv, double x)
 {
-    if (render_priv->state.explicit)
+    if (render_priv->state.explicit || !render_priv->settings.use_margins)
         return x2scr_pos_scaled(render_priv, x);
-    return x * render_priv->orig_width_nocrop /
+    return x * render_priv->fit_width /
+        render_priv->track->PlayResX;
+}
+static double x2scr_right_scaled(ASS_Renderer *render_priv, double x)
+{
+    if (render_priv->state.explicit || !render_priv->settings.use_margins)
+        return x2scr_pos_scaled(render_priv, x);
+    return x * render_priv->fit_width /
         render_priv->track->PlayResX +
-        FFMAX(render_priv->settings.left_margin, 0);
+        (render_priv->width - render_priv->fit_width);
 }
 /**
  * \brief Mapping between script and screen coordinates
@@ -234,40 +248,29 @@ static double y2scr_pos(ASS_Renderer *render_priv, double y)
 }
 static double y2scr(ASS_Renderer *render_priv, double y)
 {
-    if (render_priv->state.explicit)
+    if (render_priv->state.explicit || !render_priv->settings.use_margins)
         return y2scr_pos(render_priv, y);
-    return y * render_priv->orig_height_nocrop /
+    return y * render_priv->fit_height /
         render_priv->track->PlayResY +
-        FFMAX(render_priv->settings.top_margin, 0);
+        (render_priv->height - render_priv->fit_height) * 0.5;
 }
 
 // the same for toptitles
 static double y2scr_top(ASS_Renderer *render_priv, double y)
 {
-    if (render_priv->state.explicit)
+    if (render_priv->state.explicit || !render_priv->settings.use_margins)
         return y2scr_pos(render_priv, y);
-    if (render_priv->settings.use_margins)
-        return y * render_priv->orig_height_nocrop /
-            render_priv->track->PlayResY;
-    else
-        return y * render_priv->orig_height_nocrop /
-            render_priv->track->PlayResY +
-            FFMAX(render_priv->settings.top_margin, 0);
+    return y * render_priv->fit_height /
+        render_priv->track->PlayResY;
 }
 // the same for subtitles
 static double y2scr_sub(ASS_Renderer *render_priv, double y)
 {
-    if (render_priv->state.explicit)
+    if (render_priv->state.explicit || !render_priv->settings.use_margins)
         return y2scr_pos(render_priv, y);
-    if (render_priv->settings.use_margins)
-        return y * render_priv->orig_height_nocrop /
-            render_priv->track->PlayResY +
-            FFMAX(render_priv->settings.top_margin, 0)
-            + FFMAX(render_priv->settings.bottom_margin, 0);
-    else
-        return y * render_priv->orig_height_nocrop /
-            render_priv->track->PlayResY +
-            FFMAX(render_priv->settings.top_margin, 0);
+    return y * render_priv->fit_height /
+        render_priv->track->PlayResY +
+        (render_priv->height - render_priv->fit_height);
 }
 
 /*
@@ -971,17 +974,18 @@ static void init_font_scale(ASS_Renderer *render_priv)
 {
     ASS_Settings *settings_priv = &render_priv->settings;
 
-    render_priv->font_scale = ((double) render_priv->orig_height) /
-                              render_priv->track->PlayResY;
+    double font_scr_h = render_priv->orig_height;
+    if (!render_priv->state.explicit && render_priv->settings.use_margins)
+        font_scr_h = render_priv->fit_height;
+
+    render_priv->font_scale = font_scr_h / render_priv->track->PlayResY;
     if (settings_priv->storage_height)
-        render_priv->blur_scale = ((double) render_priv->orig_height) /
-            settings_priv->storage_height;
+        render_priv->blur_scale = font_scr_h / settings_priv->storage_height;
     else
         render_priv->blur_scale = 1.;
     if (render_priv->track->ScaledBorderAndShadow)
         render_priv->border_scale =
-            ((double) render_priv->orig_height) /
-            render_priv->track->PlayResY;
+            font_scr_h / render_priv->track->PlayResY;
     else
         render_priv->border_scale = render_priv->blur_scale;
     if (!settings_priv->storage_height)
@@ -2160,8 +2164,8 @@ static void calculate_rotation_params(ASS_Renderer *render_priv, ASS_DRect *bbox
 {
     ASS_DVector center;
     if (render_priv->state.have_origin) {
-        center.x = x2scr(render_priv, render_priv->state.org_x);
-        center.y = y2scr(render_priv, render_priv->state.org_y);
+        center.x = x2scr_pos(render_priv, render_priv->state.org_x);
+        center.y = y2scr_pos(render_priv, render_priv->state.org_y);
     } else {
         double bx = 0., by = 0.;
         get_base_point(bbox, render_priv->state.alignment, &bx, &by);
@@ -2583,8 +2587,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     // calculate max length of a line
     double max_text_width =
-        x2scr(render_priv, render_priv->track->PlayResX - MarginR) -
-        x2scr(render_priv, MarginL);
+        x2scr_right(render_priv, render_priv->track->PlayResX - MarginR) -
+        x2scr_left(render_priv, MarginL);
 
     // wrap lines
     if (render_priv->state.evt_type != EVENT_HSCROLL) {
@@ -2612,16 +2616,16 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     double device_x = 0;
     if (render_priv->state.evt_type == EVENT_NORMAL ||
         render_priv->state.evt_type == EVENT_VSCROLL) {
-        device_x = x2scr(render_priv, MarginL);
+        device_x = x2scr_left(render_priv, MarginL);
     } else if (render_priv->state.evt_type == EVENT_HSCROLL) {
         if (render_priv->state.scroll_direction == SCROLL_RL)
             device_x =
-                x2scr(render_priv,
+                x2scr_pos(render_priv,
                       render_priv->track->PlayResX -
                       render_priv->state.scroll_shift);
         else if (render_priv->state.scroll_direction == SCROLL_LR)
             device_x =
-                x2scr(render_priv, render_priv->state.scroll_shift) -
+                x2scr_pos(render_priv, render_priv->state.scroll_shift) -
                 (bbox.x_max - bbox.x_min);
     }
 
@@ -2689,9 +2693,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         render_priv->state.evt_type == EVENT_HSCROLL ||
         render_priv->state.evt_type == EVENT_VSCROLL) {
         render_priv->state.clip_x0 =
-            x2scr_scaled(render_priv, render_priv->state.clip_x0);
+            x2scr_left_scaled(render_priv, render_priv->state.clip_x0);
         render_priv->state.clip_x1 =
-            x2scr_scaled(render_priv, render_priv->state.clip_x1);
+            x2scr_right_scaled(render_priv, render_priv->state.clip_x1);
         if (valign == VALIGN_TOP) {
             render_priv->state.clip_y0 =
                 y2scr_top(render_priv, render_priv->state.clip_y0);
