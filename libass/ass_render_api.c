@@ -37,12 +37,16 @@ static void ass_reconfigure(ASS_Renderer *priv)
         settings->right_margin;
     priv->orig_height = settings->frame_height - settings->top_margin -
         settings->bottom_margin;
-    priv->orig_width_nocrop =
-        settings->frame_width - FFMAX(settings->left_margin, 0) -
-        FFMAX(settings->right_margin, 0);
-    priv->orig_height_nocrop =
-        settings->frame_height - FFMAX(settings->top_margin, 0) -
-        FFMAX(settings->bottom_margin, 0);
+    priv->fit_width =
+        (long long) priv->orig_width * priv->height >=
+        (long long) priv->orig_height * priv->width ?
+            priv->width :
+            (double) priv->orig_width * priv->height / priv->orig_height;
+    priv->fit_height =
+        (long long) priv->orig_width * priv->height <=
+        (long long) priv->orig_height * priv->width ?
+            priv->height :
+            (double) priv->orig_height * priv->width / priv->orig_width;
 }
 
 void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
