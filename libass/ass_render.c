@@ -2734,7 +2734,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->top = device_y - text_info->lines[0].asc;
     event_images->height = text_info->height;
     event_images->left =
-        (device_x + bbox.x_min * render_priv->font_scale_x) + 0.5;
+        (device_x + bbox.x_min) * render_priv->font_scale_x + 0.5;
     event_images->width =
         (bbox.x_max - bbox.x_min) * render_priv->font_scale_x + 0.5;
     event_images->detect_collisions = render_priv->state.detect_collisions;
