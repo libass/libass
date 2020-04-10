@@ -20,31 +20,17 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <limits.h>
-#include <assert.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <inttypes.h>
-#include <limits.h>
-#include <ft2build.h>
-#include <sys/types.h>
 #include <dirent.h>
-#include FT_FREETYPE_H
+#include <ft2build.h>
 #include FT_SFNT_NAMES_H
 #include FT_TRUETYPE_IDS_H
 #include FT_TYPE1_TABLES_H
 
 #include "ass_utils.h"
-#include "ass.h"
 #include "ass_library.h"
-#include "ass_fontselect.h"
 #include "ass_fontconfig.h"
 #include "ass_coretext.h"
 #include "ass_directwrite.h"
-#include "ass_font.h"
 #include "ass_string.h"
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))

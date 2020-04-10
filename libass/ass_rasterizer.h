@@ -19,10 +19,6 @@
 #ifndef LIBASS_RASTERIZER_H
 #define LIBASS_RASTERIZER_H
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
-
 #include "ass_bitmap.h"
 
 

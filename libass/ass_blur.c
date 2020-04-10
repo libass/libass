@@ -19,10 +19,6 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#include <math.h>
-#include <stdbool.h>
-
-#include "ass_utils.h"
 #include "ass_bitmap.h"
 
 

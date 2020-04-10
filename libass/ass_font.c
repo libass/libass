@@ -19,20 +19,9 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#include <inttypes.h>
 #include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_SYNTHESIS_H
-#include FT_GLYPH_H
 #include FT_TRUETYPE_TABLES_H
-#include FT_OUTLINE_H
-#include <limits.h>
 
-#include "ass.h"
-#include "ass_library.h"
-#include "ass_font.h"
-#include "ass_fontselect.h"
-#include "ass_utils.h"
 #include "ass_shaper.h"
 
 /**

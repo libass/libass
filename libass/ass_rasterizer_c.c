@@ -19,9 +19,7 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#include "ass_utils.h"
 #include "ass_rasterizer.h"
-#include <assert.h>
 
 
 

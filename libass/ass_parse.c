@@ -19,12 +19,6 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-
-#include "ass_render.h"
 #include "ass_parse.h"
 
 #define MAX_VALID_NARGS 7

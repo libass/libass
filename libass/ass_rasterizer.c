@@ -25,8 +25,6 @@
 #pragma intrinsic(_BitScanReverse)
 #endif
 
-#include "ass_utils.h"
-#include "ass_outline.h"
 #include "ass_rasterizer.h"
 
 

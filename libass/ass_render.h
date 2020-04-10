@@ -20,8 +20,6 @@
 #ifndef LIBASS_RENDER_H
 #define LIBASS_RENDER_H
 
-#include <inttypes.h>
-#include <stdbool.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
@@ -30,15 +28,7 @@
 #include <hb.h>
 #endif
 
-#include "ass.h"
-#include "ass_font.h"
-#include "ass_bitmap.h"
 #include "ass_cache.h"
-#include "ass_utils.h"
-#include "ass_fontselect.h"
-#include "ass_library.h"
-#include "ass_drawing.h"
-#include "ass_bitmap.h"
 #include "ass_rasterizer.h"
 
 #define GLYPH_CACHE_MAX 10000

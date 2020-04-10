@@ -19,9 +19,7 @@
 #ifndef LIBASS_DRAWING_H
 #define LIBASS_DRAWING_H
 
-#include "ass.h"
 #include "ass_outline.h"
-#include "ass_bitmap.h"
 
 typedef enum {
     TOKEN_MOVE,
