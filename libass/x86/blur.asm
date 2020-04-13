@@ -203,7 +203,7 @@ STRIPE_PACK
     lea %6, [%5]
     cmp %6, %3
     cmovae %6, %4
-%if (mmsize != 32) || (%0 < 7)
+%if mmsize != 32 || %0 < 7
     mova m%1, [%2 + %6]
 %elifidn %7, left
     mova xm%1, [%2 + %6]
@@ -219,7 +219,7 @@ STRIPE_PACK
     sub %5, %2
     cmp %4, %3
     cmovb %5, %4
-%if (mmsize != 32) || (%0 < 6)
+%if mmsize != 32 || %0 < 6
     mova m%1, [%2 + %5]
 %elifidn %6, left
     mova xm%1, [%2 + %5]
@@ -286,12 +286,8 @@ cglobal shrink_horz, 4,7,8
     mova m3, m0
     mova m4, m1
 %endif
-    psrldq m3, 10
-    psrldq m4, 10
-    pslldq m6, m1, 6
-    por m3, m6
-    pslldq m6, m2, 6
-    por m4, m6
+    PALIGNR m3,m1,m3, m6, 10
+    PALIGNR m4,m2,m4, m6, 10
     paddw m3, m1
     paddw m4, m2
     pand m3, m7
@@ -310,14 +306,10 @@ cglobal shrink_horz, 4,7,8
 %if mmsize == 32
     vperm2i128 m0, m0, m1, 0x20
 %endif
-    psrldq m0, 8
-    pslldq m6, m1, 8
-    por m0, m6
-    paddd m5, m0, m1
+    PALIGNR m5,m1,m0, m6, 8
+    paddd m5, m1
     psrld m5, 1
-    psrldq m0, 4
-    pslldq m6, m1, 4
-    por m0, m6
+    PALIGNR m0,m1,m0, m6, 12
     paddd m5, m0
     psrld m5, 1
     paddd m5, m3
@@ -327,14 +319,10 @@ cglobal shrink_horz, 4,7,8
 %if mmsize == 32
     vperm2i128 m1, m1, m2, 0x21
 %endif
-    psrldq m1, 8
-    pslldq m6, m2, 8
-    por m1, m6
-    paddd m5, m1, m2
+    PALIGNR m5,m2,m1, m6, 8
+    paddd m5, m2
     psrld m5, 1
-    psrldq m1, 4
-    pslldq m6, m2, 4
-    por m1, m6
+    PALIGNR m1,m2,m1, m6, 12
     paddd m5, m1
     psrld m5, 1
     paddd m5, m4
@@ -501,25 +489,20 @@ cglobal expand_horz, 4,7,5
 %endif
 .main_loop:
 %if ARCH_X86_64
-    LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6, right
+    LOAD_LINE 2, r1,r2,r7, r4 + 0 * r3, r6, right
     LOAD_LINE 1, r1,r2,r7, r4 + 1 * r3, r6
 %else
-    LOAD_LINE_COMPACT 0, r1,r2,r4, r6, right
+    LOAD_LINE_COMPACT 2, r1,r2,r4, r6, right
     add r4, r3
     LOAD_LINE_COMPACT 1, r1,r2,r4, r6
     sub r4, r3
 %endif
 
 %if mmsize == 32
-    vperm2i128 m0, m0, m1, 0x20
+    vperm2i128 m2, m2, m1, 0x20
 %endif
-    psrldq m0, 12
-    pslldq m3, m1, 4
-    por m0, m3
-    psrldq m2, m0, 2
-    pslldq m3, m1, 2
-    por m2, m3
-
+    PALIGNR m0,m1,m2, m3, 12
+    PALIGNR m2,m1,m2, m3, 14
     paddw m3, m0, m1
     psrlw m3, 1
     paddw m3, m2
@@ -564,22 +547,17 @@ cglobal expand_horz, 4,7,5
 
 .odd_stripe:
 %if ARCH_X86_64
-    LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6, right
+    LOAD_LINE 2, r1,r2,r7, r4 + 0 * r3, r6, right
     LOAD_LINE 1, r1,r2,r7, r4 + 1 * r3, r6, left
 %else
-    LOAD_LINE_COMPACT 0, r1,r2,r4, r6, right
+    LOAD_LINE_COMPACT 2, r1,r2,r4, r6, right
     add r4, r3
     LOAD_LINE_COMPACT 1, r1,r2,r4, r6, left
     sub r4, r3
 %endif
 
-    psrldq xm0, 12
-    pslldq xm3, xm1, 4
-    por xm0, xm3
-    psrldq xm2, xm0, 2
-    pslldq xm3, xm1, 2
-    por xm2, xm3
-
+    PALIGNR xm0,xm1,xm2, xm3, 12
+    PALIGNR xm2,xm1,xm2, xm3, 14
     paddw xm3, xm0, xm1
     psrlw xm3, 1
     paddw xm3, xm2
@@ -674,313 +652,52 @@ INIT_YMM avx2
 EXPAND_VERT
 
 ;------------------------------------------------------------------------------
-; PRE_BLUR1_HORZ
-; void pre_blur1_horz(int16_t *dst, const int16_t *src,
-;                     uintptr_t src_width, uintptr_t src_height);
+; LOAD_MULTIPLIER 1:n, 2:m_mul, 3:src, 4:tmp
+; Load blur parameters into xmm/ymm registers
 ;------------------------------------------------------------------------------
 
-%macro PRE_BLUR1_HORZ 0
+%macro LOAD_MULTIPLIER 4
 %if ARCH_X86_64
-cglobal pre_blur1_horz, 4,8,4
+    %assign %%t %2 + (%1 - 1) / 2
 %else
-cglobal pre_blur1_horz, 4,7,4
+    %assign %%t %2
 %endif
-    lea r5, [2 * r2 + mmsize + 3]
-    lea r2, [2 * r2 + mmsize - 1]
-    and r5, ~(mmsize - 1)
-    and r2, ~(mmsize - 1)
-    imul r5, r3
-    imul r2, r3
-    add r5, r0
-    xor r4, r4
-    MUL r3, mmsize
-    sub r4, r3
-    mova m3, [words_one]
-%if ARCH_X86_64
-    lea r7, [words_zero]
-    sub r7, r1
+    movu xm %+ %%t, [%3]
+%if %1 % 2
+    pextrw %4d, xm %+ %%t, 0
+    pslldq xm %+ %%t, 2
+    pinsrw xm %+ %%t, %4d, 0
 %endif
-
-.main_loop:
-%if ARCH_X86_64
-    LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6, right
-    LOAD_LINE 1, r1,r2,r7, r4 + 1 * r3, r6
-%else
-    LOAD_LINE_COMPACT 0, r1,r2,r4, r6, right
-    add r4, r3
-    LOAD_LINE_COMPACT 1, r1,r2,r4, r6
-    sub r4, r3
-%endif
-
 %if mmsize == 32
-    vperm2i128 m0, m0, m1, 0x20
+    vpermq m %+ %%t, m %+ %%t, q1010
 %endif
-    psrldq m0, 12
-    pslldq m2, m1, 4
-    por m0, m2
-    psrldq m2, m0, 2
-    paddw m0, m1
-    pslldq m1, 2
-    psrlw m0, 1
-    por m1, m2
-    paddw m0, m1
-    paddw m0, m3
-    psrlw m0, 1
-
-    mova [r0], m0
-    add r0, mmsize
-    add r4, mmsize
-    cmp r0, r5
-    jb .main_loop
-    RET
-%endmacro
-
-INIT_XMM sse2
-PRE_BLUR1_HORZ
-INIT_YMM avx2
-PRE_BLUR1_HORZ
-
-;------------------------------------------------------------------------------
-; PRE_BLUR1_VERT
-; void pre_blur1_vert(int16_t *dst, const int16_t *src,
-;                     uintptr_t src_width, uintptr_t src_height);
-;------------------------------------------------------------------------------
-
-%macro PRE_BLUR1_VERT 0
-cglobal pre_blur1_vert, 4,7,4
-    lea r2, [2 * r2 + mmsize - 1]
-    lea r5, [r3 + 2]
-    and r2, ~(mmsize - 1)
-    imul r2, r5
-    MUL r3, mmsize
-    add r2, r0
-    mova m3, [words_one]
-    lea r6, [words_zero]
-    sub r6, r1
-
-.col_loop:
-    mov r4, -2 * mmsize
-    pxor m0, m0
-    pxor m1, m1
-.row_loop:
-    LOAD_LINE 2, r1,r3,r6, r4 + 2 * mmsize, r5
-
-    paddw m0, m2
-    psrlw m0, 1
-    paddw m0, m1
-    paddw m0, m3
-    psrlw m0, 1
-
-    mova [r0], m0
-    add r4, mmsize
-    add r0, mmsize
-    mova m0, m1
-    mova m1, m2
-    cmp r4, r3
-    jl .row_loop
-    add r1, r3
-    sub r6, r3
-    cmp r0, r2
-    jb .col_loop
-    RET
-%endmacro
-
-INIT_XMM sse2
-PRE_BLUR1_VERT
-INIT_YMM avx2
-PRE_BLUR1_VERT
-
-;------------------------------------------------------------------------------
-; PRE_BLUR2_HORZ
-; void pre_blur2_horz(int16_t *dst, const int16_t *src,
-;                     uintptr_t src_width, uintptr_t src_height);
-;------------------------------------------------------------------------------
-
-%macro PRE_BLUR2_HORZ 0
 %if ARCH_X86_64
-cglobal pre_blur2_horz, 4,8,7
-%else
-cglobal pre_blur2_horz, 4,7,7
+    %assign %%i 0
+%rep (%1 + 1) / 2
+    %assign %%c %2 + %%i
+    pshufd m %+ %%c, m %+ %%t, q1111 * %%i
+    %assign %%i %%i + 1
+%endrep
 %endif
-    lea r5, [2 * r2 + mmsize + 7]
-    lea r2, [2 * r2 + mmsize - 1]
-    and r5, ~(mmsize - 1)
-    and r2, ~(mmsize - 1)
-    imul r5, r3
-    imul r2, r3
-    add r5, r0
-    xor r4, r4
-    MUL r3, mmsize
-    sub r4, r3
-    mova m5, [words_one]
-    mova m6, [words_sign]
-%if ARCH_X86_64
-    lea r7, [words_zero]
-    sub r7, r1
-%endif
-
-.main_loop:
-%if ARCH_X86_64
-    LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6, right
-    LOAD_LINE 1, r1,r2,r7, r4 + 1 * r3, r6
-%else
-    LOAD_LINE_COMPACT 0, r1,r2,r4, r6, right
-    add r4, r3
-    LOAD_LINE_COMPACT 1, r1,r2,r4, r6
-    sub r4, r3
-%endif
-
-%if mmsize == 32
-    vperm2i128 m0, m0, m1, 0x20
-%endif
-    psrldq m0, 8
-    pslldq m2, m1, 8
-    por m2, m0
-    paddw m2, m1
-    psrlw m2, 1
-    psrldq m0, 2
-    pslldq m3, m1, 6
-    por m3, m0
-    psrldq m0, 2
-    pslldq m4, m1, 4
-    por m4, m0
-    paddw m2, m4
-    psrlw m2, 1
-    paddw m2, m4
-    psrldq m0, 2
-    pslldq m1, 2
-    por m0, m1
-    paddw m0, m3
-    mova m1, m6
-    pand m1, m0
-    pand m1, m2
-    paddw m0, m2
-    psrlw m0, 1
-    por m0, m1
-    paddw m0, m5
-    psrlw m0, 1
-
-    mova [r0], m0
-    add r0, mmsize
-    add r4, mmsize
-    cmp r0, r5
-    jb .main_loop
-    RET
-%endmacro
-
-INIT_XMM sse2
-PRE_BLUR2_HORZ
-INIT_YMM avx2
-PRE_BLUR2_HORZ
-
-;------------------------------------------------------------------------------
-; PRE_BLUR2_VERT
-; void pre_blur2_vert(int16_t *dst, const int16_t *src,
-;                     uintptr_t src_width, uintptr_t src_height);
-;------------------------------------------------------------------------------
-
-%macro PRE_BLUR2_VERT 0
-%if ARCH_X86_64
-cglobal pre_blur2_vert, 4,7,9
-%else
-cglobal pre_blur2_vert, 4,7,8
-%endif
-    lea r2, [2 * r2 + mmsize - 1]
-    lea r5, [r3 + 4]
-    and r2, ~(mmsize - 1)
-    imul r2, r5
-    MUL r3, mmsize
-    add r2, r0
-    mova m7, [words_one]
-%if ARCH_X86_64
-    mova m8, [words_sign]
-%endif
-    lea r6, [words_zero]
-    sub r6, r1
-
-.col_loop:
-    mov r4, -4 * mmsize
-    pxor m0, m0
-    pxor m1, m1
-    pxor m2, m2
-    pxor m3, m3
-.row_loop:
-    LOAD_LINE 4, r1,r3,r6, r4 + 4 * mmsize, r5
-
-%if ARCH_X86_64
-    mova m6, m8
-%else
-    psllw m6, m7, 15
-%endif
-    paddw m0, m4
-    psrlw m0, 1
-    paddw m0, m2
-    psrlw m0, 1
-    paddw m0, m2
-    paddw m5, m1, m3
-    pand m6, m0
-    pand m6, m5
-    paddw m0, m5
-    psrlw m0, 1
-    por m0, m6
-    paddw m0, m7
-    psrlw m0, 1
-
-    mova [r0], m0
-    add r4, mmsize
-    add r0, mmsize
-    mova m0, m1
-    mova m1, m2
-    mova m2, m3
-    mova m3, m4
-    cmp r4, r3
-    jl .row_loop
-    add r1, r3
-    sub r6, r3
-    cmp r0, r2
-    jb .col_loop
-    RET
-%endmacro
-
-INIT_XMM sse2
-PRE_BLUR2_VERT
-INIT_YMM avx2
-PRE_BLUR2_VERT
-
-;------------------------------------------------------------------------------
-; ADD_LINE 1:m_acc1, 2:m_acc2, 3:m_line, 4-5:m_tmp
-; Calculate acc += line
-;------------------------------------------------------------------------------
-
-%macro ADD_LINE 5
-    psraw m%4, m%3, 15
-    punpcklwd m%5, m%3, m%4
-    punpckhwd m%3, m%4
-%ifidn %1, %5
-    paddd m%1, m%2
-%else
-    paddd m%1, m%5
-%endif
-    paddd m%2, m%3
 %endmacro
 
 ;------------------------------------------------------------------------------
-; FILTER_PAIR 1:m_acc1, 2:m_acc2, 3:m_line1, 4:m_line2,
-;             5:m_tmp, 6:m_mul64, [7:m_mul32, 8:swizzle]
-; Calculate acc += line1 * mul[odd] + line2 * mul[even]
+; FILTER_PAIR 1-2:m_acc[2], 3-4:m_line[2], 5:m_tmp, 6:m_mul, 7:pos
+; Calculate acc += line[0] * mul[odd] + line[1] * mul[even]
 ;------------------------------------------------------------------------------
 
-%macro FILTER_PAIR 6-8
+%macro FILTER_PAIR 7
     punpcklwd m%5, m%4, m%3
     punpckhwd m%4, m%3
-%if ARCH_X86_64 || (%0 < 8)
-    pmaddwd m%5, m%6
-    pmaddwd m%4, m%6
+    %assign %%p ((%7) - 1) / 2
+%if ARCH_X86_64
+    %assign %%p %6 + %%p
 %else
-    pshufd m%3, m%7, %8
-    pmaddwd m%5, m%3
-    pmaddwd m%4, m%3
+    pshufd m%3, m%6, q1111 * %%p
+    %assign %%p %3
 %endif
+    pmaddwd m%5, m %+ %%p
+    pmaddwd m%4, m %+ %%p
 %ifidn %1, %5
     paddd m%1, m%2
 %else
@@ -990,225 +707,54 @@ PRE_BLUR2_VERT
 %endmacro
 
 ;------------------------------------------------------------------------------
-; PRE_BLUR3_HORZ
-; void pre_blur3_horz(int16_t *dst, const int16_t *src,
-;                     uintptr_t src_width, uintptr_t src_height);
+; NEXT_DIFF 1:m_res, 2:m_side, 3:m_center, 4:position, 5:left/right
+; Calculate difference between next offset line and center line
 ;------------------------------------------------------------------------------
 
-%macro PRE_BLUR3_HORZ 0
-%if ARCH_X86_64
-cglobal pre_blur3_horz, 4,8,9
+%macro NEXT_DIFF 5
+%ifidn %5, left
+
+%if cpuflag(ssse3)
+    palignr m%1, m%3, m%2, 16 - (%4)
 %else
-cglobal pre_blur3_horz, 4,7,8
-%endif
-    lea r5, [2 * r2 + mmsize + 11]
-    lea r2, [2 * r2 + mmsize - 1]
-    and r5, ~(mmsize - 1)
-    and r2, ~(mmsize - 1)
-    imul r5, r3
-    imul r2, r3
-    add r5, r0
-    xor r4, r4
-    MUL r3, mmsize
-    sub r4, r3
-    mova m5, [words_15_6]
-%if ARCH_X86_64
-    mova m8, [dwords_32]
-    lea r7, [words_zero]
-    sub r7, r1
+    psrldq m%2, 2
+    pslldq m%1, m%3, %4
+    por m%1, m%2
 %endif
 
-.main_loop:
-%if ARCH_X86_64
-    LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6, right
-    LOAD_LINE 1, r1,r2,r7, r4 + 1 * r3, r6
+%elifidn %5, right
+
+%if cpuflag(ssse3)
+    palignr m%1, m%2, m%3, %4
 %else
-    LOAD_LINE_COMPACT 0, r1,r2,r4, r6, right
-    add r4, r3
-    LOAD_LINE_COMPACT 1, r1,r2,r4, r6
-    sub r4, r3
+    pslldq m%2, 2
+    psrldq m%1, m%3, %4
+    por m%1, m%2
 %endif
 
-%if ARCH_X86_64
-    mova m7, m8
 %else
-    mova m7, [dwords_32]
+    %error "left/right expected"
 %endif
-%if mmsize == 32
-    vperm2i128 m0, m0, m1, 0x20
-%endif
-    psrldq m2, m0, 10
-    pslldq m3, m1, 6
-    por m2, m3
-
-    psrldq m0, 4
-    pslldq m3, m2, 6
-    por m3, m0
-    psubw m3, m2
-    ADD_LINE 6,7, 3,4, 6
-
-    psrldq m0, 2
-    pslldq m3, m2, 4
-    por m3, m0
-    psubw m3, m2
-    psrldq m0, 2
-    pslldq m4, m2, 2
-    por m4, m0
-    psubw m4, m2
-    FILTER_PAIR 6,7, 3,4, 0, 5
-
-    psubw m3, m1, m2
-    ADD_LINE 6,7, 3,4, 0
-
-    pslldq m1, 2
-    psrldq m3, m2, 4
-    por m3, m1
-    psubw m3, m2
-    pslldq m1, 2
-    psrldq m4, m2, 2
-    por m4, m1
-    psubw m4, m2
-    FILTER_PAIR 6,7, 3,4, 0, 5
-
-    psrad m6, 6
-    psrad m7, 6
-    packssdw m6, m7
-    paddw m2, m6
-    mova [r0], m2
-    add r0, mmsize
-    add r4, mmsize
-    cmp r0, r5
-    jb .main_loop
-    RET
-%endmacro
-
-INIT_XMM sse2
-PRE_BLUR3_HORZ
-INIT_YMM avx2
-PRE_BLUR3_HORZ
-
-;------------------------------------------------------------------------------
-; PRE_BLUR3_VERT
-; void pre_blur3_vert(int16_t *dst, const int16_t *src,
-;                     uintptr_t src_width, uintptr_t src_height);
-;------------------------------------------------------------------------------
-
-%macro PRE_BLUR3_VERT 0
-%if ARCH_X86_64
-cglobal pre_blur3_vert, 4,7,8
-%else
-cglobal pre_blur3_vert, 4,7,8
-%endif
-    lea r2, [2 * r2 + mmsize - 1]
-    lea r5, [r3 + 6]
-    and r2, ~(mmsize - 1)
-    imul r2, r5
-    MUL r3, mmsize
-    add r2, r0
-    mova m4, [dwords_32]
-    mova m5, [words_15_6]
-    lea r6, [words_zero]
-    sub r6, r1
-
-.col_loop:
-    mov r4, -6 * mmsize
-.row_loop:
-    mova m6, m4
-    mova m7, m4
-    LOAD_LINE 0, r1,r3,r6, r4 + 3 * mmsize, r5
-
-    LOAD_LINE 1, r1,r3,r6, r4 + 0 * mmsize, r5
-    psubw m1, m0
-    ADD_LINE 6,7, 1,2, 3
-
-    LOAD_LINE 1, r1,r3,r6, r4 + 1 * mmsize, r5
-    LOAD_LINE 2, r1,r3,r6, r4 + 2 * mmsize, r5
-    psubw m1, m0
-    psubw m2, m0
-    FILTER_PAIR 6,7, 1,2, 3, 5
-
-    LOAD_LINE 1, r1,r3,r6, r4 + 6 * mmsize, r5
-    psubw m1, m0
-    ADD_LINE 6,7, 1,2, 3
-
-    LOAD_LINE 1, r1,r3,r6, r4 + 5 * mmsize, r5
-    LOAD_LINE 2, r1,r3,r6, r4 + 4 * mmsize, r5
-    psubw m1, m0
-    psubw m2, m0
-    FILTER_PAIR 6,7, 1,2, 3, 5
-
-    psrad m6, 6
-    psrad m7, 6
-    packssdw m6, m7
-    paddw m0, m6
-    mova [r0], m0
-    add r4, mmsize
-    add r0, mmsize
-    cmp r4, r3
-    jl .row_loop
-    add r1, r3
-    sub r6, r3
-    cmp r0, r2
-    jb .col_loop
-    RET
-%endmacro
-
-INIT_XMM sse2
-PRE_BLUR3_VERT
-INIT_YMM avx2
-PRE_BLUR3_VERT
-
-;------------------------------------------------------------------------------
-; LOAD_MULTIPLIER 1:m_mul1, 2:m_mul2, 3:src, 4:tmp
-; Load blur parameters into xmm/ymm registers
-;------------------------------------------------------------------------------
-
-%macro LOAD_MULTIPLIER 4
-    mov %4, [%3]
-    movd xm%1, %4d
-%if ARCH_X86_64
-    shr %4, 32
-%else
-    mov %4, [%3 + 4]
-%endif
-    movd xm%2, %4d
-%if ARCH_X86_64 == 0
-    punpckldq xm%1, xm%2
-%if mmsize == 32
-    vpbroadcastq m%1, xm%1
-%endif
-%elif mmsize == 32
-    vpbroadcastd m%1, xm%1
-    vpbroadcastd m%2, xm%2
-%else
-    pshufd m%1, m%1, q0000
-    pshufd m%2, m%2, q0000
-%endif
+    psubw m%1, m%3
 %endmacro
 
 ;------------------------------------------------------------------------------
-; BLUR_HORZ 1:pattern
-; void blurNNNN_horz(int16_t *dst, const int16_t *src,
-;                    uintptr_t src_width, uintptr_t src_height,
-;                    const int16_t *param);
+; BLUR_HORZ 1:radius
+; void blurN_horz(int16_t *dst, const int16_t *src,
+;                 uintptr_t src_width, uintptr_t src_height,
+;                 const int16_t *param);
 ;------------------------------------------------------------------------------
 
 %macro BLUR_HORZ 1
-    %assign %%i1 %1 / 1000 % 10
-    %assign %%i2 %1 / 100 % 10
-    %assign %%i3 %1 / 10 % 10
-    %assign %%i4 %1 / 1 % 10
 %if ARCH_X86_64
-cglobal blur%1_horz, 5,8,10
+    %assign %%narg 9 + (%1 + 1) / 2
+cglobal blur%1_horz, 5,8,%%narg
 %else
 cglobal blur%1_horz, 5,7,8
+    SWAP 7, 9
 %endif
-%if ARCH_X86_64
-    LOAD_MULTIPLIER 8,9, r4, r5
-%else
-    LOAD_MULTIPLIER 5,0, r4, r5
-%endif
-    lea r5, [2 * r2 + mmsize + 4 * %%i4 - 1]
+    LOAD_MULTIPLIER %1, 9, r4, r5
+    lea r5, [2 * r2 + mmsize + 4 * %1 - 1]
     lea r2, [2 * r2 + mmsize - 1]
     and r5, ~(mmsize - 1)
     and r2, ~(mmsize - 1)
@@ -1217,106 +763,129 @@ cglobal blur%1_horz, 5,7,8
     add r5, r0
     xor r4, r4
     MUL r3, mmsize
-%if (mmsize != 32) && (%%i4 > 4)
+%if mmsize != 32 && %1 > 4
     sub r4, r3
 %endif
     sub r4, r3
 %if ARCH_X86_64
-    mova m5, [dwords_round]
+    mova m7, [dwords_round]
     lea r7, [words_zero]
     sub r7, r1
 %endif
 
 .main_loop:
 %if ARCH_X86_64
-%if %%i4 > 4
-    LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6
+%if %1 > 4
+    LOAD_LINE 1, r1,r2,r7, r4 + 0 * r3, r6
 %else
-    LOAD_LINE 0, r1,r2,r7, r4 + 0 * r3, r6, right
+    LOAD_LINE 1, r1,r2,r7, r4 + 0 * r3, r6, right
 %endif
-    LOAD_LINE 1, r1,r2,r7, r4 + 1 * r3, r6
-%if (mmsize != 32) && (%%i4 > 4)
-    LOAD_LINE 2, r1,r2,r7, r4 + 2 * r3, r6
-    SWAP 1, 2
+    LOAD_LINE 2, r1,r2,r7, r4 + 1 * r3, r6
+%if mmsize != 32 && %1 > 4
+    LOAD_LINE 0, r1,r2,r7, r4 + 2 * r3, r6
+    SWAP 0, 2
 %endif
 %else
-%if %%i4 > 4
-    LOAD_LINE_COMPACT 0, r1,r2,r4, r6
-%else
-    LOAD_LINE_COMPACT 0, r1,r2,r4, r6, right
-%endif
-    add r4, r3
+%if %1 > 4
     LOAD_LINE_COMPACT 1, r1,r2,r4, r6
-%if (mmsize != 32) && (%%i4 > 4)
+%else
+    LOAD_LINE_COMPACT 1, r1,r2,r4, r6, right
+%endif
     add r4, r3
     LOAD_LINE_COMPACT 2, r1,r2,r4, r6
-    SWAP 1, 2
+%if mmsize != 32 && %1 > 4
+    add r4, r3
+    LOAD_LINE_COMPACT 0, r1,r2,r4, r6
+    SWAP 0, 2
     sub r4, r3
 %endif
     sub r4, r3
+%endif
+
+%if %1 > 4
+%if mmsize == 32
+    vperm2i128 m0, m1, m2, 0x21
+%endif
+%if cpuflag(ssse3)
+    PALIGNR m1,m0,m1, m3, 16 - 2 * %1
+%else
+    PALIGNR m1,m0,m1, m3, 32 - 4 * %1
+%endif
+    PALIGNR m0,m2,m0, m3, 16 - 2 * %1
+%else
+%if mmsize == 32
+    vperm2i128 m1, m1, m2, 0x20
+%endif
+%if cpuflag(ssse3)
+    palignr m0, m2, m1, 8
+    pslldq m1, 8
+%else
+    shufpd m0, m1, m2, 5
+%endif
 %endif
 
 %if ARCH_X86_64
-    mova m7, m5
+    mova m6, m7
 %else
-    mova m7, [dwords_round]
+    mova m6, [dwords_round]
+    mova [r0], m1
+    SWAP 1, 8
 %endif
-%if %%i4 > 4
-%if mmsize == 32
-    vperm2i128 m2, m0, m1, 0x21
+
+    %assign %%i %1
+    psubw m3, m2, m0
+%if cpuflag(ssse3) && %1 < 8
+    psrldq m2, 16 - 2 * %1
 %endif
-    psrldq m0, 32 - 4 * %%i4
-    pslldq m3, m2, 4 * %%i4 - 16
-    por m0, m3
-    psrldq m2, 16 - 2 * %%i4
-%else
-%if mmsize == 32
-    vperm2i128 m0, m0, m1, 0x20
-%endif
-    psrldq m2, m0, 16 - 2 * %%i4
-%endif
-    pslldq m3, m1, 2 * %%i4
-    por m2, m3
+    NEXT_DIFF 4,2,0, 2 * %%i - 2, right
+    FILTER_PAIR 5,6, 3,4, 5, 9,%%i
+%rep %1 / 2 - 1
+    %assign %%i %%i - 2
+    NEXT_DIFF 3,2,0, 2 * %%i, right
+    NEXT_DIFF 4,2,0, 2 * %%i - 2, right
+    FILTER_PAIR 5,6, 3,4, 8, 9,%%i
+%endrep
 
-    psubw m3, m1, m2
-    pslldq m1, 2 * (%%i4 - %%i3)
-    psrldq m4, m2, 2 * %%i3
-    por m4, m1
-    psubw m4, m2
-    FILTER_PAIR 6,7, 3,4, 6, 9,5,q1111
-
-    pslldq m1, 2 * (%%i3 - %%i2)
-    psrldq m3, m2, 2 * %%i2
-    por m3, m1
-    psubw m3, m2
-    pslldq m1, 2 * (%%i2 - %%i1)
-    psrldq m4, m2, 2 * %%i1
-    por m4, m1
-    psubw m4, m2
-    FILTER_PAIR 6,7, 3,4, 1, 8,5,q0000
-
-    psubw m3, m0, m2
-    psrldq m0, 2 * (%%i4 - %%i3)
-    pslldq m4, m2, 2 * %%i3
-    por m4, m0
-    psubw m4, m2
-    FILTER_PAIR 6,7, 3,4, 1, 9,5,q1111
-
-    psrldq m0, 2 * (%%i3 - %%i2)
-    pslldq m3, m2, 2 * %%i2
-    por m3, m0
-    psubw m3, m2
-    psrldq m0, 2 * (%%i2 - %%i1)
-    pslldq m4, m2, 2 * %%i1
-    por m4, m0
-    psubw m4, m2
-    FILTER_PAIR 6,7, 3,4, 1, 8,5,q0000
-
-    psrad m6, 16
-    psrad m7, 16
-    packssdw m6, m7
-    paddw m2, m6
+%if ARCH_X86_64 == 0
+    SWAP 1, 8
+    mova m1, [r0]
+%if %1 % 2
     mova [r0], m2
+%endif
+    SWAP 2, 8
+%endif
+
+    %assign %%i %1
+%if cpuflag(ssse3) && %1 < 8
+    NEXT_DIFF 3,1,0, 2 * %%i, left
+%else
+    psubw m3, m1, m0
+%endif
+    NEXT_DIFF 4,1,0, 2 * %%i - 2, left
+    FILTER_PAIR 5,6, 3,4, 8, 9,%%i
+%rep %1 / 2 - 1
+    %assign %%i %%i - 2
+    NEXT_DIFF 3,1,0, 2 * %%i, left
+    NEXT_DIFF 4,1,0, 2 * %%i - 2, left
+    FILTER_PAIR 5,6, 3,4, 8, 9,%%i
+%endrep
+
+%if %%i > 2
+    %assign %%i %%i - 2
+%if ARCH_X86_64 == 0
+    SWAP 2, 8
+    mova m2, [r0]
+%endif
+    NEXT_DIFF 3,1,0, 2 * %%i, left
+    NEXT_DIFF 4,2,0, 2 * %%i, right
+    FILTER_PAIR 5,6, 3,4, 1, 9,%%i
+%endif
+
+    psrad m5, 16
+    psrad m6, 16
+    packssdw m5, m6
+    paddw m0, m5
+    mova [r0], m0
     add r0, mmsize
     add r4, mmsize
     cmp r0, r5
@@ -1325,82 +894,80 @@ cglobal blur%1_horz, 5,7,8
 %endmacro
 
 INIT_XMM sse2
-BLUR_HORZ 1234
-BLUR_HORZ 1235
-BLUR_HORZ 1246
+BLUR_HORZ 4
+BLUR_HORZ 5
+BLUR_HORZ 6
+BLUR_HORZ 7
+BLUR_HORZ 8
 INIT_YMM avx2
-BLUR_HORZ 1234
-BLUR_HORZ 1235
-BLUR_HORZ 1246
+BLUR_HORZ 4
+BLUR_HORZ 5
+BLUR_HORZ 6
+BLUR_HORZ 7
+BLUR_HORZ 8
 
 ;------------------------------------------------------------------------------
-; BLUR_VERT 1:pattern
-; void blurNNNN_vert(int16_t *dst, const int16_t *src,
-;                    uintptr_t src_width, uintptr_t src_height,
-;                    const int16_t *param);
+; BLUR_VERT 1:radius
+; void blurN_vert(int16_t *dst, const int16_t *src,
+;                 uintptr_t src_width, uintptr_t src_height,
+;                 const int16_t *param);
 ;------------------------------------------------------------------------------
 
 %macro BLUR_VERT 1
-    %assign %%i1 %1 / 1000 % 10
-    %assign %%i2 %1 / 100 % 10
-    %assign %%i3 %1 / 10 % 10
-    %assign %%i4 %1 / 1 % 10
 %if ARCH_X86_64
-cglobal blur%1_vert, 5,7,9
+    %assign %%narg 7 + (%1 + 1) / 2
+cglobal blur%1_vert, 5,7,%%narg
 %else
 cglobal blur%1_vert, 5,7,8
 %endif
-%if ARCH_X86_64
-    LOAD_MULTIPLIER 4,5, r4, r5
-%else
-    LOAD_MULTIPLIER 5,0, r4, r5
-    SWAP 4, 8
-%endif
+    LOAD_MULTIPLIER %1, 7, r4, r5
     lea r2, [2 * r2 + mmsize - 1]
-    lea r5, [r3 + 2 * %%i4]
+    lea r5, [r3 + 2 * %1]
     and r2, ~(mmsize - 1)
     imul r2, r5
     MUL r3, mmsize
     add r2, r0
-    mova m8, [dwords_round]
+    mova m4, [dwords_round]
     lea r6, [words_zero]
     sub r6, r1
 
 .col_loop:
-    mov r4, -2 * %%i4 * mmsize
+    mov r4, -2 * %1 * mmsize
 .row_loop:
-    mova m6, m8
-    mova m7, m8
-    LOAD_LINE 0, r1,r3,r6, r4 + %%i4 * mmsize, r5
+    mova m5, m4
+    mova m6, m4
+    LOAD_LINE 0, r1,r3,r6, r4 + %1 * mmsize, r5
 
-    LOAD_LINE 1, r1,r3,r6, r4 + (%%i4 - %%i4) * mmsize, r5
-    LOAD_LINE 2, r1,r3,r6, r4 + (%%i4 - %%i3) * mmsize, r5
+    %assign %%i %1
+%rep %1 / 2
+
+    LOAD_LINE 1, r1,r3,r6, r4 + (%1 - %%i) * mmsize, r5
+    LOAD_LINE 2, r1,r3,r6, r4 + (%1 - %%i + 1) * mmsize, r5
     psubw m1, m0
     psubw m2, m0
-    FILTER_PAIR 6,7, 1,2, 3, 5,5,q1111
+    FILTER_PAIR 5,6, 1,2, 3, 7,%%i
 
-    LOAD_LINE 1, r1,r3,r6, r4 + (%%i4 - %%i2) * mmsize, r5
-    LOAD_LINE 2, r1,r3,r6, r4 + (%%i4 - %%i1) * mmsize, r5
+    LOAD_LINE 1, r1,r3,r6, r4 + (%1 + %%i) * mmsize, r5
+    LOAD_LINE 2, r1,r3,r6, r4 + (%1 + %%i - 1) * mmsize, r5
     psubw m1, m0
     psubw m2, m0
-    FILTER_PAIR 6,7, 1,2, 3, 4,5,q0000
+    FILTER_PAIR 5,6, 1,2, 3, 7,%%i
 
-    LOAD_LINE 1, r1,r3,r6, r4 + (%%i4 + %%i4) * mmsize, r5
-    LOAD_LINE 2, r1,r3,r6, r4 + (%%i4 + %%i3) * mmsize, r5
+    %assign %%i %%i - 2
+%endrep
+
+%if %%i > 0
+    LOAD_LINE 1, r1,r3,r6, r4 + (%1 - %%i) * mmsize, r5
+    LOAD_LINE 2, r1,r3,r6, r4 + (%1 + %%i) * mmsize, r5
     psubw m1, m0
     psubw m2, m0
-    FILTER_PAIR 6,7, 1,2, 3, 5,5,q1111
+    FILTER_PAIR 5,6, 1,2, 3, 7,%%i
+%endif
 
-    LOAD_LINE 1, r1,r3,r6, r4 + (%%i4 + %%i2) * mmsize, r5
-    LOAD_LINE 2, r1,r3,r6, r4 + (%%i4 + %%i1) * mmsize, r5
-    psubw m1, m0
-    psubw m2, m0
-    FILTER_PAIR 6,7, 1,2, 3, 4,5,q0000
-
+    psrad m5, 16
     psrad m6, 16
-    psrad m7, 16
-    packssdw m6, m7
-    paddw m0, m6
+    packssdw m5, m6
+    paddw m0, m5
     mova [r0], m0
     add r4, mmsize
     add r0, mmsize
@@ -1414,10 +981,14 @@ cglobal blur%1_vert, 5,7,8
 %endmacro
 
 INIT_XMM sse2
-BLUR_VERT 1234
-BLUR_VERT 1235
-BLUR_VERT 1246
+BLUR_VERT 4
+BLUR_VERT 5
+BLUR_VERT 6
+BLUR_VERT 7
+BLUR_VERT 8
 INIT_YMM avx2
-BLUR_VERT 1234
-BLUR_VERT 1235
-BLUR_VERT 1246
+BLUR_VERT 4
+BLUR_VERT 5
+BLUR_VERT 6
+BLUR_VERT 7
+BLUR_VERT 8

@@ -83,3 +83,59 @@
     pmaxsw m%1, m%2
 %endif
 %endmacro
+
+;------------------------------------------------------------------------------
+; PALIGNR 1:m_dst, 2:m_src1, 3:m_src2, 4:m_tmp, 5:amount
+;------------------------------------------------------------------------------
+
+%macro PALIGNR 5
+%if (%5) == 0
+%ifnidn %1, %3
+    mova %1, %3
+%endif
+%elif mmsize == 32
+    palignr %1, %2, %3, %5
+%elif cpuflag(ssse3)
+
+%ifnidn %1, %3
+    palignr %1, %2, %3, %5
+%elifidn %2, %4
+    palignr %2, %3, %5
+    mova %1, %2
+%else
+    mova %4, %3
+    palignr %1, %2, %4, %5
+%endif
+
+%elif (%5) == 8
+
+%ifnidn %1, %2
+    shufpd %1, %3, %2, 5
+%elifidn %3, %4
+    shufpd %3, %2, 5
+    mova %1, %3
+%else
+    mova %4, %2
+    shufpd %1, %3, %4, 5
+%endif
+
+%else
+
+    %assign %%flip 0
+%ifidn %1, %3
+    %assign %%flip 1
+%endif
+%ifidn %2, %4
+    %assign %%flip 1
+%endif
+%if %%flip
+    pslldq %4, %2, 16 - (%5)
+    psrldq %1, %3, %5
+%else
+    pslldq %1, %2, 16 - (%5)
+    psrldq %4, %3, %5
+%endif
+    por %1, %4
+
+%endif
+%endmacro
