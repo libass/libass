@@ -80,8 +80,7 @@ typedef struct {
     Convert16to8Func stripe_pack;
     FilterFunc shrink_horz, shrink_vert;
     FilterFunc expand_horz, expand_vert;
-    FilterFunc pre_blur_horz[3], pre_blur_vert[3];
-    ParamFilterFunc main_blur_horz[3], main_blur_vert[3];
+    ParamFilterFunc blur_horz[5], blur_vert[5];
 } BitmapEngine;
 
 extern const BitmapEngine ass_bitmap_engine_c;
