@@ -204,7 +204,7 @@ static HRESULT STDMETHODCALLTYPE FallbackLogTextRenderer_QueryInterface(
 static void init_FallbackLogTextRenderer(FallbackLogTextRenderer *r,
                                          IDWriteFactory *factory)
 {
-    *r = (FallbackLogTextRenderer){
+    *r = (FallbackLogTextRenderer) {
         .iface = {
             .lpVtbl = &r->vtbl,
         },

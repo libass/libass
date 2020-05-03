@@ -87,7 +87,7 @@ uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol)
     if (!face->charmap)
         return symbol;
 
-    switch(face->charmap->encoding){
+    switch (face->charmap->encoding) {
     case FT_ENCODING_MS_SYMBOL:
         return 0xF000 | symbol;
     default:

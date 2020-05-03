@@ -46,11 +46,11 @@ int has_avx(void)
 {
     uint32_t eax = 1, ebx, ecx, edx;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    if(!(ecx & (1 << 27))) // not OSXSAVE
+    if (!(ecx & (1 << 27))) // not OSXSAVE
         return 0;
     uint32_t misc = ecx;
     ass_get_xgetbv(0, &eax, &edx);
-    if((eax & 0x6) != 0x6)
+    if ((eax & 0x6) != 0x6)
         return 0;
     eax = 0;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);

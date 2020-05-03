@@ -73,8 +73,8 @@ int main(int argc, char *argv[])
     double tm = strtod(argv[2], 0);
     double fps = strtod(argv[3], 0);
     double time = strtod(argv[4], 0);
-    
-    if(fps == 0){
+
+    if (fps == 0) {
         printf("fps cannot equal 0\n");
         exit(1);
     }
@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    while(tm < time){
+    while (tm < time) {
         ass_render_frame(ass_renderer, track, (int) (tm * 1000), NULL);
         tm += 1 / fps;
     }

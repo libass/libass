@@ -240,8 +240,8 @@ static long long string2timecode(ASS_Library *library, char *p)
 }
 
 #define NEXT(str,token) \
-	token = next_token(&str); \
-	if (!token) break;
+    token = next_token(&str); \
+    if (!token) break;
 
 
 #define ALIAS(alias,name) \
@@ -261,13 +261,13 @@ static long long string2timecode(ASS_Library *library, char *p)
 #define PARSE_END   }
 
 #define ANYVAL(name,func) \
-	} else if (ass_strcasecmp(tname, #name) == 0) { \
-		target->name = func(token);
+    } else if (ass_strcasecmp(tname, #name) == 0) { \
+        target->name = func(token);
 
 #define STRVAL(name) \
-	} else if (ass_strcasecmp(tname, #name) == 0) { \
-		if (target->name != NULL) free(target->name); \
-		target->name = strdup(token);
+    } else if (ass_strcasecmp(tname, #name) == 0) { \
+        if (target->name != NULL) free(target->name); \
+        target->name = strdup(token);
 
 #define STARREDSTRVAL(name) \
     } else if (ass_strcasecmp(tname, #name) == 0) { \
@@ -279,12 +279,12 @@ static long long string2timecode(ASS_Library *library, char *p)
 #define INTVAL(name) ANYVAL(name,atoi)
 #define FPVAL(name) ANYVAL(name,ass_atof)
 #define TIMEVAL(name) \
-	} else if (ass_strcasecmp(tname, #name) == 0) { \
-		target->name = string2timecode(track->library, token);
+    } else if (ass_strcasecmp(tname, #name) == 0) { \
+        target->name = string2timecode(track->library, token);
 
 #define STYLEVAL(name) \
-	} else if (ass_strcasecmp(tname, #name) == 0) { \
-		target->name = lookup_style(track, token);
+    } else if (ass_strcasecmp(tname, #name) == 0) { \
+        target->name = lookup_style(track, token);
 
 static char *next_token(char **str)
 {
