@@ -29,7 +29,7 @@
 
 #include "ass_coretext.h"
 
-#define SAFE_CFRelease(x) do { if (x) CFRelease(x); } while(0)
+#define SAFE_CFRelease(x) do { if (x) CFRelease(x); } while (0)
 
 static const ASS_FontMapping font_substitutions[] = {
     {"sans-serif", "Helvetica"},
