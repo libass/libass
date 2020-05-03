@@ -179,9 +179,9 @@ static inline uint32_t fnv_32a_buf(void *buf, size_t len, uint32_t hval)
     size_t n = (len + 3) / 4;
 
     switch (len % 4) {
-    case 0: do { hval ^= *bp++; hval *= FNV1_32A_PRIME;
-    case 3:      hval ^= *bp++; hval *= FNV1_32A_PRIME;
-    case 2:      hval ^= *bp++; hval *= FNV1_32A_PRIME;
+    case 0: do { hval ^= *bp++; hval *= FNV1_32A_PRIME; //-fallthrough
+    case 3:      hval ^= *bp++; hval *= FNV1_32A_PRIME; //-fallthrough
+    case 2:      hval ^= *bp++; hval *= FNV1_32A_PRIME; //-fallthrough
     case 1:      hval ^= *bp++; hval *= FNV1_32A_PRIME;
                } while (--n > 0);
     }
