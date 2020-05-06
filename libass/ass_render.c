@@ -1863,13 +1863,13 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
     TextInfo *text_info = &render_priv->text_info;
 
     char *p = event->Text, *q;
+    char *drawing_text = NULL;
 
     // Event parsing.
     while (true) {
         // get next char, executing style override
         // this affects render_context
         unsigned code = 0;
-        char *drawing_text = NULL;
         while (*p) {
             if ((*p == '{') && (q = strchr(p, '}'))) {
                 p = parse_tags(render_priv, p, q, 1., false);
@@ -1895,18 +1895,17 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
             break;
 
         // face could have been changed in get_next_char
-        if (!render_priv->state.font) {
-            free_render_context(render_priv);
-            free(drawing_text);
-            return false;
-        }
+        if (!render_priv->state.font)
+            goto fail;
 
         if (text_info->length >= text_info->max_glyphs) {
             // Raise maximum number of glyphs
-            text_info->max_glyphs *= 2;
-            text_info->glyphs =
-                realloc(text_info->glyphs,
-                        sizeof(GlyphInfo) * text_info->max_glyphs);
+            int new_max = 2 * FFMIN(text_info->max_glyphs, INT_MAX / 2);
+            if (text_info->length >= new_max)
+                goto fail;
+            if (!ASS_REALLOC_ARRAY(text_info->glyphs, new_max))
+                goto fail;
+            text_info->max_glyphs = new_max;
         }
 
         GlyphInfo *info = &text_info->glyphs[text_info->length];
@@ -1976,6 +1975,11 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
     }
 
     return true;
+
+fail:
+    free_render_context(render_priv);
+    free(drawing_text);
+    return false;
 }
 
 // Process render_priv->text_info and load glyph outlines.
