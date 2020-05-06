@@ -163,6 +163,7 @@ static int resize_read_order_bitmap(ASS_Track *track, int max_id)
     // Don't allow malicious files to OOM us easily. Also avoids int overflows.
     if (max_id < 0 || max_id >= 10 * 1024 * 1024 * 8)
         goto fail;
+    assert(track->parser_priv->read_order_bitmap || !track->parser_priv->read_order_elems);
     if (max_id >= track->parser_priv->read_order_elems * 32) {
         int oldelems = track->parser_priv->read_order_elems;
         int elems = ((max_id + 31) / 32 + 1) * 2;
