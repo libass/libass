@@ -124,6 +124,9 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
 void ass_renderer_done(ASS_Renderer *render_priv)
 {
+    if (!render_priv)
+        return;
+
     ass_frame_unref(render_priv->images_root);
     ass_frame_unref(render_priv->prev_images_root);
 
