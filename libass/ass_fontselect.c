@@ -968,6 +968,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         if (!ass_font_provider_add_font(priv, &info, NULL, face_index, ft)) {
             ass_msg(library, MSGL_WARN, "Failed to add embedded font '%s'",
                     name);
+            free(ft);
         }
 
         free_font_info(&info);
