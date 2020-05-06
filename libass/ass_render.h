@@ -201,42 +201,46 @@ typedef struct {
 typedef struct {
     ASS_Event *event;
     ASS_Style *style;
-    int parsed_tags;
 
     ASS_Font *font;
     double font_size;
+    int parsed_tags;
     int flags;                  // decoration flags (underline/strike-through)
 
     int alignment;              // alignment overrides go here; if zero, style value will be used
     int justify;                // justify instructions
     double frx, fry, frz;
     double fax, fay;            // text shearing
+    double pos_x, pos_y;        // position
+    double org_x, org_y;        // origin
+    double scale_x, scale_y;
+    double hspacing;            // distance between letters, in pixels
+    double border_x;            // outline width
+    double border_y;
     enum {
         EVENT_NORMAL,           // "normal" top-, sub- or mid- title
         EVENT_POSITIONED,       // happens after pos(,), margins are ignored
         EVENT_HSCROLL,          // "Banner" transition effect, text_width is unlimited
         EVENT_VSCROLL           // "Scroll up", "Scroll down" transition effects
     } evt_type;
-    double pos_x, pos_y;        // position
-    double org_x, org_y;        // origin
-    char have_origin;           // origin is explicitly defined; if 0, get_base_point() is used
-    double scale_x, scale_y;
-    double hspacing;            // distance between letters, in pixels
     int border_style;
-    double border_x;            // outline width
-    double border_y;
     uint32_t c[4];              // colors(Primary, Secondary, so on) in RGBA
     int clip_x0, clip_y0, clip_x1, clip_y1;
+    char have_origin;           // origin is explicitly defined; if 0, get_base_point() is used
     char clip_mode;             // 1 = iclip
     char detect_collisions;
-    int fade;                   // alpha from \fad
     char be;                    // blur edges
+    int fade;                   // alpha from \fad
     double blur;                // gaussian blur
     double shadow_x;
     double shadow_y;
-    int drawing_scale;          // currently reading: regular text if 0, drawing otherwise
     double pbo;                 // drawing baseline offset
     char *clip_drawing_text;
+
+    // used to store RenderContext.style when doing selective style overrides
+    ASS_Style override_style_temp_storage;
+
+    int drawing_scale;          // currently reading: regular text if 0, drawing otherwise
     int clip_drawing_scale;
     int clip_drawing_mode;      // 0 = regular clip, 1 = inverse clip
 
@@ -266,9 +270,6 @@ typedef struct {
     int apply_font_scale;
     // whether this is assumed to be explicitly positioned
     int explicit;
-
-    // used to store RenderContext.style when doing selective style overrides
-    ASS_Style override_style_temp_storage;
 } RenderContext;
 
 typedef struct {
