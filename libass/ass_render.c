@@ -1990,10 +1990,10 @@ static void retrieve_glyphs(ASS_Renderer *render_priv)
 
     for (i = 0; i < render_priv->text_info.length; i++) {
         GlyphInfo *info = glyphs + i;
-        while (info) {
+        do {
             get_outline_glyph(render_priv, info);
             info = info->next;
-        }
+        } while (info);
         info = glyphs + i;
 
         // Add additional space after italic to non-italic style changes
@@ -2022,7 +2022,7 @@ static void preliminary_layout(ASS_Renderer *render_priv)
     for (int i = 0; i < render_priv->text_info.length; i++) {
         GlyphInfo *info = render_priv->text_info.glyphs + i;
         ASS_Vector cluster_pen = pen;
-        while (info) {
+        do {
             info->pos.x = cluster_pen.x;
             info->pos.y = cluster_pen.y;
 
@@ -2030,7 +2030,7 @@ static void preliminary_layout(ASS_Renderer *render_priv)
             cluster_pen.y += info->advance.y;
 
             info = info->next;
-        }
+        } while (info);
         info = render_priv->text_info.glyphs + i;
         pen.x += info->cluster_advance.x;
         pen.y += info->cluster_advance.y;
