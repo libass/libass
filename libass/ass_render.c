@@ -2754,7 +2754,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->width =
         (bbox.x_max - bbox.x_min) * render_priv->font_scale_x + 0.5;
     event_images->detect_collisions = render_priv->state.detect_collisions;
-    event_images->shift_direction = (valign == VALIGN_TOP) ? 1 : -1;
+    event_images->shift_direction = (valign == VALIGN_SUB) ? -1 : 1;
     event_images->event = event;
     event_images->imgs = render_text(render_priv);
 
