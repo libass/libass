@@ -1494,11 +1494,16 @@ size_t ass_bitmap_construct(void *key, void *value, void *priv)
 }
 
 static void measure_text_on_eol(ASS_Renderer *render_priv, double scale, int cur_line,
-                                int max_asc, int max_desc)
+                                int max_asc, int max_desc, double max_border_y)
 {
     render_priv->text_info.lines[cur_line].asc  = scale * max_asc;
     render_priv->text_info.lines[cur_line].desc = scale * max_desc;
     render_priv->text_info.height += scale * max_asc + scale * max_desc;
+    // For *VSFilter compatibility do biased rounding on max_border*
+    // https://github.com/Cyberbeing/xy-VSFilter/blob/xy_sub_filter_rc4@%7B2020-05-17%7D/src/subtitles/RTS.cpp#L1465
+    render_priv->text_info.border_bottom = (int) (render_priv->border_scale * max_border_y + 0.5);
+    if (cur_line == 0)
+        render_priv->text_info.border_top = render_priv->text_info.border_bottom;
 }
 
 
@@ -1506,7 +1511,9 @@ static void measure_text_on_eol(ASS_Renderer *render_priv, double scale, int cur
  * This function goes through text_info and calculates text parameters.
  * The following text_info fields are filled:
  *   height
- *   lines[].height
+ *   border_top
+ *   border_bottom
+ *   border_x
  *   lines[].asc
  *   lines[].desc
  */
@@ -1518,22 +1525,29 @@ static void measure_text(ASS_Renderer *render_priv)
     int cur_line = 0;
     double scale = 0.5 / 64;
     int max_asc = 0, max_desc = 0;
+    double max_border_y = 0, max_border_x = 0;
     for (int i = 0; i < text_info->length; i++) {
         if (text_info->glyphs[i].linebreak) {
-            measure_text_on_eol(render_priv, scale, cur_line, max_asc, max_desc);
+            measure_text_on_eol(render_priv, scale, cur_line, max_asc, max_desc, max_border_y);
             max_asc = max_desc = 0;
+            max_border_y = 0;
             scale = 0.5 / 64;
             cur_line++;
         }
         GlyphInfo *cur = text_info->glyphs + i;
         max_asc  = FFMAX(max_asc,  cur->asc);
         max_desc = FFMAX(max_desc, cur->desc);
+        max_border_y = FFMAX(max_border_y, cur->border_y);
+        max_border_x = FFMAX(max_border_x, cur->border_x);
         if (cur->symbol != '\n' && cur->symbol != 0)
             scale = 1.0 / 64;
     }
     assert(cur_line == text_info->n_lines - 1);
-    measure_text_on_eol(render_priv, scale, cur_line, max_asc, max_desc);
+    measure_text_on_eol(render_priv, scale, cur_line, max_asc, max_desc, max_border_y);
     text_info->height += cur_line * render_priv->settings.line_spacing;
+    // VSF takes max \bordx into account for collision, even if far from edge
+    text_info->border_x =
+        (int) (render_priv->border_scale * max_border_x + 0.5);
 }
 
 /**
@@ -2752,12 +2766,16 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     render_and_combine_glyphs(render_priv, device_x, device_y);
 
     memset(event_images, 0, sizeof(*event_images));
-    event_images->top = device_y - text_info->lines[0].asc;
-    event_images->height = text_info->height;
+    // VSFilter does *not* shift lines with a border > margin to be within the
+    // frame, so negative values for top and left may occur
+    event_images->top = device_y - text_info->lines[0].asc - text_info->border_top;
+    event_images->height =
+        text_info->height + text_info->border_bottom + text_info->border_top;
     event_images->left =
-        (device_x + bbox.x_min) * render_priv->font_scale_x + 0.5;
+        (device_x + bbox.x_min) * render_priv->font_scale_x - text_info->border_x + 0.5;
     event_images->width =
-        (bbox.x_max - bbox.x_min) * render_priv->font_scale_x + 0.5;
+        (bbox.x_max - bbox.x_min) * render_priv->font_scale_x
+        + 2 * text_info->border_x + 0.5;
     event_images->detect_collisions = render_priv->state.detect_collisions;
     event_images->shift_direction = (valign == VALIGN_SUB) ? -1 : 1;
     event_images->event = event;

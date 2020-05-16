@@ -191,6 +191,9 @@ typedef struct {
     CombinedBitmapInfo *combined_bitmaps;
     unsigned n_bitmaps;
     double height;
+    int border_top;
+    int border_bottom;
+    int border_x;
     int max_glyphs;
     int max_lines;
     unsigned max_bitmaps;
