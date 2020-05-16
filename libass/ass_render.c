@@ -1493,6 +1493,15 @@ size_t ass_bitmap_construct(void *key, void *value, void *priv)
     return sizeof(BitmapHashKey) + sizeof(Bitmap) + bitmap_size(bm);
 }
 
+static void measure_text_on_eol(ASS_Renderer *render_priv, double scale, int cur_line,
+                                int max_asc, int max_desc)
+{
+    render_priv->text_info.lines[cur_line].asc  = scale * max_asc;
+    render_priv->text_info.lines[cur_line].desc = scale * max_desc;
+    render_priv->text_info.height += scale * max_asc + scale * max_desc;
+}
+
+
 /**
  * This function goes through text_info and calculates text parameters.
  * The following text_info fields are filled:
@@ -1511,9 +1520,7 @@ static void measure_text(ASS_Renderer *render_priv)
     int max_asc = 0, max_desc = 0;
     for (int i = 0; i < text_info->length; i++) {
         if (text_info->glyphs[i].linebreak) {
-            text_info->lines[cur_line].asc  = scale * max_asc;
-            text_info->lines[cur_line].desc = scale * max_desc;
-            text_info->height += scale * max_asc + scale * max_desc;
+            measure_text_on_eol(render_priv, scale, cur_line, max_asc, max_desc);
             max_asc = max_desc = 0;
             scale = 0.5 / 64;
             cur_line++;
@@ -1525,9 +1532,7 @@ static void measure_text(ASS_Renderer *render_priv)
             scale = 1.0 / 64;
     }
     assert(cur_line == text_info->n_lines - 1);
-    text_info->lines[cur_line].asc  = scale * max_asc;
-    text_info->lines[cur_line].desc = scale * max_desc;
-    text_info->height += scale * max_asc + scale * max_desc;
+    measure_text_on_eol(render_priv, scale, cur_line, max_asc, max_desc);
     text_info->height += cur_line * render_priv->settings.line_spacing;
 }
 
