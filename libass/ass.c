@@ -1492,7 +1492,7 @@ ASS_Track *ass_new_track(ASS_Library *library)
     if (!track)
         return NULL;
     track->library = library;
-    track->ScaledBorderAndShadow = 1;
+    track->ScaledBorderAndShadow = 0;
     track->parser_priv = calloc(1, sizeof(ASS_ParserPriv));
     if (!track->parser_priv) {
         free(track);
