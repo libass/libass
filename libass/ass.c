@@ -47,6 +47,18 @@ typedef enum {
     PST_FONTS
 } ParserState;
 
+typedef enum {
+    SINFO_LANGUAGE     = 1 << 0,
+    SINFO_PLAYRESX     = 1 << 1,
+    SINFO_PLAYRESY     = 1 << 2,
+    SINFO_TIMER        = 1 << 3,
+    SINFO_WRAPSTYLE    = 1 << 4,
+    SINFO_SCALEDBORDER = 1 << 5,
+    SINFO_COLOURMATRIX = 1 << 6,
+    SINFO_KERNING      = 1 << 7
+    // max 32 enumerators
+} ScriptInfo;
+
 struct parser_priv {
     ParserState state;
     char *fontname;
@@ -60,6 +72,9 @@ struct parser_priv {
     int check_readorder;
 
     int enable_extensions;
+
+    // tracks [Script Info] headers set by the script
+    uint32_t header_flags;
 };
 
 #define ASS_STYLES_ALLOC 20
@@ -592,23 +607,44 @@ static int process_styles_line(ASS_Track *track, char *str)
     return 0;
 }
 
+static inline void check_duplicate_info_line(const ASS_Track *const track,
+                                             const ScriptInfo si,
+                                             const char *const name)
+{
+    if (track->parser_priv->header_flags & si)
+        ass_msg(track->library, MSGL_WARN,
+            "Duplicate Script Info Header '%s'. Previous value overwritten!",
+            name);
+    else
+        track->parser_priv->header_flags |= si;
+}
+
 static int process_info_line(ASS_Track *track, char *str)
 {
     if (!strncmp(str, "PlayResX:", 9)) {
+        check_duplicate_info_line(track, SINFO_PLAYRESX, "PlayResX");
         track->PlayResX = atoi(str + 9);
     } else if (!strncmp(str, "PlayResY:", 9)) {
+        check_duplicate_info_line(track, SINFO_PLAYRESY, "PlayResY");
         track->PlayResY = atoi(str + 9);
     } else if (!strncmp(str, "Timer:", 6)) {
+        check_duplicate_info_line(track, SINFO_TIMER, "Timer");
         track->Timer = ass_atof(str + 6);
     } else if (!strncmp(str, "WrapStyle:", 10)) {
+        check_duplicate_info_line(track, SINFO_WRAPSTYLE, "WrapStyle");
         track->WrapStyle = atoi(str + 10);
     } else if (!strncmp(str, "ScaledBorderAndShadow:", 22)) {
+        check_duplicate_info_line(track, SINFO_SCALEDBORDER,
+                                    "ScaledBorderAndShadow");
         track->ScaledBorderAndShadow = parse_bool(str + 22);
     } else if (!strncmp(str, "Kerning:", 8)) {
+        check_duplicate_info_line(track, SINFO_KERNING, "Kerning");
         track->Kerning = parse_bool(str + 8);
     } else if (!strncmp(str, "YCbCr Matrix:", 13)) {
+        check_duplicate_info_line(track, SINFO_COLOURMATRIX, "YCbCr Matrix");
         track->YCbCrMatrix = parse_ycbcr_matrix(str + 13);
     } else if (!strncmp(str, "Language:", 9)) {
+        check_duplicate_info_line(track, SINFO_LANGUAGE, "Language");
         char *p = str + 9;
         while (*p && ass_isspace(*p)) p++;
         free(track->Language);
