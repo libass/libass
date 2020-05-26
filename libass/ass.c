@@ -77,6 +77,22 @@ struct parser_priv {
     uint32_t header_flags;
 };
 
+static const char *const ass_style_format =
+        "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
+        "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, "
+        "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+        "Alignment, MarginL, MarginR, MarginV, Encoding";
+static const char *const ass_event_format =
+        "Layer, Start, End, Style, Name, "
+        "MarginL, MarginR, MarginV, Effect, Text";
+static const char *const ssa_style_format =
+        "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
+        "TertiaryColour, BackColour, Bold, Italic, BorderStyle, Outline, "
+        "Shadow, Alignment, MarginL, MarginR, MarginV, AlphaLevel, Encoding";
+static const char *const ssa_event_format =
+        "Marked, Start, End, Style, Name, "
+        "MarginL, MarginR, MarginV, Effect, Text";
+
 #define ASS_STYLES_ALLOC 20
 
 int ass_library_version(void)
@@ -301,25 +317,31 @@ static long long string2timecode(ASS_Library *library, char *p)
     } else if (ass_strcasecmp(tname, #name) == 0) { \
         target->name = lookup_style(track, token);
 
+// skip spaces in str beforehand, or trim leading spaces afterwards
+static inline void advance_token_pos(const char **const str,
+                                     const char **const start,
+                                     const char **const end)
+{
+    *start = *str;
+    *end   = *start;
+    while (**end != '\0' && **end != ',') ++*end;
+    *str = *end + (**end == ',');
+    rskip_spaces((char**)end, (char*)*start);
+}
+
 static char *next_token(char **str)
 {
-    char *p = *str;
+    char *p;
     char *start;
-    skip_spaces(&p);
-    if (*p == '\0') {
-        *str = p;
+    skip_spaces(str);
+    if (**str == '\0') {
         return 0;
     }
-    start = p;                  // start of the token
-    for (; (*p != '\0') && (*p != ','); ++p) {
-    }
-    if (*p == '\0') {
-        *str = p;               // eos found, str will point to '\0' at exit
-    } else {
-        *p = '\0';
-        *str = p + 1;           // ',' found, str will point to the next char (beginning of the next token)
-    }
-    rskip_spaces(&p, start);    // end of current token: the first space character, or '\0'
+
+    advance_token_pos((const char**)str,
+                      (const char**)&start,
+                      (const char**)&p);
+
     *p = '\0';
     return start;
 }
@@ -494,18 +516,9 @@ static int process_style(ASS_Track *track, char *str)
         // no style format header
         // probably an ancient script version
         if (track->track_type == TRACK_TYPE_SSA)
-            track->style_format =
-                strdup
-                ("Name, Fontname, Fontsize, PrimaryColour, SecondaryColour,"
-                 "TertiaryColour, BackColour, Bold, Italic, BorderStyle, Outline,"
-                 "Shadow, Alignment, MarginL, MarginR, MarginV, AlphaLevel, Encoding");
+            track->style_format = strdup(ssa_style_format);
         else
-            track->style_format =
-                strdup
-                ("Name, Fontname, Fontsize, PrimaryColour, SecondaryColour,"
-                 "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut,"
-                 "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow,"
-                 "Alignment, MarginL, MarginR, MarginV, Encoding");
+            track->style_format = strdup(ass_style_format);
     }
 
     q = format = strdup(track->style_format);
@@ -590,6 +603,53 @@ static int process_style(ASS_Track *track, char *str)
 
 }
 
+static bool format_line_compare(const char *fmt1, const char *fmt2)
+{
+    while (true) {
+        const char *tk1_start, *tk2_start;
+        const char *tk1_end, *tk2_end;
+
+        skip_spaces((char**)&fmt1);
+        skip_spaces((char**)&fmt2);
+        if (!*fmt1 || !*fmt2)
+            break;
+
+        advance_token_pos(&fmt1, &tk1_start, &tk1_end);
+        advance_token_pos(&fmt2, &tk2_start, &tk2_end);
+
+        if ((tk1_end-tk1_start) != (tk2_end-tk2_start))
+            return false;
+        if (ass_strncasecmp(tk1_start, tk2_start, tk1_end-tk1_start))
+            return false;
+    }
+    return *fmt1 == *fmt2;
+}
+
+
+/**
+ * \brief Set SBAS=1 if not set explicitly in case of custom format line
+ * \param track track
+ * \param fmt   format line of file
+ * \param std   standard format line
+ *
+ * As of writing libass is the only renderer accepting custom format lines.
+ * For years libass defaultet SBAS to yes instead of no.
+ * To avoid breaking released scripts with custom format lines,
+ * keep SBAS=1 default for custom format files.
+ */
+static void custom_format_line_compatibility(ASS_Track *const track,
+                                             const char *const fmt,
+                                             const char *const std)
+{
+    if (!(track->parser_priv->header_flags & SINFO_SCALEDBORDER)
+        && !format_line_compare(fmt, std)) {
+        ass_msg(track->library, MSGL_INFO,
+               "Track has custom format line(s). "
+                "'ScaledBorderAndShadow' will default to 'yes'.");
+        track->ScaledBorderAndShadow = 1;
+    }
+}
+
 static int process_styles_line(ASS_Track *track, char *str)
 {
     if (!strncmp(str, "Format:", 7)) {
@@ -599,6 +659,10 @@ static int process_styles_line(ASS_Track *track, char *str)
         track->style_format = strdup(p);
         ass_msg(track->library, MSGL_DBG2, "Style format: %s",
                track->style_format);
+        if (track->track_type == TRACK_TYPE_ASS)
+            custom_format_line_compatibility(track, p, ass_style_format);
+        else
+            custom_format_line_compatibility(track, p, ssa_style_format);
     } else if (!strncmp(str, "Style:", 6)) {
         char *p = str + 6;
         skip_spaces(&p);
@@ -657,11 +721,9 @@ static void event_format_fallback(ASS_Track *track)
 {
     track->parser_priv->state = PST_EVENTS;
     if (track->track_type == TRACK_TYPE_SSA)
-        track->event_format = strdup("Marked, Start, End, Style, "
-            "Name, MarginL, MarginR, MarginV, Effect, Text");
+        track->event_format = strdup(ssa_event_format);
     else
-        track->event_format = strdup("Layer, Start, End, Style, "
-            "Actor, MarginL, MarginR, MarginV, Effect, Text");
+        track->event_format = strdup(ass_event_format);
     ass_msg(track->library, MSGL_V,
             "No event format found, using fallback");
 }
@@ -674,6 +736,10 @@ static int process_events_line(ASS_Track *track, char *str)
         free(track->event_format);
         track->event_format = strdup(p);
         ass_msg(track->library, MSGL_DBG2, "Event format: %s", track->event_format);
+        if (track->track_type == TRACK_TYPE_ASS)
+            custom_format_line_compatibility(track, p, ass_event_format);
+        else
+            custom_format_line_compatibility(track, p, ssa_event_format);
     } else if (!strncmp(str, "Dialogue:", 9)) {
         // This should never be reached for embedded subtitles.
         // They have slightly different format and are parsed in ass_process_chunk,
