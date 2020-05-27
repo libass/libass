@@ -267,16 +267,30 @@ size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
 }
 
 static hb_bool_t
-get_glyph(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
-          hb_codepoint_t variation, hb_codepoint_t *glyph, void *user_data)
+get_glyph_nominal(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
+                  hb_codepoint_t *glyph, void *user_data)
 {
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
 
-    if (variation)
-        *glyph = FT_Face_GetCharVariantIndex(face, ass_font_index_magic(face, unicode), variation);
-    else
-        *glyph = FT_Get_Char_Index(face, ass_font_index_magic(face, unicode));
+    *glyph = FT_Get_Char_Index(face, ass_font_index_magic(face, unicode));
+    if (!*glyph)
+        return false;
+
+    // rotate glyph advances for @fonts while we still know the Unicode codepoints
+    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, unicode, *glyph);
+    ass_cache_dec_ref(metrics);
+    return true;
+}
+
+static hb_bool_t
+get_glyph_variation(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
+                    hb_codepoint_t variation, hb_codepoint_t *glyph, void *user_data)
+{
+    FT_Face face = font_data;
+    struct ass_shaper_metrics_data *metrics_priv = user_data;
+
+    *glyph = FT_Face_GetCharVariantIndex(face, ass_font_index_magic(face, unicode), variation);
     if (!*glyph)
         return false;
 
@@ -423,7 +437,9 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
 
         hb_font_funcs_t *funcs = hb_font_funcs_create();
         font->shaper_priv->font_funcs[info->face_index] = funcs;
-        hb_font_funcs_set_glyph_func(funcs, get_glyph,
+        hb_font_funcs_set_nominal_glyph_func(funcs, get_glyph_nominal,
+                metrics, NULL);
+        hb_font_funcs_set_variation_glyph_func(funcs, get_glyph_variation,
                 metrics, NULL);
         hb_font_funcs_set_glyph_h_advance_func(funcs, cached_h_advance,
                 metrics, NULL);
