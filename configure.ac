@@ -47,8 +47,6 @@ AC_ARG_ENABLE([coretext], AS_HELP_STRING([--disable-coretext],
     [disable CoreText support (OSX only) @<:@default=check@:>@]))
 AC_ARG_ENABLE([require-system-font-provider], AS_HELP_STRING([--disable-require-system-font-provider],
     [allow compilation even if no system font provider was found @<:@default=enabled:>@]))
-AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
-    [disable HarfBuzz support @<:@default=check@:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
 AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
@@ -210,14 +208,11 @@ AC_LINK_IFELSE([
 fi
 AM_CONDITIONAL([DIRECTWRITE], [test x$directwrite = xtrue])
 
-if test x$enable_harfbuzz != xno; then
 PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 1.2.3, [
     CFLAGS="$CFLAGS $HARFBUZZ_CFLAGS"
     LIBS="$LIBS $HARFBUZZ_LIBS"
-    AC_DEFINE(CONFIG_HARFBUZZ, 1, [found harfbuzz-ng via pkg-config])
-	harfbuzz=true
-    ], [harfbuzz=false])
-fi
+    AC_DEFINE(CONFIG_HARFBUZZ, 1, [found harfbuzz via pkg-config])
+    ])
 
 libpng=false
 if test x$enable_test = xyes || test x$enable_compare = xyes; then
@@ -242,11 +237,9 @@ if test "$use_libiconv" = true; then
 fi
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
+pkg_requires="harfbuzz >= 1.2.3, ${pkg_requires}"
 if test x$fontconfig = xtrue; then
     pkg_requires="fontconfig >= 2.10.92, ${pkg_requires}"
-fi
-if test x$harfbuzz = xtrue; then
-    pkg_requires="harfbuzz >= 1.2.3, ${pkg_requires}"
 fi
 
 if test x$enable_require_system_font_provider != xno &&

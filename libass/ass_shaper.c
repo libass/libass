@@ -27,7 +27,6 @@
 #include <limits.h>
 #include <stdbool.h>
 
-#ifdef CONFIG_HARFBUZZ
 #include <hb-ft.h>
 enum {
     VERT = 0,
@@ -37,7 +36,6 @@ enum {
     CLIG
 };
 #define NUM_FEATURES 5
-#endif
 
 struct ass_shaper {
     ASS_ShapingLevel shaping_level;
@@ -50,7 +48,6 @@ struct ass_shaper {
     FriBidiStrIndex *cmap;
     FriBidiParType base_direction;
 
-#ifdef CONFIG_HARFBUZZ
     // OpenType features
     int n_features;
     hb_feature_t *features;
@@ -58,7 +55,6 @@ struct ass_shaper {
 
     // Glyph metrics cache, to speed up shaping
     Cache *metrics_cache;
-#endif
 
 #ifdef USE_FRIBIDI_EX_API
     FriBidiBracketType *btypes;
@@ -66,7 +62,6 @@ struct ass_shaper {
 #endif
 };
 
-#ifdef CONFIG_HARFBUZZ
 struct ass_shaper_metrics_data {
     Cache *metrics_cache;
     GlyphMetricsHashKey hash_key;
@@ -78,7 +73,6 @@ struct ass_shaper_font_data {
     hb_font_funcs_t *font_funcs[ASS_FONT_MAX_FACES];
     struct ass_shaper_metrics_data *metrics_data[ASS_FONT_MAX_FACES];
 };
-#endif
 
 /**
  * \brief Print version information
@@ -87,9 +81,7 @@ void ass_shaper_info(ASS_Library *lib)
 {
     ass_msg(lib, MSGL_INFO, "Shaper: FriBidi "
             FRIBIDI_VERSION " (SIMPLE)"
-#ifdef CONFIG_HARFBUZZ
             " HarfBuzz-ng %s (COMPLEX)", hb_version_string()
-#endif
            );
 }
 
@@ -118,10 +110,8 @@ static bool check_allocations(ASS_Shaper *shaper, size_t new_size)
  */
 void ass_shaper_free(ASS_Shaper *shaper)
 {
-#ifdef CONFIG_HARFBUZZ
     ass_cache_done(shaper->metrics_cache);
     free(shaper->features);
-#endif
     free(shaper->event_text);
     free(shaper->ctypes);
 #ifdef USE_FRIBIDI_EX_API
@@ -134,14 +124,11 @@ void ass_shaper_free(ASS_Shaper *shaper)
 
 void ass_shaper_empty_cache(ASS_Shaper *shaper)
 {
-#ifdef CONFIG_HARFBUZZ
     ass_cache_empty(shaper->metrics_cache);
-#endif
 }
 
 void ass_shaper_font_data_free(ASS_ShaperFontData *priv)
 {
-#ifdef CONFIG_HARFBUZZ
     int i;
     for (i = 0; i < ASS_FONT_MAX_FACES; i++)
         if (priv->fonts[i]) {
@@ -150,10 +137,8 @@ void ass_shaper_font_data_free(ASS_ShaperFontData *priv)
             hb_font_funcs_destroy(priv->font_funcs[i]);
         }
     free(priv);
-#endif
 }
 
-#ifdef CONFIG_HARFBUZZ
 /**
  * \brief set up the HarfBuzz OpenType feature list with some
  * standard features.
@@ -722,15 +707,6 @@ void ass_shaper_determine_script(ASS_Shaper *shaper, GlyphInfo *glyphs,
     }
 }
 
-#else
-
-size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
-{
-    return 0;  // that function should be never used
-}
-
-#endif
-
 /**
  * \brief Shape event text with FriBidi. Does mirroring and simple
  * Arabic shaping.
@@ -765,9 +741,7 @@ static void shape_fribidi(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
  */
 void ass_shaper_set_kerning(ASS_Shaper *shaper, bool kern)
 {
-#ifdef CONFIG_HARFBUZZ
     shaper->features[KERN].value = kern;
-#endif
 }
 
 /**
@@ -779,9 +753,7 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
     int i;
     int shape_run = 0;
 
-#ifdef CONFIG_HARFBUZZ
     ass_shaper_determine_script(shaper, glyphs, len);
-#endif
 
     // find appropriate fonts for the shape runs
     for (i = 0; i < len; i++) {
@@ -820,7 +792,6 @@ void ass_shaper_set_base_direction(ASS_Shaper *shaper, FriBidiParType dir)
  */
 void ass_shaper_set_language(ASS_Shaper *shaper, const char *code)
 {
-#ifdef CONFIG_HARFBUZZ
     hb_language_t lang;
 
     if (code)
@@ -829,7 +800,6 @@ void ass_shaper_set_language(ASS_Shaper *shaper, const char *code)
         lang = HB_LANGUAGE_INVALID;
 
     shaper->language = lang;
-#endif
 }
 
 /**
@@ -918,7 +888,6 @@ int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         }
     }
 
-#ifdef CONFIG_HARFBUZZ
     switch (shaper->shaping_level) {
     case ASS_SHAPING_SIMPLE:
         shape_fribidi(shaper, glyphs, text_info->length);
@@ -928,10 +897,6 @@ int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         shape_harfbuzz(shaper, glyphs, text_info->length);
         break;
     }
-#else
-        shape_fribidi(shaper, glyphs, text_info->length);
-        ass_shaper_skip_characters(text_info);
-#endif
 
     return 0;
 }
@@ -947,13 +912,11 @@ ASS_Shaper *ass_shaper_new(void)
 
     shaper->base_direction = FRIBIDI_PAR_ON;
 
-#ifdef CONFIG_HARFBUZZ
     if (!init_features(shaper))
         goto error;
     shaper->metrics_cache = ass_glyph_metrics_cache_create();
     if (!shaper->metrics_cache)
         goto error;
-#endif
 
     return shaper;
 

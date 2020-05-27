@@ -70,13 +70,11 @@ void ass_set_storage_size(ASS_Renderer *priv, int w, int h)
 
 void ass_set_shaper(ASS_Renderer *priv, ASS_ShapingLevel level)
 {
-#ifdef CONFIG_HARFBUZZ
     // select the complex shaper for illegal values
     if (level == ASS_SHAPING_SIMPLE || level == ASS_SHAPING_COMPLEX)
         priv->settings.shaper = level;
     else
         priv->settings.shaper = ASS_SHAPING_COMPLEX;
-#endif
 }
 
 void ass_set_margins(ASS_Renderer *priv, int t, int b, int l, int r)
