@@ -27,7 +27,9 @@
 #include <limits.h>
 #include <stdbool.h>
 
-#include <hb-ft.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_TRUETYPE_TABLES_H
 enum {
     VERT = 0,
     VKNA,
@@ -249,6 +251,31 @@ size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
     return 1;
 }
 
+static hb_blob_t*
+get_reference_table(hb_face_t *hbface, hb_tag_t tag, void *font_data)
+{
+  FT_Face face = font_data;
+  FT_ULong len = 0;
+
+  if (FT_Load_Sfnt_Table(face, tag, 0, NULL, &len) != FT_Err_Ok)
+    return NULL;
+
+  char *buf = malloc(len);
+  if (!buf)
+    return NULL;
+
+  if (FT_Load_Sfnt_Table(face, tag, 0, (FT_Byte*)buf, &len) != FT_Err_Ok) {
+    free(buf);
+    return NULL;
+  }
+
+  hb_blob_t *blob = hb_blob_create(buf, len, HB_MEMORY_MODE_WRITABLE, buf, free);
+  if (!blob)
+      free(buf);
+
+  return blob;
+}
+
 static hb_bool_t
 get_glyph_nominal(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
                   hb_codepoint_t *glyph, void *user_data)
@@ -409,10 +436,20 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
     hb_fonts = font->shaper_priv->fonts;
     if (!hb_fonts[info->face_index]) {
         FT_Face face = font->faces[info->face_index];
-        hb_font_t *hb_font = hb_fonts[info->face_index] =
-            hb_ft_font_create(face, NULL);
+        hb_face_t *hb_face = hb_face_create_for_tables(get_reference_table, face, NULL);
+        if (!hb_face)
+            return NULL;
+        hb_face_set_index(hb_face, face->face_index);
+        hb_face_set_upem(hb_face, face->units_per_EM);
+
+        hb_font_t *hb_font = hb_fonts[info->face_index] = hb_font_create(hb_face);
+        hb_face_destroy(hb_face);
         if (!hb_font)
             return NULL;
+
+        hb_font_set_scale(hb_font,
+            (int)(((uint64_t)face->size->metrics.x_scale * face->units_per_EM + (1<<15)) >> 16),
+            (int)(((uint64_t)face->size->metrics.y_scale * face->units_per_EM + (1<<15)) >> 16));
 
         // set up cached metrics access
         struct ass_shaper_metrics_data *metrics =
