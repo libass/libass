@@ -211,7 +211,7 @@ fi
 AM_CONDITIONAL([DIRECTWRITE], [test x$directwrite = xtrue])
 
 if test x$enable_harfbuzz != xno; then
-PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
+PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 1.2.3, [
     CFLAGS="$CFLAGS $HARFBUZZ_CFLAGS"
     LIBS="$LIBS $HARFBUZZ_LIBS"
     AC_DEFINE(CONFIG_HARFBUZZ, 1, [found harfbuzz-ng via pkg-config])
@@ -246,7 +246,7 @@ if test x$fontconfig = xtrue; then
     pkg_requires="fontconfig >= 2.10.92, ${pkg_requires}"
 fi
 if test x$harfbuzz = xtrue; then
-    pkg_requires="harfbuzz >= 0.9.5, ${pkg_requires}"
+    pkg_requires="harfbuzz >= 1.2.3, ${pkg_requires}"
 fi
 
 if test x$enable_require_system_font_provider != xno &&
