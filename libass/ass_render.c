@@ -1863,10 +1863,12 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
     TextInfo *text_info = &render_priv->text_info;
 
     char *p = event->Text, *q;
-    char *drawing_text = NULL;
+    char *drawing_text;
 
     // Event parsing.
     while (true) {
+        drawing_text = NULL;
+
         // get next char, executing style override
         // this affects render_context
         unsigned code = 0;
