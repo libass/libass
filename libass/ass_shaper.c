@@ -403,22 +403,29 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
 
     if (!font->shaper_priv)
         font->shaper_priv = calloc(sizeof(ASS_ShaperFontData), 1);
-
+    if (!font->shaper_priv)
+        return NULL;
 
     hb_fonts = font->shaper_priv->fonts;
     if (!hb_fonts[info->face_index]) {
-        hb_fonts[info->face_index] =
-            hb_ft_font_create(font->faces[info->face_index], NULL);
+        FT_Face face = font->faces[info->face_index];
+        hb_font_t *hb_font = hb_fonts[info->face_index] =
+            hb_ft_font_create(face, NULL);
+        if (!hb_font)
+            return NULL;
 
         // set up cached metrics access
-        font->shaper_priv->metrics_data[info->face_index] =
-            calloc(sizeof(struct ass_shaper_metrics_data), 1);
         struct ass_shaper_metrics_data *metrics =
-            font->shaper_priv->metrics_data[info->face_index];
+            font->shaper_priv->metrics_data[info->face_index] =
+                calloc(sizeof(struct ass_shaper_metrics_data), 1);
+        if (!metrics)
+            return NULL;
         metrics->metrics_cache = shaper->metrics_cache;
         metrics->vertical = info->font->desc.vertical;
 
         hb_font_funcs_t *funcs = hb_font_funcs_create();
+        if (!funcs)
+            return NULL;
         font->shaper_priv->font_funcs[info->face_index] = funcs;
         hb_font_funcs_set_nominal_glyph_func(funcs, get_glyph_nominal,
                 metrics, NULL);
@@ -440,8 +447,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
                 metrics, NULL);
         hb_font_funcs_set_glyph_contour_point_func(funcs, get_contour_point,
                 metrics, NULL);
-        hb_font_set_funcs(hb_fonts[info->face_index], funcs,
-                font->faces[info->face_index], NULL);
+        hb_font_set_funcs(hb_font, funcs, face, NULL);
     }
 
     ass_face_set_size(font->faces[info->face_index], info->font_size);
@@ -611,7 +617,7 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
  * \param glyphs glyph clusters
  * \param len number of clusters
  */
-static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
+static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 {
     int i;
     hb_buffer_t *buf = hb_buffer_create();
@@ -629,6 +635,8 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 
         int offset = i;
         hb_font_t *font = get_hb_font(shaper, glyphs + offset);
+        if (!font)
+            return false;
         int run_id = glyphs[offset].shape_run_id;
         int level = shaper->emblevels[offset];
 
@@ -655,6 +663,8 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
     }
 
     hb_buffer_destroy(buf);
+
+    return true;
 }
 
 /**
@@ -892,13 +902,11 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     case ASS_SHAPING_SIMPLE:
         shape_fribidi(shaper, glyphs, text_info->length);
         ass_shaper_skip_characters(text_info);
-        break;
+        return true;
     case ASS_SHAPING_COMPLEX:
-        shape_harfbuzz(shaper, glyphs, text_info->length);
-        break;
+    default:
+        return shape_harfbuzz(shaper, glyphs, text_info->length);
     }
-
-    return true;
 }
 
 /**
