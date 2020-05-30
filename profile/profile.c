@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
  * Copyright (C) 2009 Grigori Goronzy <greg@geekmind.org>
- * Copyright (C) 2013 Rodger Combs <rcombs@rcombs.me>
+ * Copyright (C) 2013 rcombs <rcombs@rcombs.me>
  *
  * This file is part of libass.
  *

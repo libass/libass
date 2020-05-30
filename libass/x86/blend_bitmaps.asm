@@ -1,7 +1,7 @@
 ;******************************************************************************
 ;* add_bitmaps.asm: SSE2 and x86 add_bitmaps
 ;******************************************************************************
-;* Copyright (C) 2013 Rodger Combs <rcombs@rcombs.me>
+;* Copyright (C) 2013 rcombs <rcombs@rcombs.me>
 ;*
 ;* This file is part of libass.
 ;*

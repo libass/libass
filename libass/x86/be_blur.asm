@@ -1,7 +1,7 @@
 ;******************************************************************************
 ;* be_blur.asm: SSE2 \be blur
 ;******************************************************************************
-;* Copyright (C) 2013 Rodger Combs <rcombs@rcombs.me>
+;* Copyright (C) 2013 rcombs <rcombs@rcombs.me>
 ;*
 ;* This file is part of libass.
 ;*
