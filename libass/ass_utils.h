@@ -48,12 +48,6 @@
 
 #define ASS_PI 3.14159265358979323846
 
-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
-int has_sse2(void);
-int has_avx(void);
-int has_avx2(void);
-#endif
-
 typedef struct {
     const char *str;
     size_t len;
