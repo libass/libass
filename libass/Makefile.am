@@ -15,7 +15,7 @@ nasm_verbose_0 = @echo "  NASM    " $@;
 	$(nasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(top_srcdir)/ltnasm.sh $(AS) $(ASFLAGS) -I$(srcdir)/ -Dprivate_prefix=ass -o $@ $<
 
 SRC_INTEL = x86/rasterizer.asm x86/blend_bitmaps.asm x86/be_blur.asm x86/blur.asm x86/cpuid.asm \
-            x86/cpuid.h
+            x86/cpuid.h x86/init.h
 
 SRC_FONTCONFIG = ass_fontconfig.c ass_fontconfig.h
 SRC_DIRECTWRITE = ass_directwrite.c ass_directwrite.h ass_directwrite_info_template.h dwrite_c.h
@@ -31,7 +31,7 @@ libass_la_SOURCES = ass.h ass.c ass_types.h ass_utils.h ass_utils.c \
                     ass_outline.h ass_outline.c ass_drawing.h ass_drawing.c \
                     ass_rasterizer.h ass_rasterizer.c ass_rasterizer_c.c \
                     ass_bitmap.h ass_bitmap.c ass_blur.c ass_func_template.h wyhash.h \
-                    ass_cpu.h ass_cpu.c
+                    ass_cpu.h ass_cpu.c ass_bitmap_engine.h ass_bitmap_engine.c
 
 libass_la_LDFLAGS = -no-undefined -version-info $(LIBASS_LT_CURRENT):$(LIBASS_LT_REVISION):$(LIBASS_LT_AGE)
 libass_la_LDFLAGS += -export-symbols $(srcdir)/libass.sym

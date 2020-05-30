@@ -41,8 +41,11 @@
  * for the Fourier transform of the resulting kernel.
  */
 
-
-#define STRIPE_WIDTH  (1 << (C_ALIGN_ORDER - 1))
+#if ASS_ALIGNMENT <= 16
+#define STRIPE_WIDTH ASS_ALIGNMENT
+#else
+#define STRIPE_WIDTH 16
+#endif
 #define STRIPE_MASK   (STRIPE_WIDTH - 1)
 static int16_t zero_line[STRIPE_WIDTH];
 static int16_t dither_line[2 * STRIPE_WIDTH] = {
@@ -541,7 +544,7 @@ bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2)
     uint32_t end_w = ((w + offset) & ~((1 << blur.level) - 1)) - 4;
     uint32_t end_h = ((h + offset) & ~((1 << blur.level) - 1)) - 4;
 
-    const int stripe_width = 1 << (engine->align_order - 1);
+    const int stripe_width = ASS_ALIGNMENT;
     uint64_t size = (((uint64_t) end_w + stripe_width - 1) & ~(stripe_width - 1)) * end_h;
     if (size > INT_MAX / 4)
         return false;
