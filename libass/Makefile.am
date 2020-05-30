@@ -12,7 +12,7 @@ nasm_verbose_ = $(nasm_verbose_$(AM_DEFAULT_VERBOSITY))
 nasm_verbose_0 = @echo "  NASM    " $@;
 
 .asm.lo:
-	$(nasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(top_srcdir)/ltnasm.sh $(AS) $(ASFLAGS) -I$(srcdir)/ -o $@ $<
+	$(nasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(top_srcdir)/ltnasm.sh $(AS) $(ASFLAGS) -I$(srcdir)/ -Dprivate_prefix=ass -o $@ $<
 
 SRC_INTEL = x86/rasterizer.asm x86/blend_bitmaps.asm x86/be_blur.asm x86/blur.asm x86/cpuid.asm \
             x86/cpuid.h
