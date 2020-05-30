@@ -1,5 +1,7 @@
 AC_INIT(libass, 0.15.2)
 AM_INIT_AUTOMAKE([foreign])
+AM_EXTRA_RECURSIVE_TARGETS([bench])
+AM_EXTRA_RECURSIVE_TARGETS([run-checkasm])
 AC_CONFIG_MACRO_DIR([m4])
 # Disable Fortran checks
 define([AC_LIBTOOL_LANG_F77_CONFIG], [:])
@@ -15,7 +17,7 @@ AM_PROG_CC_C_O
 AC_CHECK_HEADERS_ONCE([iconv.h])
 
 # Checks for library functions.
-AC_CHECK_FUNCS([strdup strndup])
+AC_CHECK_FUNCS([strdup strndup clock_gettime])
 
 # Query configuration parameters and set their description
 AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
@@ -355,5 +357,5 @@ AC_DEFINE_UNQUOTED([CONFIG_SOURCEVERSION], ["$srcversion_string"],
 ## Setup output beautifier.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile compare/Makefile profile/Makefile libass.pc])
+AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile compare/Makefile profile/Makefile checkasm/Makefile libass.pc])
 AC_OUTPUT

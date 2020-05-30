@@ -24,8 +24,7 @@
 ; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 %define private_prefix checkasm
-%include "config.asm"
-%include "ext/x86/x86inc.asm"
+%include "x86/x86inc.asm"
 
 SECTION_RODATA 16
 
