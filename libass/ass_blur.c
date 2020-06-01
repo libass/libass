@@ -76,10 +76,10 @@ inline static void copy_line(int16_t *buf, const int16_t *ptr, uintptr_t offs, u
 void ass_stripe_unpack_c(int16_t *dst, const uint8_t *src, ptrdiff_t src_stride,
                          uintptr_t width, uintptr_t height)
 {
-    for (uintptr_t y = 0; y < height; ++y) {
+    for (uintptr_t y = 0; y < height; y++) {
         int16_t *ptr = dst;
         for (uintptr_t x = 0; x < width; x += STRIPE_WIDTH) {
-            for (int k = 0; k < STRIPE_WIDTH; ++k)
+            for (int k = 0; k < STRIPE_WIDTH; k++)
                 ptr[k] = (uint16_t) (((src[x + k] << 7) | (src[x + k] >> 1)) + 1) >> 1;
                 //ptr[k] = (0x4000 * src[x + k] + 127) / 255;
             ptr += STRIPE_WIDTH * height;
@@ -94,9 +94,9 @@ void ass_stripe_pack_c(uint8_t *dst, ptrdiff_t dst_stride, const int16_t *src,
 {
     for (uintptr_t x = 0; x < width; x += STRIPE_WIDTH) {
         uint8_t *ptr = dst;
-        for (uintptr_t y = 0; y < height; ++y) {
+        for (uintptr_t y = 0; y < height; y++) {
             const int16_t *dither = dither_line + (y & 1) * STRIPE_WIDTH;
-            for (int k = 0; k < STRIPE_WIDTH; ++k)
+            for (int k = 0; k < STRIPE_WIDTH; k++)
                 ptr[k] = (uint16_t) (src[k] - (src[k] >> 8) + dither[k]) >> 6;
                 //ptr[k] = (255 * src[k] + 0x1FFF) / 0x4000;
             ptr += dst_stride;
@@ -105,8 +105,8 @@ void ass_stripe_pack_c(uint8_t *dst, ptrdiff_t dst_stride, const int16_t *src,
         dst += STRIPE_WIDTH;
     }
     uintptr_t left = dst_stride - ((width + STRIPE_MASK) & ~STRIPE_MASK);
-    for (uintptr_t y = 0; y < height; ++y) {
-        for (uintptr_t x = 0; x < left; ++x)
+    for (uintptr_t y = 0; y < height; y++) {
+        for (uintptr_t x = 0; x < left; x++)
             dst[x] = 0;
         dst += dst_stride;
     }
@@ -142,15 +142,15 @@ void ass_shrink_horz_c(int16_t *dst, const int16_t *src,
     int16_t buf[3 * STRIPE_WIDTH];
     int16_t *ptr = buf + STRIPE_WIDTH;
     for (uintptr_t x = 0; x < dst_width; x += STRIPE_WIDTH) {
-        for (uintptr_t y = 0; y < src_height; ++y) {
+        for (uintptr_t y = 0; y < src_height; y++) {
             copy_line(ptr - 1 * STRIPE_WIDTH, src, offs - 1 * step, size);
             copy_line(ptr + 0 * STRIPE_WIDTH, src, offs + 0 * step, size);
             copy_line(ptr + 1 * STRIPE_WIDTH, src, offs + 1 * step, size);
-            for (int k = 0; k < STRIPE_WIDTH; ++k)
+            for (int k = 0; k < STRIPE_WIDTH; k++)
                 dst[k] = shrink_func(ptr[2 * k - 4], ptr[2 * k - 3],
                                      ptr[2 * k - 2], ptr[2 * k - 1],
                                      ptr[2 * k + 0], ptr[2 * k + 1]);
-            dst += STRIPE_WIDTH;
+            dst  += STRIPE_WIDTH;
             offs += STRIPE_WIDTH;
         }
         offs += step;
@@ -165,16 +165,16 @@ void ass_shrink_vert_c(int16_t *dst, const int16_t *src,
 
     for (uintptr_t x = 0; x < src_width; x += STRIPE_WIDTH) {
         uintptr_t offs = 0;
-        for (uintptr_t y = 0; y < dst_height; ++y) {
+        for (uintptr_t y = 0; y < dst_height; y++) {
             const int16_t *p1p = get_line(src, offs - 4 * STRIPE_WIDTH, step);
             const int16_t *p1n = get_line(src, offs - 3 * STRIPE_WIDTH, step);
             const int16_t *z0p = get_line(src, offs - 2 * STRIPE_WIDTH, step);
             const int16_t *z0n = get_line(src, offs - 1 * STRIPE_WIDTH, step);
             const int16_t *n1p = get_line(src, offs - 0 * STRIPE_WIDTH, step);
             const int16_t *n1n = get_line(src, offs + 1 * STRIPE_WIDTH, step);
-            for (int k = 0; k < STRIPE_WIDTH; ++k)
+            for (int k = 0; k < STRIPE_WIDTH; k++)
                 dst[k] = shrink_func(p1p[k], p1n[k], z0p[k], z0n[k], n1p[k], n1n[k]);
-            dst += STRIPE_WIDTH;
+            dst  += 1 * STRIPE_WIDTH;
             offs += 2 * STRIPE_WIDTH;
         }
         src += step;
@@ -210,17 +210,17 @@ void ass_expand_horz_c(int16_t *dst, const int16_t *src,
     int16_t buf[2 * STRIPE_WIDTH];
     int16_t *ptr = buf + STRIPE_WIDTH;
     for (uintptr_t x = STRIPE_WIDTH; x < dst_width; x += 2 * STRIPE_WIDTH) {
-        for (uintptr_t y = 0; y < src_height; ++y) {
+        for (uintptr_t y = 0; y < src_height; y++) {
             copy_line(ptr - 1 * STRIPE_WIDTH, src, offs - 1 * step, size);
             copy_line(ptr - 0 * STRIPE_WIDTH, src, offs - 0 * step, size);
-            for (int k = 0; k < STRIPE_WIDTH / 2; ++k)
+            for (int k = 0; k < STRIPE_WIDTH / 2; k++)
                 expand_func(&dst[2 * k], &dst[2 * k + 1],
                             ptr[k - 2], ptr[k - 1], ptr[k]);
             int16_t *next = dst + step - STRIPE_WIDTH;
-            for (int k = STRIPE_WIDTH / 2; k < STRIPE_WIDTH; ++k)
+            for (int k = STRIPE_WIDTH / 2; k < STRIPE_WIDTH; k++)
                 expand_func(&next[2 * k], &next[2 * k + 1],
                             ptr[k - 2], ptr[k - 1], ptr[k]);
-            dst += STRIPE_WIDTH;
+            dst  += STRIPE_WIDTH;
             offs += STRIPE_WIDTH;
         }
         dst += step;
@@ -228,13 +228,13 @@ void ass_expand_horz_c(int16_t *dst, const int16_t *src,
     if ((dst_width - 1) & STRIPE_WIDTH)
         return;
 
-    for (uintptr_t y = 0; y < src_height; ++y) {
+    for (uintptr_t y = 0; y < src_height; y++) {
         copy_line(ptr - 1 * STRIPE_WIDTH, src, offs - 1 * step, size);
         copy_line(ptr - 0 * STRIPE_WIDTH, src, offs - 0 * step, size);
-        for (int k = 0; k < STRIPE_WIDTH / 2; ++k)
+        for (int k = 0; k < STRIPE_WIDTH / 2; k++)
             expand_func(&dst[2 * k], &dst[2 * k + 1],
                         ptr[k - 2], ptr[k - 1], ptr[k]);
-        dst += STRIPE_WIDTH;
+        dst  += STRIPE_WIDTH;
         offs += STRIPE_WIDTH;
     }
 }
@@ -251,11 +251,11 @@ void ass_expand_vert_c(int16_t *dst, const int16_t *src,
             const int16_t *p1 = get_line(src, offs - 2 * STRIPE_WIDTH, step);
             const int16_t *z0 = get_line(src, offs - 1 * STRIPE_WIDTH, step);
             const int16_t *n1 = get_line(src, offs - 0 * STRIPE_WIDTH, step);
-            for (int k = 0; k < STRIPE_WIDTH; ++k)
+            for (int k = 0; k < STRIPE_WIDTH; k++)
                 expand_func(&dst[k], &dst[k + STRIPE_WIDTH],
                             p1[k], z0[k], n1[k]);
-            dst += 2 * STRIPE_WIDTH;
-            offs += STRIPE_WIDTH;
+            dst  += 2 * STRIPE_WIDTH;
+            offs += 1 * STRIPE_WIDTH;
         }
         src += step;
     }
@@ -554,12 +554,12 @@ bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2)
     int16_t *buf[2] = {tmp, tmp + size};
     int index = 0;
 
-    for (int i = 0; i < blur.level; ++i) {
+    for (int i = 0; i < blur.level; i++) {
         engine->shrink_vert(buf[index ^ 1], buf[index], w, h);
         h = (h + 5) >> 1;
         index ^= 1;
     }
-    for (int i = 0; i < blur.level; ++i) {
+    for (int i = 0; i < blur.level; i++) {
         engine->shrink_horz(buf[index ^ 1], buf[index], w, h);
         w = (w + 5) >> 1;
         index ^= 1;
@@ -571,12 +571,12 @@ bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2)
     engine->blur_vert[blur.radius - 4](buf[index ^ 1], buf[index], w, h, blur.coeff);
     h += 2 * blur.radius;
     index ^= 1;
-    for (int i = 0; i < blur.level; ++i) {
+    for (int i = 0; i < blur.level; i++) {
         engine->expand_horz(buf[index ^ 1], buf[index], w, h);
         w = 2 * w + 4;
         index ^= 1;
     }
-    for (int i = 0; i < blur.level; ++i) {
+    for (int i = 0; i < blur.level; i++) {
         engine->expand_vert(buf[index ^ 1], buf[index], w, h);
         h = 2 * h + 4;
         index ^= 1;
