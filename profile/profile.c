@@ -66,13 +66,13 @@ int main(int argc, char *argv[])
     const int frame_h = 720;
 
     if (argc < 5) {
-        printf("usage: %s <subtitle file> <start time> <fps> <time to render>\n", argv[0]);
+        printf("usage: %s <subtitle file> <start time> <fps> <end time>\n", argv[0]);
         exit(1);
     }
     char *subfile = argv[1];
     double tm = strtod(argv[2], 0);
     double fps = strtod(argv[3], 0);
-    double time = strtod(argv[4], 0);
+    double end_time = strtod(argv[4], 0);
 
     if (fps == 0) {
         printf("fps cannot equal 0\n");
@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    while (tm < time) {
+    while (tm < end_time) {
         ass_render_frame(ass_renderer, track, (int) (tm * 1000), NULL);
         tm += 1 / fps;
     }
