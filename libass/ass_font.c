@@ -257,7 +257,7 @@ size_t ass_font_construct(void *key, void *value, void *priv)
         free(font->desc.family);
         font->desc.family = NULL;
     }
-    
+
     return 1;
 }
 
