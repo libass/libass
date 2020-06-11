@@ -253,8 +253,11 @@ size_t ass_font_construct(void *key, void *value, void *priv)
     font->size = 0.;
 
     int error = add_face(render_priv->fontselect, font, 0);
-    if (error == -1)
+    if (error == -1) {
+        free(font->desc.family);
         font->desc.family = NULL;
+    }
+    
     return 1;
 }
 
