@@ -304,7 +304,7 @@ static bool process_image(ASS_Renderer *renderer, ASS_Track *track,
     unsigned msec = tm % 1000;  tm /= 1000;
     unsigned sec  = tm %   60;  tm /=   60;
     unsigned min  = tm %   60;  tm /=   60;
-    printf("  Time %u:%02u:%02u.%04u - ", (unsigned) tm, min, sec, msec);
+    printf("  Time %u:%02u:%02u.%03u - ", (unsigned) tm, min, sec, msec);
 
     char path[4096];
     snprintf(path, sizeof(path), "%s/%s", input, file);

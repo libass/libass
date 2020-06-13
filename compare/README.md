@@ -55,11 +55,11 @@ Test program output can look like the following:
 Loading font 'font1.ttf'.
 Loading font 'font2.otf'.
 Processing 'sub1.ass':
-  Time 0:00:00.0500 - 2.464 BAD
-  Time 0:00:01.0500 - 1.412 OK
-  Time 0:00:02.0500 - 4.919 FAIL
+  Time 0:00:00.500 - 2.464 BAD
+  Time 0:00:01.500 - 1.412 OK
+  Time 0:00:02.500 - 4.919 FAIL
 Processing 'sub2.ass':
-  Time 0:02:33.0000 - 0.728 OK
+  Time 0:02:33.000 - 0.728 OK
 Only 3 of 4 images have passed test
 ```
 For each target image file the program reports a maximal ratio of the per pixel comparison error to the baseline error scale.
