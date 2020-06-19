@@ -107,6 +107,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
     priv->settings.font_size_coeff = 1.;
     priv->settings.selective_style_overrides = ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE;
+    priv->settings.improve_rendering = 0;
 
     if (!(priv->shaper = ass_shaper_new(0)))
         goto fail;
@@ -1606,7 +1607,20 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     double pen_shift_y;
     int cur_line;
     TextInfo *text_info = &render_priv->text_info;
+#ifdef CONFIG_LIBUNIBREAK
+    int last_break;
+    char brks[text_info->length];
 
+    if (render_priv->settings.improve_rendering) {
+        char *ub_lang = render_priv->track->Language;
+        if (!is_valid_ub_lang(ub_lang))
+            ub_lang = NULL;
+        set_linebreaks(text_info, text_info->length, ub_lang, brks,
+                       (get_next_char_t)text_info_get_next_char_utf32);
+    }
+
+    last_break = 0;
+#endif
     last_space = -1;
     text_info->n_lines = 1;
     break_type = 0;
@@ -1615,23 +1629,62 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
         int break_at = -1;
         double s_offset, len;
         cur = text_info->glyphs + i;
+        cur->allowbreak = 0;
         s_offset = d6_to_double(s1->bbox.x_min + s1->pos.x);
         len = d6_to_double(cur->bbox.x_max + cur->pos.x) - s_offset;
 
-        if (cur->symbol == '\n') {
-            break_type = 2;
-            break_at = i;
-            ass_msg(render_priv->library, MSGL_DBG2,
-                    "forced line break at %d", break_at);
-        } else if (cur->symbol == ' ') {
-            last_space = i;
-        } else if (len >= max_text_width
-                   && (render_priv->state.wrap_style != 2)) {
-            break_type = 1;
-            break_at = last_space;
-            if (break_at >= 0)
-                ass_msg(render_priv->library, MSGL_DBG2, "line break at %d",
-                        break_at);
+#ifdef CONFIG_LIBUNIBREAK
+        if (render_priv->settings.improve_rendering) {
+            GlyphInfo *next;
+            if ((i - 1) < text_info->length)
+                next = cur + 1;
+            else
+                next = cur;
+            double len_next = d6_to_double(next->bbox.x_max + next->pos.x) - s_offset;
+            // line length adjusting algorithm needs words longer than 1 character
+            if (i % 2 == 0 && brks[i] == LINEBREAK_ALLOWBREAK) {
+                cur->allowbreak = 1;
+            }
+            if (brks[i] == LINEBREAK_MUSTBREAK) {
+                break_type = 2;
+                break_at = i;
+                ass_msg(render_priv->library, MSGL_DBG2,
+                        "forced line break at %d", break_at);
+            } else if (len_next >= max_text_width
+                       && (render_priv->state.wrap_style != 2)) {
+                for (int j = i; j > last_break; --j) {
+                    if (brks[j] == LINEBREAK_ALLOWBREAK) {
+                        break_at = j;
+                        last_break = break_at;
+                        break;
+                    }
+                }
+                break_type = 1;
+                if (break_at >= 0)
+                    ass_msg(render_priv->library, MSGL_DBG2, "line break at %d",
+                            break_at);
+            }
+        }
+        else {
+#else
+        {
+#endif
+            if (cur->symbol == '\n') {
+                break_type = 2;
+                break_at = i;
+                ass_msg(render_priv->library, MSGL_DBG2,
+                        "forced line break at %d", break_at);
+            } else if (cur->symbol == ' ') {
+                cur->allowbreak = 1;
+                last_space = i;
+            } else if (len >= max_text_width
+                       && (render_priv->state.wrap_style != 2)) {
+                break_type = 1;
+                break_at = last_space;
+                if (break_at >= 0)
+                    ass_msg(render_priv->library, MSGL_DBG2, "line break at %d",
+                            break_at);
+            }
         }
 
         if (break_at != -1) {
@@ -1671,15 +1724,15 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
 
                     do {
                         --w;
-                    } while ((w > s1) && (w->symbol == ' '));
-                    while ((w > s1) && (w->symbol != ' ')) {
+                    } while ((w > s1) && (w->allowbreak));
+                    while ((w > s1) && (!w->allowbreak)) {
                         --w;
                     }
                     e1 = w;
-                    while ((e1 > s1) && (e1->symbol == ' ')) {
+                    while ((e1 > s1) && (e1->allowbreak)) {
                         --e1;
                     }
-                    if (w->symbol == ' ')
+                    if (w->allowbreak)
                         ++w;
 
                     l1 = d6_to_double(((s2 - 1)->bbox.x_max + (s2 - 1)->pos.x) -

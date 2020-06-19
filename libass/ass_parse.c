@@ -1025,6 +1025,42 @@ unsigned get_next_char(ASS_Renderer *render_priv, char **str)
     return chr;
 }
 
+#ifdef CONFIG_LIBUNIBREAK
+utf32_t text_info_get_next_char_utf32(
+        TextInfo *text_info,
+        size_t len,
+        size_t *ip)
+{
+    GlyphInfo *cur;
+    unsigned ch;
+
+    assert(*ip <= len);
+    if (*ip == len)
+        return EOS;
+
+    cur = text_info->glyphs + *ip;
+    ch = cur->symbol;
+    *ip += 1;
+
+    return ch;
+}
+
+int is_valid_ub_lang(char *lang)
+{
+    if (lang) {
+        if      (strncmp(lang, "de", 2) == 0) return 1;
+        else if (strncmp(lang, "en", 2) == 0) return 1;
+        else if (strncmp(lang, "es", 2) == 0) return 1;
+        else if (strncmp(lang, "fr", 2) == 0) return 1;
+        else if (strncmp(lang, "ja", 2) == 0) return 1;
+        else if (strncmp(lang, "ko", 2) == 0) return 1;
+        else if (strncmp(lang, "ru", 2) == 0) return 1;
+        else if (strncmp(lang, "zh", 2) == 0) return 1;
+    }
+    return 0;
+}
+#endif
+
 // Return 1 if the event contains tags that will apply overrides the selective
 // style override code should not touch. Return 0 otherwise.
 int event_has_hard_overrides(char *str)

@@ -172,6 +172,11 @@ void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style)
     user_style->FontName = strdup(user_style->FontName);
 }
 
+void ass_set_improve_rendering(ASS_Renderer *priv, int improve)
+{
+    priv->settings.improve_rendering = improve;
+}
+
 int ass_fonts_update(ASS_Renderer *render_priv)
 {
     // This is just a stub now!

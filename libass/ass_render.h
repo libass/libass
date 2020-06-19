@@ -74,6 +74,8 @@ typedef struct {
     ASS_Hinting hinting;
     ASS_ShapingLevel shaper;
     int selective_style_overrides; // ASS_OVERRIDE_* flags
+    int improve_rendering;         // 0 - maintain VSFilter compatibility
+    // 1 - enable improvements that can break VSFilter compatibility
 
     char *default_font;
     char *default_family;
@@ -141,6 +143,7 @@ typedef struct glyph_info {
     ASS_Vector pos;
     ASS_Vector offset;
     char linebreak;             // the first (leading) glyph of some line ?
+    int allowbreak;             // break opportunity
     uint32_t c[4];              // colors
     ASS_Vector advance;         // 26.6
     ASS_Vector cluster_advance;
