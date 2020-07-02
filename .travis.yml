@@ -19,7 +19,7 @@ matrix:
       compiler: gcc
 
 sudo: required
-dist: trusty
+dist: bionic
 
 branches:
   only:
@@ -55,6 +55,7 @@ addons:
       - freetype
       - fribidi
       - nasm
+      - harfbuzz
   coverity_scan:
     project:
       name: "libass/libass"
