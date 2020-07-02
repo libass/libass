@@ -28,8 +28,7 @@ branches:
     - coverity_scan
 
 before_install:
-  - (sudo apt-get update || brew update)
-  - (sudo apt-get install -y libfontconfig1-dev libfreetype6-dev libfribidi-dev libharfbuzz-dev nasm || brew install freetype fribidi nasm) && ./autogen.sh && ./configure
+  - ./autogen.sh && ./configure
 script:
   - make -j4
 
@@ -42,6 +41,20 @@ notifications:
     on_failure: always
 
 addons:
+  apt:
+    update: true
+    packages:
+      - libfontconfig1-dev
+      - libfreetype6-dev
+      - libfribidi-dev
+      - libharfbuzz-dev
+      - nasm
+  homebrew:
+    update: true
+    packages:
+      - freetype
+      - fribidi
+      - nasm
   coverity_scan:
     project:
       name: "libass/libass"
