@@ -849,14 +849,14 @@ static void ass_shaper_skip_characters(TextInfo *text_info)
  * \param text_info event's text
  * \return success, when 0
  */
-int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
+bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
 {
     int i, ret, last_break;
     FriBidiParType dir;
     GlyphInfo *glyphs = text_info->glyphs;
 
     if (!check_allocations(shaper, text_info->length))
-        return -1;
+        return false;
 
     // Get bidi character types and embedding levels
     last_break = 0;
@@ -883,7 +883,7 @@ int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
                     i - last_break + 1, &dir, shaper->emblevels + last_break);
 #endif
             if (ret == 0)
-                return -1;
+                return false;
             last_break = i + 1;
         }
     }
@@ -898,7 +898,7 @@ int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         break;
     }
 
-    return 0;
+    return true;
 }
 
 /**

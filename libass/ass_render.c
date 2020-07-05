@@ -2613,7 +2613,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             resolve_base_direction(render_priv->state.font_encoding));
     ass_shaper_find_runs(render_priv->shaper, render_priv, text_info->glyphs,
             text_info->length);
-    if (ass_shaper_shape(render_priv->shaper, text_info) < 0) {
+    if (!ass_shaper_shape(render_priv->shaper, text_info)) {
         ass_msg(render_priv->library, MSGL_ERR, "Failed to shape text");
         free_render_context(render_priv);
         return false;

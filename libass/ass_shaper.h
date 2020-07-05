@@ -42,7 +42,7 @@ void ass_shaper_set_level(ASS_Shaper *shaper, ASS_ShapingLevel level);
 #ifdef USE_FRIBIDI_EX_API
 void ass_shaper_set_bidi_brackets(ASS_Shaper *shaper, bool match_brackets);
 #endif
-int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info);
+bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info);
 void ass_shaper_cleanup(ASS_Shaper *shaper, TextInfo *text_info);
 FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info);
 FriBidiParType resolve_base_direction(int font_encoding);
