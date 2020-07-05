@@ -35,49 +35,10 @@
 #include "ass.h"
 #include "ass_utils.h"
 #include "ass_library.h"
+#include "ass_priv.h"
 #include "ass_string.h"
 
 #define ass_atof(STR) (ass_strtod((STR),NULL))
-
-typedef enum {
-    PST_UNKNOWN = 0,
-    PST_INFO,
-    PST_STYLES,
-    PST_EVENTS,
-    PST_FONTS
-} ParserState;
-
-typedef enum {
-    SINFO_LANGUAGE     = 1 << 0,
-    SINFO_PLAYRESX     = 1 << 1,
-    SINFO_PLAYRESY     = 1 << 2,
-    SINFO_TIMER        = 1 << 3,
-    SINFO_WRAPSTYLE    = 1 << 4,
-    SINFO_SCALEDBORDER = 1 << 5,
-    SINFO_COLOURMATRIX = 1 << 6,
-    SINFO_KERNING      = 1 << 7,
-    // for legacy detection
-    GENBY_FFMPEG       = 1 << 8
-    // max 32 enumerators
-} ScriptInfo;
-
-struct parser_priv {
-    ParserState state;
-    char *fontname;
-    char *fontdata;
-    int fontdata_size;
-    int fontdata_used;
-
-    // contains bitmap of ReadOrder IDs of all read events
-    uint32_t *read_order_bitmap;
-    int read_order_elems; // size in uint32_t units of read_order_bitmap
-    int check_readorder;
-
-    int enable_extensions;
-
-    // tracks [Script Info] headers set by the script
-    uint32_t header_flags;
-};
 
 static const char *const ass_style_format =
         "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
