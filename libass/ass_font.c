@@ -117,7 +117,7 @@ static void set_font_metrics(FT_Face face)
     // Anything without valid OS/2 Win values isn't supported by VSFilter,
     // so at this point compatibility's out the window and we're just
     // trying to render _something_ readable.
-    if (face->ascender + face->descender == 0 || face->height == 0) {
+    if (face->ascender - face->descender == 0 || face->height == 0) {
         if (os2 && (os2->sTypoAscender - os2->sTypoDescender) != 0) {
             face->ascender = os2->sTypoAscender;
             face->descender = os2->sTypoDescender;
