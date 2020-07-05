@@ -25,7 +25,7 @@ typedef struct ass_shaper ASS_Shaper;
 #include "ass_render.h"
 
 void ass_shaper_info(ASS_Library *lib);
-ASS_Shaper *ass_shaper_new(size_t prealloc);
+ASS_Shaper *ass_shaper_new(void);
 void ass_shaper_free(ASS_Shaper *shaper);
 void ass_shaper_empty_cache(ASS_Shaper *shaper);
 void ass_shaper_set_kerning(ASS_Shaper *shaper, int kern);

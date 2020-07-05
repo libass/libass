@@ -108,7 +108,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->settings.font_size_coeff = 1.;
     priv->settings.selective_style_overrides = ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE;
 
-    if (!(priv->shaper = ass_shaper_new(0)))
+    if (!(priv->shaper = ass_shaper_new()))
         goto fail;
 
     ass_shaper_info(library);

@@ -947,18 +947,15 @@ int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
 }
 
 /**
- * \brief Create a new shaper instance and preallocate data structures
- * \param prealloc preallocation size
+ * \brief Create a new shaper instance
  */
-ASS_Shaper *ass_shaper_new(size_t prealloc)
+ASS_Shaper *ass_shaper_new(void)
 {
     ASS_Shaper *shaper = calloc(sizeof(*shaper), 1);
     if (!shaper)
         return NULL;
 
     shaper->base_direction = FRIBIDI_PAR_ON;
-    if (!check_allocations(shaper, prealloc))
-        goto error;
 
 #ifdef CONFIG_HARFBUZZ
     if (!init_features(shaper))
