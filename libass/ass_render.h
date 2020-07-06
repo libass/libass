@@ -315,9 +315,11 @@ struct ass_renderer {
     double fit_width;           // frame width without zoom & pan (fit to screen & letterboxed)
     ASS_Track *track;
     long long time;             // frame's timestamp, ms
-    double font_scale;
+    double screen_scale_x;
+    double screen_scale_y;
     double font_scale_x;        // x scale applied to all glyphs to preserve text aspect ratio
-    double border_scale;
+    double border_scale_x;
+    double border_scale_y;
     double blur_scale;
 
     RenderContext state;
