@@ -266,14 +266,20 @@ static long long string2timecode(ASS_Library *library, char *p)
 
 #define STRVAL(name) \
     } else if (ass_strcasecmp(tname, #name) == 0) { \
-        if (target->name != NULL) free(target->name); \
-        target->name = strdup(token);
+        char *new_str = strdup(token); \
+        if (new_str) { \
+            free(target->name); \
+            target->name = new_str; \
+        }
 
 #define STARREDSTRVAL(name) \
     } else if (ass_strcasecmp(tname, #name) == 0) { \
-        if (target->name != NULL) free(target->name); \
         while (*token == '*') ++token; \
-        target->name = strdup(token);
+        char *new_str = strdup(token); \
+        if (new_str) { \
+            free(target->name); \
+            target->name = new_str; \
+        }
 
 #define COLORVAL(name) ANYVAL(name,parse_color_header)
 #define INTVAL(name) ANYVAL(name,atoi)
