@@ -2196,8 +2196,11 @@ static void calculate_rotation_params(ASS_Renderer *render_priv, ASS_DRect *bbox
     for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + i;
         while (info) {
-            info->shift.x = info->pos.x + double_to_d6(device_x - center.x);
-            info->shift.y = info->pos.y + double_to_d6(device_y - center.y);
+            info->shift.x = info->pos.x + double_to_d6(device_x - center.x +
+                    info->shadow_x * render_priv->border_scale /
+                    render_priv->font_scale_x);
+            info->shift.y = info->pos.y + double_to_d6(device_y - center.y +
+                    info->shadow_y * render_priv->border_scale);
             info = info->next;
         }
     }
