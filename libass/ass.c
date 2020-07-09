@@ -940,6 +940,7 @@ static int process_fonts_line(ASS_Track *track, char *str)
 */
 static int process_line(ASS_Track *track, char *str)
 {
+    skip_spaces(&str);
     if (!ass_strncasecmp(str, "[Script Info]", 13)) {
         track->parser_priv->state = PST_INFO;
     } else if (!ass_strncasecmp(str, "[V4 Styles]", 11)) {
