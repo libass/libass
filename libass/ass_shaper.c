@@ -758,10 +758,10 @@ static void shape_fribidi(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
  * \param shaper shaper instance
  * \param kern toggle kerning
  */
-void ass_shaper_set_kerning(ASS_Shaper *shaper, int kern)
+void ass_shaper_set_kerning(ASS_Shaper *shaper, bool kern)
 {
 #ifdef CONFIG_HARFBUZZ
-    shaper->features[KERN].value = !!kern;
+    shaper->features[KERN].value = kern;
 #endif
 }
 
