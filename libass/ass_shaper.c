@@ -39,10 +39,6 @@ enum {
 #define NUM_FEATURES 5
 #endif
 
-#if FRIBIDI_MAJOR_VERSION >= 1
-#define USE_FRIBIDI_EX_API
-#endif
-
 struct ass_shaper {
     ASS_ShapingLevel shaping_level;
 
@@ -50,9 +46,6 @@ struct ass_shaper {
     int n_glyphs;
     FriBidiChar *event_text;
     FriBidiCharType *ctypes;
-#ifdef USE_FRIBIDI_EX_API
-    FriBidiBracketType *btypes;
-#endif
     FriBidiLevel *emblevels;
     FriBidiStrIndex *cmap;
     FriBidiParType base_direction;
@@ -65,6 +58,11 @@ struct ass_shaper {
 
     // Glyph metrics cache, to speed up shaping
     Cache *metrics_cache;
+#endif
+
+#ifdef USE_FRIBIDI_EX_API
+    FriBidiBracketType *btypes;
+    bool bidi_brackets;
 #endif
 };
 
@@ -105,7 +103,7 @@ static bool check_allocations(ASS_Shaper *shaper, size_t new_size)
         if (!ASS_REALLOC_ARRAY(shaper->event_text, new_size) ||
             !ASS_REALLOC_ARRAY(shaper->ctypes, new_size) ||
 #ifdef USE_FRIBIDI_EX_API
-            !ASS_REALLOC_ARRAY(shaper->btypes, new_size) ||
+            (shaper->bidi_brackets && !ASS_REALLOC_ARRAY(shaper->btypes, new_size)) ||
 #endif
             !ASS_REALLOC_ARRAY(shaper->emblevels, new_size) ||
             !ASS_REALLOC_ARRAY(shaper->cmap, new_size))
@@ -860,6 +858,13 @@ void ass_shaper_set_level(ASS_Shaper *shaper, ASS_ShapingLevel level)
     shaper->shaping_level = level;
 }
 
+#ifdef USE_FRIBIDI_EX_API
+void ass_shaper_set_bidi_brackets(ASS_Shaper *shaper, bool match_brackets)
+{
+    shaper->bidi_brackets = match_brackets;
+}
+#endif
+
 /**
   * \brief Remove all zero-width invisible characters from the text.
   * \param text_info text
@@ -907,11 +912,15 @@ int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
             fribidi_get_bidi_types(shaper->event_text + last_break,
                     i - last_break + 1, shaper->ctypes + last_break);
 #ifdef USE_FRIBIDI_EX_API
-            fribidi_get_bracket_types(shaper->event_text + last_break,
-                    i - last_break + 1, shaper->ctypes + last_break,
-                    shaper->btypes + last_break);
+            FriBidiBracketType *btypes = NULL;
+            if (shaper->bidi_brackets) {
+                btypes = shaper->btypes + last_break;
+                fribidi_get_bracket_types(shaper->event_text + last_break,
+                        i - last_break + 1, shaper->ctypes + last_break,
+                        btypes);
+            }
             ret = fribidi_get_par_embedding_levels_ex(
-                    shaper->ctypes + last_break, shaper->btypes + last_break,
+                    shaper->ctypes + last_break, btypes,
                     i - last_break + 1, &dir, shaper->emblevels + last_break);
 #else
             ret = fribidi_get_par_embedding_levels(shaper->ctypes + last_break,

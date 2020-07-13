@@ -19,7 +19,10 @@
 #ifndef LIBASS_PRIV_H
 #define LIBASS_PRIV_H
 
+#include <stdbool.h>
 #include <stdint.h>
+
+#include "ass_shaper.h"
 
 typedef enum {
     PST_UNKNOWN = 0,
@@ -55,10 +58,12 @@ struct parser_priv {
     int read_order_elems; // size in uint32_t units of read_order_bitmap
     int check_readorder;
 
-    int enable_extensions;
-
     // tracks [Script Info] headers set by the script
     uint32_t header_flags;
+
+#ifdef USE_FRIBIDI_EX_API
+    bool bidi_brackets;
+#endif
 };
 
 #endif /* LIBASS_PRIV_H */

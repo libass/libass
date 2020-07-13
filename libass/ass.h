@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01400001
+#define LIBASS_VERSION 0x01400002
 
 #ifdef __cplusplus
 extern "C" {
@@ -208,6 +208,19 @@ typedef enum {
      * distribution.
      */
     ASS_FEATURE_INCOMPATIBLE_EXTENSIONS,
+
+    /**
+     * Match bracket pairs in bidirectional text according to the revised
+     * Unicode Bidirectional Algorithm introduced in Unicode 6.3.
+     * This is incompatible with VSFilter and disabled by default.
+     *
+     * (Directional isolates, also introduced in Unicode 6.3,
+     * are unconditionally processed when FriBidi is new enough.)
+     *
+     * This feature may be unavailable at runtime (ass_track_set_feature
+     * may return -1) if libass was compiled against old FriBidi.
+     */
+    ASS_FEATURE_BIDI_BRACKETS,
 
     // New enum values can be added here in new ABI-compatible library releases.
 } ASS_Feature;

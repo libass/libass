@@ -27,6 +27,7 @@
 #include "ass_outline.h"
 #include "ass_render.h"
 #include "ass_parse.h"
+#include "ass_priv.h"
 #include "ass_shaper.h"
 
 #define MAX_GLYPHS_INITIAL 1024
@@ -2833,6 +2834,10 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     ass_shaper_set_kerning(render_priv->shaper, track->Kerning);
     ass_shaper_set_language(render_priv->shaper, track->Language);
     ass_shaper_set_level(render_priv->shaper, render_priv->settings.shaper);
+#ifdef USE_FRIBIDI_EX_API
+    ass_shaper_set_bidi_brackets(render_priv->shaper,
+            track->parser_priv->bidi_brackets);
+#endif
 
     // PAR correction
     double par = render_priv->settings.par;
