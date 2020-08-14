@@ -30,6 +30,22 @@
 extern "C" {
 #endif
 
+#if (defined(__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))) || defined(__clang__)
+    #define ASS_DEPRECATED(msg) __attribute__((deprecated(msg)))
+    #if __GNUC__ > 5 || defined(__clang__)
+        #define ASS_DEPRECATED_ENUM(msg) __attribute__((deprecated(msg)))
+    #else
+        #define ASS_DEPRECATED_ENUM(msg)
+    #endif
+#elif defined(_MSC_VER)
+    #define ASS_DEPRECATED(msg) __declspec(deprecated(msg))
+    #define ASS_DEPRECATED_ENUM(msg)
+#else
+    #define ASS_DEPRECATED(msg)
+    #define ASS_DEPRECATED_ENUM(msg)
+#endif
+
+
 /*
  * A linked list of images produced by an ass renderer.
  *
@@ -129,7 +145,7 @@ typedef enum {
     /**
      * Old alias for ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE. Deprecated. Do not use.
      */
-    ASS_OVERRIDE_BIT_FONT_SIZE = 1 << 1,
+    ASS_OVERRIDE_BIT_FONT_SIZE ASS_DEPRECATED_ENUM("replaced by ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE") = 1 << 1,
     /**
      * On dialogue events override: FontSize, Spacing, Blur, ScaleX, ScaleY
      */
@@ -402,7 +418,7 @@ void ass_set_pixel_aspect(ASS_Renderer *priv, double par);
  * \param dar display aspect ratio (DAR), prescaled for output PAR
  * \param sar storage aspect ratio (SAR)
  */
-void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar);
+ASS_DEPRECATED("use 'ass_set_pixel_aspect' instead") void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar);
 
 /**
  * \brief Set a fixed font scaling factor.
@@ -501,7 +517,7 @@ void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style);
  * \param priv renderer handle
  * \return success
  */
-int ass_fonts_update(ASS_Renderer *priv);
+ASS_DEPRECATED("it does nothing") int ass_fonts_update(ASS_Renderer *priv);
 
 /**
  * \brief Set hard cache limits.  Do not set, or set to zero, for reasonable
