@@ -1495,7 +1495,8 @@ size_t ass_bitmap_construct(void *key, void *value, void *priv)
 }
 
 static void measure_text_on_eol(ASS_Renderer *render_priv, double scale, int cur_line,
-                                int max_asc, int max_desc, double max_border_y)
+                                int max_asc, int max_desc,
+                                double max_border_x, double max_border_y)
 {
     render_priv->text_info.lines[cur_line].asc  = scale * max_asc;
     render_priv->text_info.lines[cur_line].desc = scale * max_desc;
@@ -1505,6 +1506,9 @@ static void measure_text_on_eol(ASS_Renderer *render_priv, double scale, int cur
     render_priv->text_info.border_bottom = (int) (render_priv->border_scale * max_border_y + 0.5);
     if (cur_line == 0)
         render_priv->text_info.border_top = render_priv->text_info.border_bottom;
+    // VSFilter takes max \bordx into account for collision, even if far from edge
+    render_priv->text_info.border_x = FFMAX(render_priv->text_info.border_x,
+            (int) (render_priv->border_scale * max_border_x + 0.5));
 }
 
 
@@ -1527,15 +1531,29 @@ static void measure_text(ASS_Renderer *render_priv)
     double scale = 0.5 / 64;
     int max_asc = 0, max_desc = 0;
     double max_border_y = 0, max_border_x = 0;
+    bool empty_trimmed_line = true;
     for (int i = 0; i < text_info->length; i++) {
         if (text_info->glyphs[i].linebreak) {
-            measure_text_on_eol(render_priv, scale, cur_line, max_asc, max_desc, max_border_y);
+            measure_text_on_eol(render_priv, scale, cur_line,
+                    max_asc, max_desc, max_border_x, max_border_y);
+            empty_trimmed_line = true;
             max_asc = max_desc = 0;
-            max_border_y = 0;
+            max_border_y = max_border_x = 0;
             scale = 0.5 / 64;
             cur_line++;
         }
         GlyphInfo *cur = text_info->glyphs + i;
+        // VSFilter ignores metrics of line-leading/trailing (trimmed)
+        // whitespace, except when the line becomes empty after trimming
+        if (empty_trimmed_line && !cur->is_trimmed_whitespace) {
+            empty_trimmed_line = false;
+            // Forget metrics of line-leading whitespace
+            max_asc = max_desc = 0;
+            max_border_y = max_border_x = 0;
+        } else if (!empty_trimmed_line && cur->is_trimmed_whitespace) {
+            // Ignore metrics of line-trailing whitespace
+            continue;
+        }
         max_asc  = FFMAX(max_asc,  cur->asc);
         max_desc = FFMAX(max_desc, cur->desc);
         max_border_y = FFMAX(max_border_y, cur->border_y);
@@ -1544,11 +1562,9 @@ static void measure_text(ASS_Renderer *render_priv)
             scale = 1.0 / 64;
     }
     assert(cur_line == text_info->n_lines - 1);
-    measure_text_on_eol(render_priv, scale, cur_line, max_asc, max_desc, max_border_y);
+    measure_text_on_eol(render_priv, scale, cur_line,
+            max_asc, max_desc, max_border_x, max_border_y);
     text_info->height += cur_line * render_priv->settings.line_spacing;
-    // VSF takes max \bordx into account for collision, even if far from edge
-    text_info->border_x =
-        (int) (render_priv->border_scale * max_border_x + 0.5);
 }
 
 /**
@@ -1567,6 +1583,7 @@ static void trim_whitespace(ASS_Renderer *render_priv)
     cur = ti->glyphs + i;
     while (i && IS_WHITESPACE(cur)) {
         cur->skip = true;
+        cur->is_trimmed_whitespace = true;
         cur = ti->glyphs + --i;
     }
 
@@ -1575,6 +1592,7 @@ static void trim_whitespace(ASS_Renderer *render_priv)
     cur = ti->glyphs;
     while (i < ti->length && IS_WHITESPACE(cur)) {
         cur->skip = true;
+        cur->is_trimmed_whitespace = true;
         cur = ti->glyphs + ++i;
     }
 
@@ -1587,17 +1605,20 @@ static void trim_whitespace(ASS_Renderer *render_priv)
             cur = ti->glyphs + j;
             while (j && IS_WHITESPACE(cur)) {
                 cur->skip = true;
+                cur->is_trimmed_whitespace = true;
                 cur = ti->glyphs + --j;
             }
             // A break itself can contain a whitespace, too
             cur = ti->glyphs + i;
             if (cur->symbol == ' ' || cur->symbol == '\n') {
                 cur->skip = true;
+                cur->is_trimmed_whitespace = true;
                 // Mark whitespace after
                 j = i + 1;
                 cur = ti->glyphs + j;
                 while (j < ti->length && IS_WHITESPACE(cur)) {
                     cur->skip = true;
+                    cur->is_trimmed_whitespace = true;
                     cur = ti->glyphs + ++j;
                 }
                 i = j - 1;
@@ -1735,8 +1756,8 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     assert(text_info->n_lines >= 1);
 #undef DIFF
 
-    measure_text(render_priv);
     trim_whitespace(render_priv);
+    measure_text(render_priv);
 
     cur_line = 1;
 
