@@ -1540,7 +1540,7 @@ static void measure_text(ASS_Renderer *render_priv)
         max_desc = FFMAX(max_desc, cur->desc);
         max_border_y = FFMAX(max_border_y, cur->border_y);
         max_border_x = FFMAX(max_border_x, cur->border_x);
-        if (cur->symbol != '\n' && cur->symbol != 0)
+        if (cur->symbol != '\n')
             scale = 1.0 / 64;
     }
     assert(cur_line == text_info->n_lines - 1);
