@@ -636,6 +636,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 continue;
             p = args[cnt].start;
             if (args[cnt].end < end) {
+                assert(!nested);
                 p = parse_tags(render_priv, p, args[cnt].end, k, true);
             } else {
                 assert(q == end);
