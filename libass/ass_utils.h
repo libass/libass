@@ -78,10 +78,6 @@ void *ass_try_realloc_array(void *ptr, size_t nmemb, size_t size);
 
 void skip_spaces(char **str);
 void rskip_spaces(char **str, char *limit);
-int mystrtoi(char **p, int *res);
-int mystrtoll(char **p, long long *res);
-int mystrtod(char **p, double *res);
-int mystrtoi32(char **p, int base, int32_t *res);
 int32_t parse_alpha_tag(char *str);
 uint32_t parse_color_tag(char *str);
 uint32_t parse_color_header(char *str);
@@ -196,6 +192,37 @@ static inline uint32_t fnv_32a_str(const char *str, uint32_t hval)
         hval *= FNV1_32A_PRIME;
     }
     return hval;
+}
+
+static inline int mystrtoi(char **p, int *res)
+{
+    char *start = *p;
+    double temp_res = ass_strtod(*p, p);
+    *res = (int) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
+    return *p != start;
+}
+
+static inline int mystrtoll(char **p, long long *res)
+{
+    char *start = *p;
+    double temp_res = ass_strtod(*p, p);
+    *res = (long long) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
+    return *p != start;
+}
+
+static inline int mystrtod(char **p, double *res)
+{
+    char *start = *p;
+    *res = ass_strtod(*p, p);
+    return *p != start;
+}
+
+static inline int mystrtoi32(char **p, int base, int32_t *res)
+{
+    char *start = *p;
+    long long temp_res = strtoll(*p, p, base);
+    *res = FFMINMAX(temp_res, INT32_MIN, INT32_MAX);
+    return *p != start;
 }
 
 #endif                          /* LIBASS_UTILS_H */

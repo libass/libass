@@ -154,37 +154,6 @@ void rskip_spaces(char **str, char *limit)
     *str = p;
 }
 
-int mystrtoi(char **p, int *res)
-{
-    char *start = *p;
-    double temp_res = ass_strtod(*p, p);
-    *res = (int) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
-    return *p != start;
-}
-
-int mystrtoll(char **p, long long *res)
-{
-    char *start = *p;
-    double temp_res = ass_strtod(*p, p);
-    *res = (long long) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
-    return *p != start;
-}
-
-int mystrtod(char **p, double *res)
-{
-    char *start = *p;
-    *res = ass_strtod(*p, p);
-    return *p != start;
-}
-
-int mystrtoi32(char **p, int base, int32_t *res)
-{
-    char *start = *p;
-    long long temp_res = strtoll(*p, p, base);
-    *res = FFMINMAX(temp_res, INT32_MIN, INT32_MAX);
-    return *p != start;
-}
-
 static int read_digits(char **str, int base, uint32_t *res)
 {
     char *p = *str;
