@@ -73,12 +73,14 @@ static inline void push_arg(struct arg *args, int *nargs, char *start, char *end
  */
 static inline int mystrcmp(char **p, const char *sample)
 {
-    int len = strlen(sample);
-    if (strncmp(*p, sample, len) == 0) {
-        (*p) += len;
+    char *p2;
+    for (p2 = *p; *sample != 0 && *p2 == *sample; p2++, sample++)
+        ;
+    if (*sample == 0) {
+        *p = p2;
         return 1;
-    } else
-        return 0;
+    }
+    return 0;
 }
 
 double ensure_font_size(ASS_Renderer *priv, double size)
