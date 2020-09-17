@@ -96,7 +96,8 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
     for (i = 0; i < fonts->nfont; i++) {
         FcPattern *pat = fonts->fonts[i];
         FcBool outline;
-        int index, weight;
+        int index;
+        double weight;
         char *path;
         char *fullnames[MAX_NAME];
         char *families[MAX_NAME];
@@ -109,23 +110,26 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         // simple types
         result  = FcPatternGetInteger(pat, FC_SLANT, 0, &meta.slant);
         result |= FcPatternGetInteger(pat, FC_WIDTH, 0, &meta.width);
-        result |= FcPatternGetInteger(pat, FC_WEIGHT, 0, &weight);
+        result |= FcPatternGetDouble(pat, FC_WEIGHT, 0, &weight);
         result |= FcPatternGetInteger(pat, FC_INDEX, 0, &index);
         if (result != FcResultMatch)
             continue;
 
         // fontconfig uses its own weight scale, apparently derived
         // from typographical weight. we're using truetype weights, so
-        // convert appropriately
-#if FC_VERSION >= 21191
-        meta.weight = FcWeightToOpenType(weight);
+        // convert appropriately.
+#if FC_VERSION >= 21292
+        meta.weight = FcWeightToOpenTypeDouble(weight) + 0.5;
+#elif FC_VERSION >= 21191
+        // Versions prior to 2.12.92 only had integer precision.
+        meta.weight = FcWeightToOpenType(weight + 0.5) + 0.5;
 #else
         // On older fontconfig, FcWeightToOpenType is unavailable, and its inverse was
         // implemented more simply, using an if/else ladder instead of linear interpolation.
         // We implement an inverse of that ladder here.
         // We don't expect actual FC caches from these versions to have intermediate
         // values, so the average checks are only for completeness.
-#define AVG(x, y) ((x + y) / 2)
+#define AVG(x, y) (((double)x + y) / 2)
 #ifndef FC_WEIGHT_SEMILIGHT
 #define FC_WEIGHT_SEMILIGHT 55
 #endif
