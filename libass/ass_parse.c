@@ -128,21 +128,42 @@ void update_font(ASS_Renderer *render_priv)
     render_priv->state.font = ass_font_new(render_priv, &desc);
 }
 
+static double calc_anim(double new, double old, double pwr)
+{
+   return (1 - pwr) * old + new * pwr;
+}
+
+static int32_t calc_anim_int32(uint32_t new, uint32_t old, double pwr)
+{
+    double ret = calc_anim(new, old, pwr);
+
+    // Avoid UB on out-of-range values; match x86 behavior
+    if (isnan(ret) || ret < INT32_MIN || ret > INT32_MAX)
+        return INT32_MIN;
+
+    return ret;
+}
+
 /**
  * \brief Calculate a weighted average of two colors
  * calculates c1*(1-a) + c2*a, but separately for each component except alpha
  */
 static void change_color(uint32_t *var, uint32_t new, double pwr)
 {
-    (*var) = ((uint32_t) (_r(*var) * (1 - pwr) + _r(new) * pwr) << 24) |
-        ((uint32_t) (_g(*var) * (1 - pwr) + _g(new) * pwr) << 16) |
-        ((uint32_t) (_b(*var) * (1 - pwr) + _b(new) * pwr) << 8) | _a(*var);
+    uint32_t co = ass_bswap32(*var);
+    uint32_t cn = ass_bswap32(new);
+
+    uint32_t cc = (calc_anim_int32(cn & 0xff0000, co & 0xff0000, pwr) & 0xff0000) |
+                  (calc_anim_int32(cn & 0x00ff00, co & 0x00ff00, pwr) & 0x00ff00) |
+                  (calc_anim_int32(cn & 0x0000ff, co & 0x0000ff, pwr) & 0x0000ff);
+
+    (*var) = (ass_bswap32(cc & 0xffffff)) | _a(*var);
 }
 
 // like change_color, but for alpha component only
 inline void change_alpha(uint32_t *var, int32_t new, double pwr)
 {
-    *var = (*var & 0xFFFFFF00) | (uint8_t) (_a(*var) * (1 - pwr) + new * pwr);
+    *var = (*var & 0xFFFFFF00) | (uint8_t)calc_anim_int32(_a(new), _a(*var), pwr);
 }
 
 /**
