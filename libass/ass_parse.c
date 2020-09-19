@@ -235,6 +235,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
         // Store one extra element to be able to detect excess arguments
         struct arg args[MAX_VALID_NARGS + 1];
         int nargs = 0;
+        bool has_backslash_arg = false;
         for (int i = 0; i <= MAX_VALID_NARGS; ++i)
             args[i].start = args[i].end = "";
 
@@ -261,8 +262,11 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 } else {
                     // Swallow the rest of the parenthesized string. This could
                     // be either a backslash-argument or simply the last argument.
-                    while (*r != ')' && r != end)
-                        ++r;
+                    if (*r == '\\') {
+                        has_backslash_arg = true;
+                        while (*r != ')' && r != end)
+                            ++r;
+                    }
                     push_arg(args, &nargs, q, r);
                     q = r;
                     // The closing parenthesis could be missing.
@@ -633,6 +637,10 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             if (nested)
                 pwr = k;
             if (cnt < 0 || cnt > 3)
+                continue;
+            // If there's no backslash in the arguments, there are no
+            // override tags, so it's pointless to try to parse them.
+            if (!has_backslash_arg)
                 continue;
             p = args[cnt].start;
             if (args[cnt].end < end) {
