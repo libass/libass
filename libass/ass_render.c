@@ -1566,7 +1566,7 @@ static void trim_whitespace(ASS_Renderer *render_priv)
     i = ti->length - 1;
     cur = ti->glyphs + i;
     while (i && IS_WHITESPACE(cur)) {
-        cur->skip++;
+        cur->skip = true;
         cur = ti->glyphs + --i;
     }
 
@@ -1574,7 +1574,7 @@ static void trim_whitespace(ASS_Renderer *render_priv)
     i = 0;
     cur = ti->glyphs;
     while (i < ti->length && IS_WHITESPACE(cur)) {
-        cur->skip++;
+        cur->skip = true;
         cur = ti->glyphs + ++i;
     }
 
@@ -1586,18 +1586,18 @@ static void trim_whitespace(ASS_Renderer *render_priv)
             j = i - 1;
             cur = ti->glyphs + j;
             while (j && IS_WHITESPACE(cur)) {
-                cur->skip++;
+                cur->skip = true;
                 cur = ti->glyphs + --j;
             }
             // A break itself can contain a whitespace, too
             cur = ti->glyphs + i;
             if (cur->symbol == ' ' || cur->symbol == '\n') {
-                cur->skip++;
+                cur->skip = true;
                 // Mark whitespace after
                 j = i + 1;
                 cur = ti->glyphs + j;
                 while (j < ti->length && IS_WHITESPACE(cur)) {
-                    cur->skip++;
+                    cur->skip = true;
                     cur = ti->glyphs + ++j;
                 }
                 i = j - 1;

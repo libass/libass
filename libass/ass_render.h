@@ -21,6 +21,7 @@
 #define LIBASS_RENDER_H
 
 #include <inttypes.h>
+#include <stdbool.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
@@ -122,7 +123,7 @@ typedef struct {
 // GlyphInfo and TextInfo are used for text centering and word-wrapping operations
 typedef struct glyph_info {
     unsigned symbol;
-    unsigned skip;              // skip glyph when layouting text
+    bool skip;                  // skip glyph when layouting text
     ASS_Font *font;
     int face_index;
     int glyph_index;
