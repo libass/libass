@@ -1438,8 +1438,12 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
         w *= STROKER_PRECISION / POSITION_PRECISION;
         frexp(w * (FFMAX(mxx, myx) + mzx * rz), &k->scale_ord_x);
         frexp(w * (FFMAX(mxy, myy) + mzy * rz), &k->scale_ord_y);
-        k->border.x = lrint(ldexp(bord_x, k->scale_ord_x) / STROKER_PRECISION);
-        k->border.y = lrint(ldexp(bord_y, k->scale_ord_y) / STROKER_PRECISION);
+        bord_x = ldexp(bord_x, k->scale_ord_x);
+        bord_y = ldexp(bord_y, k->scale_ord_y);
+        if (!(bord_x < OUTLINE_MAX && bord_y < OUTLINE_MAX))
+            return;
+        k->border.x = lrint(bord_x / STROKER_PRECISION);
+        k->border.y = lrint(bord_y / STROKER_PRECISION);
         if (!k->border.x && !k->border.y) {
             ass_cache_inc_ref(info->bm);
             info->bm_o = info->bm;

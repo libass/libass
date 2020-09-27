@@ -269,12 +269,10 @@ bool rasterizer_set_outline(RasterizerData *rst,
     }
     rst->size[0] = rst->n_first;
 
-    for (size_t i = 0; i < path->n_points; i++) {
-        if (path->points[i].x < OUTLINE_MIN || path->points[i].x > OUTLINE_MAX)
-            return false;
-        if (path->points[i].y < OUTLINE_MIN || path->points[i].y > OUTLINE_MAX)
-            return false;
-    }
+#ifndef NDEBUG
+    for (size_t i = 0; i < path->n_points; i++)
+        assert(abs(path->points[i].x) <= OUTLINE_MAX && abs(path->points[i].y) <= OUTLINE_MAX);
+#endif
 
     ASS_Vector *start = path->points, *cur = start;
     for (size_t i = 0; i < path->n_segments; i++) {

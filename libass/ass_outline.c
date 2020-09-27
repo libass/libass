@@ -48,6 +48,11 @@ static void outline_clear(ASS_Outline *outline)
     outline->n_segments = outline->max_segments = 0;
 }
 
+static bool valid_point(const FT_Vector *pt)
+{
+    return abs(pt->x) <= OUTLINE_MAX && abs(pt->y) <= OUTLINE_MAX;
+}
+
 bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
 {
     if (!source || !source->n_points) {
@@ -77,12 +82,16 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
             continue;
         }
 
+        if (!valid_point(source->points + j))
+            goto fail;
         switch (FT_CURVE_TAG(source->tags[j])) {
         case FT_CURVE_TAG_ON:
             st = S_ON;
             break;
 
         case FT_CURVE_TAG_CONIC:
+            if (!valid_point(source->points + last))
+                goto fail;
             pt.x =  source->points[last].x;
             pt.y = -source->points[last].y;
             switch (FT_CURVE_TAG(source->tags[last])) {
@@ -110,6 +119,8 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
         outline->points[outline->n_points++] = pt;
 
         for (j++; j <= last; j++) {
+            if (!valid_point(source->points + j))
+                goto fail;
             switch (FT_CURVE_TAG(source->tags[j])) {
             case FT_CURVE_TAG_ON:
                 switch (st) {
@@ -209,6 +220,23 @@ bool outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
         return true;
     }
 
+    int32_t lim_x = OUTLINE_MAX;
+    if (scale_ord_x > 0)
+        lim_x = scale_ord_x < 32 ? lim_x >> scale_ord_x : 0;
+    else
+        scale_ord_x = FFMAX(scale_ord_x, -32);
+
+    int32_t lim_y = OUTLINE_MAX;
+    if (scale_ord_y > 0)
+        lim_y = scale_ord_y < 32 ? lim_y >> scale_ord_y : 0;
+    else
+        scale_ord_y = FFMAX(scale_ord_y, -32);
+
+    if (!lim_x || !lim_y) {
+        outline_clear(outline);
+        return false;
+    }
+
     if (!outline_alloc(outline, source->n_points, source->n_segments))
         return false;
 
@@ -216,6 +244,10 @@ bool outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
     int sy = scale_ord_y + 32;
     const ASS_Vector *pt = source->points;
     for (size_t i = 0; i < source->n_points; i++) {
+        if (abs(pt[i].x) > lim_x || abs(pt[i].y) > lim_y) {
+            outline_free(outline);
+            return false;
+        }
         // that's equivalent to pt[i].x << scale_ord_x,
         // but works even for negative coordinate and/or shift amount
         outline->points[i].x = pt[i].x * ((int64_t) 1 << sx) >> 32;
@@ -244,6 +276,10 @@ bool outline_transform_2d(ASS_Outline *outline, const ASS_Outline *source,
         for (int k = 0; k < 2; k++)
             v[k] = m[k][0] * pt[i].x + m[k][1] * pt[i].y + m[k][2];
 
+        if (!(fabs(v[0]) < OUTLINE_MAX && fabs(v[1]) < OUTLINE_MAX)) {
+            outline_free(outline);
+            return false;
+        }
         outline->points[i].x = lrint(v[0]);
         outline->points[i].y = lrint(v[1]);
     }
@@ -271,8 +307,15 @@ bool outline_transform_3d(ASS_Outline *outline, const ASS_Outline *source,
             v[k] = m[k][0] * pt[i].x + m[k][1] * pt[i].y + m[k][2];
 
         double w = 1 / FFMAX(v[2], 0.1);
-        outline->points[i].x = lrint(v[0] * w);
-        outline->points[i].y = lrint(v[1] * w);
+        v[0] *= w;
+        v[1] *= w;
+
+        if (!(fabs(v[0]) < OUTLINE_MAX && fabs(v[1]) < OUTLINE_MAX)) {
+            outline_free(outline);
+            return false;
+        }
+        outline->points[i].x = lrint(v[0]);
+        outline->points[i].y = lrint(v[1]);
     }
     memcpy(outline->segments, source->segments, source->n_segments);
     outline->n_points = source->n_points;
@@ -299,6 +342,9 @@ void outline_free(ASS_Outline *outline)
  */
 bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment)
 {
+    if(abs(pt.x) > OUTLINE_MAX || abs(pt.y) > OUTLINE_MAX)
+        return false;
+
     if (outline->n_points >= outline->max_points) {
         size_t new_size = 2 * outline->max_points;
         if (!ASS_REALLOC_ARRAY(outline->points, new_size))
@@ -1351,7 +1397,7 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
 
     const int dir = 3;
     int rad = FFMAX(xbord, ybord);
-    assert(rad >= eps);
+    assert(rad >= eps && rad <= OUTLINE_MAX);
 
     StrokerState str;
     str.result[0] = result;
@@ -1374,12 +1420,10 @@ bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
     str.err_c = 390 * rel_err * rel_err;
     str.err_a = e;
 
-    for (size_t i = 0; i < path->n_points; i++) {
-        if (path->points[i].x < OUTLINE_MIN || path->points[i].x > OUTLINE_MAX)
-            return false;
-        if (path->points[i].y < OUTLINE_MIN || path->points[i].y > OUTLINE_MAX)
-            return false;
-    }
+#ifndef NDEBUG
+    for (size_t i = 0; i < path->n_points; i++)
+        assert(abs(path->points[i].x) <= OUTLINE_MAX && abs(path->points[i].y) <= OUTLINE_MAX);
+#endif
 
     ASS_Vector *start = path->points, *cur = start;
     for (size_t i = 0; i < path->n_segments; i++) {
