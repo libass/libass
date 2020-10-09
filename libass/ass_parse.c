@@ -42,10 +42,10 @@ static inline int argtoi(struct arg arg)
     return value;
 }
 
-static inline long long argtoll(struct arg arg)
+static inline int32_t argtoi32(struct arg arg)
 {
-    long long value;
-    mystrtoll(&arg.start, &value);
+    int32_t value;
+    mystrtoi32(&arg.start, 10, &value);
     return value;
 }
 
@@ -188,8 +188,8 @@ inline uint32_t mult_alpha(uint32_t a, uint32_t b)
  * Used for \fad, \fade implementation.
  */
 static int
-interpolate_alpha(long long now, long long t1, long long t2, long long t3,
-                  long long t4, int a1, int a2, int a3)
+interpolate_alpha(long long now, int32_t t1, int32_t t2, int32_t t3,
+                  int32_t t4, int a1, int a2, int a3)
 {
     int a;
     double cf;
@@ -197,12 +197,14 @@ interpolate_alpha(long long now, long long t1, long long t2, long long t3,
     if (now < t1) {
         a = a1;
     } else if (now < t2) {
-        cf = ((double) (now - t1)) / (t2 - t1);
+        cf = ((double) (int32_t) ((uint32_t) now - t1)) /
+                (int32_t) ((uint32_t) t2 - t1);
         a = a1 * (1 - cf) + a2 * cf;
     } else if (now < t3) {
         a = a2;
     } else if (now < t4) {
-        cf = ((double) (now - t3)) / (t4 - t3);
+        cf = ((double) (int32_t) ((uint32_t) now - t3)) /
+                (int32_t) ((uint32_t) t4 - t3);
         a = a2 * (1 - cf) + a3 * cf;
     } else {                    // now >= t4
         a = a3;
@@ -443,7 +445,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             render_priv->state.border_y = yval;
         } else if (complex_tag("move")) {
             double x1, x2, y1, y2;
-            long long t1, t2, delta_t, t;
+            int32_t t1, t2, delta_t, t;
             double x, y;
             double k;
             if (nargs == 4 || nargs == 6) {
@@ -453,8 +455,8 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 y2 = argtod(args[3]);
                 t1 = t2 = 0;
                 if (nargs == 6) {
-                    t1 = argtoll(args[4]);
-                    t2 = argtoll(args[5]);
+                    t1 = argtoi32(args[4]);
+                    t2 = argtoi32(args[5]);
                     if (t1 > t2) {
                         long long tmp = t2;
                         t2 = t1;
@@ -467,14 +469,14 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 t1 = 0;
                 t2 = render_priv->state.event->Duration;
             }
-            delta_t = t2 - t1;
+            delta_t = (uint32_t) t2 - t1;
             t = render_priv->time - render_priv->state.event->Start;
             if (t <= t1)
                 k = 0.;
             else if (t >= t2)
                 k = 1.;
             else
-                k = ((double) (t - t1)) / delta_t;
+                k = ((double) (int32_t) ((uint32_t) t - t1)) / delta_t;
             x = k * (x2 - x1) + x1;
             y = k * (y2 - y1) + y1;
             if (render_priv->state.evt_type != EVENT_POSITIONED) {
@@ -579,36 +581,31 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             }
         } else if (complex_tag("fade") || complex_tag("fad")) {
             int a1, a2, a3;
-            long long t1, t2, t3, t4;
+            int32_t t1, t2, t3, t4;
             if (nargs == 2) {
                 // 2-argument version (\fad, according to specs)
                 a1 = 0xFF;
                 a2 = 0;
                 a3 = 0xFF;
                 t1 = -1;
-                t2 = argtoll(args[0]);
-                t3 = argtoll(args[1]);
+                t2 = argtoi32(args[0]);
+                t3 = argtoi32(args[1]);
                 t4 = -1;
             } else if (nargs == 7) {
                 // 7-argument version (\fade)
                 a1 = argtoi(args[0]);
                 a2 = argtoi(args[1]);
                 a3 = argtoi(args[2]);
-                t1 = argtoll(args[3]);
-                t2 = argtoll(args[4]);
-                t3 = argtoll(args[5]);
-                t4 = argtoll(args[6]);
+                t1 = argtoi32(args[3]);
+                t2 = argtoi32(args[4]);
+                t3 = argtoi32(args[5]);
+                t4 = argtoi32(args[6]);
             } else
                 continue;
             if (t1 == -1 && t4 == -1) {
                 t1 = 0;
                 t4 = render_priv->state.event->Duration;
-                // The value we parsed in t3 is an offset from the event end.
-                // What we really want in t3 is an offset from the event start.
-                // To this end, set t3 to (event duration - parsed value).
-                // If t3 >= t4, the exact value of t3 will not matter,
-                // so clamp it to avoid overflow in the subtraction.
-                t3 = t4 - FFMAX(t3, 0);
+                t3 = (uint32_t) t4 - t3;
             }
             if ((render_priv->state.parsed_tags & PARSED_FADE) == 0) {
                 render_priv->state.fade =
@@ -633,15 +630,17 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
         } else if (complex_tag("t")) {
             double accel;
             int cnt = nargs - 1;
-            long long t1, t2, t, delta_t;
+            int32_t t1, t2, t, delta_t;
             double k;
+            // VSFilter compatibility (because we can): parse the
+            // timestamps differently depending on argument count.
             if (cnt == 3) {
-                t1 = argtoll(args[0]);
-                t2 = argtoll(args[1]);
+                t1 = argtoi32(args[0]);
+                t2 = argtoi32(args[1]);
                 accel = argtod(args[2]);
             } else if (cnt == 2) {
-                t1 = argtoll(args[0]);
-                t2 = argtoll(args[1]);
+                t1 = dtoi32(argtod(args[0]));
+                t2 = dtoi32(argtod(args[1]));
                 accel = 1.;
             } else if (cnt == 1) {
                 t1 = 0;
@@ -655,7 +654,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             render_priv->state.detect_collisions = 0;
             if (t2 == 0)
                 t2 = render_priv->state.event->Duration;
-            delta_t = t2 - t1;
+            delta_t = (uint32_t) t2 - t1;
             t = render_priv->time - render_priv->state.event->Start;        // FIXME: move to render_context
             if (t < t1)
                 k = 0.;
@@ -663,7 +662,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 k = 1.;
             else {
                 assert(delta_t != 0.);
-                k = pow(((double) (t - t1)) / delta_t, accel);
+                k = pow((double) (int32_t) ((uint32_t) t - t1) / delta_t, accel);
             }
             if (nested)
                 pwr = k;
