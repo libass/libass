@@ -128,6 +128,17 @@ void update_font(ASS_Renderer *render_priv)
     render_priv->state.font = ass_font_new(render_priv, &desc);
 }
 
+/**
+ * \brief Convert double to int32_t without UB
+ * on out-of-range values; match x86 behavior
+ */
+static inline int32_t dtoi32(double val)
+{
+    if (isnan(val) || val <= INT32_MIN || val >= INT32_MAX + 1LL)
+        return INT32_MIN;
+    return val;
+}
+
 static double calc_anim(double new, double old, double pwr)
 {
    return (1 - pwr) * old + new * pwr;
@@ -135,13 +146,7 @@ static double calc_anim(double new, double old, double pwr)
 
 static int32_t calc_anim_int32(uint32_t new, uint32_t old, double pwr)
 {
-    double ret = calc_anim(new, old, pwr);
-
-    // Avoid UB on out-of-range values; match x86 behavior
-    if (isnan(ret) || ret < INT32_MIN || ret > INT32_MAX)
-        return INT32_MIN;
-
-    return ret;
+    return dtoi32(calc_anim(new, old, pwr));
 }
 
 /**
