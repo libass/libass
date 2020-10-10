@@ -50,7 +50,7 @@ static void outline_clear(ASS_Outline *outline)
 
 static bool valid_point(const FT_Vector *pt)
 {
-    return abs(pt->x) <= OUTLINE_MAX && abs(pt->y) <= OUTLINE_MAX;
+    return labs(pt->x) <= OUTLINE_MAX && labs(pt->y) <= OUTLINE_MAX;
 }
 
 bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
