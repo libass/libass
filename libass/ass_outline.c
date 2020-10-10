@@ -342,7 +342,7 @@ void outline_free(ASS_Outline *outline)
  */
 bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment)
 {
-    if(abs(pt.x) > OUTLINE_MAX || abs(pt.y) > OUTLINE_MAX)
+    if (abs(pt.x) > OUTLINE_MAX || abs(pt.y) > OUTLINE_MAX)
         return false;
 
     if (outline->n_points >= outline->max_points) {
