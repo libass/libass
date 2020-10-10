@@ -245,7 +245,7 @@ ASS_Font *ass_font_new(ASS_Renderer *render_priv, ASS_FontDesc *desc)
     ASS_Font *font = ass_cache_get(render_priv->cache.font_cache, desc, render_priv);
     if (!font)
         return NULL;
-    if (font->desc.family)
+    if (font->library)
         return font;
     ass_cache_dec_ref(font);
     return NULL;
@@ -270,7 +270,7 @@ size_t ass_font_construct(void *key, void *value, void *priv)
 
     int error = add_face(render_priv->fontselect, font, 0);
     if (error == -1)
-        font->desc.family = NULL;
+        font->library = NULL;
     return 1;
 }
 
