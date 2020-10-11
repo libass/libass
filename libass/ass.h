@@ -580,14 +580,14 @@ void ass_free_track(ASS_Track *track);
 /**
  * \brief Allocate new style.
  * \param track track
- * \return newly allocated style id
+ * \return newly allocated style id >= 0, or a value < 0 on failure
  */
 int ass_alloc_style(ASS_Track *track);
 
 /**
  * \brief Allocate new event.
  * \param track track
- * \return newly allocated event id
+ * \return newly allocated event id >= 0, or a value < 0 on failure
  */
 int ass_alloc_event(ASS_Track *track);
 

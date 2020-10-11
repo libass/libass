@@ -96,7 +96,7 @@ void ass_free_track(ASS_Track *track)
 
 /// \brief Allocate a new style struct
 /// \param track track
-/// \return style id
+/// \return style id or negative value on failure
 int ass_alloc_style(ASS_Track *track)
 {
     int sid;
@@ -104,11 +104,12 @@ int ass_alloc_style(ASS_Track *track)
     assert(track->n_styles <= track->max_styles);
 
     if (track->n_styles == track->max_styles) {
-        track->max_styles += ASS_STYLES_ALLOC;
-        track->styles =
-            (ASS_Style *) realloc(track->styles,
-                                  sizeof(ASS_Style) *
-                                  track->max_styles);
+        if (track->max_styles >= FFMIN(SIZE_MAX, INT_MAX) - ASS_STYLES_ALLOC)
+            return -1;
+        int new_max = track->max_styles + ASS_STYLES_ALLOC;
+        if (!ASS_REALLOC_ARRAY(track->styles, new_max))
+            return -1;
+        track->max_styles = new_max;
     }
 
     sid = track->n_styles++;
@@ -118,7 +119,7 @@ int ass_alloc_style(ASS_Track *track)
 
 /// \brief Allocate a new event struct
 /// \param track track
-/// \return event id
+/// \return event id or negative value on failure
 int ass_alloc_event(ASS_Track *track)
 {
     int eid;
@@ -126,11 +127,12 @@ int ass_alloc_event(ASS_Track *track)
     assert(track->n_events <= track->max_events);
 
     if (track->n_events == track->max_events) {
-        track->max_events = track->max_events * 2 + 1;
-        track->events =
-            (ASS_Event *) realloc(track->events,
-                                  sizeof(ASS_Event) *
-                                  track->max_events);
+        if (track->max_events >= FFMIN(SIZE_MAX, INT_MAX) / 2)
+            return -1;
+        int new_max = track->max_events * 2 + 1;
+        if (!ASS_REALLOC_ARRAY(track->events, new_max))
+            return -1;
+        track->max_events = new_max;
     }
 
     eid = track->n_events++;
