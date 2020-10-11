@@ -550,7 +550,7 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
 /**
  * \brief Allocate a new empty track object.
  * \param library handle
- * \return pointer to empty track
+ * \return pointer to empty track or NULL on failure
  */
 ASS_Track *ass_new_track(ASS_Library *);
 
@@ -573,7 +573,7 @@ int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable);
 
 /**
  * \brief Deallocate track and all its child objects (styles and events).
- * \param track track to deallocate
+ * \param track track to deallocate or NULL
  */
 void ass_free_track(ASS_Track *track);
 
@@ -663,7 +663,7 @@ void ass_flush_events(ASS_Track *track);
  * \param library library handle
  * \param fname file name
  * \param codepage encoding (iconv format)
- * \return newly allocated track
+ * \return newly allocated track or NULL on failure
 */
 ASS_Track *ass_read_file(ASS_Library *library, char *fname,
                          char *codepage);
@@ -674,7 +674,7 @@ ASS_Track *ass_read_file(ASS_Library *library, char *fname,
  * \param buf pointer to subtitles text
  * \param bufsize size of buffer
  * \param codepage encoding (iconv format)
- * \return newly allocated track
+ * \return newly allocated track or NULL on failure
 */
 ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
                            size_t bufsize, char *codepage);

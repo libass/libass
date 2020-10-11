@@ -68,6 +68,9 @@ void ass_free_track(ASS_Track *track)
 {
     int i;
 
+    if (!track)
+        return;
+
     if (track->parser_priv) {
         free(track->parser_priv->read_order_bitmap);
         free(track->parser_priv->fontname);
