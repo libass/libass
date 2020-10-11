@@ -788,6 +788,8 @@ static int process_events_line(ASS_Track *track, char *str)
         skip_spaces(&str);
 
         eid = ass_alloc_event(track);
+        if (eid < 0)
+            return -1;
         event = track->events + eid;
 
         // We can't parse events with event_format
@@ -1065,6 +1067,8 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
            (int64_t) timecode, (int64_t) duration, str);
 
     eid = ass_alloc_event(track);
+    if (eid < 0)
+        return;
     event = track->events + eid;
 
     p = str;
