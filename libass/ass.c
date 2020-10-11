@@ -1254,6 +1254,8 @@ static ASS_Track *parse_memory(ASS_Library *library, char *buf)
     int i;
 
     track = ass_new_track(library);
+    if (!track)
+        return NULL;
 
     // process header
     process_text(track, buf);
