@@ -334,14 +334,6 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
     char *format = strdup(track->event_format);
     char *q = format;           // format scanning pointer
 
-    if (track->n_styles == 0) {
-        // add "Default" style to the end
-        // will be used if track does not contain a default style (or even does not contain styles at all)
-        int sid = ass_alloc_style(track);
-        set_default_style(&track->styles[sid]);
-        track->default_style = sid;
-    }
-
     for (i = 0; i < n_ignored; ++i) {
         NEXT(q, tname);
     }
@@ -491,14 +483,6 @@ static int process_style(ASS_Track *track, char *str)
     }
 
     q = format = strdup(track->style_format);
-
-    // Add default style first
-    if (track->n_styles == 0) {
-        // will be used if track does not contain a default style (or even does not contain styles at all)
-        int sid = ass_alloc_style(track);
-        set_default_style(&track->styles[sid]);
-        track->default_style = sid;
-    }
 
     ass_msg(track->library, MSGL_V, "[%p] Style: %s", track, str);
 
@@ -1478,18 +1462,33 @@ long long ass_step_sub(ASS_Track *track, long long now, int movement)
 
 ASS_Track *ass_new_track(ASS_Library *library)
 {
+    int def_sid = -1;
     ASS_Track *track = calloc(1, sizeof(ASS_Track));
     if (!track)
-        return NULL;
+        goto fail;
     track->library = library;
     track->ScaledBorderAndShadow = 0;
     track->parser_priv = calloc(1, sizeof(ASS_ParserPriv));
-    if (!track->parser_priv) {
-        free(track);
-        return NULL;
-    }
+    if (!track->parser_priv)
+        goto fail;
+    def_sid = ass_alloc_style(track);
+    if (def_sid < 0)
+        goto fail;
+    set_default_style(track->styles + def_sid);
+    track->default_style = def_sid;
+    if (!track->styles[def_sid].Name || !track->styles[def_sid].FontName)
+        goto fail;
     track->parser_priv->check_readorder = 1;
     return track;
+
+fail:
+    if (track) {
+        if (def_sid >= 0)
+            ass_free_style(track, def_sid);
+        free(track->parser_priv);
+        free(track);
+    }
+    return NULL;
 }
 
 int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable)
