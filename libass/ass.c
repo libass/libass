@@ -503,6 +503,8 @@ static int process_style(ASS_Track *track, char *str)
     ass_msg(track->library, MSGL_V, "[%p] Style: %s", track, str);
 
     sid = ass_alloc_style(track);
+    if (sid < 0)
+        return -1;
 
     style = track->styles + sid;
     target = style;
@@ -621,6 +623,7 @@ static void custom_format_line_compatibility(ASS_Track *const track,
 
 static int process_styles_line(ASS_Track *track, char *str)
 {
+    int ret = 0;
     if (!strncmp(str, "Format:", 7)) {
         char *p = str + 7;
         skip_spaces(&p);
@@ -635,9 +638,9 @@ static int process_styles_line(ASS_Track *track, char *str)
     } else if (!strncmp(str, "Style:", 6)) {
         char *p = str + 6;
         skip_spaces(&p);
-        process_style(track, p);
+        ret = process_style(track, p);
     }
-    return 0;
+    return ret;
 }
 
 static inline void check_duplicate_info_line(const ASS_Track *const track,
