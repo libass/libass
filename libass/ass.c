@@ -338,6 +338,8 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
     ASS_Event *target = event;
 
     char *format = strdup(track->event_format);
+    if (!format)
+        return -1;
     char *q = format;           // format scanning pointer
 
     for (i = 0; i < n_ignored; ++i) {
@@ -349,14 +351,14 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
         if (ass_strcasecmp(tname, "Text") == 0) {
             char *last;
             event->Text = strdup(p);
-            if (*event->Text != 0) {
+            if (event->Text && *event->Text != 0) {
                 last = event->Text + strlen(event->Text) - 1;
                 if (last >= event->Text && *last == '\r')
                     *last = 0;
             }
             event->Duration -= event->Start;
             free(format);
-            return 0;           // "Text" is always the last
+            return event->Text ? 0 : -1;           // "Text" is always the last
         }
         NEXT(p, token);
 
@@ -792,7 +794,7 @@ static int process_events_line(ASS_Track *track, char *str)
             return -1;
         event = track->events + eid;
 
-        process_event_tail(track, event, str, 0);
+        return process_event_tail(track, event, str, 0);
     } else {
         ass_msg(track->library, MSGL_V, "Not understood: '%.30s'", str);
     }
