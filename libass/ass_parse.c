@@ -24,6 +24,7 @@
 #include <string.h>
 #include <math.h>
 
+#include "ass_library.h"
 #include "ass_render.h"
 #include "ass_parse.h"
 
@@ -101,6 +102,8 @@ void update_font(ASS_Renderer *render_priv)
     unsigned val;
     ASS_FontDesc desc;
 
+    if (!render_priv->state.family)
+        return;
     if (render_priv->state.family[0] == '@') {
         desc.vertical = 1;
         desc.family = strdup(render_priv->state.family + 1);
@@ -108,6 +111,8 @@ void update_font(ASS_Renderer *render_priv)
         desc.vertical = 0;
         desc.family = strdup(render_priv->state.family);
     }
+    if (!desc.family)
+        return;
 
     val = render_priv->state.bold;
     // 0 = normal, 1 = bold, >1 = exact weight
@@ -520,11 +525,14 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             if (nargs && strncmp(start, "0", args->end - start)) {
                 skip_spaces(&start);
                 family = strndup(start, args->end - start);
-            } else
+            } else {
                 family = strdup(render_priv->state.style->FontName);
-            free(render_priv->state.family);
-            render_priv->state.family = family;
-            update_font(render_priv);
+            }
+            if (family) {
+                free(render_priv->state.family);
+                render_priv->state.family = family;
+                update_font(render_priv);
+            }
         } else if (tag("alpha")) {
             int i;
             if (nargs) {

@@ -997,11 +997,13 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
         (style->StrikeOut ? DECO_STRIKETHROUGH : 0);
     render_priv->state.font_size = style->FontSize;
 
-    free(render_priv->state.family);
-    render_priv->state.family = NULL;
-    render_priv->state.family = strdup(style->FontName);
-    render_priv->state.treat_family_as_pattern =
-        style->treat_fontname_as_pattern;
+    char* new_family = strdup(style->FontName);
+    if (new_family) {
+        free(render_priv->state.family);
+        render_priv->state.family = new_family;
+        render_priv->state.treat_family_as_pattern =
+            style->treat_fontname_as_pattern;
+    }
     render_priv->state.bold = style->Bold;
     render_priv->state.italic = style->Italic;
     update_font(render_priv);
