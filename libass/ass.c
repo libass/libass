@@ -488,9 +488,13 @@ static int process_style(ASS_Track *track, char *str)
             track->style_format = strdup(ssa_style_format);
         else
             track->style_format = strdup(ass_style_format);
+        if (!track->style_format)
+            return -1;
     }
 
     q = format = strdup(track->style_format);
+    if (!q)
+        return -1;
 
     ass_msg(track->library, MSGL_V, "[%p] Style: %s", track, str);
 
@@ -511,8 +515,6 @@ static int process_style(ASS_Track *track, char *str)
 
         PARSE_START
             STARREDSTRVAL(Name)
-            if (strcmp(target->Name, "Default") == 0)
-                track->default_style = sid;
             STRVAL(FontName)
             COLORVAL(PrimaryColour)
             COLORVAL(SecondaryColour)
@@ -548,6 +550,7 @@ static int process_style(ASS_Track *track, char *str)
             FPVAL(Shadow)
         PARSE_END
     }
+    free(format);
     style->ScaleX = FFMAX(style->ScaleX, 0.) / 100.;
     style->ScaleY = FFMAX(style->ScaleY, 0.) / 100.;
     style->Spacing = FFMAX(style->Spacing, 0.);
@@ -561,7 +564,13 @@ static int process_style(ASS_Track *track, char *str)
         style->Name = strdup("Default");
     if (!style->FontName)
         style->FontName = strdup("Arial");
-    free(format);
+    if (!style->Name || !style->FontName) {
+        ass_free_style(track, sid);
+        track->n_styles--;
+        return -1;
+    }
+    if (strcmp(target->Name, "Default") == 0)
+        track->default_style = sid;
     return 0;
 
 }
