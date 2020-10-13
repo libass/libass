@@ -777,6 +777,13 @@ static int process_events_line(ASS_Track *track, char *str)
         int eid;
         ASS_Event *event;
 
+        // We can't parse events without event_format
+        if (!track->event_format) {
+            event_format_fallback(track);
+            if (!track->event_format)
+                return -1;
+        }
+
         str += 9;
         skip_spaces(&str);
 
@@ -784,10 +791,6 @@ static int process_events_line(ASS_Track *track, char *str)
         if (eid < 0)
             return -1;
         event = track->events + eid;
-
-        // We can't parse events with event_format
-        if (!track->event_format)
-            event_format_fallback(track);
 
         process_event_tail(track, event, str, 0);
     } else {
