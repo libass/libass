@@ -322,6 +322,7 @@ static bool process_image(ASS_Renderer *renderer, ASS_Track *track,
     }
     calc_grad(&target, grad);
 
+    ass_set_storage_size(renderer, target.width, target.height);
     ass_set_frame_size(renderer, scale * target.width, scale * target.height);
     ASS_Image *img = ass_render_frame(renderer, track, time, NULL);
 
