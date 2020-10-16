@@ -495,7 +495,6 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             double val;
             if (nargs) {
                 val = argtod(*args);
-                val *= M_PI / 180;
                 render_priv->state.frx =
                     val * pwr + render_priv->state.frx * (1 - pwr);
             } else
@@ -504,7 +503,6 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             double val;
             if (nargs) {
                 val = argtod(*args);
-                val *= M_PI / 180;
                 render_priv->state.fry =
                     val * pwr + render_priv->state.fry * (1 - pwr);
             } else
@@ -513,12 +511,11 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             double val;
             if (nargs) {
                 val = argtod(*args);
-                val *= M_PI / 180;
                 render_priv->state.frz =
                     val * pwr + render_priv->state.frz * (1 - pwr);
             } else
                 render_priv->state.frz =
-                    M_PI * render_priv->state.style->Angle / 180.;
+                    render_priv->state.style->Angle;
         } else if (tag("fn")) {
             char *family;
             char *start = args->start;
