@@ -942,8 +942,6 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
             y0 = v[1];
             y1 = v[0];
         }
-        if (y1 == 0)
-            y1 = render_priv->track->PlayResY;  // y0=y1=0 means fullscreen scrolling
         render_priv->state.clip_y0 = y0;
         render_priv->state.clip_y1 = y1;
         render_priv->state.evt_type |= EVENT_VSCROLL;
