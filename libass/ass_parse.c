@@ -908,6 +908,7 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
         render_priv->state.scroll_shift =
             (render_priv->time - render_priv->state.event->Start) / delay;
         render_priv->state.evt_type |= EVENT_HSCROLL;
+        render_priv->state.detect_collisions = 0;
         render_priv->state.wrap_style = 2;
         return;
     }
