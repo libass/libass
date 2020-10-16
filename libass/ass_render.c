@@ -2130,8 +2130,10 @@ static void align_lines(ASS_Renderer *render_priv, double max_text_width)
     int justify = render_priv->state.justify;
     double max_width = 0;
 
-    if (render_priv->state.evt_type == EVENT_HSCROLL)
-        return;
+    if (render_priv->state.evt_type == EVENT_HSCROLL) {
+        justify = halign;
+        halign = HALIGN_LEFT;
+    }
 
     for (i = 0; i <= text_info->length; ++i) {   // (text_info->length + 1) is the end of the last line
         if ((i == text_info->length) || glyphs[i].linebreak) {
@@ -2639,16 +2641,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         x2scr_left(render_priv, MarginL);
 
     // wrap lines
-    if (render_priv->state.evt_type != EVENT_HSCROLL) {
-        // rearrange text in several lines
-        wrap_lines_smart(render_priv, max_text_width);
-    } else {
-        // no breaking or wrapping, everything in a single line
-        text_info->lines[0].offset = 0;
-        text_info->lines[0].len = text_info->length;
-        text_info->n_lines = 1;
-        measure_text(render_priv);
-    }
+    wrap_lines_smart(render_priv, max_text_width);
 
     reorder_text(render_priv);
 
