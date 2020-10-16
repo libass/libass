@@ -224,10 +224,10 @@ typedef struct {
     double border_x;            // outline width
     double border_y;
     enum {
-        EVENT_NORMAL,           // "normal" top-, sub- or mid- title
-        EVENT_POSITIONED,       // happens after pos(,), margins are ignored
-        EVENT_HSCROLL,          // "Banner" transition effect, text_width is unlimited
-        EVENT_VSCROLL           // "Scroll up", "Scroll down" transition effects
+        EVENT_NORMAL = 0,       // "normal" top-, sub- or mid- title
+        EVENT_POSITIONED = 1,   // happens after \pos or \move, margins are ignored
+        EVENT_HSCROLL = 2,      // "Banner" transition effect, text_width is unlimited
+        EVENT_VSCROLL = 4       // "Scroll up", "Scroll down" transition effects
     } evt_type;
     int border_style;
     uint32_t c[4];              // colors(Primary, Secondary, so on) in RGBA

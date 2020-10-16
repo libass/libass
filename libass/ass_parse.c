@@ -480,11 +480,11 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 k = ((double) (int32_t) ((uint32_t) t - t1)) / delta_t;
             x = k * (x2 - x1) + x1;
             y = k * (y2 - y1) + y1;
-            if (render_priv->state.evt_type != EVENT_POSITIONED) {
+            if (!(render_priv->state.evt_type & EVENT_POSITIONED)) {
                 render_priv->state.pos_x = x;
                 render_priv->state.pos_y = y;
                 render_priv->state.detect_collisions = 0;
-                render_priv->state.evt_type = EVENT_POSITIONED;
+                render_priv->state.evt_type |= EVENT_POSITIONED;
             }
         } else if (tag("frx")) {
             double val;
@@ -571,11 +571,11 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 v2 = argtod(args[1]);
             } else
                 continue;
-            if (render_priv->state.evt_type == EVENT_POSITIONED) {
+            if (render_priv->state.evt_type & EVENT_POSITIONED) {
                 ass_msg(render_priv->library, MSGL_V, "Subtitle has a new \\pos "
                        "after \\move or \\pos, ignoring");
             } else {
-                render_priv->state.evt_type = EVENT_POSITIONED;
+                render_priv->state.evt_type |= EVENT_POSITIONED;
                 render_priv->state.detect_collisions = 0;
                 render_priv->state.pos_x = v1;
                 render_priv->state.pos_y = v2;
@@ -907,7 +907,7 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
             delay = 1;          // ?
         render_priv->state.scroll_shift =
             (render_priv->time - render_priv->state.event->Start) / delay;
-        render_priv->state.evt_type = EVENT_HSCROLL;
+        render_priv->state.evt_type |= EVENT_HSCROLL;
         render_priv->state.wrap_style = 2;
         return;
     }
@@ -946,7 +946,7 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
             y1 = render_priv->track->PlayResY;  // y0=y1=0 means fullscreen scrolling
         render_priv->state.clip_y0 = y0;
         render_priv->state.clip_y1 = y1;
-        render_priv->state.evt_type = EVENT_VSCROLL;
+        render_priv->state.evt_type |= EVENT_VSCROLL;
         render_priv->state.detect_collisions = 0;
     }
 

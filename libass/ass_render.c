@@ -2130,7 +2130,7 @@ static void align_lines(ASS_Renderer *render_priv, double max_text_width)
     int justify = render_priv->state.justify;
     double max_width = 0;
 
-    if (render_priv->state.evt_type == EVENT_HSCROLL) {
+    if (render_priv->state.evt_type & EVENT_HSCROLL) {
         justify = halign;
         halign = HALIGN_LEFT;
     }
@@ -2652,13 +2652,23 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     compute_string_bbox(text_info, &bbox);
 
     // determine device coordinates for text
-
-    // x coordinate for everything except positioned events
     double device_x = 0;
-    if (render_priv->state.evt_type == EVENT_NORMAL ||
-        render_priv->state.evt_type == EVENT_VSCROLL) {
-        device_x = x2scr_left(render_priv, MarginL);
-    } else if (render_priv->state.evt_type == EVENT_HSCROLL) {
+    double device_y = 0;
+
+    // handle positioned events first: an event can be both positioned and
+    // scrolling, and the scrolling effect overrides the position on one axis
+    if (render_priv->state.evt_type & EVENT_POSITIONED) {
+        double base_x = 0;
+        double base_y = 0;
+        get_base_point(&bbox, render_priv->state.alignment, &base_x, &base_y);
+        device_x =
+            x2scr_pos(render_priv, render_priv->state.pos_x) - base_x;
+        device_y =
+            y2scr_pos(render_priv, render_priv->state.pos_y) - base_y;
+    }
+
+    // x coordinate
+    if (render_priv->state.evt_type & EVENT_HSCROLL) {
         if (render_priv->state.scroll_direction == SCROLL_RL)
             device_x =
                 x2scr_pos(render_priv,
@@ -2668,12 +2678,24 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             device_x =
                 x2scr_pos(render_priv, render_priv->state.scroll_shift) -
                 (bbox.x_max - bbox.x_min);
+    } else if (!(render_priv->state.evt_type & EVENT_POSITIONED)) {
+        device_x = x2scr_left(render_priv, MarginL);
     }
 
-    // y coordinate for everything except positioned events
-    double device_y = 0;
-    if (render_priv->state.evt_type == EVENT_NORMAL ||
-        render_priv->state.evt_type == EVENT_HSCROLL) {
+    // y coordinate
+    if (render_priv->state.evt_type & EVENT_VSCROLL) {
+        if (render_priv->state.scroll_direction == SCROLL_TB)
+            device_y =
+                y2scr(render_priv,
+                      render_priv->state.clip_y0 +
+                      render_priv->state.scroll_shift) -
+                (bbox.y_max - bbox.y_min);
+        else if (render_priv->state.scroll_direction == SCROLL_BT)
+            device_y =
+                y2scr(render_priv,
+                      render_priv->state.clip_y1 -
+                      render_priv->state.scroll_shift);
+    } else if (!(render_priv->state.evt_type & EVENT_POSITIONED)) {
         if (valign == VALIGN_TOP) {     // toptitle
             device_y =
                 y2scr_top(render_priv,
@@ -2704,29 +2726,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 device_y = scr_y0;
             }
         }
-    } else if (render_priv->state.evt_type == EVENT_VSCROLL) {
-        if (render_priv->state.scroll_direction == SCROLL_TB)
-            device_y =
-                y2scr(render_priv,
-                      render_priv->state.clip_y0 +
-                      render_priv->state.scroll_shift) -
-                (bbox.y_max - bbox.y_min);
-        else if (render_priv->state.scroll_direction == SCROLL_BT)
-            device_y =
-                y2scr(render_priv,
-                      render_priv->state.clip_y1 -
-                      render_priv->state.scroll_shift);
-    }
-
-    // positioned events are totally different
-    if (render_priv->state.evt_type == EVENT_POSITIONED) {
-        double base_x = 0;
-        double base_y = 0;
-        get_base_point(&bbox, render_priv->state.alignment, &base_x, &base_y);
-        device_x =
-            x2scr_pos(render_priv, render_priv->state.pos_x) - base_x;
-        device_y =
-            y2scr_pos(render_priv, render_priv->state.pos_y) - base_y;
     }
 
     // fix clip coordinates
