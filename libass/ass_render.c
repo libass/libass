@@ -2689,12 +2689,13 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 y2scr(render_priv,
                       render_priv->state.clip_y0 +
                       render_priv->state.scroll_shift) -
-                (bbox.y_max - bbox.y_min);
+                bbox.y_max;
         else if (render_priv->state.scroll_direction == SCROLL_BT)
             device_y =
                 y2scr(render_priv,
                       render_priv->state.clip_y1 -
-                      render_priv->state.scroll_shift);
+                      render_priv->state.scroll_shift) -
+                bbox.y_min;
     } else if (!(render_priv->state.evt_type & EVENT_POSITIONED)) {
         if (valign == VALIGN_TOP) {     // toptitle
             device_y =
