@@ -943,8 +943,8 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
             y0 = v[1];
             y1 = v[0];
         }
-        render_priv->state.clip_y0 = y0;
-        render_priv->state.clip_y1 = y1;
+        render_priv->state.scroll_y0 = y0;
+        render_priv->state.scroll_y1 = y1;
         render_priv->state.evt_type |= EVENT_VSCROLL;
         render_priv->state.detect_collisions = 0;
     }

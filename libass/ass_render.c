@@ -2687,13 +2687,13 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         if (render_priv->state.scroll_direction == SCROLL_TB)
             device_y =
                 y2scr(render_priv,
-                      render_priv->state.clip_y0 +
+                      render_priv->state.scroll_y0 +
                       render_priv->state.scroll_shift) -
                 bbox.y_max;
         else if (render_priv->state.scroll_direction == SCROLL_BT)
             device_y =
                 y2scr(render_priv,
-                      render_priv->state.clip_y1 -
+                      render_priv->state.scroll_y1 -
                       render_priv->state.scroll_shift) -
                 bbox.y_min;
     } else if (!(render_priv->state.evt_type & EVENT_POSITIONED)) {
@@ -2758,6 +2758,14 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         render_priv->state.clip_y0 = 0;
         render_priv->state.clip_x1 = render_priv->settings.frame_width;
         render_priv->state.clip_y1 = render_priv->settings.frame_height;
+    }
+
+    if (render_priv->state.evt_type & EVENT_VSCROLL) {
+        double y0 = y2scr_pos(render_priv, render_priv->state.scroll_y0);
+        double y1 = y2scr_pos(render_priv, render_priv->state.scroll_y1);
+
+        render_priv->state.clip_y0 = FFMAX(render_priv->state.clip_y0, y0);
+        render_priv->state.clip_y1 = FFMIN(render_priv->state.clip_y1, y1);
     }
 
     calculate_rotation_params(render_priv, &bbox, device_x, device_y);
