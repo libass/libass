@@ -972,7 +972,7 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
  */
 void process_karaoke_effects(ASS_Renderer *render_priv)
 {
-    int tm_current = render_priv->time - render_priv->state.event->Start;
+    long long tm_current = render_priv->time - render_priv->state.event->Start;
 
     int timing = 0;
     Effect effect_type = EF_NONE;
@@ -993,8 +993,8 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
         if (effect_type == EF_NONE)
             continue;
 
-        int tm_start = timing + start->effect_skip_timing;
-        int tm_end = tm_start + start->effect_timing;
+        long long tm_start = timing + start->effect_skip_timing;
+        long long tm_end = tm_start + start->effect_timing;
         timing = tm_end;
 
         if (effect_type != EF_KARAOKE_KF)
