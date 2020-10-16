@@ -224,21 +224,6 @@ static double x2scr_pos_scaled(ASS_Renderer *render_priv, double x)
     return x * render_priv->orig_width / render_priv->track->PlayResX +
         render_priv->settings.left_margin;
 }
-static double x2scr_left_scaled(ASS_Renderer *render_priv, double x)
-{
-    if (render_priv->state.explicit || !render_priv->settings.use_margins)
-        return x2scr_pos_scaled(render_priv, x);
-    return x * render_priv->fit_width /
-        render_priv->track->PlayResX;
-}
-static double x2scr_right_scaled(ASS_Renderer *render_priv, double x)
-{
-    if (render_priv->state.explicit || !render_priv->settings.use_margins)
-        return x2scr_pos_scaled(render_priv, x);
-    return x * render_priv->fit_width /
-        render_priv->track->PlayResX +
-        (render_priv->width - render_priv->fit_width);
-}
 /**
  * \brief Mapping between script and screen coordinates
  */
@@ -2751,31 +2736,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             y2scr_pos(render_priv, render_priv->state.pos_y) - base_y;
     }
 
-    // fix clip coordinates (they depend on alignment)
-    if (render_priv->state.evt_type == EVENT_NORMAL ||
-        render_priv->state.evt_type == EVENT_HSCROLL ||
-        render_priv->state.evt_type == EVENT_VSCROLL) {
-        render_priv->state.clip_x0 =
-            x2scr_left_scaled(render_priv, render_priv->state.clip_x0);
-        render_priv->state.clip_x1 =
-            x2scr_right_scaled(render_priv, render_priv->state.clip_x1);
-        if (valign == VALIGN_TOP) {
-            render_priv->state.clip_y0 =
-                y2scr_top(render_priv, render_priv->state.clip_y0);
-            render_priv->state.clip_y1 =
-                y2scr_top(render_priv, render_priv->state.clip_y1);
-        } else if (valign == VALIGN_CENTER) {
-            render_priv->state.clip_y0 =
-                y2scr(render_priv, render_priv->state.clip_y0);
-            render_priv->state.clip_y1 =
-                y2scr(render_priv, render_priv->state.clip_y1);
-        } else if (valign == VALIGN_SUB) {
-            render_priv->state.clip_y0 =
-                y2scr_sub(render_priv, render_priv->state.clip_y0);
-            render_priv->state.clip_y1 =
-                y2scr_sub(render_priv, render_priv->state.clip_y1);
-        }
-    } else if (render_priv->state.evt_type == EVENT_POSITIONED) {
+    // fix clip coordinates
+    if (render_priv->state.explicit || !render_priv->settings.use_margins) {
         render_priv->state.clip_x0 =
             x2scr_pos_scaled(render_priv, render_priv->state.clip_x0);
         render_priv->state.clip_x1 =
@@ -2784,20 +2746,20 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             y2scr_pos(render_priv, render_priv->state.clip_y0);
         render_priv->state.clip_y1 =
             y2scr_pos(render_priv, render_priv->state.clip_y1);
-    }
 
-    if (render_priv->state.explicit) {
-        // we still need to clip against screen boundaries
-        double zx = x2scr_pos_scaled(render_priv, 0);
-        double zy = y2scr_pos(render_priv, 0);
-        double sx = x2scr_pos_scaled(render_priv, render_priv->track->PlayResX);
-        double sy = y2scr_pos(render_priv, render_priv->track->PlayResY);
+        if (render_priv->state.explicit) {
+            // we still need to clip against screen boundaries
+            double zx = x2scr_pos_scaled(render_priv, 0);
+            double zy = y2scr_pos(render_priv, 0);
+            double sx = x2scr_pos_scaled(render_priv, render_priv->track->PlayResX);
+            double sy = y2scr_pos(render_priv, render_priv->track->PlayResY);
 
-        render_priv->state.clip_x0 = render_priv->state.clip_x0 < zx ? zx : render_priv->state.clip_x0;
-        render_priv->state.clip_y0 = render_priv->state.clip_y0 < zy ? zy : render_priv->state.clip_y0;
-        render_priv->state.clip_x1 = render_priv->state.clip_x1 > sx ? sx : render_priv->state.clip_x1;
-        render_priv->state.clip_y1 = render_priv->state.clip_y1 > sy ? sy : render_priv->state.clip_y1;
-    } else if (render_priv->settings.use_margins) {
+            render_priv->state.clip_x0 = FFMAX(render_priv->state.clip_x0, zx);
+            render_priv->state.clip_y0 = FFMAX(render_priv->state.clip_y0, zy);
+            render_priv->state.clip_x1 = FFMIN(render_priv->state.clip_x1, sx);
+            render_priv->state.clip_y1 = FFMIN(render_priv->state.clip_y1, sy);
+        }
+    } else {
         // no \clip (explicit==0) and use_margins => only clip to screen with margins
         render_priv->state.clip_x0 = 0;
         render_priv->state.clip_y0 = 0;
