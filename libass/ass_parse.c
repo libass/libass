@@ -1013,6 +1013,16 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
             int x_start = d6_to_int(start->pos.x);
             int x_end = d6_to_int(end[-1].pos.x + end[-1].advance.x);
             double dt = (double) (tm_current - tm_start) / (tm_end - tm_start);
+            double frz = fmod(start->frz, 360);
+            if (frz > 90 && frz < 270) {
+                // Fill from right to left
+                dt = 1 - dt;
+                for (GlyphInfo *info = start; info < end; info++) {
+                    uint32_t tmp = info->c[0];
+                    info->c[0] = info->c[1];
+                    info->c[1] = tmp;
+                }
+            }
             x = x_start + (x_end - x_start) * dt;
         }
 
