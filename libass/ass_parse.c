@@ -897,10 +897,10 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
                     "Error parsing effect: '%s'", event->Effect);
             return;
         }
-        if (cnt >= 2 && v[1] == 0)      // right-to-left
-            render_priv->state.scroll_direction = SCROLL_RL;
-        else                    // left-to-right
+        if (cnt >= 2 && v[1])   // left-to-right
             render_priv->state.scroll_direction = SCROLL_LR;
+        else                    // right-to-left
+            render_priv->state.scroll_direction = SCROLL_RL;
 
         delay = v[0];
         if (delay == 0)
