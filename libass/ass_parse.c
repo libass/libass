@@ -1006,12 +1006,8 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
         else if (tm_current >= tm_end)
             x = 1000000;
         else {
-            int x_start = 1000000;
-            int x_end = -1000000;
-            for (GlyphInfo *info = start; info < end; info++) {
-                x_start = FFMIN(x_start, d6_to_int(info->bbox.x_min + info->pos.x));
-                x_end = FFMAX(x_end, d6_to_int(info->bbox.x_max + info->pos.x));
-            }
+            int x_start = d6_to_int(start->pos.x);
+            int x_end = d6_to_int(end[-1].pos.x + end[-1].advance.x);
             double dt = (double) (tm_current - tm_start) / (tm_end - tm_start);
             x = x_start + (x_end - x_start) * dt;
         }
