@@ -1858,11 +1858,9 @@ fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
   */
 static bool is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
 {
-    // FIXME: Don't break on glyph substitutions
     return !last || info->effect || info->drawing_text || last->drawing_text ||
         strcmp(last->font->desc.family, info->font->desc.family) ||
         last->font->desc.vertical != info->font->desc.vertical ||
-        last->face_index != info->face_index ||
         last->font_size != info->font_size ||
         last->c[0] != info->c[0] ||
         last->c[1] != info->c[1] ||
