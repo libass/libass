@@ -821,6 +821,16 @@ static unsigned char *decode_chars(const unsigned char *src,
     return dst;
 }
 
+static void reset_embedded_font_parsing(ASS_ParserPriv *parser_priv)
+{
+    free(parser_priv->fontname);
+    free(parser_priv->fontdata);
+    parser_priv->fontname = NULL;
+    parser_priv->fontdata = NULL;
+    parser_priv->fontdata_size = 0;
+    parser_priv->fontdata_used = 0;
+}
+
 static int decode_font(ASS_Track *track)
 {
     unsigned char *p;
@@ -860,12 +870,7 @@ static int decode_font(ASS_Track *track)
 
 error_decode_font:
     free(buf);
-    free(track->parser_priv->fontname);
-    free(track->parser_priv->fontdata);
-    track->parser_priv->fontname = 0;
-    track->parser_priv->fontdata = 0;
-    track->parser_priv->fontdata_size = 0;
-    track->parser_priv->fontdata_used = 0;
+    reset_embedded_font_parsing(track->parser_priv);
     return 0;
 }
 
@@ -887,22 +892,30 @@ static int process_fonts_line(ASS_Track *track, char *str)
 
     if (!track->parser_priv->fontname) {
         ass_msg(track->library, MSGL_V, "Not understood: '%s'", str);
-        return 0;
+        return 1;
     }
 
     len = strlen(str);
-    if (track->parser_priv->fontdata_used + len >
-        track->parser_priv->fontdata_size) {
-        track->parser_priv->fontdata_size += FFMAX(len, 100 * 1024);
-        track->parser_priv->fontdata =
-            realloc(track->parser_priv->fontdata,
-                    track->parser_priv->fontdata_size);
+    if (track->parser_priv->fontdata_used >=
+        SIZE_MAX - FFMAX(len, 100 * 1024)) {
+        goto mem_fail;
+    } else if (track->parser_priv->fontdata_used + len >
+               track->parser_priv->fontdata_size) {
+        size_t new_size =
+                track->parser_priv->fontdata_size + FFMAX(len, 100 * 1024);
+        if (!ASS_REALLOC_ARRAY(track->parser_priv->fontdata, new_size))
+            goto mem_fail;
+        track->parser_priv->fontdata_size = new_size;
     }
     memcpy(track->parser_priv->fontdata + track->parser_priv->fontdata_used,
            str, len);
     track->parser_priv->fontdata_used += len;
 
     return 0;
+
+mem_fail:
+    reset_embedded_font_parsing(track->parser_priv);
+    return -1;
 }
 
 /**
