@@ -975,16 +975,22 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
     int tm_current = render_priv->time - render_priv->state.event->Start;
 
     int timing = 0;
+    Effect effect_type = EF_NONE;
     GlyphInfo *last_boundary = NULL;
     for (int i = 0; i <= render_priv->text_info.length; i++) {
         if (i < render_priv->text_info.length &&
-            render_priv->text_info.glyphs[i].effect_type == EF_NONE)
+            !render_priv->text_info.glyphs[i].starts_new_run)
             continue;
 
         GlyphInfo *start = last_boundary;
         GlyphInfo *end = render_priv->text_info.glyphs + i;
         last_boundary = end;
         if (!start)
+            continue;
+
+        if (start->effect_type != EF_NONE)
+            effect_type = start->effect_type;
+        if (effect_type == EF_NONE)
             continue;
 
         int tm_start = timing + start->effect_skip_timing;
@@ -999,9 +1005,9 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
         }
 
         int x;
-        if (start->effect_type == EF_KARAOKE || start->effect_type == EF_KARAOKE_KO) {
+        if (effect_type == EF_KARAOKE || effect_type == EF_KARAOKE_KO) {
             x = tm_current < tm_start ? x_start : x_end + 1;
-        } else if (start->effect_type == EF_KARAOKE_KF) {
+        } else if (effect_type == EF_KARAOKE_KF) {
             double dt = (double) (tm_current - tm_start) / (tm_end - tm_start);
             x = x_start + (x_end - x_start) * dt;
         } else {
@@ -1011,7 +1017,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
         }
 
         for (GlyphInfo *info = start; info < end; info++) {
-            info->effect_type = start->effect_type;
+            info->effect_type = effect_type;
             info->effect_timing = x - d6_to_int(info->pos.x);
         }
     }

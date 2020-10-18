@@ -2625,9 +2625,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     preliminary_layout(render_priv);
 
-    // depends on glyph x coordinates being monotonous, so it should be done before line wrap
-    process_karaoke_effects(render_priv);
-
     int valign = render_priv->state.alignment & 12;
 
     int MarginL =
@@ -2644,6 +2641,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     // wrap lines
     wrap_lines_smart(render_priv, max_text_width);
+
+    // depends on glyph x coordinates being monotonous within runs, so it should be done before reorder
+    process_karaoke_effects(render_priv);
 
     reorder_text(render_priv);
 
