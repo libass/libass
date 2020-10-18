@@ -103,8 +103,6 @@ typedef struct {
     // after process_karaoke_effects: distance in pixels from the glyph origin.
     // part of the glyph to the left of it is displayed in a different color.
 
-    int first_pos_x;
-
     size_t bitmap_count, max_bitmap_count;
     BitmapRef *bitmaps;
 
