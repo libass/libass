@@ -280,6 +280,7 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
 
     dst_x += bm->left;
     dst_y += bm->top;
+    brk -= dst_x;
 
     // we still need to clip against screen boundaries
     zx = x2scr_pos_scaled(render_priv, 0);
