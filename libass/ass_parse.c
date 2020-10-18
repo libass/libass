@@ -997,22 +997,21 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
         int tm_end = tm_start + start->effect_timing;
         timing = tm_end;
 
-        int x_start = 1000000;
-        int x_end = -1000000;
-        for (GlyphInfo *info = start; info < end; info++) {
-            x_start = FFMIN(x_start, d6_to_int(info->bbox.x_min + info->pos.x));
-            x_end = FFMAX(x_end, d6_to_int(info->bbox.x_max + info->pos.x));
-        }
-
         if (effect_type != EF_KARAOKE_KF)
             tm_end = tm_start;
 
         int x;
         if (tm_current < tm_start)
-            x = x_start;
+            x = -1000000;
         else if (tm_current >= tm_end)
-            x = x_end + 1;
+            x = 1000000;
         else {
+            int x_start = 1000000;
+            int x_end = -1000000;
+            for (GlyphInfo *info = start; info < end; info++) {
+                x_start = FFMIN(x_start, d6_to_int(info->bbox.x_min + info->pos.x));
+                x_end = FFMAX(x_end, d6_to_int(info->bbox.x_max + info->pos.x));
+            }
             double dt = (double) (tm_current - tm_start) / (tm_end - tm_start);
             x = x_start + (x_end - x_start) * dt;
         }
