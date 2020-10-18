@@ -50,8 +50,8 @@ struct parser_priv {
     ParserState state;
     char *fontname;
     char *fontdata;
-    int fontdata_size;
-    int fontdata_used;
+    size_t fontdata_size;
+    size_t fontdata_used;
 
     // contains bitmap of ReadOrder IDs of all read events
     uint32_t *read_order_bitmap;

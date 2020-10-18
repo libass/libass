@@ -807,7 +807,7 @@ static int process_events_line(ASS_Track *track, char *str)
 }
 
 static unsigned char *decode_chars(const unsigned char *src,
-                                   unsigned char *dst, int cnt_in)
+                                   unsigned char *dst, size_t cnt_in)
 {
     uint32_t value = 0;
     for (int i = 0; i < cnt_in; i++)
@@ -825,9 +825,9 @@ static int decode_font(ASS_Track *track)
 {
     unsigned char *p;
     unsigned char *q;
-    int i;
-    int size;                   // original size
-    int dsize;                  // decoded size
+    size_t i;
+    size_t size;                   // original size
+    size_t dsize;                  // decoded size
     unsigned char *buf = 0;
 
     ass_msg(track->library, MSGL_V, "Font: %d bytes encoded data",
@@ -871,7 +871,7 @@ error_decode_font:
 
 static int process_fonts_line(ASS_Track *track, char *str)
 {
-    int len;
+    size_t len;
 
     if (!strncmp(str, "fontname:", 9)) {
         char *p = str + 9;
