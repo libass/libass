@@ -640,7 +640,7 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         int offset = i;
         hb_font_t *font = get_hb_font(shaper, glyphs + offset);
         int level = glyphs[offset].shape_run_id;
-        int direction = shaper->emblevels[offset] % 2;
+        int direction = FRIBIDI_LEVEL_IS_RTL(shaper->emblevels[offset]);
 
         // advance in text until end of run
         while (i < (len - 1) && level == glyphs[i+1].shape_run_id)
