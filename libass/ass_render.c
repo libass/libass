@@ -1855,12 +1855,15 @@ fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
 // Initial run splitting based purely on the characters' styles
 static void split_style_runs(ASS_Renderer *render_priv)
 {
+    Effect last_effect_type = render_priv->text_info.glyphs[0].effect_type;
     render_priv->text_info.glyphs[0].starts_new_run = true;
     for (int i = 1; i < render_priv->text_info.length; i++) {
         GlyphInfo *info = render_priv->text_info.glyphs + i;
         GlyphInfo *last = render_priv->text_info.glyphs + (i - 1);
+        Effect effect_type = info->effect_type;
         info->starts_new_run =
-            info->effect_type != EF_NONE ||
+            info->effect_timing ||  // but ignore effect_skip_timing
+            (effect_type != EF_NONE && effect_type != last_effect_type) ||
             info->drawing_text ||
             last->drawing_text ||
             strcmp(last->font->desc.family, info->font->desc.family) ||
@@ -1888,6 +1891,8 @@ static void split_style_runs(ASS_Renderer *render_priv)
             last->italic != info->italic ||
             last->bold != info->bold ||
             ((last->flags ^ info->flags) & ~DECO_ROTATE);
+        if (effect_type != EF_NONE)
+            last_effect_type = effect_type;
     }
 }
 

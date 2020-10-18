@@ -974,13 +974,19 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
 {
     long long tm_current = render_priv->time - render_priv->state.event->Start;
 
-    int timing = 0;
+    int timing = 0, skip_timing = 0;
     Effect effect_type = EF_NONE;
     GlyphInfo *last_boundary = NULL;
     for (int i = 0; i <= render_priv->text_info.length; i++) {
         if (i < render_priv->text_info.length &&
-            !render_priv->text_info.glyphs[i].starts_new_run)
+            !render_priv->text_info.glyphs[i].starts_new_run) {
+            // VSFilter compatibility: if we have \k12345\k0 without a run
+            // break, subsequent text is still part of the same karaoke word,
+            // the current word's starting and ending time stay unchanged,
+            // but the starting time of the next karaoke word is advanced.
+            skip_timing += render_priv->text_info.glyphs[i].effect_skip_timing;
             continue;
+        }
 
         GlyphInfo *start = last_boundary;
         GlyphInfo *end = render_priv->text_info.glyphs + i;
@@ -995,7 +1001,8 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
 
         long long tm_start = timing + start->effect_skip_timing;
         long long tm_end = tm_start + start->effect_timing;
-        timing = tm_end;
+        timing = tm_end + skip_timing;
+        skip_timing = 0;
 
         if (effect_type != EF_KARAOKE_KF)
             tm_end = tm_start;
