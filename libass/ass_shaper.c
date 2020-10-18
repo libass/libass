@@ -639,18 +639,20 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
     for (i = 0; i < len; i++) {
         int offset = i;
         hb_font_t *font = get_hb_font(shaper, glyphs + offset);
-        int level = glyphs[offset].shape_run_id;
-        int direction = FRIBIDI_LEVEL_IS_RTL(shaper->emblevels[offset]);
+        int run_id = glyphs[offset].shape_run_id;
+        int level = shaper->emblevels[offset];
 
         // advance in text until end of run
-        while (i < (len - 1) && level == glyphs[i+1].shape_run_id)
+        while (i < (len - 1) && run_id == glyphs[i + 1].shape_run_id &&
+                level == shaper->emblevels[i + 1])
             i++;
 
         hb_buffer_pre_allocate(buf, i - offset + 1);
         hb_buffer_add_utf32(buf, shaper->event_text + offset, i - offset + 1,
                 0, i - offset + 1);
 
-        props.direction = direction ? HB_DIRECTION_RTL : HB_DIRECTION_LTR;
+        props.direction = FRIBIDI_LEVEL_IS_RTL(level) ?
+            HB_DIRECTION_RTL : HB_DIRECTION_LTR;
         props.script = glyphs[offset].script;
         props.language  = hb_shaper_get_run_language(shaper, props.script);
         hb_buffer_set_segment_properties(buf, &props);
@@ -908,11 +910,6 @@ int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
                 return -1;
             last_break = i + 1;
         }
-    }
-
-    // add embedding levels to shape runs for final runs
-    for (i = 0; i < text_info->length; i++) {
-        glyphs[i].shape_run_id += shaper->emblevels[i];
     }
 
 #ifdef CONFIG_HARFBUZZ
