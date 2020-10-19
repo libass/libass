@@ -637,6 +637,11 @@ static void shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         glyphs[i].skip = true;
 
     for (i = 0; i < len; i++) {
+        if (glyphs[i].drawing_text) {
+            glyphs[i].skip = false;
+            continue;
+        }
+
         int offset = i;
         hb_font_t *font = get_hb_font(shaper, glyphs + offset);
         int run_id = glyphs[offset].shape_run_id;
