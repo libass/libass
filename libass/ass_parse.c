@@ -1016,7 +1016,6 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                     cur2->effect_type = s1->effect_type;
                     cur2->effect_timing = x - d6_to_int(cur2->pos.x);
                 }
-                s1->effect = 1;
             }
         }
     }

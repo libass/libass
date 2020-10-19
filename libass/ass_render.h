@@ -143,11 +143,11 @@ typedef struct glyph_info {
     ASS_Vector pos;
     ASS_Vector offset;
     char linebreak;             // the first (leading) glyph of some line ?
+    bool starts_new_run;
     uint32_t c[4];              // colors
     uint8_t a_pre_fade[4];      // alpha values before applying fades
     ASS_Vector advance;         // 26.6
     ASS_Vector cluster_advance;
-    char effect;                // the first (leading) glyph of some effect ?
     Effect effect_type;
     int effect_timing;          // time duration of current karaoke word
     // after process_karaoke_effects: distance in pixels from the glyph origin.

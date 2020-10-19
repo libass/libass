@@ -1582,6 +1582,8 @@ static void trim_whitespace(ASS_Renderer *render_priv)
         cur->is_trimmed_whitespace = true;
         cur = ti->glyphs + ++i;
     }
+    if (i < ti->length)
+        cur->starts_new_run = true;
 
     // Mark all extraneous whitespace inbetween
     for (i = 0; i < ti->length; ++i) {
@@ -1610,6 +1612,8 @@ static void trim_whitespace(ASS_Renderer *render_priv)
                 }
                 i = j - 1;
             }
+            if (cur < ti->glyphs + ti->length)
+                cur->starts_new_run = true;
         }
     }
 }
@@ -1850,40 +1854,43 @@ fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
     glyph->font_size = ft_size;
 }
 
- /**
-  * \brief Checks whether a glyph should start a new bitmap run
-  * \param info Pointer to new GlyphInfo to check
-  * \param current_info Pointer to CombinedBitmapInfo for current run (may be NULL)
-  * \return true if a new run should be started
-  */
-static bool is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
+// Initial run splitting based purely on the characters' styles
+static void split_style_runs(ASS_Renderer *render_priv)
 {
-    return !last || info->effect || info->drawing_text || last->drawing_text ||
-        strcmp(last->font->desc.family, info->font->desc.family) ||
-        last->font->desc.vertical != info->font->desc.vertical ||
-        last->font_size != info->font_size ||
-        last->c[0] != info->c[0] ||
-        last->c[1] != info->c[1] ||
-        last->c[2] != info->c[2] ||
-        last->c[3] != info->c[3] ||
-        last->be != info->be ||
-        last->blur != info->blur ||
-        last->shadow_x != info->shadow_x ||
-        last->shadow_y != info->shadow_y ||
-        last->frx != info->frx ||
-        last->fry != info->fry ||
-        last->frz != info->frz ||
-        last->fax != info->fax ||
-        last->fay != info->fay ||
-        last->scale_x != info->scale_x ||
-        last->scale_y != info->scale_y ||
-        last->border_style != info->border_style ||
-        last->border_x != info->border_x ||
-        last->border_y != info->border_y ||
-        last->hspacing != info->hspacing ||
-        last->italic != info->italic ||
-        last->bold != info->bold ||
-        ((last->flags ^ info->flags) & ~DECO_ROTATE);
+    render_priv->text_info.glyphs[0].starts_new_run = true;
+    for (int i = 1; i < render_priv->text_info.length; i++) {
+        GlyphInfo *info = render_priv->text_info.glyphs + i;
+        GlyphInfo *last = render_priv->text_info.glyphs + (i - 1);
+        info->starts_new_run =
+            info->effect_type != EF_NONE ||
+            info->drawing_text ||
+            last->drawing_text ||
+            strcmp(last->font->desc.family, info->font->desc.family) ||
+            last->font->desc.vertical != info->font->desc.vertical ||
+            last->font_size != info->font_size ||
+            last->c[0] != info->c[0] ||
+            last->c[1] != info->c[1] ||
+            last->c[2] != info->c[2] ||
+            last->c[3] != info->c[3] ||
+            last->be != info->be ||
+            last->blur != info->blur ||
+            last->shadow_x != info->shadow_x ||
+            last->shadow_y != info->shadow_y ||
+            last->frx != info->frx ||
+            last->fry != info->fry ||
+            last->frz != info->frz ||
+            last->fax != info->fax ||
+            last->fay != info->fay ||
+            last->scale_x != info->scale_x ||
+            last->scale_y != info->scale_y ||
+            last->border_style != info->border_style ||
+            last->border_x != info->border_x ||
+            last->border_y != info->border_y ||
+            last->hspacing != info->hspacing ||
+            last->italic != info->italic ||
+            last->bold != info->bold ||
+            ((last->flags ^ info->flags) & ~DECO_ROTATE);
+    }
 }
 
 // Parse event text.
@@ -2273,14 +2280,13 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
     int left = render_priv->settings.left_margin;
     device_x = (device_x - left) * render_priv->font_scale_x + left;
     unsigned nb_bitmaps = 0;
-    char linebreak = 0;
+    bool new_run = true;
     CombinedBitmapInfo *combined_info = text_info->combined_bitmaps;
     CombinedBitmapInfo *current_info = NULL;
-    GlyphInfo *last_info = NULL;
     ASS_DVector offset;
     for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + i;
-        if (info->linebreak) linebreak = 1;
+        if (info->starts_new_run) new_run = true;
         if (info->skip) {
             for (; info; info = info->next)
                 ass_cache_dec_ref(info->outline);
@@ -2310,9 +2316,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 info->border_style == 3)
                 flags |= FILTER_FILL_IN_BORDER;
 
-            if (linebreak || is_new_bm_run(info, last_info)) {
-                linebreak = 0;
-                last_info = NULL;
+            if (new_run) {
                 if (nb_bitmaps >= text_info->max_bitmaps) {
                     size_t new_size = 2 * text_info->max_bitmaps;
                     if (!ASS_REALLOC_ARRAY(text_info->combined_bitmaps, new_size)) {
@@ -2357,8 +2361,8 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 current_info->max_bitmap_count = MAX_SUB_BITMAPS_INITIAL;
 
                 nb_bitmaps++;
+                new_run = false;
             }
-            last_info = info;
             assert(current_info);
 
             ASS_Vector pos, pos_o;
@@ -2605,6 +2609,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         free_render_context(render_priv);
         return false;
     }
+
+    split_style_runs(render_priv);
 
     // Find shape runs and shape text
     ass_shaper_set_base_direction(render_priv->shaper,
