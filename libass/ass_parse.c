@@ -1006,12 +1006,12 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
 
         int x;
         if (tm_current < tm_start)
-            x = -1000000;
+            x = -100000000;
         else if (tm_current >= tm_end)
-            x = 1000000;
+            x = 100000000;
         else {
-            int x_start = d6_to_int(start->pos.x);
-            int x_end = d6_to_int(end[-1].pos.x + end[-1].advance.x);
+            int x_start = start->pos.x;
+            int x_end = end[-1].pos.x + end[-1].advance.x;
             double dt = (double) (tm_current - tm_start) / (tm_end - tm_start);
             double frz = fmod(start->frz, 360);
             if (frz > 90 && frz < 270) {
@@ -1023,12 +1023,12 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                     info->c[1] = tmp;
                 }
             }
-            x = x_start + (x_end - x_start) * dt;
+            x = x_start + lrint((x_end - x_start) * dt);
         }
 
         for (GlyphInfo *info = start; info < end; info++) {
             info->effect_type = effect_type;
-            info->effect_timing = x - d6_to_int(info->pos.x);
+            info->effect_timing = x - info->pos.x;
         }
     }
 }
