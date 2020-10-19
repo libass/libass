@@ -782,12 +782,11 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
     for (i = 0; i < len; i++) {
         GlyphInfo *last = glyphs + i - 1;
         GlyphInfo *info = glyphs + i;
-        // skip drawings
-        if (info->drawing_text)
-            continue;
-        // set size and get glyph index
-        ass_font_get_index(render_priv->fontselect, info->font,
-                info->symbol, &info->face_index, &info->glyph_index);
+        if (!info->drawing_text) {
+            // set size and get glyph index
+            ass_font_get_index(render_priv->fontselect, info->font,
+                    info->symbol, &info->face_index, &info->glyph_index);
+        }
         if (i > 0 && (last->font != info->font ||
                     last->face_index != info->face_index ||
                     last->script != info->script ||
