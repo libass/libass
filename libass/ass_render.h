@@ -334,11 +334,6 @@ typedef struct {
     int y1;
 } Rect;
 
-typedef struct {
-    int a, b;                   // top and height
-    int ha, hb;                 // left and width
-} Segment;
-
 void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style);
 void ass_frame_ref(ASS_Image *img);
 void ass_frame_unref(ASS_Image *img);
