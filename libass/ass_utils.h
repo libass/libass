@@ -52,11 +52,6 @@ int has_avx(void);
 int has_avx2(void);
 #endif
 
-#ifndef HAVE_STRNDUP
-char *ass_strndup(const char *s, size_t n);
-#define strndup ass_strndup
-#endif
-
 void *ass_aligned_alloc(size_t alignment, size_t size, bool zero);
 void ass_aligned_free(void *ptr);
 
