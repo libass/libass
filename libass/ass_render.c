@@ -2896,17 +2896,17 @@ static ASS_RenderPriv *get_render_priv(ASS_Renderer *render_priv,
     return event->render_priv;
 }
 
-static int overlap(Segment *s1, Segment *s2)
+static int overlap(Rect *s1, Rect *s2)
 {
-    if (s1->a >= s2->b || s2->a >= s1->b ||
-        s1->ha >= s2->hb || s2->ha >= s1->hb)
+    if (s1->y0 >= s2->y1 || s2->y0 >= s1->y1 ||
+        s1->x0 >= s2->x1 || s2->x0 >= s1->x1)
         return 0;
     return 1;
 }
 
-static int cmp_segment(const void *p1, const void *p2)
+static int cmp_rect_y0(const void *p1, const void *p2)
 {
-    return ((Segment *) p1)->a - ((Segment *) p2)->a;
+    return ((Rect *) p1)->y0 - ((Rect *) p2)->y0;
 }
 
 static void
@@ -2937,31 +2937,31 @@ shift_event(ASS_Renderer *render_priv, EventImages *ei, int shift)
 
 // dir: 1 - move down
 //      -1 - move up
-static int fit_segment(Segment *s, Segment *fixed, int *cnt, int dir)
+static int fit_rect(Rect *s, Rect *fixed, int *cnt, int dir)
 {
     int i;
     int shift = 0;
 
     if (dir == 1)               // move down
         for (i = 0; i < *cnt; ++i) {
-            if (s->b + shift <= fixed[i].a || s->a + shift >= fixed[i].b ||
-                s->hb <= fixed[i].ha || s->ha >= fixed[i].hb)
+            if (s->y1 + shift <= fixed[i].y0 || s->y0 + shift >= fixed[i].y1 ||
+                s->x1 <= fixed[i].x0 || s->x0 >= fixed[i].x1)
                 continue;
-            shift = fixed[i].b - s->a;
+            shift = fixed[i].y1 - s->y0;
     } else                      // dir == -1, move up
         for (i = *cnt - 1; i >= 0; --i) {
-            if (s->b + shift <= fixed[i].a || s->a + shift >= fixed[i].b ||
-                s->hb <= fixed[i].ha || s->ha >= fixed[i].hb)
+            if (s->y1 + shift <= fixed[i].y0 || s->y0 + shift >= fixed[i].y1 ||
+                s->x1 <= fixed[i].x0 || s->x0 >= fixed[i].x1)
                 continue;
-            shift = fixed[i].a - s->b;
+            shift = fixed[i].y0 - s->y1;
         }
 
-    fixed[*cnt].a = s->a + shift;
-    fixed[*cnt].b = s->b + shift;
-    fixed[*cnt].ha = s->ha;
-    fixed[*cnt].hb = s->hb;
+    fixed[*cnt].y0 = s->y0 + shift;
+    fixed[*cnt].y1 = s->y1 + shift;
+    fixed[*cnt].x0 = s->x0;
+    fixed[*cnt].x1 = s->x1;
     (*cnt)++;
-    qsort(fixed, *cnt, sizeof(Segment), cmp_segment);
+    qsort(fixed, *cnt, sizeof(*fixed), cmp_rect_y0);
 
     return shift;
 }
@@ -2969,7 +2969,7 @@ static int fit_segment(Segment *s, Segment *fixed, int *cnt, int dir)
 static void
 fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
 {
-    Segment *used = ass_realloc_array(NULL, cnt, sizeof(*used));
+    Rect *used = ass_realloc_array(NULL, cnt, sizeof(*used));
     int cnt_used = 0;
     int i, j;
 
@@ -2983,11 +2983,11 @@ fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
             continue;
         priv = get_render_priv(render_priv, imgs[i].event);
         if (priv && priv->height > 0) { // it's a fixed event
-            Segment s;
-            s.a = priv->top;
-            s.b = priv->top + priv->height;
-            s.ha = priv->left;
-            s.hb = priv->left + priv->width;
+            Rect s;
+            s.y0 = priv->top;
+            s.y1 = priv->top + priv->height;
+            s.x0 = priv->left;
+            s.x1 = priv->left + priv->width;
             if (priv->height != imgs[i].height) {       // no, it's not
                 ass_msg(render_priv->library, MSGL_WARN,
                         "Event height has changed");
@@ -3004,16 +3004,16 @@ fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
                     priv->width = 0;
                 }
             if (priv->height > 0) {     // still a fixed event
-                used[cnt_used].a = priv->top;
-                used[cnt_used].b = priv->top + priv->height;
-                used[cnt_used].ha = priv->left;
-                used[cnt_used].hb = priv->left + priv->width;
+                used[cnt_used].y0 = priv->top;
+                used[cnt_used].y1 = priv->top + priv->height;
+                used[cnt_used].x0 = priv->left;
+                used[cnt_used].x1 = priv->left + priv->width;
                 cnt_used++;
                 shift_event(render_priv, imgs + i, priv->top - imgs[i].top);
             }
         }
     }
-    qsort(used, cnt_used, sizeof(Segment), cmp_segment);
+    qsort(used, cnt_used, sizeof(*used), cmp_rect_y0);
 
     // try to fit other events in free spaces
     for (i = 0; i < cnt; ++i) {
@@ -3023,12 +3023,12 @@ fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
         priv = get_render_priv(render_priv, imgs[i].event);
         if (priv && priv->height == 0) {        // not a fixed event
             int shift;
-            Segment s;
-            s.a = imgs[i].top;
-            s.b = imgs[i].top + imgs[i].height;
-            s.ha = imgs[i].left;
-            s.hb = imgs[i].left + imgs[i].width;
-            shift = fit_segment(&s, used, &cnt_used, imgs[i].shift_direction);
+            Rect s;
+            s.y0 = imgs[i].top;
+            s.y1 = imgs[i].top + imgs[i].height;
+            s.x0 = imgs[i].left;
+            s.x1 = imgs[i].left + imgs[i].width;
+            shift = fit_rect(&s, used, &cnt_used, imgs[i].shift_direction);
             if (shift)
                 shift_event(render_priv, imgs + i, shift);
             // make it fixed
