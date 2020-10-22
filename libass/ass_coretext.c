@@ -60,19 +60,23 @@ static void destroy_font(void *priv)
     SAFE_CFRelease(fontd);
 }
 
-static bool check_postscript(void *priv)
+static bool is_postscript_font_format(CFNumberRef cfformat)
 {
     bool ret = false;
-    CTFontDescriptorRef fontd = priv;
-    CFNumberRef cfformat =
-        CTFontDescriptorCopyAttribute(fontd, kCTFontFormatAttribute);
     int format;
-
     if (CFNumberGetValue(cfformat, kCFNumberIntType, &format)) {
         ret = format == kCTFontFormatOpenTypePostScript ||
               format == kCTFontFormatPostScript;
     }
+    return ret;
+}
 
+static bool check_postscript(void *priv)
+{
+    CTFontDescriptorRef fontd = priv;
+    CFNumberRef cfformat =
+        CTFontDescriptorCopyAttribute(fontd, kCTFontFormatAttribute);
+    bool ret = is_postscript_font_format(cfformat);
     SAFE_CFRelease(cfformat);
     return ret;
 }
@@ -224,16 +228,19 @@ static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
         0, (UInt8*)&codepointle, sizeof(codepointle),
         kCFStringEncodingUTF32LE, false);
     CTFontRef fb = CTFontCreateForString(font, r, CFRangeMake(0, 1));
-    CFStringRef cffamily = CTFontCopyFamilyName(fb);
-    char *res_family = cfstr2buf(cffamily);
+    CFNumberRef cfformat = CTFontCopyAttribute(fb, kCTFontFormatAttribute);
+    CFStringRef cfname = is_postscript_font_format(cfformat) ?
+        CTFontCopyPostScriptName(fb) : CTFontCopyFullName(fb);
+    char *res_name = cfstr2buf(cfname);
 
     SAFE_CFRelease(name);
     SAFE_CFRelease(font);
     SAFE_CFRelease(r);
     SAFE_CFRelease(fb);
-    SAFE_CFRelease(cffamily);
+    SAFE_CFRelease(cfformat);
+    SAFE_CFRelease(cfname);
 
-    return res_family;
+    return res_name;
 }
 
 static void get_substitutions(void *priv, const char *name,
