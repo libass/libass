@@ -1010,8 +1010,14 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
         else if (tm_current >= tm_end)
             x = 100000000;
         else {
-            int x_start = start->pos.x;
-            int x_end = end[-1].pos.x + end[-1].advance.x;
+            GlyphInfo *first_visible = start, *last_visible = end - 1;
+            while (first_visible < last_visible && first_visible->skip)
+                ++first_visible;
+            while (first_visible < last_visible && last_visible->skip)
+                --last_visible;
+
+            int x_start = first_visible->pos.x;
+            int x_end = last_visible->pos.x + last_visible->advance.x;
             double dt = (double) (tm_current - tm_start) / (tm_end - tm_start);
             double frz = fmod(start->frz, 360);
             if (frz > 90 && frz < 270) {
