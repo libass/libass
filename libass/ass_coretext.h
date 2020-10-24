@@ -16,7 +16,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "ass_types.h"
 #include "ass_fontselect.h"
 
 #ifndef ASS_CORETEXT_H

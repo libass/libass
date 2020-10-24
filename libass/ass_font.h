@@ -22,15 +22,11 @@
 #include <stdint.h>
 #include <ft2build.h>
 #include FT_GLYPH_H
-#include FT_OUTLINE_H
 
 typedef struct ass_font ASS_Font;
 typedef struct ass_font_desc ASS_FontDesc;
 
-#include "ass.h"
-#include "ass_types.h"
 #include "ass_fontselect.h"
-#include "ass_cache.h"
 
 #define VERTICAL_LOWER_BOUND 0x02f1
 

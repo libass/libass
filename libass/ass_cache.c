@@ -20,14 +20,6 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#include <inttypes.h>
-#include <ft2build.h>
-#include FT_OUTLINE_H
-#include <assert.h>
-
-#include "ass_utils.h"
-#include "ass_font.h"
-#include "ass_outline.h"
 #include "ass_cache.h"
 
 // type-specific functions

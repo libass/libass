@@ -19,8 +19,8 @@
 #ifndef LIBASS_FONTSELECT_H
 #define LIBASS_FONTSELECT_H
 
-#include <stdbool.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
@@ -28,7 +28,6 @@ typedef struct ass_shaper_font_data ASS_ShaperFontData;
 typedef struct font_selector ASS_FontSelector;
 typedef struct font_info ASS_FontInfo;
 
-#include "ass_types.h"
 #include "ass.h"
 #include "ass_font.h"
 

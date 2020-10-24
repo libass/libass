@@ -19,6 +19,8 @@
 #ifndef LIBASS_PARSE_H
 #define LIBASS_PARSE_H
 
+#include "ass_render.h"
+
 #define BLUR_MAX_RADIUS 100.0
 
 #define _r(c)   ((c) >> 24)

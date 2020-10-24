@@ -28,6 +28,7 @@
 #endif
 
 #include "ass_coretext.h"
+#include "ass_utils.h"
 
 #define SAFE_CFRelease(x) do { if (x) CFRelease(x); } while (0)
 

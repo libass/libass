@@ -20,9 +20,7 @@
 #ifndef LIBASS_CACHE_H
 #define LIBASS_CACHE_H
 
-#include "ass.h"
 #include "ass_font.h"
-#include "ass_outline.h"
 #include "ass_bitmap.h"
 
 typedef struct cache Cache;

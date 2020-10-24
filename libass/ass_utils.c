@@ -19,16 +19,10 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#include <stddef.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdint.h>
 #include <limits.h>
-#include <inttypes.h>
 
-#include "ass_library.h"
-#include "ass.h"
 #include "ass_utils.h"
+#include "ass_library.h"
 #include "ass_string.h"
 
 #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM

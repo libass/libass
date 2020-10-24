@@ -20,12 +20,6 @@
 #include "ass_compat.h"
 
 #include "ass_shaper.h"
-#include "ass_render.h"
-#include "ass_font.h"
-#include "ass_parse.h"
-#include "ass_cache.h"
-#include <limits.h>
-#include <stdbool.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H

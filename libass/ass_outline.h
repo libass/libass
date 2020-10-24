@@ -21,8 +21,6 @@
 
 #include <ft2build.h>
 #include FT_OUTLINE_H
-#include <stdbool.h>
-#include <stdint.h>
 
 #include "ass_utils.h"
 

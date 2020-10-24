@@ -19,15 +19,7 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#include <ft2build.h>
-#include FT_OUTLINE_H
-#include <math.h>
-#include <stdbool.h>
-#include <limits.h>
-
-#include "ass_utils.h"
 #include "ass_drawing.h"
-#include "ass_font.h"
 
 #define DRAWING_INITIAL_POINTS 100
 #define DRAWING_INITIAL_SEGMENTS 100

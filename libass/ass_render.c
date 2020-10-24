@@ -19,16 +19,10 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#include <assert.h>
-#include <math.h>
-#include <string.h>
-#include <stdbool.h>
-
-#include "ass_outline.h"
+#include "ass_drawing.h"
 #include "ass_render.h"
 #include "ass_parse.h"
 #include "ass_priv.h"
-#include "ass_shaper.h"
 
 #define MAX_GLYPHS_INITIAL 1024
 #define MAX_LINES_INITIAL 64

@@ -20,6 +20,7 @@
 #define LIBASS_LIBRARY_H
 
 #include <stdarg.h>
+#include <stddef.h>
 
 typedef struct {
     char *name;

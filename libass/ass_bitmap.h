@@ -19,11 +19,6 @@
 #ifndef LIBASS_BITMAP_H
 #define LIBASS_BITMAP_H
 
-#include <stdbool.h>
-#include <ft2build.h>
-#include FT_GLYPH_H
-
-#include "ass.h"
 #include "ass_outline.h"
 
 

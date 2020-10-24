@@ -19,15 +19,12 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/types.h>
 
 #include <fontconfig/fontconfig.h>
 #include <fontconfig/fcfreetype.h>
 
 #include "ass_fontconfig.h"
-#include "ass_fontselect.h"
 #include "ass_utils.h"
 
 #define MAX_NAME 100
