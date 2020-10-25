@@ -691,8 +691,12 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
             i++;
 
         hb_buffer_pre_allocate(buf, i - offset + 1);
-        hb_buffer_add_utf32(buf, shaper->event_text + offset, i - offset + 1,
-                0, i - offset + 1);
+        if (shaper->whole_text)
+            hb_buffer_add_utf32(buf, shaper->event_text, len,
+                    offset, i - offset + 1);
+        else
+            hb_buffer_add_utf32(buf, shaper->event_text + offset, i - offset + 1,
+                    0, i - offset + 1);
 
         props.direction = FRIBIDI_LEVEL_IS_RTL(level) ?
             HB_DIRECTION_RTL : HB_DIRECTION_LTR;
@@ -703,7 +707,7 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         set_run_features(shaper, glyphs + offset);
         hb_shape(font, buf, shaper->features, shaper->n_features);
 
-        shape_harfbuzz_process_run(glyphs, buf, offset);
+        shape_harfbuzz_process_run(glyphs, buf, shaper->whole_text ? 0 : offset);
         hb_buffer_reset(buf);
     }
 
