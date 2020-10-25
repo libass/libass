@@ -238,6 +238,25 @@ typedef enum {
      */
     ASS_FEATURE_BIDI_BRACKETS,
 
+    /**
+     * When this feature is disabled, text is split into VSFilter-compatible
+     * segments and text in each segment is processed in isolation.
+     * Notably, this includes running the Unicode Bidirectional
+     * Algorithm within each run separately.
+     * The individual runs are then laid out left-to-right,
+     * even if they contain right-to-left text.
+     *
+     * When this feature is enabled, each event's text is processed as a whole
+     * (as far as possible). In particular, the Unicode Bidirectional
+     * Algorithm is run on the whole text.
+     *
+     * This is incompatible with VSFilter and disabled by default.
+     *
+     * libass extensions to ASS such as Encoding -1 can cause individual
+     * events to be always processed as if this feature is enabled.
+     */
+    ASS_FEATURE_WHOLE_TEXT_LAYOUT,
+
     // New enum values can be added here in new ABI-compatible library releases.
 } ASS_Feature;
 

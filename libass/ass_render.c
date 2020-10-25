@@ -2885,6 +2885,8 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     ass_shaper_set_bidi_brackets(render_priv->shaper,
             track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_BIDI_BRACKETS));
 #endif
+    ass_shaper_set_whole_text_layout(render_priv->shaper,
+            track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_WHOLE_TEXT_LAYOUT));
 
     // PAR correction
     double par = render_priv->settings.par;

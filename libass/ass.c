@@ -1543,6 +1543,7 @@ int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable)
 #ifdef USE_FRIBIDI_EX_API
         FEATURE_MASK(ASS_FEATURE_BIDI_BRACKETS) |
 #endif
+        FEATURE_MASK(ASS_FEATURE_WHOLE_TEXT_LAYOUT) |
         0;
     uint32_t requested = 0;
 
