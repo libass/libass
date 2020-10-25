@@ -894,6 +894,7 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
                         last->face_index != info->face_index) ||
                     last->script != info->script ||
                     info->starts_new_run ||
+                    (!shaper->whole_text_layout && info->hspacing) ||
                     last->flags != info->flags))
                 shape_run++;
             else if (info->skip)
@@ -976,7 +977,8 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         shaper->event_text[i] = glyphs[i].symbol;
         // embedding levels should be calculated paragraph by paragraph
         if (glyphs[i].symbol == '\n' || i == text_info->length - 1 ||
-                (!shaper->whole_text_layout && glyphs[i + 1].starts_new_run)) {
+                (!shaper->whole_text_layout &&
+                    (glyphs[i + 1].starts_new_run || glyphs[i].hspacing))) {
             dir = shaper->base_direction;
             fribidi_get_bidi_types(shaper->event_text + last_break,
                     i - last_break + 1, shaper->ctypes + last_break);
@@ -1074,7 +1076,8 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
     GlyphInfo *glyphs = text_info->glyphs;
     for (i = 0; i < text_info->length; i++) {
         if (i == text_info->length - 1 || glyphs[i + 1].linebreak ||
-                (!shaper->whole_text_layout && glyphs[i + 1].starts_new_run)) {
+                (!shaper->whole_text_layout &&
+                    (glyphs[i + 1].starts_new_run || glyphs[i].hspacing))) {
             FriBidiParType dir = FRIBIDI_PAR_ON;
 
             ret = fribidi_reorder_line(0,
