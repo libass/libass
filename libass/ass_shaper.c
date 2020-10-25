@@ -703,19 +703,25 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
                 level == shaper->emblevels[i + 1])
             i++;
 
-        int lead_context = 0, trail_context = 0;
-        if (offset > 0 && !glyphs[offset].starts_new_run &&
-                is_shaping_control(glyphs[offset - 1].symbol))
-            lead_context = 1;
-        if (i < (len - 1) && !glyphs[i + 1].starts_new_run &&
-                is_shaping_control(glyphs[i + 1].symbol))
-            trail_context = 1;
-
         hb_buffer_pre_allocate(buf, i - offset + 1);
-        hb_buffer_add_utf32(buf,
-                shaper->event_text + offset - lead_context,
-                i - offset + 1 + lead_context + trail_context,
-                lead_context, i - offset + 1);
+
+        int lead_context = 0, trail_context = 0;
+        if (shaper->whole_text_layout) {
+            hb_buffer_add_utf32(buf, shaper->event_text, len,
+                    offset, i - offset + 1);
+        } else {
+            if (offset > 0 && !glyphs[offset].starts_new_run &&
+                    is_shaping_control(glyphs[offset - 1].symbol))
+                lead_context = 1;
+            if (i < (len - 1) && !glyphs[i + 1].starts_new_run &&
+                    is_shaping_control(glyphs[i + 1].symbol))
+                trail_context = 1;
+
+            hb_buffer_add_utf32(buf,
+                    shaper->event_text + offset - lead_context,
+                    i - offset + 1 + lead_context + trail_context,
+                    lead_context, i - offset + 1);
+        }
 
         props.direction = FRIBIDI_LEVEL_IS_RTL(level) ?
             HB_DIRECTION_RTL : HB_DIRECTION_LTR;
@@ -726,7 +732,8 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         set_run_features(shaper, glyphs + offset);
         hb_shape(font, buf, shaper->features, shaper->n_features);
 
-        shape_harfbuzz_process_run(glyphs, buf, offset - lead_context);
+        shape_harfbuzz_process_run(glyphs, buf,
+                shaper->whole_text_layout ? 0 : offset - lead_context);
         hb_buffer_reset(buf);
     }
 
