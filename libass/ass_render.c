@@ -381,7 +381,7 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
         return render_glyph_i(render_priv, bm, dst_x, dst_y, color, color2,
                               brk, tail, type, source);
 
-    // brk is relative to dst_x
+    // brk is absolute
     // color = color left of brk
     // color2 = color right of brk
     int b_x0, b_y0, b_x1, b_y1; // visible part of the bitmap
@@ -391,7 +391,7 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
 
     dst_x += bm->left;
     dst_y += bm->top;
-    brk -= bm->left;
+    brk -= dst_x;
 
     // clipping
     clip_x0 = FFMINMAX(render_priv->state.clip_x0, 0, render_priv->width);
@@ -1302,6 +1302,7 @@ static void calc_transform_matrix(ASS_Renderer *render_priv,
  */
 static void
 get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
+                 int32_t *leftmost_x,
                  ASS_Vector *pos, ASS_Vector *pos_o,
                  ASS_DVector *offset, bool first, int flags)
 {
@@ -1319,6 +1320,9 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
         m2[i][2] = m1[i][0] * tr->offset.x + m1[i][1] * tr->offset.y + m1[i][2];
     }
     memcpy(m, m2, sizeof(m));
+
+    if (info->effect_type == EF_KARAOKE_KF)
+        outline_update_min_transformed_x(&info->outline->outline[0], m, leftmost_x);
 
     BitmapHashKey key;
     key.outline = info->outline;
@@ -2338,6 +2342,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 memcpy(&current_info->c, &info->c, sizeof(info->c));
                 current_info->effect_type = info->effect_type;
                 current_info->effect_timing = info->effect_timing;
+                current_info->leftmost_x = OUTLINE_MAX;
 
                 FilterDesc *filter = &current_info->filter;
                 filter->flags = flags;
@@ -2374,7 +2379,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             ASS_Vector pos, pos_o;
             info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->font_scale_x);
             info->pos.y = double_to_d6(device_y) + info->pos.y;
-            get_bitmap_glyph(render_priv, info, &pos, &pos_o,
+            get_bitmap_glyph(render_priv, info, &current_info->leftmost_x, &pos, &pos_o,
                              &offset, !current_info->bitmap_count, flags);
 
             if (!info->bm && !info->bm_o) {
@@ -2405,6 +2410,14 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 
     for (int i = 0; i < nb_bitmaps; i++) {
         CombinedBitmapInfo *info = &combined_info[i];
+        if (!info->bitmap_count) {
+            free(info->bitmaps);
+            continue;
+        }
+
+        if (info->effect_type == EF_KARAOKE_KF)
+            info->effect_timing += d6_to_int(info->leftmost_x);
+
         for (int j = 0; j < info->bitmap_count; j++) {
             info->bitmaps[j].pos.x -= info->x;
             info->bitmaps[j].pos.y -= info->y;

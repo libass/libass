@@ -99,9 +99,14 @@ typedef struct {
     FilterDesc filter;
     uint32_t c[4];              // colors
     Effect effect_type;
-    int effect_timing;          // time duration of current karaoke word
-    // after process_karaoke_effects: distance in pixels from the glyph origin.
+
+    // during render_and_combine_glyphs: distance in pixels from the karaoke origin.
+    // after render_and_combine_glyphs: screen coordinate in pixels.
     // part of the glyph to the left of it is displayed in a different color.
+    int effect_timing;
+
+    // karaoke origin: screen coordinate of leftmost post-transform control point x in subpixels
+    int32_t leftmost_x;
 
     size_t bitmap_count, max_bitmap_count;
     BitmapRef *bitmaps;
@@ -142,7 +147,7 @@ typedef struct glyph_info {
     ASS_Vector cluster_advance;
     Effect effect_type;
     int effect_timing;          // time duration of current karaoke word
-    // after process_karaoke_effects: distance in pixels from the glyph origin.
+    // after process_karaoke_effects: distance in pixels from the karaoke origin.
     // part of the glyph to the left of it is displayed in a different color.
     int effect_skip_timing;     // delay after the end of last karaoke word
     int asc, desc;              // font max ascender and descender

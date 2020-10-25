@@ -323,6 +323,20 @@ bool outline_transform_3d(ASS_Outline *outline, const ASS_Outline *source,
     return true;
 }
 
+void outline_update_min_transformed_x(const ASS_Outline *outline,
+                                      const double m[3][3],
+                                      int32_t *min_x) {
+    const ASS_Vector *pt = outline->points;
+    for (size_t i = 0; i < outline->n_points; i++) {
+        double z = m[2][0] * pt[i].x + m[2][1] * pt[i].y + m[2][2];
+        double x = (m[0][0] * pt[i].x + m[0][1] * pt[i].y + m[0][2]) / FFMAX(z, 0.1);
+        if (isnan(x))
+            continue;
+        int32_t ix = lrint(FFMINMAX(x, -OUTLINE_MAX, OUTLINE_MAX));
+        *min_x = FFMIN(*min_x, ix);
+    }
+}
+
 
 void outline_free(ASS_Outline *outline)
 {

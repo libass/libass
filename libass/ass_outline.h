@@ -95,6 +95,9 @@ bool outline_transform_2d(ASS_Outline *outline, const ASS_Outline *source,
                           const double m[2][3]);
 bool outline_transform_3d(ASS_Outline *outline, const ASS_Outline *source,
                           const double m[3][3]);
+void outline_update_min_transformed_x(const ASS_Outline *outline,
+                                      const double m[3][3],
+                                      int32_t *min_x);
 void outline_free(ASS_Outline *outline);
 
 bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment);
