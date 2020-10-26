@@ -971,25 +971,31 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     if (!check_allocations(shaper, text_info->length))
         return false;
 
-    // Get bidi character types and embedding levels
+    for (i = 0; i < text_info->length; i++)
+        shaper->event_text[i] = glyphs[i].symbol;
+
+    fribidi_get_bidi_types(shaper->event_text,
+            text_info->length, shaper->ctypes);
+
+#ifdef USE_FRIBIDI_EX_API
+    if (shaper->bidi_brackets) {
+        fribidi_get_bracket_types(shaper->event_text,
+                text_info->length, shaper->ctypes, shaper->btypes);
+    }
+#endif
+
+    // Get bidi embedding levels
     last_break = 0;
     for (i = 0; i < text_info->length; i++) {
-        shaper->event_text[i] = glyphs[i].symbol;
         // embedding levels should be calculated paragraph by paragraph
         if (glyphs[i].symbol == '\n' || i == text_info->length - 1 ||
                 (!shaper->whole_text_layout &&
                     (glyphs[i + 1].starts_new_run || glyphs[i].hspacing))) {
             dir = shaper->base_direction;
-            fribidi_get_bidi_types(shaper->event_text + last_break,
-                    i - last_break + 1, shaper->ctypes + last_break);
 #ifdef USE_FRIBIDI_EX_API
             FriBidiBracketType *btypes = NULL;
-            if (shaper->bidi_brackets) {
+            if (shaper->bidi_brackets)
                 btypes = shaper->btypes + last_break;
-                fribidi_get_bracket_types(shaper->event_text + last_break,
-                        i - last_break + 1, shaper->ctypes + last_break,
-                        btypes);
-            }
             ret = fribidi_get_par_embedding_levels_ex(
                     shaper->ctypes + last_break, btypes,
                     i - last_break + 1, &dir, shaper->emblevels + last_break);
