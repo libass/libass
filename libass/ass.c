@@ -499,8 +499,10 @@ static int process_style(ASS_Track *track, char *str)
     ass_msg(track->library, MSGL_V, "[%p] Style: %s", track, str);
 
     sid = ass_alloc_style(track);
-    if (sid < 0)
+    if (sid < 0) {
+        free(format);
         return -1;
+    }
 
     style = track->styles + sid;
     target = style;
@@ -1065,7 +1067,7 @@ void ass_set_check_readorder(ASS_Track *track, int check_readorder)
 void ass_process_chunk(ASS_Track *track, char *data, int size,
                        long long timecode, long long duration)
 {
-    char *str;
+    char *str = NULL;
     int eid;
     char *p;
     char *token;
@@ -1081,12 +1083,12 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
 
     if (!track->event_format) {
         ass_msg(track->library, MSGL_WARN, "Event format header missing");
-        return;
+        goto cleanup;
     }
 
     str = malloc(size + 1);
     if (!str)
-        return;
+        goto cleanup;
     memcpy(str, data, size);
     str[size] = '\0';
     ass_msg(track->library, MSGL_V, "Event at %" PRId64 ", +%" PRId64 ": %s",
@@ -1094,7 +1096,7 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
 
     eid = ass_alloc_event(track);
     if (eid < 0)
-        return;
+        goto cleanup;
     event = track->events + eid;
 
     p = str;
@@ -1113,13 +1115,14 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
         event->Start = timecode;
         event->Duration = duration;
 
-        free(str);
-        return;
+        goto cleanup;
 //              dump_events(tid);
     } while (0);
     // some error
     ass_free_event(track, eid);
     track->n_events--;
+
+cleanup:
     free(str);
 }
 
