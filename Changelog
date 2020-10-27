@@ -1,6 +1,46 @@
-libass (unreleased)
- * Treat invalid nested \t tags like VSFilter
+libass (0.15.0)
+ * Fix backwards/VSFilter-incompatible font sizes with FreeType 2.10+
+ * Improve speed via better caching
+ * Require HarfBuzz unconditionally to ensure good shaping for complex scripts
+ * ass_set_use_margins(true) now simply places text on the whole
+   screen instead of attempting to tie it to video positioning
+   (set by the margin values) and failing in various ways when
+   margins are used to implement pan & scan in a video player
+ * Add ass_track_set_feature() & catch-all ASS_FEATURE_INCOMPATIBLE_EXTENSIONS
+ * Add ASS_FEATURE_BIDI_BRACKETS to enable Unicode 6.3+ bracket matching
+   when applying the Unicode Bidirectional Algorithm
+   (incompatible with VSFilter; requires libass built with FriBidi 1.0+)
  * Fix stack overflow on deeply nested \t tags
+ * Fix positioning of events with leading line breaks
+ * Fix small but nonzero \bord becoming \bord0 (regression in 0.14.0)
+ * Measure BorderStyle=4 box padding from glyph border, not from glyph fill
+ * Scale everything from script resolution if storage size is not set
+   (including borders and shadows regardless of ScaledBorderAndShadow)
+ * Fix the default aspect ratio calculation when neither
+   ass_set_pixel_aspect() nor ass_set_aspect_ratio() is called
+ * Multiple fixes for karaoke override tags
+ * Handle memory allocation failures better:
+   avoid some crashes and produce images closer to truth
+ * Avoid some integer overflows
+ * Add internal infrastructure for regression testing
+ * Improve VSFilter compatibility:
+    * Treat invalid nested \t tags like VSFilter
+    * Make \t(T,T,...) at time exactly T use the post-transition values
+    * Make lines stack more like they do in VSFilter
+    * Default ScaledBorderAndShadow to 0 (like VSFilter),
+      except for subtitles that were produced by old FFmpeg/Libav
+    * Make shadow positioning with 3D transforms match VSFilter's
+    * Cut out glyphs from border & shadow in all the same cases as VSFilter
+    * Match VSFilter on animated color tags with negative acceleration
+    * Fix parsing of some files that VSFilter accepts but libass didn't
+      by ignoring leading whitespace in each line of an ASS file or CodecPrivate
+    * Improve font selection with CoreText
+    * Stop faux-bolding fonts that are too bold to get faux bold in VSFilter
+    * Ignore leading/trailing spaces when calculating height of nonblank lines
+    * Match VSFilter on \fade with large alpha value arguments
+    * Stop splitting bitmaps on font substitution
+    * Multiple fixes for Banner and Scroll effects
+    * Multiple fixes for karaoke override tags
 
 libass (0.14.0)
  * Brand new, faster and better outline stroker (replaces FreeType stroker)
