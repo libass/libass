@@ -21,6 +21,7 @@ matrix:
 
 sudo: required
 dist: bionic
+osx_image: xcode11
 
 branches:
   only:
