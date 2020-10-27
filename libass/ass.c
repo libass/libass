@@ -820,7 +820,7 @@ static unsigned char *decode_chars(const unsigned char *src,
                                    unsigned char *dst, size_t cnt_in)
 {
     uint32_t value = 0;
-    for (int i = 0; i < cnt_in; i++)
+    for (size_t i = 0; i < cnt_in; i++)
         value |= (uint32_t) ((src[i] - 33u) & 63) << 6 * (3 - i);
 
     *dst++ = value >> 16;
@@ -850,7 +850,7 @@ static int decode_font(ASS_Track *track)
     size_t dsize;                  // decoded size
     unsigned char *buf = 0;
 
-    ass_msg(track->library, MSGL_V, "Font: %d bytes encoded data",
+    ass_msg(track->library, MSGL_V, "Font: %zu bytes encoded data",
             track->parser_priv->fontdata_used);
     size = track->parser_priv->fontdata_used;
     if (size % 4 == 1) {
