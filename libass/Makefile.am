@@ -28,7 +28,7 @@ libass_la_SOURCES = ass.h ass.c ass_types.h ass_utils.h ass_utils.c \
                     ass_library.h ass_library.c ass_cache.h ass_cache.c ass_cache_template.h \
                     ass_font.h ass_font.c ass_fontselect.h ass_fontselect.c \
                     ass_render.h ass_render.c ass_render_api.c \
-                    ass_parse.h ass_parse.c ass_shaper.h ass_shaper.c \
+                    ass_parse.h ass_parse.c ass_priv.h ass_shaper.h ass_shaper.c \
                     ass_outline.h ass_outline.c ass_drawing.h ass_drawing.c \
                     ass_rasterizer.h ass_rasterizer.c ass_rasterizer_c.c \
                     ass_bitmap.h ass_bitmap.c ass_blur.c ass_func_template.h
