@@ -2417,7 +2417,8 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
         }
 
         if (info->effect_type == EF_KARAOKE_KF)
-            info->effect_timing = d6_to_int(info->leftmost_x + info->effect_timing);
+            info->effect_timing = lround(d6_to_double(info->leftmost_x) +
+                d6_to_double(info->effect_timing) * render_priv->font_scale_x);
 
         for (int j = 0; j < info->bitmap_count; j++) {
             info->bitmaps[j].pos.x -= info->x;
