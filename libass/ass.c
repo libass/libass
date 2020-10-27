@@ -857,7 +857,7 @@ static int decode_font(ASS_Track *track)
         ass_msg(track->library, MSGL_ERR, "Bad encoded data size");
         goto error_decode_font;
     }
-    buf = malloc(size / 4 * 3 + FFMAX(size % 4 - 1, 0));
+    buf = malloc(size / 4 * 3 + FFMAX(size % 4, 1) - 1);
     if (!buf)
         goto error_decode_font;
     q = buf;
@@ -871,7 +871,7 @@ static int decode_font(ASS_Track *track)
         q = decode_chars(p, q, 3);
     }
     dsize = q - buf;
-    assert(dsize == size / 4 * 3 + FFMAX(size % 4 - 1, 0));
+    assert(dsize == size / 4 * 3 + FFMAX(size % 4, 1) - 1);
 
     if (track->library->extract_fonts) {
         ass_add_font(track->library, track->parser_priv->fontname,
