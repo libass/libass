@@ -49,7 +49,7 @@ AC_ARG_ENABLE([require-system-font-provider], AS_HELP_STRING([--disable-require-
     [allow compilation even if no system font provider was found @<:@default=enabled:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
-AC_ARG_ENABLE([render-lq], AS_HELP_STRING([--enable-render-lq],
+AC_ARG_ENABLE([high-dpi], AS_HELP_STRING([--enable-high-dpi],
     [adjust various spatial accuracy parameters for better performance but slightly worse quality @<:@default=disabled@:>@]))
 
 AS_IF([test x$enable_asm != xno], [

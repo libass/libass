@@ -36,11 +36,18 @@
 #define MAX_SUB_BITMAPS_INITIAL 64
 #define SUBPIXEL_MASK 63
 #define STROKER_PRECISION 16     // stroker error in integer units, unrelated to final accuracy
+#define MAX_PERSP_SCALE 16.0
+#define BLUR_PRECISION (1.0 / 256)  // blur error as fraction of full input range
+
+#ifdef CONFIG_HIGH_DPI
 #define RASTERIZER_PRECISION 16  // rasterizer spline approximation error in 1/64 pixel units
 #define POSITION_PRECISION 8.0   // rough estimate of transform error in 1/64 pixel units
-#define MAX_PERSP_SCALE 16.0
 #define SUBPIXEL_ORDER 3  // ~ log2(64 / POSITION_PRECISION)
-#define BLUR_PRECISION (1.0 / 256)  // blur error as fraction of full input range
+#else
+#define RASTERIZER_PRECISION 8
+#define POSITION_PRECISION 4.0
+#define SUBPIXEL_ORDER 4
+#endif
 
 
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
