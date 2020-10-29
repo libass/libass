@@ -1020,6 +1020,11 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
     return shaper->cmap;
 }
 
+FriBidiStrIndex *ass_shaper_get_reorder_map(ASS_Shaper *shaper)
+{
+    return shaper->cmap;
+}
+
 /**
  * \brief Resolve a Windows font charset number to a suitable base
  * direction. Generally, use LTR for compatibility with VSFilter. The

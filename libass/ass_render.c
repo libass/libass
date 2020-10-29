@@ -2055,9 +2055,6 @@ static void retrieve_glyphs(ASS_Renderer *render_priv)
 
         // add horizontal letter spacing
         info->cluster_advance.x += info->hspacing_scaled;
-
-        // add displacement for vertical shearing
-        info->cluster_advance.y += (info->fay / info->scale_x * info->scale_y) * info->cluster_advance.x;
     }
 }
 
@@ -2098,23 +2095,15 @@ static void reorder_text(ASS_Renderer *render_priv)
     // Reposition according to the map
     ASS_Vector pen = { 0, 0 };
     int lineno = 1;
-    double last_pen_x = 0;
-    double last_fay = 0;
     for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + cmap[i];
         if (text_info->glyphs[i].linebreak) {
-            pen.y -= (last_fay / info->scale_x * info->scale_y) * (pen.x - last_pen_x);
-            last_pen_x = pen.x = 0;
+            pen.x = 0;
             pen.y += double_to_d6(text_info->lines[lineno-1].desc);
             pen.y += double_to_d6(text_info->lines[lineno].asc);
             pen.y += double_to_d6(render_priv->settings.line_spacing);
             lineno++;
         }
-        else if (last_fay != info->fay) {
-            pen.y -= (last_fay / info->scale_x * info->scale_y) * (pen.x - last_pen_x);
-            last_pen_x = pen.x;
-        }
-        last_fay = info->fay;
         if (info->skip)
             continue;
         ASS_Vector cluster_pen = pen;
@@ -2127,6 +2116,25 @@ static void reorder_text(ASS_Renderer *render_priv)
             cluster_pen.y += info->advance.y;
             info = info->next;
         }
+    }
+}
+
+static void apply_baseline_shear(ASS_Renderer *render_priv)
+{
+    TextInfo *text_info = &render_priv->text_info;
+    FriBidiStrIndex *cmap = ass_shaper_get_reorder_map(render_priv->shaper);
+    int32_t shear = 0;
+    double last_fay = 0;
+    for (int i = 0; i < text_info->length; i++) {
+        GlyphInfo *info = text_info->glyphs + cmap[i];
+        if (text_info->glyphs[i].linebreak || last_fay != info->fay)
+            shear = 0;
+        last_fay = info->fay;
+        if (info->skip)
+            continue;
+        for (GlyphInfo *cur = info; cur; cur = cur->next)
+            cur->pos.y += shear;
+        shear += (info->fay / info->scale_x * info->scale_y) * info->cluster_advance.x;
     }
 }
 
@@ -2669,6 +2677,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     // determing text bounding box
     ASS_DRect bbox;
     compute_string_bbox(text_info, &bbox);
+
+    apply_baseline_shear(render_priv);
 
     // determine device coordinates for text
     double device_x = 0;

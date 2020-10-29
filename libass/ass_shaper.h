@@ -45,6 +45,7 @@ void ass_shaper_set_bidi_brackets(ASS_Shaper *shaper, bool match_brackets);
 bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info);
 void ass_shaper_cleanup(ASS_Shaper *shaper, TextInfo *text_info);
 FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info);
+FriBidiStrIndex *ass_shaper_get_reorder_map(ASS_Shaper *shaper);
 FriBidiParType resolve_base_direction(int font_encoding);
 
 void ass_shaper_font_data_free(ASS_ShaperFontData *priv);
