@@ -1520,6 +1520,7 @@ static void measure_text(ASS_Renderer *render_priv)
 {
     TextInfo *text_info = &render_priv->text_info;
     text_info->height = 0;
+    text_info->border_x = 0;
 
     int cur_line = 0;
     double scale = 0.5 / 64;
