@@ -3005,7 +3005,9 @@ fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
     // fill used[] with fixed events
     for (i = 0; i < cnt; ++i) {
         ASS_RenderPriv *priv;
-        if (!imgs[i].detect_collisions)
+        // VSFilter considers events colliding if their intersections area is non-zero,
+        // zero-area events are therefore effectively fixed as well
+        if (!imgs[i].detect_collisions || !imgs[i].height  || !imgs[i].width)
             continue;
         priv = get_render_priv(render_priv, imgs[i].event);
         if (priv && priv->height > 0) { // it's a fixed event
@@ -3044,7 +3046,7 @@ fix_collisions(ASS_Renderer *render_priv, EventImages *imgs, int cnt)
     // try to fit other events in free spaces
     for (i = 0; i < cnt; ++i) {
         ASS_RenderPriv *priv;
-        if (!imgs[i].detect_collisions)
+        if (!imgs[i].detect_collisions || !imgs[i].height  || !imgs[i].width)
             continue;
         priv = get_render_priv(render_priv, imgs[i].event);
         if (priv && priv->height == 0) {        // not a fixed event
