@@ -141,7 +141,7 @@ static inline double d6_to_double(int x)
 }
 static inline int double_to_d6(double x)
 {
-    return (int) (x * 64);
+    return lrint(x * 64);
 }
 static inline double d16_to_double(int x)
 {
@@ -149,7 +149,7 @@ static inline double d16_to_double(int x)
 }
 static inline int double_to_d16(double x)
 {
-    return (int) (x * 0x10000);
+    return lrint(x * 0x10000);
 }
 static inline double d22_to_double(int x)
 {
@@ -157,7 +157,7 @@ static inline double d22_to_double(int x)
 }
 static inline int double_to_d22(double x)
 {
-    return (int) (x * 0x400000);
+    return lrint(x * 0x400000);
 }
 
 #define FNV1_32A_INIT 0x811c9dc5U
