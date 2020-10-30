@@ -106,7 +106,7 @@ static int grow_array(void **array, int nelem, size_t elsize)
     return 1;
 }
 
-void ass_add_font(ASS_Library *priv, char *name, char *data, int size)
+void ass_add_font(ASS_Library *priv, const char *name, const char *data, int size)
 {
     int idx = priv->num_fontdata;
     if (!name || !data || !size)
