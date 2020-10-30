@@ -271,7 +271,7 @@ static bool load_font(ASS_Library *lib, const char *dir, const char *file)
     fclose(fp);
 
     printf("Loading font '%s'.\n", file);
-    ass_add_font(lib, (char *) file, buf, size);
+    ass_add_font(lib, file, buf, size);
     free(buf);
     return true;
 }

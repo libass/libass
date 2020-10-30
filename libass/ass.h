@@ -693,7 +693,7 @@ int ass_read_styles(ASS_Track *track, char *fname, char *codepage);
  * \param data binary font data
  * \param data_size data size
 */
-void ass_add_font(ASS_Library *library, char *name, char *data,
+void ass_add_font(ASS_Library *library, const char *name, const char *data,
                   int data_size);
 
 /**
