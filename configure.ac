@@ -86,7 +86,7 @@ AS_IF([test x$enable_asm != xno], [
             AS_CASE([$host],
                 [*darwin*], [
                     ASFLAGS="$ASFLAGS -f macho$BITTYPE -DPREFIX -DHAVE_ALIGNED_STACK=1" ],
-                [*linux*|*dragonfly*|*bsd*|*solaris*], [
+                [*linux*|*dragonfly*|*bsd*|*solaris*|*haiku*], [
                     ASFLAGS="$ASFLAGS -f elf$BITTYPE -DHAVE_ALIGNED_STACK=1" ],
                 [*cygwin*|*mingw*], [
                     ASFLAGS="$ASFLAGS -f win$BITTYPE"
@@ -95,7 +95,18 @@ AS_IF([test x$enable_asm != xno], [
                     ], [
                         ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0 -DPREFIX"
                     ])
-                ])
+                ],
+                [ #default
+                    AC_MSG_ERROR(m4_text_wrap(m4_normalize([
+                            Please contact libass upstream to figure out if ASM
+                            support for your platform can be added.
+                            In the meantime you will need to use --disable-asm.]),
+                        [                  ],
+                        [could not identify NASM format for $host !],
+                        [78])
+                    )
+                ]
+            )
             ASFLAGS="$ASFLAGS -DHAVE_CPUNOP=0 -Dprivate_prefix=ass"
             AC_MSG_CHECKING([if $AS supports vpmovzxwd])
             echo "vpmovzxwd ymm0, xmm0" > conftest.asm
