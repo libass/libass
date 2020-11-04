@@ -1,0 +1,105 @@
+name: Crash Report
+description: Report a crash
+title: 'Crash: '
+labels: bug
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Thanks for filing an issue!
+        To help us determine what's causing your issue, please take your time to read
+        and fill out everything with as much detail as you can.
+
+        If you're encountering the crash with an old version of libass,
+        please retest with current git-master or the latest release if possible.
+
+  - type: input
+    id: libass-version
+    validations:
+      required: true
+    attributes:
+      label: libass version
+      description: >
+        What version of libass are you encountering this issue on?
+        If you aren't sure how to find this out, give precise information
+        on your player, its version and where you got the player-binary from.
+
+        If you uploaded a correct screenshot for comparison and haven't told us already,
+        please also specify what renderer and which version of it gave you the correct result.
+
+  - type: input
+    id: libass-regression
+    attributes:
+      label: Is it a regression?
+      description: >
+        Did previous libass samples render the sample better?
+        Or is this a recent change (since when)?
+
+  - type: textarea
+    id: issue-sample
+    validations:
+      required: true
+    attributes:
+      label: ASS Sample
+      description: >
+        Please provide a sufficient sample to reproduce the crash.
+
+        At minimum this will be an excerpt of an ASS file; don't forget
+        to include the relevant Dialogue and Style lines.
+        The excerpt should basically be a fully functional ASS file in itself.
+        If you can’t make an excerpt, we can work with a full ASS file
+        if you tell us the time at which the problem occurs.
+
+        If you see the problem only with a particular video file that contains subtitles,
+        try to upload a short cut from the video file that we can play to see the problem.
+        You can use tools such as MKVToolNix to make a smaller cut from a large file.
+      placeholder: |
+        If it isn't too long paste the ASS-excerpt enclosed in triple-backticks as below, or upload a sample file
+
+        ```
+        [Script Info]
+        ```
+
+  - type: dropdown
+    id: issue-sample-font
+    validations:
+      required: true
+    attributes:
+      label: Special Fonts
+      description: >
+        If a particular font is needed to see the wrong rendering,
+        upload it as a zipped file inside the previous textarea if you have permission to do so.
+        If it is a font freely available on the Web, you can instead give a link to it.
+      options:
+        - I uploaded or linked to the required font
+        - The issue doesn't depend on a specific font
+
+  - type: textarea
+    id: system
+    attributes:
+      label: System Information
+      description: >
+        Tell us what system you're seeing the issue on (including the OS update level if applicable).
+        If VSFilter and libass screenshots were taken on different systems, give the info for both.
+      placeholder: |
+        OS:  *(\*Linux, MacOS, Windows, …)*
+        CPU: *(32 or 64Bit AMD/Intel x86, ARM, POWER, …)*
+        e.g. MacOS 10.5 with a 64bit x86 (Intel) CPU
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log and Stacktrace
+      description: >
+        A complete log and a stacktrace with debugging symbols is very helpful to find out what's going wrong.
+        If you have logs regarding the issue please include them. Eg for [mpv](https://github.com/mpv-player/mpv),
+        you can obtain a log by adding `--log-file=output.txt` when playing the affected file.
+
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional info
+      description: >
+        Feel free to add anything else that may be useful.
