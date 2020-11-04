@@ -1,5 +1,5 @@
 AC_INIT(libass, 0.15.0)
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([foreign])
 AC_CONFIG_MACRO_DIR([m4])
 # Disable Fortran checks
 define([AC_LIBTOOL_LANG_F77_CONFIG], [:])
