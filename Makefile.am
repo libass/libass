@@ -1,5 +1,4 @@
 ACLOCAL_AMFLAGS = -I m4
-AUTOMAKE_OPTIONS = foreign
 EXTRA_DIST = libass.pc.in Changelog
 
 pkgconfigdir = $(libdir)/pkgconfig
