@@ -48,6 +48,9 @@ LIBS=
 use_libiconv=false
 AC_SEARCH_LIBS([libiconv_open], [iconv], use_libiconv=true)
 AC_SEARCH_LIBS([iconv_open], [iconv], use_libiconv=true)
+AS_IF([test "x$use_libiconv" = xtrue], [
+    AC_DEFINE(CONFIG_ICONV, 1, [use iconv])
+])
 AC_CHECK_LIB([m], [fabs])
 pkg_libs="$LIBS"
 LIBS="$OLDLIBS $LIBS"
@@ -153,14 +156,7 @@ Either DirectWrite (on Windows), CoreText (on OSX), or Fontconfig \
 a system font provider, add --disable-require-system-font-provider])
 fi
 
-## Now add packages to pkg-config for static linking
-if test "$use_libiconv" = true; then
-    AC_DEFINE(CONFIG_ICONV, 1, [use iconv])
-    if test x"$ac_cv_search_libiconv_open" != x"none required" &&
-       test x"$ac_cv_search_iconv_open" != x"none required"; then
-        pkg_libs="${pkg_libs} -liconv"
-    fi
-fi
+## Now add packages to pkg_requires
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
 pkg_requires="harfbuzz >= 1.2.3, ${pkg_requires}"
