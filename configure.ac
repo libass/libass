@@ -62,7 +62,6 @@ LIBS="$OLDLIBS $LIBS"
 ## Check for libraries via pkg-config
 PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.10.3, [
     CFLAGS="$CFLAGS $FREETYPE_CFLAGS"
-    CXXFLAGS="$CFLAGS $FREETYPE_CFLAGS"
     LIBS="$LIBS $FREETYPE_LIBS"
     AC_DEFINE(CONFIG_FREETYPE, 1, [found freetype2 via pkg-config])
     ])
