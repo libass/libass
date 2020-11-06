@@ -282,8 +282,8 @@ AM_COND_IF([ASM],
     )
 
 AM_COND_IF([ENABLE_LARGE_TILES],
-    [AC_DEFINE(CONFIG_LARGE_TILES, 1, [use large tiles])]
-    [AC_DEFINE(CONFIG_LARGE_TILES, 0, [use small tiles])],
+    [AC_DEFINE(CONFIG_LARGE_TILES, 1, [use large tiles])],
+    [AC_DEFINE(CONFIG_LARGE_TILES, 0, [use small tiles])]
     )
 
 ## Setup output beautifier.
