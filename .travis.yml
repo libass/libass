@@ -32,7 +32,7 @@ before_script:
   - ./autogen.sh
   - ./configure
 script:
-  - make -j4
+  - make -j2
 
 notifications:
   email: false
@@ -63,5 +63,5 @@ addons:
       description: "Build submitted via Travis CI"
     notification_email: none@example.com
     build_command_prepend: "./configure"
-    build_command:   "make -j4"
+    build_command:   "make -j2"
     branch_pattern: master|coverity_scan
