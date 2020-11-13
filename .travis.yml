@@ -19,7 +19,6 @@ matrix:
     - os: osx
       compiler: gcc
 
-sudo: required
 dist: bionic
 osx_image: xcode11
 
