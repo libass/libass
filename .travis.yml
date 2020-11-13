@@ -4,6 +4,10 @@ env:
   global:
    # Coverity token
    - secure: "QFUmMNyjyhXhe+zBfGNgnrrgR9NTks90AU6BQXYCxBZm+aaRjjxkN+ITjTJeHxZJEVpqDf/gtidh6KriSWMWM2TcH+ZSsAkVym9XUdk+0Nglh/5mulp++LsbmsERhed5F4YvGS0UAcXPAAv/dESmiJY/EaDPVgXxbTFMa85c6H8="
+   - COVERITY_SCAN_PROJECT_NAME=libass/libass
+   - COVERITY_SCAN_NOTIFICATION_EMAIL=none@example.com
+   - COVERITY_SCAN_BUILD_COMMAND="make -j2"
+   - COVERITY_SCAN_BRANCH_PATTERN="master|coverity_scan"
    - HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
 
 os:
@@ -31,6 +35,7 @@ branches:
 before_script:
   - ./autogen.sh
   - ./configure
+  - if [[ ${TRAVIS_JOB_NUMBER##*.} == 2 ]]; then curl -s https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh | bash || true; fi
 script:
   - make -j2
 
@@ -57,10 +62,3 @@ addons:
       - fribidi
       - nasm
       - harfbuzz
-  coverity_scan:
-    project:
-      name: "libass/libass"
-      description: "Build submitted via Travis CI"
-    notification_email: none@example.com
-    build_command:   "make -j2"
-    branch_pattern: master|coverity_scan
