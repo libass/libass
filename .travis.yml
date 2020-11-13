@@ -43,7 +43,8 @@ notifications:
   email: false
   irc:
     channels:
-      - "irc.freenode.org#libass"
+      # "irc.freenode.org#libass", encrypted against libass/libass to prevent IRC spam of forks
+      - secure: "JcINB59M1X8kEM1fi9r4dO8yA5NkA4n7WUy9s+hufa/HiYCNO7B+r7vxIKJLKEjGWrs92iVcq9FnpDn/c2Ufrg7a0NR6JGYrg3PqgDcm0JmxvfYn7lH4cYphExz5t45Ty5oWOZivTcF+ErCt3STvU8tb/E3dUCwnpc8redWu9Mo="
     on_success: change
     on_failure: always
 
