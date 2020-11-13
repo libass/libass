@@ -14,7 +14,7 @@ compiler:
   - gcc
   - clang
 
-matrix:
+jobs:
   exclude:
     - os: osx
       compiler: gcc
