@@ -845,7 +845,7 @@ static void compute_string_bbox(TextInfo *text, ASS_DRect *bbox)
     if (text->length > 0) {
         bbox->x_min = +32000;
         bbox->x_max = -32000;
-        bbox->y_min = d6_to_double(text->glyphs[0].pos.y) - text->lines[0].asc;
+        bbox->y_min = -text->lines[0].asc;
         bbox->y_max = bbox->y_min + text->height;
 
         for (int i = 0; i < text->length; i++) {
