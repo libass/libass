@@ -55,7 +55,12 @@ AC_SEARCH_LIBS([iconv_open], [iconv], use_libiconv=true)
 AS_IF([test "x$use_libiconv" = xtrue], [
     AC_DEFINE(CONFIG_ICONV, 1, [use iconv])
 ])
-AC_CHECK_LIB([m], [fabs])
+# Locate math functions. Most systems have it either in libc or libm, but a few
+# have some, eg C89, functions in libc and others in libm. Use C99 lrint to probe.
+AC_SEARCH_LIBS([lrint], [m],
+    [],
+    [AC_MSG_ERROR([Unable to locate math functions!])]
+)
 pkg_libs="$LIBS"
 LIBS="$OLDLIBS $LIBS"
 
