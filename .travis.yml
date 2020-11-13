@@ -4,7 +4,7 @@ env:
   global:
    # Coverity token
    - secure: "QFUmMNyjyhXhe+zBfGNgnrrgR9NTks90AU6BQXYCxBZm+aaRjjxkN+ITjTJeHxZJEVpqDf/gtidh6KriSWMWM2TcH+ZSsAkVym9XUdk+0Nglh/5mulp++LsbmsERhed5F4YvGS0UAcXPAAv/dESmiJY/EaDPVgXxbTFMa85c6H8="
-   - HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+   - HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
 
 os:
   - linux
