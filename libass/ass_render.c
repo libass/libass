@@ -2130,6 +2130,8 @@ static void apply_baseline_shear(ASS_Renderer *render_priv)
         if (text_info->glyphs[i].linebreak || last_fay != info->fay)
             shear = 0;
         last_fay = info->fay;
+        if (!info->scale_x || !info->scale_y)
+            info->skip = true;
         if (info->skip)
             continue;
         for (GlyphInfo *cur = info; cur; cur = cur->next)
