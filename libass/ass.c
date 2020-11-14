@@ -19,6 +19,17 @@
 #include "config.h"
 #include "ass_compat.h"
 
+#define TO_STRING_(str)  #str
+#define TO_STRING(str)  TO_STRING_(str)
+#if defined(__clang__)
+    #warning "Clang defined!"
+    #pragma message("Clang: " __clang_version__ )
+#endif
+#if defined(__GNUC__)
+    #warning "GNUC defined!"
+    #pragma message( "GNUC:" TO_STRING(__GNUC__) " ; GNUC_MINOR:" TO_STRING(__GNUC_MINOR__) )
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -7,7 +7,7 @@ env:
    - COVERITY_SCAN_PROJECT_NAME=libass/libass
    - COVERITY_SCAN_NOTIFICATION_EMAIL=none@example.com
    - COVERITY_SCAN_BUILD_COMMAND="make -j2"
-   - COVERITY_SCAN_BRANCH_PATTERN="master|coverity_scan"
+   - COVERITY_SCAN_BRANCH_PATTERN="master|coverity_scan|coverity_verbose_test"
    - HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
 
 os:
@@ -31,11 +31,12 @@ branches:
     - master
     - ci
     - coverity_scan
+    - coverity_verbose_test
 
 before_script:
   - ./autogen.sh
   - ./configure
-  - if [[ ${TRAVIS_JOB_NUMBER##*.} == 1 ]]; then curl -s https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh | bash || true; fi
+  - test "${TRAVIS_JOB_NUMBER##*.}" == 1 && ( curl -s https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh | bash ; echo SCM_LOG && cat /home/travis/build/libass/libass/cov-int/scm_log.txt && echo "" && echo BUILD_LOG && cat /home/travis/build/libass/libass/cov-int/build-log.txt ) || true
 script:
   - make -j2
 
