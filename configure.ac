@@ -14,7 +14,7 @@ AM_PROG_CC_C_O
 # Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_STDBOOL
-AC_CHECK_HEADERS([stdint.h iconv.h])
+AC_CHECK_HEADERS_ONCE([iconv.h])
 
 # Checks for library functions.
 AC_CHECK_FUNCS([strdup strndup])
@@ -43,15 +43,17 @@ AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
 # and add packages to pkg-config for static linking
 OLDLIBS="$LIBS"
 LIBS=
-use_libiconv=false
-## Some iconv libraries like GNU's libiconv define iconv_open as a macro to
-## libiconv_open. As SEARCH_LIBS tests linking not compilation, check for
-## libiconv_open first. SEARCH_LIBS is smart enough to not add -liconv a second
-## time in case both versions are defined in the local libiconv.
-AC_SEARCH_LIBS([libiconv_open], [iconv], use_libiconv=true)
-AC_SEARCH_LIBS([iconv_open], [iconv], use_libiconv=true)
-AS_IF([test "x$use_libiconv" = xtrue], [
-    AC_DEFINE(CONFIG_ICONV, 1, [use iconv])
+AS_IF([test "x$ac_cv_header_iconv_h" = xyes], [
+    ## Some iconv libraries like GNU's libiconv define iconv_open as a macro to
+    ## libiconv_open. As SEARCH_LIBS tests linking not compilation, check for
+    ## libiconv_open first. SEARCH_LIBS is smart enough to not add -liconv a second
+    ## time in case both versions are defined in the local libiconv.
+    use_libiconv=false
+    AC_SEARCH_LIBS([libiconv_open], [iconv], use_libiconv=true)
+    AC_SEARCH_LIBS([iconv_open], [iconv], use_libiconv=true)
+    AS_IF([test "x$use_libiconv" = xtrue], [
+        AC_DEFINE(CONFIG_ICONV, 1, [use iconv])
+    ])
 ])
 # Locate math functions. Most systems have it either in libc or libm, but a few
 # have some, eg C89, functions in libc and others in libm. Use C99 lrint to probe.
