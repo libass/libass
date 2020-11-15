@@ -9,9 +9,7 @@ AC_CONFIG_HEADER([config.h])
 
 # Checks for programs.
 AC_PROG_CC
-AC_PROG_CPP
 AM_PROG_CC_C_O
-AM_PROG_AS
 
 # Checks for header files.
 AC_HEADER_STDC
