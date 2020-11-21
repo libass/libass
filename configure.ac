@@ -40,9 +40,7 @@ AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
     [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
 
 # Checks for available libraries and define corresponding C Macros
-# and add packages to pkg-config for static linking
-OLDLIBS="$LIBS"
-LIBS=
+# Start with system libs, then check everything else via pkg-config
 AS_IF([test "x$ac_cv_header_iconv_h" = xyes], [
     ## Some iconv libraries like GNU's libiconv define iconv_open as a macro to
     ## libiconv_open. As SEARCH_LIBS tests linking not compilation, check for
@@ -67,7 +65,6 @@ AC_SEARCH_LIBS([lrint], [m], [
     AC_MSG_ERROR([Unable to locate math functions!])
 ])
 pkg_libs="$LIBS"
-LIBS="$OLDLIBS $LIBS"
 
 ## Check for libraries via pkg-config
 PKG_CHECK_MODULES([FREETYPE], [freetype2 >= 9.10.3], [
