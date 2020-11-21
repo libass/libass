@@ -488,7 +488,7 @@ endstruc
 ;------------------------------------------------------------------------------
 
 %macro GET_RES_ADDR 1
-%if mmsize <= 16 && HAVE_ALIGNED_STACK
+%if mmsize <= STACK_ALIGNMENT
     mov %1, rstk
 %else
     lea %1, [rstk + mmsize - 1]
@@ -498,7 +498,7 @@ endstruc
 
 %macro CALC_RES_ADDR 3-4 noskip
     shl %2d, 1 + %1
-%if mmsize <= 16 && HAVE_ALIGNED_STACK
+%if mmsize <= STACK_ALIGNMENT
     add %2, rstk
 %else
 %ifidn %4, noskip
@@ -568,7 +568,7 @@ cglobal fill_generic_tile%2, 0,7,8
     %define mm_van   m %+ m_van
 %endif
 
-%if mmsize <= 16 && HAVE_ALIGNED_STACK
+%if mmsize <= STACK_ALIGNMENT
     %assign alloc_size alloc_size + stack_offset + gprsize + (mmsize - 1)
     %assign alloc_size (alloc_size & ~(mmsize - 1)) - stack_offset - gprsize
 %else

@@ -196,7 +196,7 @@ AS_IF([test "x$enable_asm" != xno], [
             X64=true
             BITS=64
             BITTYPE=x32
-            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -DPIC"
+            ASFLAGS="$ASFLAGS -DARCH_X86_64=1"
         ],
         [x86_64-*|amd64-*], [
             AS=nasm
@@ -204,7 +204,7 @@ AS_IF([test "x$enable_asm" != xno], [
             X64=true
             BITS=64
             BITTYPE=64
-            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -DPIC"
+            ASFLAGS="$ASFLAGS -DARCH_X86_64=1"
         ],
         [ # default
             INTEL=false
@@ -219,25 +219,18 @@ AS_IF([test "x$enable_asm" != xno], [
         ], [
             AS_CASE([$host],
                 [*darwin*], [
-                    ASFLAGS="$ASFLAGS -f macho$BITTYPE -DPREFIX -DHAVE_ALIGNED_STACK=1"
+                    ASFLAGS="$ASFLAGS -f macho$BITTYPE -DPREFIX -DSTACK_ALIGNMENT=16"
                 ],
                 [*linux*|*solaris*|*haiku*], [
-                    ASFLAGS="$ASFLAGS -f elf$BITTYPE -DHAVE_ALIGNED_STACK=1"
+                    ASFLAGS="$ASFLAGS -f elf$BITTYPE -DSTACK_ALIGNMENT=16"
                 ],
                 [*dragonfly*|*bsd*], [
                     ASFLAGS="$ASFLAGS -f elf$BITTYPE"
-                    AS_IF([test "x$BITS" = x64], [
-                        ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=1"
-                    ], [
-                        ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0"
-                    ])
                 ],
                 [*cygwin*|*mingw*], [
                     ASFLAGS="$ASFLAGS -f win$BITTYPE"
-                    AS_IF([test "x$BITS" = x64], [
-                        ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=1"
-                    ], [
-                        ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0 -DPREFIX"
+                    AS_IF([test "x$BITS" = x32], [
+                        ASFLAGS="$ASFLAGS -DPREFIX"
                     ])
                 ],
                 [ # default
@@ -251,7 +244,7 @@ AS_IF([test "x$enable_asm" != xno], [
                     ))
                 ]
             )
-            ASFLAGS="$ASFLAGS -DHAVE_CPUNOP=0 -Dprivate_prefix=ass"
+            ASFLAGS="$ASFLAGS -Dprivate_prefix=ass"
             AC_MSG_CHECKING([if $AS supports vpmovzxwd])
             echo "vpmovzxwd ymm0, xmm0" > conftest.asm
             AS_IF([$AS conftest.asm $ASFLAGS -o conftest.o >conftest.log 2>&1], [
