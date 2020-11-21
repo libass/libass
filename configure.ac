@@ -223,8 +223,16 @@ AS_IF([test "x$enable_asm" != xno], [
                 [*darwin*], [
                     ASFLAGS="$ASFLAGS -f macho$BITTYPE -DPREFIX -DHAVE_ALIGNED_STACK=1"
                 ],
-                [*linux*|*dragonfly*|*bsd*|*solaris*|*haiku*], [
+                [*linux*|*solaris*|*haiku*], [
                     ASFLAGS="$ASFLAGS -f elf$BITTYPE -DHAVE_ALIGNED_STACK=1"
+                ],
+                [*dragonfly*|*bsd*], [
+                    ASFLAGS="$ASFLAGS -f elf$BITTYPE"
+                    AS_IF([test "x$BITS" = x64], [
+                        ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=1"
+                    ], [
+                        ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0"
+                    ])
                 ],
                 [*cygwin*|*mingw*], [
                     ASFLAGS="$ASFLAGS -f win$BITTYPE"
