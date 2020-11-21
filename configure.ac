@@ -272,11 +272,9 @@ AS_IF([test "x$enable_asm" != xno], [
 AC_SUBST([ASFLAGS], ["$ASFLAGS"])
 AC_SUBST([AS], ["$AS"])
 
-## Relay package configuration to Makefiles
-AC_SUBST([PKG_LIBS_DEFAULT], [$(test "x$enable_shared" = xno && echo "${pkg_libs}")])
-AC_SUBST([PKG_REQUIRES_DEFAULT], [$(test "x$enable_shared" = xno && echo "${pkg_requires}")])
-AC_SUBST([PKG_LIBS_PRIVATE], [$(test "x$enable_shared" = xno || echo "${pkg_libs}")])
-AC_SUBST([PKG_REQUIRES_PRIVATE], [$(test "x$enable_shared" = xno || echo "${pkg_requires}")])
+## Relay package configuration to libass.pc.in
+AC_SUBST([PKG_LIBS_PRIVATE], [${pkg_libs}])
+AC_SUBST([PKG_REQUIRES_PRIVATE], [${pkg_requires}])
 
 ## Setup conditionals for use in Makefiles
 AM_CONDITIONAL([ASM], [test "x$enable_asm" != xno])
