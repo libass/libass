@@ -1,0 +1,50 @@
+name: GitHub CI tests
+
+on:
+  push:
+    branches: [master, ci, coverity_scan]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, macos-10.15]
+        cc: [gcc, clang]
+        exclude:
+          - os: macos-10.15
+            cc: gcc
+        include:
+          # Enable distcheck for one build
+          - os: ubuntu-18.04
+            cc: gcc
+            do_distc: yes
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v2
+
+      - name: install deps
+        run: |
+          if (echo "${{ matrix.os }}" | grep -qE '^macos-') ; then
+            brew update
+            # freetype, autoconf and libtool are preinstalled
+            # and `brew install` fails if a non-uptodate version is already installed
+            #brew upgrade freetype autoconf libtool
+            brew install automake fribidi harfbuzz nasm
+          else
+            #sudo apt-get update && sudo apt-get upgrade
+            sudo apt-get install -y \
+                 libfontconfig1-dev libfreetype6-dev libfribidi-dev \
+                 libharfbuzz-dev nasm ${{ matrix.cc }}
+          fi
+
+      - name: configure
+        run: ./autogen.sh && CC="${{ matrix.cc }}" ./configure
+
+      - name: compile
+        run: make -j 2
+
+      - name: distcheck
+        run: if [ "x${{ matrix.do_distc }}" == "xyes" ] ; then make -j 2 distcheck; fi
