@@ -50,6 +50,13 @@
 
 
 
+START(font, ass_font_desc )
+    STRING(family)
+    GENERIC(unsigned, bold)
+    GENERIC(unsigned, italic)
+    GENERIC(int, vertical)  // @font vertical layout
+END(ASS_FontDesc)
+
 // describes an outline bitmap
 START(bitmap, bitmap_hash_key)
     GENERIC(OutlineHashValue *, outline)

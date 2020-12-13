@@ -25,7 +25,6 @@
 #include FT_OUTLINE_H
 
 typedef struct ass_font ASS_Font;
-typedef struct ass_font_desc ASS_FontDesc;
 
 #include "ass.h"
 #include "ass_types.h"
@@ -38,13 +37,6 @@ typedef struct ass_font_desc ASS_FontDesc;
 #define DECO_UNDERLINE     1
 #define DECO_STRIKETHROUGH 2
 #define DECO_ROTATE        4
-
-struct ass_font_desc {
-    char *family;
-    unsigned bold;
-    unsigned italic;
-    int vertical;               // @font vertical layout
-};
 
 struct ass_font {
     ASS_FontDesc desc;

@@ -38,31 +38,6 @@
 #include "ass_cache_template.h"
 
 // font cache
-static uint32_t font_hash(void *buf, uint32_t hval)
-{
-    ASS_FontDesc *desc = buf;
-    hval = fnv_32a_str(desc->family, hval);
-    hval = fnv_32a_buf(&desc->bold, sizeof(desc->bold), hval);
-    hval = fnv_32a_buf(&desc->italic, sizeof(desc->italic), hval);
-    hval = fnv_32a_buf(&desc->vertical, sizeof(desc->vertical), hval);
-    return hval;
-}
-
-static bool font_compare(void *key1, void *key2)
-{
-    ASS_FontDesc *a = key1;
-    ASS_FontDesc *b = key2;
-    if (strcmp(a->family, b->family) != 0)
-        return false;
-    if (a->bold != b->bold)
-        return false;
-    if (a->italic != b->italic)
-        return false;
-    if (a->vertical != b->vertical)
-        return false;
-    return true;
-}
-
 static bool font_key_move(void *dst, void *src)
 {
     ASS_FontDesc *k = src;
