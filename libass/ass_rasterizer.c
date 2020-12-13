@@ -189,9 +189,12 @@ static bool add_line(RasterizerData *rst, ASS_Vector pt0, ASS_Vector pt1)
     line->a *= 1 << shift;
     line->b *= 1 << shift;
     line->c *= 1 << shift;
+#if CONFIG_EXTRA_PRECISION
+    line->scale = ((uint64_t) 1 << 61) / max_ab;
+#else
     line->scale = (uint64_t) 0x53333333 * (uint32_t) (max_ab * (uint64_t) max_ab >> 32) >> 32;
     line->scale += 0x8810624D - (0xBBC6A7EF * (uint64_t) max_ab >> 32);
-    //line->scale = ((uint64_t) 1 << 61) / max_ab;
+#endif
     return true;
 }
 
