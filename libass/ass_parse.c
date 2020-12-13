@@ -102,17 +102,16 @@ void update_font(ASS_Renderer *render_priv)
     unsigned val;
     ASS_FontDesc desc;
 
-    if (!render_priv->state.family)
+    desc.family = render_priv->state.family;
+    if (!desc.family.str)
         return;
-    if (render_priv->state.family[0] == '@') {
+    if (desc.family.len && desc.family.str[0] == '@') {
         desc.vertical = 1;
-        desc.family = strdup(render_priv->state.family + 1);
+        desc.family.str++;
+        desc.family.len--;
     } else {
         desc.vertical = 0;
-        desc.family = strdup(render_priv->state.family);
     }
-    if (!desc.family)
-        return;
 
     val = render_priv->state.bold;
     // 0 = normal, 1 = bold, >1 = exact weight
@@ -234,7 +233,8 @@ static bool parse_vector_clip(ASS_Renderer *render_priv,
         scale = argtoi(args[0]);
 
     struct arg text = args[nargs - 1];
-    render_priv->state.clip_drawing_text = strndup(text.start, text.end - text.start);
+    render_priv->state.clip_drawing_text.str = text.start;
+    render_priv->state.clip_drawing_text.len = text.end - text.start;
     render_priv->state.clip_drawing_scale = scale;
     return true;
 }
@@ -381,7 +381,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 render_priv->state.clip_y1 =
                     render_priv->state.clip_y1 * (1 - pwr) + y1 * pwr;
                 render_priv->state.clip_mode = 1;
-            } else if (!render_priv->state.clip_drawing_text) {
+            } else if (!render_priv->state.clip_drawing_text.str) {
                 if (parse_vector_clip(render_priv, args, nargs))
                     render_priv->state.clip_drawing_mode = 1;
             }
@@ -517,19 +517,16 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 render_priv->state.frz =
                     render_priv->state.style->Angle;
         } else if (tag("fn")) {
-            char *family;
             char *start = args->start;
             if (nargs && strncmp(start, "0", args->end - start)) {
                 skip_spaces(&start);
-                family = strndup(start, args->end - start);
+                render_priv->state.family.str = start;
+                render_priv->state.family.len = args->end - start;
             } else {
-                family = strdup(render_priv->state.style->FontName);
+                render_priv->state.family.str = render_priv->state.style->FontName;
+                render_priv->state.family.len = strlen(render_priv->state.style->FontName);
             }
-            if (family) {
-                free(render_priv->state.family);
-                render_priv->state.family = family;
-                update_font(render_priv);
-            }
+            update_font(render_priv);
         } else if (tag("alpha")) {
             int i;
             if (nargs) {
@@ -708,7 +705,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 render_priv->state.clip_y1 =
                     render_priv->state.clip_y1 * (1 - pwr) + y1 * pwr;
                 render_priv->state.clip_mode = 0;
-            } else if (!render_priv->state.clip_drawing_text) {
+            } else if (!render_priv->state.clip_drawing_text.str) {
                 if (parse_vector_clip(render_priv, args, nargs))
                     render_priv->state.clip_drawing_mode = 0;
             }

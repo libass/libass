@@ -5,7 +5,7 @@
 #define GENERIC(type, member) \
         type member;
 #define STRING(member) \
-        char *member;
+        ASS_StringView member;
 #define VECTOR(member) \
         ASS_Vector member;
 #define END(typedefnamename) \
@@ -22,7 +22,7 @@
 #define GENERIC(type, member) \
             a->member == b->member &&
 #define STRING(member) \
-            strcmp(a->member, b->member) == 0 &&
+            ass_string_equal(a->member, b->member) &&
 #define VECTOR(member) \
             a->member.x == b->member.x && a->member.y == b->member.y &&
 #define END(typedefname) \
@@ -38,7 +38,7 @@
 #define GENERIC(type, member) \
         hval = fnv_32a_buf(&p->member, sizeof(p->member), hval);
 #define STRING(member) \
-        hval = fnv_32a_str(p->member, hval);
+        hval = fnv_32a_buf(p->member.str, p->member.len, hval);
 #define VECTOR(member) GENERIC(, member.x); GENERIC(, member.y);
 #define END(typedefname) \
         return hval; \

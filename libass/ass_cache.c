@@ -40,12 +40,13 @@
 // font cache
 static bool font_key_move(void *dst, void *src)
 {
-    ASS_FontDesc *k = src;
-    if (dst)
-        memcpy(dst, src, sizeof(ASS_FontDesc));
-    else
-        free(k->family);
-    return true;
+    if (!dst)
+        return true;
+
+    ASS_FontDesc *d = dst, *s = dst;
+    memcpy(dst, src, sizeof(ASS_FontDesc));
+    d->family.str = ass_copy_string(s->family);
+    return d->family.str;
 }
 
 static void font_destruct(void *key, void *value)
@@ -207,8 +208,8 @@ static bool outline_key_move(void *dst, void *src)
     }
     memcpy(dst, src, sizeof(OutlineHashKey));
     if (s->type == OUTLINE_DRAWING) {
-        d->u.drawing.text = strdup(s->u.drawing.text);
-        return d->u.drawing.text;
+        d->u.drawing.text.str = ass_copy_string(s->u.drawing.text);
+        return d->u.drawing.text.str;
     }
     if (s->type == OUTLINE_BORDER)
         ass_cache_inc_ref(s->u.border.outline);
@@ -226,7 +227,7 @@ static void outline_destruct(void *key, void *value)
         ass_cache_dec_ref(k->u.glyph.font);
         break;
     case OUTLINE_DRAWING:
-        free(k->u.drawing.text);
+        free((char *) k->u.drawing.text.str);
         break;
     case OUTLINE_BORDER:
         ass_cache_dec_ref(k->u.border.outline);

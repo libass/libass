@@ -588,5 +588,5 @@ void ass_font_clear(ASS_Font *font)
         if (font->faces[i])
             FT_Done_Face(font->faces[i]);
     }
-    free(font->desc.family);
+    free((char *) font->desc.family.str);
 }

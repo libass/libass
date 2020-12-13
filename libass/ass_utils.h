@@ -52,6 +52,26 @@ int has_avx(void);
 int has_avx2(void);
 #endif
 
+typedef struct {
+    const char *str;
+    size_t len;
+} ASS_StringView;
+
+static inline char *ass_copy_string(ASS_StringView src)
+{
+    char *buf = malloc(src.len + 1);
+    if (buf) {
+        memcpy(buf, src.str, src.len);
+        buf[src.len] = '\0';
+    }
+    return buf;
+}
+
+static inline bool ass_string_equal(ASS_StringView str1, ASS_StringView str2)
+{
+    return str1.len == str2.len && !memcmp(str1.str, str2.str, str1.len);
+}
+
 #ifndef HAVE_STRNDUP
 char *ass_strndup(const char *s, size_t n);
 #define strndup ass_strndup
@@ -163,9 +183,9 @@ static inline int double_to_d22(double x)
 #define FNV1_32A_INIT 0x811c9dc5U
 #define FNV1_32A_PRIME 16777619U
 
-static inline uint32_t fnv_32a_buf(void *buf, size_t len, uint32_t hval)
+static inline uint32_t fnv_32a_buf(const void *buf, size_t len, uint32_t hval)
 {
-    unsigned char *bp = (unsigned char *) buf;
+    const uint8_t *bp = buf;
     size_t n = (len + 3) / 4;
 
     switch (len % 4) {
@@ -176,15 +196,6 @@ static inline uint32_t fnv_32a_buf(void *buf, size_t len, uint32_t hval)
                } while (--n > 0);
     }
 
-    return hval;
-}
-static inline uint32_t fnv_32a_str(const char *str, uint32_t hval)
-{
-    unsigned char *s = (unsigned char *) str;
-    while (*s) {
-        hval ^= *s++;
-        hval *= FNV1_32A_PRIME;
-    }
     return hval;
 }
 

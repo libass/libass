@@ -692,7 +692,7 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
                       int *uid, ASS_FontStream *data, uint32_t code)
 {
     char *res = 0;
-    const char *family = font->desc.family;
+    const char *family = font->desc.family.str;  // always zero-terminated
     unsigned bold = font->desc.bold;
     unsigned italic = font->desc.italic;
     ASS_FontProvider *default_provider = priv->default_provider;

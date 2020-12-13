@@ -665,7 +665,7 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         glyphs[i].skip = true;
 
     for (i = 0; i < len; i++) {
-        if (glyphs[i].drawing_text) {
+        if (glyphs[i].drawing_text.str) {
             glyphs[i].skip = false;
             continue;
         }
@@ -805,7 +805,7 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
     // find appropriate fonts for the shape runs
     for (i = 0; i < len; i++) {
         GlyphInfo *info = glyphs + i;
-        if (!info->drawing_text) {
+        if (!info->drawing_text.str) {
             // set size and get glyph index
             ass_font_get_index(render_priv->fontselect, info->font,
                     info->symbol, &info->face_index, &info->glyph_index);

@@ -644,7 +644,7 @@ static inline size_t bitmap_size(const Bitmap *bm)
  */
 static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
 {
-    if (!render_priv->state.clip_drawing_text)
+    if (!render_priv->state.clip_drawing_text.str)
         return;
 
     OutlineHashKey ol_key;
@@ -998,13 +998,9 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
         (style->StrikeOut ? DECO_STRIKETHROUGH : 0);
     render_priv->state.font_size = style->FontSize;
 
-    char* new_family = strdup(style->FontName);
-    if (new_family) {
-        free(render_priv->state.family);
-        render_priv->state.family = new_family;
-        render_priv->state.treat_family_as_pattern =
-            style->treat_fontname_as_pattern;
-    }
+    render_priv->state.family.str = style->FontName;
+    render_priv->state.family.len = strlen(style->FontName);
+    render_priv->state.treat_family_as_pattern = style->treat_fontname_as_pattern;
     render_priv->state.bold = style->Bold;
     render_priv->state.italic = style->Italic;
     update_font(render_priv);
@@ -1067,17 +1063,14 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
 static void free_render_context(ASS_Renderer *render_priv)
 {
     ass_cache_dec_ref(render_priv->state.font);
-    free(render_priv->state.family);
-    free(render_priv->state.clip_drawing_text);
 
     render_priv->state.font = NULL;
-    render_priv->state.family = NULL;
-    render_priv->state.clip_drawing_text = NULL;
+    render_priv->state.family.str = NULL;
+    render_priv->state.family.len = 0;
+    render_priv->state.clip_drawing_text.str = NULL;
+    render_priv->state.clip_drawing_text.len = 0;
 
-    TextInfo *text_info = &render_priv->text_info;
-    for (int n = 0; n < text_info->length; n++)
-        free(text_info->glyphs[n].drawing_text);
-    text_info->length = 0;
+    render_priv->text_info.length = 0;
 }
 
 /**
@@ -1095,7 +1088,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 
     int32_t asc, desc;
     OutlineHashKey key;
-    if (info->drawing_text) {
+    if (info->drawing_text.str) {
         key.type = OUTLINE_DRAWING;
         key.u.drawing.text = info->drawing_text;
         val = ass_cache_get(priv->cache.outline_cache, &key, priv);
@@ -1143,7 +1136,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
     info->bbox.x_max = lrint(val->cbox.x_max * scale.x + offset.x);
     info->bbox.y_max = lrint(val->cbox.y_max * scale.y + offset.y);
 
-    if (info->drawing_text || priv->settings.shaper == ASS_SHAPING_SIMPLE) {
+    if (info->drawing_text.str || priv->settings.shaper == ASS_SHAPING_SIMPLE) {
         info->cluster_advance.x = info->advance.x = lrint(val->advance * scale.x);
         info->cluster_advance.y = info->advance.y = 0;
     }
@@ -1180,7 +1173,7 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
     case OUTLINE_DRAWING:
         {
             ASS_Rect bbox;
-            const char *text = outline_key->u.drawing.text;
+            const char *text = outline_key->u.drawing.text.str;  // always zero-terminated
             if (!ass_drawing_parse(&v->outline[0], &bbox, text, render_priv->library))
                 return 1;
 
@@ -1874,9 +1867,9 @@ static void split_style_runs(ASS_Renderer *render_priv)
         info->starts_new_run =
             info->effect_timing ||  // but ignore effect_skip_timing
             (effect_type != EF_NONE && effect_type != last_effect_type) ||
-            info->drawing_text ||
-            last->drawing_text ||
-            strcmp(last->font->desc.family, info->font->desc.family) ||
+            info->drawing_text.str ||
+            last->drawing_text.str ||
+            !ass_string_equal(last->font->desc.family, info->font->desc.family) ||
             last->font->desc.vertical != info->font->desc.vertical ||
             last->font_size != info->font_size ||
             last->c[0] != info->c[0] ||
@@ -1913,11 +1906,10 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
     TextInfo *text_info = &render_priv->text_info;
 
     char *p = event->Text, *q;
-    char *drawing_text;
 
     // Event parsing.
     while (true) {
-        drawing_text = NULL;
+        ASS_StringView drawing_text = {NULL, 0};
 
         // get next char, executing style override
         // this affects render_context
@@ -1933,7 +1925,8 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
                     q++;
                 while ((*q != '{') && (*q != 0))
                     q++;
-                drawing_text = strndup(p, q - p);
+                drawing_text.str = p;
+                drawing_text.len = q - p;
                 code = 0xfffc; // object replacement character
                 p = q;
                 break;
@@ -1966,7 +1959,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         memset(info, 0, sizeof(GlyphInfo));
 
         // Parse drawing
-        if (drawing_text) {
+        if (drawing_text.str) {
             info->drawing_text = drawing_text;
             info->drawing_scale = render_priv->state.drawing_scale;
             info->drawing_pbo = render_priv->state.pbo;
@@ -1975,7 +1968,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         // Fill glyph information
         info->symbol = code;
         info->font = render_priv->state.font;
-        if (!drawing_text)
+        if (!drawing_text.str)
             ass_cache_inc_ref(info->font);
         for (int i = 0; i < 4; i++) {
             uint32_t clr = render_priv->state.c[i];
@@ -2018,7 +2011,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
                 render_priv->font_scale * info->scale_x);
         info->scale_fix = 1;
 
-        if (!drawing_text)
+        if (!drawing_text.str)
             fix_glyph_scaling(render_priv, info);
 
         text_info->length++;
@@ -2032,7 +2025,6 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
 
 fail:
     free_render_context(render_priv);
-    free(drawing_text);
     return false;
 }
 
