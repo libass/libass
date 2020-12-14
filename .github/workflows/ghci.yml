@@ -120,6 +120,14 @@ jobs:
             COVERITY_UNSUPPORTED=1 cov-build --dir "$RES_DIR" make -j 2
             cov-import-scm --dir "$RES_DIR" --scm git --log "$RES_DIR/scm_log.txt" 2>&1
 
+            echo ""
+            echo "[COV] SCM LOG"
+            echo "============="
+            echo ""
+            cat "$RES_DIR"/scm_log.txt
+            echo ""
+            echo ""
+
             # Submit results to Coverity's server
             tar czf libass.tar.gz "$RES_DIR"
             upstat="$(curl --silent --write-out "\n%{http_code}\n" \
