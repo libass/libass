@@ -72,11 +72,6 @@ static inline bool ass_string_equal(ASS_StringView str1, ASS_StringView str2)
     return str1.len == str2.len && !memcmp(str1.str, str2.str, str1.len);
 }
 
-#ifndef HAVE_STRNDUP
-char *ass_strndup(const char *s, size_t n);
-#define strndup ass_strndup
-#endif
-
 void *ass_aligned_alloc(size_t alignment, size_t size, bool zero);
 void ass_aligned_free(void *ptr);
 

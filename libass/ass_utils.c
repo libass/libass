@@ -66,8 +66,20 @@ int has_avx2(void)
 
 #endif // ASM
 
+// Fallbacks
+#ifndef HAVE_STRDUP
+char *ass_strdup_fallback(const char *str)
+{
+    size_t len    = strlen(str) + 1;
+    char *new_str = malloc(len);
+    if (new_str)
+        memcpy(new_str, str, len);
+    return new_str;
+}
+#endif
+
 #ifndef HAVE_STRNDUP
-char *ass_strndup(const char *s, size_t n)
+char *ass_strndup_fallback(const char *s, size_t n)
 {
     char *end = memchr(s, 0, n);
     size_t len = end ? end - s : n;

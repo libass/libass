@@ -26,4 +26,15 @@
 #define inline __inline
 #endif
 
+#ifndef HAVE_STRDUP
+char *ass_strdup_fallback(const char *s); // definition in ass_utils.c
+#define strdup ass_strdup_fallback
+#endif
+
+#ifndef HAVE_STRNDUP
+#include <stddef.h>
+char *ass_strndup_fallback(const char *s, size_t n); // definition in ass_utils.c
+#define strndup ass_strndup_fallback
+#endif
+
 #endif                          /* LIBASS_COMPAT_H */
