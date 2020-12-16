@@ -1246,9 +1246,9 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
 static void calc_transform_matrix(ASS_Renderer *render_priv,
                                   GlyphInfo *info, double m[3][3])
 {
-    double frx = M_PI / 180 * info->frx;
-    double fry = M_PI / 180 * info->fry;
-    double frz = M_PI / 180 * info->frz;
+    double frx = ASS_PI / 180 * info->frx;
+    double fry = ASS_PI / 180 * info->fry;
+    double frz = ASS_PI / 180 * info->frz;
 
     double sx = -sin(frx), cx = cos(frx);
     double sy =  sin(fry), cy = cos(fry);
