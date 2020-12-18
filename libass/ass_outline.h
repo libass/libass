@@ -83,7 +83,7 @@ typedef struct {
     char *segments;
 } ASS_Outline;
 
-// ouline point coordinates should always be in [-OUTLINE_MAX, +OUTLINE_MAX] range
+// outline point coordinates should always be in [-OUTLINE_MAX, +OUTLINE_MAX] range
 #define OUTLINE_MAX  (((int32_t) 1 << 28) - 1)
 // cubic spline splitting requires 8 * OUTLINE_MAX + 4 <= INT32_MAX
 
