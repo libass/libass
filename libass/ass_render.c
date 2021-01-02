@@ -2012,6 +2012,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         info->frz = render_priv->state.frz;
         info->fax = render_priv->state.fax;
         info->fay = render_priv->state.fay;
+        info->fade = render_priv->state.fade;
 
         info->hspacing_scaled = double_to_d6(info->hspacing *
                 render_priv->font_scale * info->scale_x);
@@ -2325,7 +2326,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             if ((flags & FILTER_NONZERO_BORDER &&
                  info->a_pre_fade[0] == 0 &&
                  info->a_pre_fade[1] == 0 &&
-                 _a(info->c[2]) == 0) ||
+                 info->fade == 0) ||
                 info->border_style == 3)
                 flags |= FILTER_FILL_IN_BORDER;
 

@@ -168,6 +168,7 @@ typedef struct glyph_info {
     unsigned italic;
     unsigned bold;
     int flags;
+    int fade;
 
     int shape_run_id;
 
