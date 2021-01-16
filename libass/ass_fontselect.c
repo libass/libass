@@ -738,6 +738,9 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
         ass_msg(library, MSGL_INFO,
                 "fontselect: (%s, %d, %d) -> %s, %d, %s", family, bold,
                 italic, res, *index, *postscript_name ? *postscript_name : "(none)");
+    else
+        ass_msg(library, MSGL_WARN, "fontselect: failed to find any fallback for font: "
+                "(%s, %d, %d)", family, bold, italic);
 
     return res;
 }
