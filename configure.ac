@@ -5,15 +5,13 @@ AC_CONFIG_MACRO_DIR([m4])
 define([AC_LIBTOOL_LANG_F77_CONFIG], [:])
 LT_INIT
 AC_CONFIG_SRCDIR([libass/ass.c])
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O
 
 # Checks for header files.
-AC_HEADER_STDC
-AC_HEADER_STDBOOL
 AC_CHECK_HEADERS_ONCE([iconv.h])
 
 # Checks for library functions.
