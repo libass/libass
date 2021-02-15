@@ -144,7 +144,7 @@ AS_IF([test "x$enable_directwrite" != xno], [
     # Linking to DirectWrite directly only works from Windows
     AC_MSG_CHECKING([for DIRECTWRITE])
     AC_LINK_IFELSE([
-        AC_LANG_PROGRAM([[#include <windows.h>]], [[;]], )
+        AC_LANG_PROGRAM([[#include <windows.h>]], [[;]])
     ], [
         AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite])
         directwrite=true
