@@ -38,8 +38,8 @@ AC_ARG_ENABLE([require-system-font-provider], AS_HELP_STRING([--disable-require-
     [allow compilation even if no system font provider was found @<:@default=enabled:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
-AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
-    [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
+AC_ARG_ENABLE([extra-precision], AS_HELP_STRING([--enable-extra-precision],
+    [improve rendering precision at the cost of performance @<:@default=disabled@:>@]))
 
 # Checks for available libraries and define corresponding C Macros
 # and add packages to pkg-config for static linking
@@ -265,7 +265,7 @@ AM_CONDITIONAL([INTEL], [test x$INTEL = xtrue])
 AM_CONDITIONAL([X86], [test x$X86 = xtrue])
 AM_CONDITIONAL([X64], [test x$X64 = xtrue])
 
-AM_CONDITIONAL([ENABLE_LARGE_TILES], [test x$enable_large_tiles = xyes])
+AM_CONDITIONAL([ENABLE_EXTRA_PRECISION], [test x$enable_extra_precision = xyes])
 
 AM_CONDITIONAL([ENABLE_COMPARE], [test x$enable_compare = xyes && test x$libpng = xtrue])
 AM_CONDITIONAL([ENABLE_TEST], [test x$enable_test = xyes && test x$libpng = xtrue])
@@ -281,9 +281,9 @@ AM_COND_IF([ASM],
     [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])]
     )
 
-AM_COND_IF([ENABLE_LARGE_TILES],
-    [AC_DEFINE(CONFIG_LARGE_TILES, 1, [use large tiles])],
-    [AC_DEFINE(CONFIG_LARGE_TILES, 0, [use small tiles])]
+AM_COND_IF([ENABLE_EXTRA_PRECISION],
+    [AC_DEFINE(CONFIG_EXTRA_PRECISION, 1, [extra precision])],
+    [AC_DEFINE(CONFIG_EXTRA_PRECISION, 0, [default precision])]
     )
 
 ## Setup output beautifier.
