@@ -33,7 +33,7 @@
 #define NBSP 0xa0   // unicode non-breaking space character
 
 struct arg {
-    char *start, *end;
+    const char *start, *end;
 };
 
 static inline int argtoi(struct arg arg)
@@ -57,7 +57,7 @@ static inline double argtod(struct arg arg)
     return value;
 }
 
-static inline void push_arg(struct arg *args, int *nargs, char *start, char *end)
+static inline void push_arg(struct arg *args, int *nargs, const char *start, const char *end)
 {
     if (*nargs <= MAX_VALID_NARGS) {
         rskip_spaces(&end, start);
@@ -72,9 +72,9 @@ static inline void push_arg(struct arg *args, int *nargs, char *start, char *end
  * \brief Check if starting part of (*p) matches sample.
  * If true, shift p to the first symbol after the matching part.
  */
-static inline int mystrcmp(char **p, const char *sample)
+static inline int mystrcmp(const char **p, const char *sample)
 {
-    char *p2;
+    const char *p2;
     for (p2 = *p; *sample != 0 && *p2 == *sample; p2++, sample++)
         ;
     if (*sample == 0) {
@@ -246,10 +246,10 @@ static bool parse_vector_clip(ASS_Renderer *render_priv,
  *            of a number of spaces immediately preceding '}' or ')'
  * \param pwr multiplier for some tag effects (comes from \t tags)
  */
-char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
-                 bool nested)
+const char *parse_tags(ASS_Renderer *render_priv, const char *p, const char *end,
+                       double pwr, bool nested)
 {
-    for (char *q; p < end; p = q) {
+    for (const char *q; p < end; p = q) {
         while (*p != '\\' && p != end)
             ++p;
         if (*p != '\\')
@@ -264,7 +264,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
         if (q == p)
             continue;
 
-        char *name_end = q;
+        const char *name_end = q;
 
         // Store one extra element to be able to detect excess arguments
         struct arg args[MAX_VALID_NARGS + 1];
@@ -286,7 +286,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 // the last comma, through the backslash and all the way
                 // to the end of the argument string into a single argument.
 
-                char *r = q;
+                const char *r = q;
                 while (*r != ',' && *r != '\\' && *r != ')' && r != end)
                     ++r;
 
@@ -517,7 +517,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 render_priv->state.frz =
                     render_priv->state.style->Angle;
         } else if (tag("fn")) {
-            char *start = args->start;
+            const char *start = args->start;
             if (nargs && strncmp(start, "0", args->end - start)) {
                 skip_spaces(&start);
                 render_priv->state.family.str = start;
@@ -1043,9 +1043,9 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
  * \return ucs4 code of the next char
  * On return str points to the unparsed part of the string
  */
-unsigned get_next_char(ASS_Renderer *render_priv, char **str)
+unsigned get_next_char(ASS_Renderer *render_priv, const char **str)
 {
-    char *p = *str;
+    const char *p = *str;
     unsigned chr;
     if (*p == '\t') {
         ++p;
@@ -1076,14 +1076,14 @@ unsigned get_next_char(ASS_Renderer *render_priv, char **str)
             return '}';
         }
     }
-    chr = ass_utf8_get_char((char **) &p);
+    chr = ass_utf8_get_char(&p);
     *str = p;
     return chr;
 }
 
 // Return 1 if the event contains tags that will apply overrides the selective
 // style override code should not touch. Return 0 otherwise.
-int event_has_hard_overrides(char *str)
+int event_has_hard_overrides(const char *str)
 {
     // look for \pos and \move tags inside {...}
     // mirrors get_next_char, but is faster and doesn't change any global state
@@ -1094,7 +1094,7 @@ int event_has_hard_overrides(char *str)
             str++;
             while (*str && *str != '}') {
                 if (*str == '\\') {
-                    char *p = str + 1;
+                    const char *p = str + 1;
                     if (mystrcmp(&p, "pos") || mystrcmp(&p, "move") ||
                         mystrcmp(&p, "clip") || mystrcmp(&p, "iclip") ||
                         mystrcmp(&p, "org") || mystrcmp(&p, "pbo") ||

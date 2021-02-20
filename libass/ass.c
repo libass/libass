@@ -301,14 +301,14 @@ static inline void advance_token_pos(const char **const str,
     *end   = *start;
     while (**end != '\0' && **end != ',') ++*end;
     *str = *end + (**end == ',');
-    rskip_spaces((char**)end, (char*)*start);
+    rskip_spaces(end, *start);
 }
 
 static char *next_token(char **str)
 {
     char *p;
     char *start;
-    skip_spaces(str);
+    skip_spaces((const char **)str);
     if (**str == '\0') {
         return 0;
     }
@@ -583,8 +583,8 @@ static bool format_line_compare(const char *fmt1, const char *fmt2)
         const char *tk1_start, *tk2_start;
         const char *tk1_end, *tk2_end;
 
-        skip_spaces((char**)&fmt1);
-        skip_spaces((char**)&fmt2);
+        skip_spaces(&fmt1);
+        skip_spaces(&fmt2);
         if (!*fmt1 || !*fmt2)
             break;
 
@@ -628,7 +628,7 @@ static int process_styles_line(ASS_Track *track, char *str)
 {
     int ret = 0;
     if (!strncmp(str, "Format:", 7)) {
-        char *p = str + 7;
+        const char *p = str + 7;
         skip_spaces(&p);
         free(track->style_format);
         track->style_format = strdup(p);
@@ -642,7 +642,7 @@ static int process_styles_line(ASS_Track *track, char *str)
             custom_format_line_compatibility(track, p, ssa_style_format);
     } else if (!strncmp(str, "Style:", 6)) {
         char *p = str + 6;
-        skip_spaces(&p);
+        skip_spaces((const char**)&p);
         ret = process_style(track, p);
     }
     return ret;
@@ -768,7 +768,7 @@ static bool detect_legacy_conv_subs(ASS_Track *track)
 static int process_events_line(ASS_Track *track, char *str)
 {
     if (!strncmp(str, "Format:", 7)) {
-        char *p = str + 7;
+        const char *p = str + 7;
         skip_spaces(&p);
         free(track->event_format);
         track->event_format = strdup(p);
@@ -802,7 +802,7 @@ static int process_events_line(ASS_Track *track, char *str)
         }
 
         str += 9;
-        skip_spaces(&str);
+        skip_spaces((const char**)&str);
 
         eid = ass_alloc_event(track);
         if (eid < 0)
@@ -889,7 +889,7 @@ static int process_fonts_line(ASS_Track *track, char *str)
     size_t len;
 
     if (!strncmp(str, "fontname:", 9)) {
-        char *p = str + 9;
+        const char *p = str + 9;
         skip_spaces(&p);
         if (track->parser_priv->fontname) {
             decode_font(track);
@@ -937,7 +937,7 @@ mem_fail:
 */
 static int process_line(ASS_Track *track, char *str)
 {
-    skip_spaces(&str);
+    skip_spaces((const char**)&str);
     if (!ass_strncasecmp(str, "[Script Info]", 13)) {
         track->parser_priv->state = PST_INFO;
     } else if (!ass_strncasecmp(str, "[V4 Styles]", 11)) {
@@ -1228,7 +1228,7 @@ out:
  * \param bufsize out: file size
  * \return pointer to file contents. Caller is responsible for its deallocation.
  */
-char *read_file(ASS_Library *library, char *fname, size_t *bufsize)
+char *read_file(ASS_Library *library, const char *fname, size_t *bufsize)
 {
     int res;
     long sz;

@@ -150,26 +150,26 @@ void *ass_try_realloc_array(void *ptr, size_t nmemb, size_t size)
     }
 }
 
-void skip_spaces(char **str)
+void skip_spaces(const char **str)
 {
-    char *p = *str;
+    const char *p = *str;
     while ((*p == ' ') || (*p == '\t'))
         ++p;
     *str = p;
 }
 
-void rskip_spaces(char **str, char *limit)
+void rskip_spaces(const char **str, const char *limit)
 {
-    char *p = *str;
+    const char *p = *str;
     while ((p > limit) && ((p[-1] == ' ') || (p[-1] == '\t')))
         --p;
     *str = p;
 }
 
-static int read_digits(char **str, unsigned base, uint32_t *res)
+static int read_digits(const char **str, unsigned base, uint32_t *res)
 {
-    char *p = *str;
-    char *start = p;
+    const char *p = *str;
+    const char *start = p;
     uint32_t val = 0;
 
     while (1) {
@@ -196,7 +196,7 @@ static int read_digits(char **str, unsigned base, uint32_t *res)
  * Follows the rules for strtoul but reduces the number modulo 2**32
  * instead of saturating it to 2**32 - 1.
  */
-static int mystrtou32_modulo(char **p, unsigned base, uint32_t *res)
+static int mystrtou32_modulo(const char **p, unsigned base, uint32_t *res)
 {
     // This emulates scanf with %d or %x format as it works on
     // Windows, because that's what is used by VSFilter. In practice,
@@ -205,7 +205,7 @@ static int mystrtou32_modulo(char **p, unsigned base, uint32_t *res)
 
     // Unlike scanf and like strtoul, produce 0 for invalid inputs.
 
-    char *start = *p;
+    const char *start = *p;
     int sign = 1;
 
     skip_spaces(p);
@@ -227,7 +227,7 @@ static int mystrtou32_modulo(char **p, unsigned base, uint32_t *res)
     }
 }
 
-int32_t parse_alpha_tag(char *str)
+int32_t parse_alpha_tag(const char *str)
 {
     int32_t alpha = 0;
 
@@ -238,7 +238,7 @@ int32_t parse_alpha_tag(char *str)
     return alpha;
 }
 
-uint32_t parse_color_tag(char *str)
+uint32_t parse_color_tag(const char *str)
 {
     int32_t color = 0;
 
@@ -249,7 +249,7 @@ uint32_t parse_color_tag(char *str)
     return ass_bswap32((uint32_t) color);
 }
 
-uint32_t parse_color_header(char *str)
+uint32_t parse_color_header(const char *str)
 {
     uint32_t color = 0;
     unsigned base;
@@ -265,19 +265,19 @@ uint32_t parse_color_header(char *str)
 }
 
 // Return a boolean value for a string
-char parse_bool(char *str)
+char parse_bool(const char *str)
 {
     skip_spaces(&str);
     return !ass_strncasecmp(str, "yes", 3) || strtol(str, NULL, 10) > 0;
 }
 
-int parse_ycbcr_matrix(char *str)
+int parse_ycbcr_matrix(const char *str)
 {
     skip_spaces(&str);
     if (*str == '\0')
         return YCBCR_DEFAULT;
 
-    char *end = str + strlen(str);
+    const char *end = str + strlen(str);
     rskip_spaces(&end, str);
 
     // Trim a local copy of the input that we know is safe to
@@ -339,7 +339,7 @@ void ass_msg(ASS_Library *priv, int lvl, const char *fmt, ...)
     va_end(va);
 }
 
-unsigned ass_utf8_get_char(char **str)
+unsigned ass_utf8_get_char(const char **str)
 {
     uint8_t *strp = (uint8_t *) * str;
     unsigned c = *strp++;
@@ -407,7 +407,7 @@ unsigned ass_utf8_put_char(char *dest, uint32_t ch)
  *            (will be set to the start of the next code point)
  * \return the code point
  */
-static uint32_t ass_read_utf16be(uint8_t **src, size_t bytes)
+static uint32_t ass_read_utf16be(const uint8_t **src, size_t bytes)
 {
     if (bytes < 2)
         goto too_short;
@@ -440,9 +440,9 @@ too_short:
     return 0xFFFD;
 }
 
-void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_size)
+void ass_utf16be_to_utf8(char *dst, size_t dst_size, const uint8_t *src, size_t src_size)
 {
-    uint8_t *end = src + src_size;
+    const uint8_t *end = src + src_size;
 
     if (!dst_size)
         return;
@@ -467,7 +467,7 @@ void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_si
  * Returns 0 if no styles found => expects at least 1 style.
  * Parsing code always adds "Default" style in the beginning.
  */
-int lookup_style(ASS_Track *track, char *name)
+int lookup_style(ASS_Track *track, const char *name)
 {
     int i;
     // '*' seem to mean literally nothing;
@@ -497,7 +497,7 @@ int lookup_style(ASS_Track *track, char *name)
  * \return style in track->styles
  * Returns NULL if no style has the given name.
  */
-ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len)
+ASS_Style *lookup_style_strict(ASS_Track *track, const char *name, size_t len)
 {
     int i;
     for (i = track->n_styles - 1; i >= 0; --i) {

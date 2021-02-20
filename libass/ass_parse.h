@@ -30,10 +30,10 @@ void update_font(ASS_Renderer *render_priv);
 double ensure_font_size(ASS_Renderer *priv, double size);
 void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event);
 void process_karaoke_effects(ASS_Renderer *render_priv);
-unsigned get_next_char(ASS_Renderer *render_priv, char **str);
-char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
-                 bool nested);
-int event_has_hard_overrides(char *str);
+unsigned get_next_char(ASS_Renderer *render_priv, const char **str);
+const char *parse_tags(ASS_Renderer *render_priv, const char *p, const char *end,
+                       double pwr, bool nested);
+int event_has_hard_overrides(const char *str);
 extern void change_alpha(uint32_t *var, int32_t new, double pwr);
 extern uint32_t mult_alpha(uint32_t a, uint32_t b);
 
