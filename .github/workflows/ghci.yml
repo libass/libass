@@ -124,11 +124,11 @@ jobs:
 
       - name: compile
         if: matrix.do_distc != 'yes'
-        run: make -j 2
+        run: make -j 2 V=1
 
       - name: distcheck
         if: matrix.do_distc == 'yes'
-        run: make -j 2 distcheck
+        run: make -j 2 distcheck V=1
 
       - name: Coverity scan
         if: >
