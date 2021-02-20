@@ -26,7 +26,7 @@
 #include "ass_bitmap.h"
 
 typedef struct cache Cache;
-typedef uint32_t ass_hashcode;
+typedef uint64_t ass_hashcode;
 
 // cache values
 
