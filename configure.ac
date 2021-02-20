@@ -288,6 +288,9 @@ AS_IF([test "x$enable_asm" != xno], [
             ])
             rm conftest.asm conftest.o > /dev/null 2>&1
         ])
+    ], [
+        AC_MSG_NOTICE(Assembly optimizations are not yet supported on this architecture; disabling.)
+        enable_asm=no
     ])
 ])
 
