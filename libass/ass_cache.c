@@ -40,11 +40,11 @@
 // font cache
 static bool font_key_move(void *dst, void *src)
 {
-    if (!dst)
+    ASS_FontDesc *d = dst, *s = src;
+    if (!d)
         return true;
 
-    ASS_FontDesc *d = dst, *s = dst;
-    memcpy(dst, src, sizeof(ASS_FontDesc));
+    *d = *s;
     d->family.str = ass_copy_string(s->family);
     return d->family.str;
 }
@@ -70,11 +70,11 @@ const CacheDesc font_cache_desc = {
 // bitmap cache
 static bool bitmap_key_move(void *dst, void *src)
 {
-    BitmapHashKey *k = src;
-    if (dst)
-        memcpy(dst, src, sizeof(BitmapHashKey));
+    BitmapHashKey *d = dst, *s = src;
+    if (d)
+        *d = *s;
     else
-        ass_cache_dec_ref(k->outline);
+        ass_cache_dec_ref(s->outline);
     return true;
 }
 
@@ -124,16 +124,17 @@ static bool composite_compare(void *a, void *b)
 
 static bool composite_key_move(void *dst, void *src)
 {
-    if (dst) {
-        memcpy(dst, src, sizeof(CompositeHashKey));
+    CompositeHashKey *d = dst, *s = src;
+    if (d) {
+        *d = *s;
         return true;
     }
-    CompositeHashKey *k = src;
-    for (size_t i = 0; i < k->bitmap_count; i++) {
-        ass_cache_dec_ref(k->bitmaps[i].bm);
-        ass_cache_dec_ref(k->bitmaps[i].bm_o);
+
+    for (size_t i = 0; i < s->bitmap_count; i++) {
+        ass_cache_dec_ref(s->bitmaps[i].bm);
+        ass_cache_dec_ref(s->bitmaps[i].bm_o);
     }
-    free(k->bitmaps);
+    free(s->bitmaps);
     return true;
 }
 
@@ -201,12 +202,13 @@ static bool outline_compare(void *a, void *b)
 static bool outline_key_move(void *dst, void *src)
 {
     OutlineHashKey *d = dst, *s = src;
-    if (!dst) {
+    if (!d) {
         if (s->type == OUTLINE_GLYPH)
             ass_cache_dec_ref(s->u.glyph.font);
         return true;
     }
-    memcpy(dst, src, sizeof(OutlineHashKey));
+
+    *d = *s;
     if (s->type == OUTLINE_DRAWING) {
         d->u.drawing.text.str = ass_copy_string(s->u.drawing.text);
         return d->u.drawing.text.str;
@@ -253,11 +255,12 @@ const CacheDesc outline_cache_desc = {
 // glyph metric cache
 static bool glyph_metrics_key_move(void *dst, void *src)
 {
-    if (!dst)
+    GlyphMetricsHashKey *d = dst, *s = src;
+    if (!d)
         return true;
-    memcpy(dst, src, sizeof(GlyphMetricsHashKey));
-    GlyphMetricsHashKey *k = src;
-    ass_cache_inc_ref(k->font);
+
+    *d = *s;
+    ass_cache_inc_ref(s->font);
     return true;
 }
 
