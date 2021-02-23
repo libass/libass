@@ -185,6 +185,9 @@ static inline int double_to_d22(double x)
 
 static inline uint32_t fnv_32a_buf(const void *buf, size_t len, uint32_t hval)
 {
+    if (!len)
+        return hval;
+
     const uint8_t *bp = buf;
     size_t n = (len + 3) / 4;
 
