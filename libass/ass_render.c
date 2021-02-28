@@ -511,7 +511,7 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
     //  = m_zx * (x + sign(m_zx) * dx) + m_zy * (y + sign(m_zy) * dy) + z0.
 
     // D(f)--absolute value of error in quantity f
-    // as function of error in matrix coefficients, i. e. D(m_??).
+    // as function of error in matrix coefficients, i. e. D(m_ij) for i, j from {x, y, z}.
     // Error in constant is zero, i. e. D(dx) = D(dy) = D(z0) = 0.
     // In the following calculation errors are considered small
     // and second- and higher-order terms are dropped.
@@ -536,7 +536,7 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
 
     // To estimate acceptable error in matrix coefficient
     // set error in all other coefficients to zero and solve system
-    // D(x_out) <= ACCURACY & D(y_out) <= ACCURACY for desired D(m_??).
+    // D(x_out) <= ACCURACY & D(y_out) <= ACCURACY for desired D(m_ij).
     // ACCURACY here is some part of total error, i. e. ACCURACY ~ POSITION_PRECISION.
     // Note that POSITION_PRECISION isn't total error, it's convenient constant.
     // True error can be up to several POSITION_PRECISION.
@@ -1400,7 +1400,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
 
         // Notation from quantize_transform().
         // Note that goal here is to estimate acceptable error for stroking, i. e. D(x) and D(y).
-        // Matrix coefficients are constants now, so D(m_??) = 0.
+        // Matrix coefficients are constants now, so D(m_ij) = 0 for all i, j from {x, y, z}.
 
         // D(z) <= |m_zx| * D(x) + |m_zy| * D(y),
         // D(x_out) = D((m_xx * x + m_xy * y) / z)
