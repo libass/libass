@@ -26,6 +26,7 @@
 #include "ass_bitmap.h"
 
 typedef struct cache Cache;
+typedef uint32_t ass_hashcode;
 
 // cache values
 
@@ -46,7 +47,7 @@ typedef struct {
 #include "ass_cache_template.h"
 
 // Type-specific function pointers
-typedef uint32_t (*HashFunction)(void *key, uint32_t hval);
+typedef ass_hashcode (*HashFunction)(void *key, ass_hashcode hval);
 typedef bool (*HashCompare)(void *a, void *b);
 typedef bool (*CacheKeyMove)(void *dst, void *src);
 typedef size_t (*CacheValueConstructor)(void *key, void *value, void *priv);
