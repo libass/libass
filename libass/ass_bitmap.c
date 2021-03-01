@@ -211,7 +211,7 @@ void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
 
     for (int32_t y = 0; y < b - t; y++) {
         for (int32_t x = 0; x < r - l; x++)
-            o[x] = (o[x] > g[x]) ? o[x] - (g[x] / 2) : 0;
+            o[x] = (o[x] > g[x]) ? o[x] - g[x] : 0;
         g += bm_g->stride;
         o += bm_o->stride;
     }
