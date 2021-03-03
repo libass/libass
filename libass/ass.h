@@ -572,6 +572,15 @@ ASS_Track *ass_new_track(ASS_Library *);
 int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable);
 
 /**
+ * \brief Check if a feature is enabled
+ * \param track track
+ * \param feature the specific feature to check the state of
+ * \return 0 if disabled, a positive integer with feature-dependent meaning if
+ * enabled, -1 if feature is unknown
+ */
+int ass_track_get_feature_state(ASS_Track *track, ASS_Feature feature);
+
+/**
  * \brief Deallocate track and all its child objects (styles and events).
  * \param track track to deallocate or NULL
  */

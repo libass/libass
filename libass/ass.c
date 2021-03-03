@@ -1520,19 +1520,43 @@ fail:
     return NULL;
 }
 
+static const uint64_t supported_features =
+#ifdef USE_FRIBIDI_EX_API
+    1LL << ASS_FEATURE_BIDI_BRACKETS |
+#endif
+    0;
+
 int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable)
 {
-    switch (feature) {
-    case ASS_FEATURE_INCOMPATIBLE_EXTENSIONS:
-        //-fallthrough
-#ifdef USE_FRIBIDI_EX_API
-    case ASS_FEATURE_BIDI_BRACKETS:
-        track->parser_priv->bidi_brackets = !!enable;
-#endif
-        return 0;
-    default:
+    uint64_t requested;
+
+    if (feature >= 64)
         return -1;
-    }
+
+    requested = 1LL << feature;
+
+    if (feature == ASS_FEATURE_INCOMPATIBLE_EXTENSIONS)
+        requested = supported_features;
+    else if (!(requested & supported_features))
+        return -1;
+
+    if (enable)
+        track->parser_priv->features |= requested;
+    else
+        track->parser_priv->features &= ~requested;
+
+    return 0;
+}
+
+int ass_track_get_feature_state(ASS_Track *track, ASS_Feature feature)
+{
+    if (feature >= 64)
+        return -1;
+
+    if (feature == ASS_FEATURE_INCOMPATIBLE_EXTENSIONS)
+        return track->parser_priv->features == supported_features;
+
+    return !!(track->parser_priv->features & (1LL << feature));
 }
 
 /**

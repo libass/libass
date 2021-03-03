@@ -2858,7 +2858,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     ass_shaper_set_level(render_priv->shaper, render_priv->settings.shaper);
 #ifdef USE_FRIBIDI_EX_API
     ass_shaper_set_bidi_brackets(render_priv->shaper,
-            track->parser_priv->bidi_brackets);
+            ass_track_get_feature_state(track, ASS_FEATURE_BIDI_BRACKETS));
 #endif
 
     // PAR correction
