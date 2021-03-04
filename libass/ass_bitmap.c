@@ -60,25 +60,26 @@
 #endif
 
 
-void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
+bool ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
                     int be, double blur_r2)
 {
     if (!bm->buffer)
-        return;
+        return false;
 
     // Apply gaussian blur
+    bool blurred = false;
     if (blur_r2 > 0.001)
-        ass_gaussian_blur(engine, bm, blur_r2);
+        blurred = ass_gaussian_blur(engine, bm, blur_r2);
 
     if (!be)
-        return;
+        return blurred;
 
     // Apply box blur (multiple passes, if requested)
     unsigned align = 1 << engine->align_order;
     size_t size = sizeof(uint16_t) * bm->stride * 2;
     uint16_t *tmp = ass_aligned_alloc(align, size, false);
     if (!tmp)
-        return;
+        return blurred;
 
     int32_t w = bm->w;
     int32_t h = bm->h;
@@ -93,6 +94,7 @@ void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
     }
     engine->be_blur(buf, stride, w, h, tmp);
     ass_aligned_free(tmp);
+    return true;
 }
 
 bool alloc_bitmap(const BitmapEngine *engine, Bitmap *bm,
@@ -196,7 +198,7 @@ bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
  * The glyph bitmap is subtracted from outline bitmap to preserve
  * the final color despite alpha blending being done in two steps.
  */
-void fix_outline(Bitmap *bm_g, Bitmap *bm_o, uint8_t alpha_g)
+void fix_outline(Bitmap *bm_g, Bitmap *bm_o, uint8_t alpha_g, bool blurred)
 {
     if (!bm_g->buffer || !bm_o->buffer)
         return;
@@ -222,7 +224,9 @@ void fix_outline(Bitmap *bm_g, Bitmap *bm_o, uint8_t alpha_g)
 
     for (int32_t y = 0; y < b - t; y++) {
         for (int32_t x = 0; x < r - l; x++) {
-            int num = FFMAX(o[x] - g[x], 0) * 65025;
+            int num = blurred ?
+                o[x] * (255 - g[x]) * 255 :
+                FFMAX(o[x] - g[x], 0) * 65025;
             float den = over65025 - alpha_g * g[x];
             o[x] = num / den + 0.5f;
         }
