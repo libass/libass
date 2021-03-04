@@ -2784,7 +2784,7 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     double r2y = restore_blur(k->filter.blur_y);
     if (!(flags & FILTER_NONZERO_BORDER) || (flags & FILTER_BORDER_STYLE_3))
         ass_synth_blur(&render_priv->engine, &v->bm, k->filter.be, r2x, r2y);
-    ass_synth_blur(&render_priv->engine, &v->bm_o, k->filter.be, r2x, r2y);
+    bool blurred_o = ass_synth_blur(&render_priv->engine, &v->bm_o, k->filter.be, r2x, r2y);
 
     Bitmap *bm_s_source = &v->bm_o;
     bool share_fix_outline =
@@ -2793,18 +2793,18 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     if (share_fix_outline) {
         if (k->filter.alpha_primary != k->filter.alpha_secondary) {
             ass_copy_bitmap(&render_priv->engine, &v->bm_o_k, &v->bm_o);
-            ass_fix_outline(&v->bm, &v->bm_o_k, k->filter.alpha_secondary);
+            ass_fix_outline(&v->bm, &v->bm_o_k, k->filter.alpha_secondary, blurred_o);
             if (k->filter.alpha_primary != 0xFF)
                 bm_s_source = &v->bm_o_k;
         }
-        ass_fix_outline(&v->bm, &v->bm_o, k->filter.alpha_primary);
+        ass_fix_outline(&v->bm, &v->bm_o, k->filter.alpha_primary, blurred_o);
     }
 
     if (flags & FILTER_NONZERO_SHADOW) {
         if (flags & FILTER_NONZERO_BORDER) {
             ass_copy_bitmap(&render_priv->engine, &v->bm_s, bm_s_source);
             if (!(flags & FILTER_FILL_IN_SHADOW) && !share_fix_outline)
-                ass_fix_outline(&v->bm, &v->bm_s, 0xFF);
+                ass_fix_outline(&v->bm, &v->bm_s, 0xFF, blurred_o);
         } else if (flags & FILTER_BORDER_STYLE_3) {
             v->bm_s = v->bm_o;
             memset(&v->bm_o, 0, sizeof(v->bm_o));
@@ -2822,9 +2822,9 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     if (!(flags & FILTER_FILL_IN_BORDER) && !share_fix_outline) {
         if (k->filter.alpha_primary != k->filter.alpha_secondary) {
             ass_copy_bitmap(&render_priv->engine, &v->bm_o_k, &v->bm_o);
-            ass_fix_outline(&v->bm, &v->bm_o_k, k->filter.alpha_secondary);
+            ass_fix_outline(&v->bm, &v->bm_o_k, k->filter.alpha_secondary, blurred_o);
         }
-        ass_fix_outline(&v->bm, &v->bm_o, k->filter.alpha_primary);
+        ass_fix_outline(&v->bm, &v->bm_o, k->filter.alpha_primary, blurred_o);
     }
 
     return sizeof(CompositeHashKey) + sizeof(CompositeHashValue) +
