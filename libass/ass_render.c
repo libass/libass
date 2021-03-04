@@ -1632,7 +1632,8 @@ static void trim_whitespace(ASS_Renderer *render_priv)
  * FIXME: implement style 0 and 3 correctly
  */
 static void
-wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
+wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width,
+                 bool always_wrap)
 {
     int i;
     GlyphInfo *cur, *s1, *e1, *s2, *s3;
@@ -1665,7 +1666,7 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
         } else if (len >= max_text_width
                    && (render_priv->state.wrap_style != 2)) {
             break_type = 1;
-            break_at = last_space;
+            break_at = (last_space == -1 && always_wrap) ? i - 1 : last_space;
             if (break_at >= 0)
                 ass_msg(render_priv->library, MSGL_DBG2, "line break at %d",
                         break_at);
@@ -2600,7 +2601,7 @@ static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
  * Process event, appending resulting ASS_Image's to images_root.
  */
 static bool
-ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
+ass_render_event(ASS_Track *track, ASS_Renderer *render_priv, ASS_Event *event,
                  EventImages *event_images)
 {
     if (event->Style >= render_priv->track->n_styles) {
@@ -2657,7 +2658,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         x2scr_left(render_priv, MarginL);
 
     // wrap lines
-    wrap_lines_smart(render_priv, max_text_width);
+    wrap_lines_smart(render_priv, max_text_width,
+                     ass_track_get_feature_state(track, ASS_FEATURE_FORCE_WRAP_ON_OVERFLOW));
 
     // depends on glyph x coordinates being monotonous within runs, so it should be done before reorder
     process_karaoke_effects(render_priv);
@@ -3157,7 +3159,7 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
                     realloc(priv->eimg,
                             priv->eimg_size * sizeof(EventImages));
             }
-            if (ass_render_event(priv, event, priv->eimg + cnt))
+            if (ass_render_event(track, priv, event, priv->eimg + cnt))
                 cnt++;
         }
     }

@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01500000
+#define LIBASS_VERSION 0x01500001
 
 #ifdef __cplusplus
 extern "C" {
@@ -237,6 +237,14 @@ typedef enum {
      * may return -1) if libass was compiled against old FriBidi.
      */
     ASS_FEATURE_BIDI_BRACKETS,
+
+    /**
+     * If no explicit ("\n") or implicit (" ") wrap point is found, wrap at the
+     * last seen character when doing smart wrap.
+     *
+     * Has no effect if wrap_mode is 2.
+     */
+    ASS_FEATURE_FORCE_WRAP_ON_OVERFLOW,
 
     // New enum values can be added here in new ABI-compatible library releases.
 } ASS_Feature;

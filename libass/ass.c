@@ -1524,7 +1524,7 @@ static const uint64_t supported_features =
 #ifdef USE_FRIBIDI_EX_API
     1LL << ASS_FEATURE_BIDI_BRACKETS |
 #endif
-    0;
+    1LL << ASS_FEATURE_FORCE_WRAP_ON_OVERFLOW;
 
 int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable)
 {
