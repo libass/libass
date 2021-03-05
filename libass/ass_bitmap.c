@@ -374,9 +374,7 @@ int be_padding(int be)
         return be;
     if (be <= 7)
         return 4;
-    if (be <= 123)
-        return 5;
-    return FFMAX(128 - be, 0);
+    return 5;
 }
 
 /**
