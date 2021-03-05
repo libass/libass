@@ -111,6 +111,6 @@ void be_blur_pre(uint8_t *buf, intptr_t stride, intptr_t width, intptr_t height)
 void be_blur_post(uint8_t *buf, intptr_t stride, intptr_t width, intptr_t height);
 bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2);
 void shift_bitmap(Bitmap *bm, int shift_x, int shift_y);
-void fix_outline(Bitmap *bm_g, Bitmap *bm_o);
+void fix_outline(Bitmap *bm_g, Bitmap *bm_o, uint8_t alpha_g);
 
 #endif                          /* LIBASS_BITMAP_H */

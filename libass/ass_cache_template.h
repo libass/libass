@@ -106,6 +106,8 @@ START(filter, filter_desc)
     GENERIC(int, be)
     GENERIC(int, blur)
     VECTOR(shadow)
+    GENERIC(uint8_t, alpha_primary)
+    GENERIC(uint8_t, alpha_secondary)
 END(FilterDesc)
 
 // describes glyph bitmap reference
