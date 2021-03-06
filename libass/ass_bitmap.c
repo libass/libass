@@ -30,34 +30,11 @@
 #include FT_GLYPH_H
 #include FT_OUTLINE_H
 
+#include "ass_cpu.h"
 #include "ass_utils.h"
 #include "ass_outline.h"
 #include "ass_bitmap.h"
 #include "ass_render.h"
-
-
-#define ALIGN           C_ALIGN_ORDER
-#define DECORATE(func)  ass_##func##_c
-#include "ass_func_template.h"
-#undef ALIGN
-#undef DECORATE
-
-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
-
-#define ALIGN           4
-#define DECORATE(func)  ass_##func##_sse2
-#include "ass_func_template.h"
-#undef ALIGN
-#undef DECORATE
-
-#define ALIGN           5
-#define DECORATE(func)  ass_##func##_avx2
-#include "ass_func_template.h"
-#undef ALIGN
-#undef DECORATE
-
-#endif
-
 
 void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
                     int be, double blur_r2)
@@ -98,12 +75,11 @@ void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
 bool alloc_bitmap(const BitmapEngine *engine, Bitmap *bm,
                   int32_t w, int32_t h, bool zero)
 {
-    unsigned align = 1 << engine->align_order;
-    size_t s = ass_align(align, w);
+    size_t s = ass_align(ASS_ALIGNMENT, w);
     // Too often we use ints as offset for bitmaps => use INT_MAX.
     if (s > (INT_MAX - 32) / FFMAX(h, 1))
         return false;
-    uint8_t *buf = ass_aligned_alloc(align, s * h + 32, zero);
+    uint8_t *buf = ass_aligned_alloc(ASS_ALIGNMENT, s * h + 32, zero);
     if (!buf)
         return false;
     bm->w = w;
@@ -265,7 +241,6 @@ void ass_be_blur_c(uint8_t *buf, intptr_t w, intptr_t h,
     uint16_t *col_sum_buf = tmp + w;
     unsigned x, y, old_pix, old_sum, temp1, temp2;
     uint8_t *src, *dst;
-    memset(tmp, 0, sizeof(uint16_t) * w * 2);
     y = 0;
 
     {

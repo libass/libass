@@ -56,10 +56,10 @@ jobs:
         run: ./autogen.sh && CC="${{ matrix.cc }}" ./configure
 
       - name: compile
-        run: test "x${{ matrix.do_distc }}" = "xyes" || make -j 2
+        run: test "x${{ matrix.do_distc }}" = "xyes" || make -j 2 V=1
 
       - name: distcheck
-        run: if [ "x${{ matrix.do_distc }}" = "xyes" ] ; then make -j 2 distcheck; fi
+        run: if [ "x${{ matrix.do_distc }}" = "xyes" ] ; then make -j 2 distcheck V=1; fi
 
       - name: Coverity scan
         env:

@@ -16,7 +16,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-
+#define DECORATE_SUFFIX2(name, suffix) ass_##name##_##suffix
+#define DECORATE_SUFFIX(name, suffix) DECORATE_SUFFIX2(name, suffix)
+#define DECORATE(name) DECORATE_SUFFIX(name, ENGINE_SUFFIX)
 
 void DECORATE(fill_solid_tile16)(uint8_t *buf, ptrdiff_t stride, int set);
 void DECORATE(fill_solid_tile32)(uint8_t *buf, ptrdiff_t stride, int set);
@@ -88,43 +90,6 @@ void DECORATE(blur8_vert)(int16_t *dst, const int16_t *src,
                           uintptr_t src_width, uintptr_t src_height,
                           const int16_t *param);
 
-
-const BitmapEngine DECORATE(bitmap_engine) = {
-    .align_order = ALIGN,
-
-#if CONFIG_LARGE_TILES
-    .tile_order = 5,
-    .fill_solid = DECORATE(fill_solid_tile32),
-    .fill_halfplane = DECORATE(fill_halfplane_tile32),
-    .fill_generic = DECORATE(fill_generic_tile32),
-#else
-    .tile_order = 4,
-    .fill_solid = DECORATE(fill_solid_tile16),
-    .fill_halfplane = DECORATE(fill_halfplane_tile16),
-    .fill_generic = DECORATE(fill_generic_tile16),
-#endif
-
-    .add_bitmaps = DECORATE(add_bitmaps),
-#ifdef __x86_64__
-    .sub_bitmaps = DECORATE(sub_bitmaps),
-    .mul_bitmaps = DECORATE(mul_bitmaps),
-#else
-    .sub_bitmaps = ass_sub_bitmaps_c,
-    .mul_bitmaps = ass_mul_bitmaps_c,
-#endif
-
-#ifdef __x86_64__
-    .be_blur = DECORATE(be_blur),
-#else
-    .be_blur = ass_be_blur_c,
-#endif
-
-    .stripe_unpack = DECORATE(stripe_unpack),
-    .stripe_pack = DECORATE(stripe_pack),
-    .shrink_horz = DECORATE(shrink_horz),
-    .shrink_vert = DECORATE(shrink_vert),
-    .expand_horz = DECORATE(expand_horz),
-    .expand_vert = DECORATE(expand_vert),
-    .blur_horz = { DECORATE(blur4_horz), DECORATE(blur5_horz), DECORATE(blur6_horz), DECORATE(blur7_horz), DECORATE(blur8_horz) },
-    .blur_vert = { DECORATE(blur4_vert), DECORATE(blur5_vert), DECORATE(blur6_vert), DECORATE(blur7_vert), DECORATE(blur8_vert) },
-};
+#undef DECORATE_SUFFIX2
+#undef DECORATE_SUFFIX
+#undef DECORATE

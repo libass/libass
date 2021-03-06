@@ -31,41 +31,6 @@
 #include "ass_utils.h"
 #include "ass_string.h"
 
-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
-
-#include "x86/cpuid.h"
-
-int has_sse2(void)
-{
-    uint32_t eax = 1, ebx, ecx, edx;
-    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    return (edx >> 26) & 0x1;
-}
-
-int has_avx(void)
-{
-    uint32_t eax = 1, ebx, ecx, edx;
-    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    if (!(ecx & (1 << 27))) // not OSXSAVE
-        return 0;
-    uint32_t misc = ecx;
-    ass_get_xgetbv(0, &eax, &edx);
-    if ((eax & 0x6) != 0x6)
-        return 0;
-    eax = 0;
-    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    return (ecx & 0x6) == 0x6 ? (misc >> 28) & 0x1 : 0; // check high bits are relevant, then AVX support
-}
-
-int has_avx2(void)
-{
-    uint32_t eax = 7, ebx, ecx, edx;
-    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    return (ebx >> 5) & has_avx();
-}
-
-#endif // ASM
-
 #ifndef HAVE_STRNDUP
 char *ass_strndup(const char *s, size_t n)
 {

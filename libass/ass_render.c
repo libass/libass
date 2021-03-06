@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include "ass_cpu.h"
 #include "ass_outline.h"
 #include "ass_render.h"
 #include "ass_parse.h"
@@ -70,16 +71,11 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->ftlibrary = ft;
     // images_root and related stuff is zero-filled in calloc
 
-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
-    if (has_avx2())
-        priv->engine = &ass_bitmap_engine_avx2;
-    else if (has_sse2())
-        priv->engine = &ass_bitmap_engine_sse2;
-    else
-        priv->engine = &ass_bitmap_engine_c;
-#else
-    priv->engine = &ass_bitmap_engine_c;
-#endif
+    priv->engine = calloc(sizeof(BitmapEngine), 1);
+    if (!priv->engine)
+        goto fail;
+
+    ass_bitmap_engine_init(priv->engine, ASS_CPU_FLAG_ALL);
 
     if (!rasterizer_init(&priv->rasterizer, priv->engine->tile_order,
                          RASTERIZER_PRECISION))
@@ -130,6 +126,8 @@ void ass_renderer_done(ASS_Renderer *render_priv)
 {
     if (!render_priv)
         return;
+
+    free(render_priv->engine);
 
     ass_frame_unref(render_priv->images_root);
     ass_frame_unref(render_priv->prev_images_root);
