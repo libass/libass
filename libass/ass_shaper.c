@@ -49,11 +49,12 @@ struct ass_shaper {
     ASS_ShapingLevel shaping_level;
 
     // FriBidi log2vis
-    int n_glyphs;
+    int n_glyphs, n_pars;
     FriBidiChar *event_text;
     FriBidiCharType *ctypes;
     FriBidiLevel *emblevels;
     FriBidiStrIndex *cmap;
+    FriBidiParType *pbase_dir;
     FriBidiParType base_direction;
 
     // OpenType features
@@ -99,7 +100,7 @@ void ass_shaper_info(ASS_Library *lib)
  * \brief grow arrays, if needed
  * \param new_size requested size
  */
-static bool check_allocations(ASS_Shaper *shaper, size_t new_size)
+static bool check_allocations(ASS_Shaper *shaper, size_t new_size, size_t n_pars)
 {
     if (new_size > shaper->n_glyphs) {
         if (!ASS_REALLOC_ARRAY(shaper->event_text, new_size) ||
@@ -111,6 +112,11 @@ static bool check_allocations(ASS_Shaper *shaper, size_t new_size)
             !ASS_REALLOC_ARRAY(shaper->cmap, new_size))
             return false;
         shaper->n_glyphs = new_size;
+    }
+    if (shaper->whole_text_layout && n_pars > shaper->n_pars) {
+        if (!ASS_REALLOC_ARRAY(shaper->pbase_dir, n_pars))
+            return false;
+        shaper->n_pars = n_pars;
     }
     return true;
 }
@@ -129,6 +135,7 @@ void ass_shaper_free(ASS_Shaper *shaper)
 #endif
     free(shaper->emblevels);
     free(shaper->cmap);
+    free(shaper->pbase_dir);
     free(shaper);
 }
 
@@ -965,10 +972,15 @@ void ass_shaper_set_whole_text_layout(ASS_Shaper *shaper, bool enable)
 bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
 {
     int i, ret, last_break;
-    FriBidiParType dir;
+    FriBidiParType dir, *pdir;
     GlyphInfo *glyphs = text_info->glyphs;
 
-    if (!check_allocations(shaper, text_info->length))
+    int n_pars = 1;
+    for (i = 0; i < text_info->length - 1; i++)
+        if (glyphs[i].symbol == '\n')
+            n_pars++;
+
+    if (!check_allocations(shaper, text_info->length, n_pars))
         return false;
 
     for (i = 0; i < text_info->length; i++)
@@ -986,6 +998,7 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
 
     // Get bidi embedding levels
     last_break = 0;
+    pdir = shaper->pbase_dir;
     for (i = 0; i < text_info->length; i++) {
         // embedding levels should be calculated paragraph by paragraph
         if (glyphs[i].symbol == '\n' || i == text_info->length - 1 ||
@@ -1006,6 +1019,8 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
             if (ret == 0)
                 return false;
             last_break = i + 1;
+            if (shaper->whole_text_layout)
+                *pdir++ = dir;
         }
     }
 
@@ -1079,21 +1094,23 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
 
     // Create reorder map line-by-line or run-by-run
     int last_break = 0;
+    FriBidiParType *pdir = shaper->whole_text_layout ?
+        shaper->pbase_dir : &shaper->base_direction;
     GlyphInfo *glyphs = text_info->glyphs;
     for (i = 0; i < text_info->length; i++) {
         if (i == text_info->length - 1 || glyphs[i + 1].linebreak ||
                 (!shaper->whole_text_layout &&
                     (glyphs[i + 1].starts_new_run || glyphs[i].hspacing))) {
-            FriBidiParType dir = FRIBIDI_PAR_ON;
-
             ret = fribidi_reorder_line(0,
-                    shaper->ctypes, i - last_break + 1, last_break, dir,
+                    shaper->ctypes, i - last_break + 1, last_break, *pdir,
                     shaper->emblevels, NULL,
                     shaper->cmap);
             if (ret == 0)
                 return NULL;
 
             last_break = i + 1;
+            if (shaper->whole_text_layout)
+                pdir++;
         }
     }
 
