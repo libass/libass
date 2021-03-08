@@ -714,6 +714,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
         bleft = left - bx;
         btop = top - by;
 
+        unsigned align = 1 << render_priv->engine->align_order;
         if (render_priv->state.clip_drawing_mode) {
             // Inverse clip
             if (ax + aw < bx || ay + ah < by || ax > bx + bw ||
@@ -722,7 +723,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
             }
 
             // Allocate new buffer and add to free list
-            nbuffer = ass_aligned_alloc(32, as * ah, false);
+            nbuffer = ass_aligned_alloc(align, as * ah + align, false);
             if (!nbuffer)
                 break;
 
@@ -740,9 +741,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
             }
 
             // Allocate new buffer and add to free list
-            unsigned align = (w >= 16) ? 16 : ((w >= 8) ? 8 : 1);
             unsigned ns = ass_align(align, w);
-            nbuffer = ass_aligned_alloc(align, ns * h, false);
+            nbuffer = ass_aligned_alloc(align, ns * h + align, false);
             if (!nbuffer)
                 break;
 

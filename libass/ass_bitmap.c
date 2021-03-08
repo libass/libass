@@ -73,8 +73,9 @@ void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
         return;
 
     // Apply box blur (multiple passes, if requested)
+    unsigned align = 1 << engine->align_order;
     size_t size = sizeof(uint16_t) * bm->stride * 2;
-    uint16_t *tmp = ass_aligned_alloc(32, size, false);
+    uint16_t *tmp = ass_aligned_alloc(align, size, false);
     if (!tmp)
         return;
 
@@ -101,9 +102,9 @@ bool alloc_bitmap(const BitmapEngine *engine, Bitmap *bm,
     unsigned align = 1 << engine->align_order;
     size_t s = ass_align(align, w);
     // Too often we use ints as offset for bitmaps => use INT_MAX.
-    if (s > (INT_MAX - 32) / FFMAX(h, 1))
+    if (s > (INT_MAX - align) / FFMAX(h, 1))
         return false;
-    uint8_t *buf = ass_aligned_alloc(align, s * h + 32, zero);
+    uint8_t *buf = ass_aligned_alloc(align, s * h + align, zero);
     if (!buf)
         return false;
     bm->w = w;
