@@ -88,133 +88,77 @@ INIT_YMM avx2
 BLEND_BITMAPS add
 BLEND_BITMAPS sub
 
+;------------------------------------------------------------------------------
+; MUL_BITMAPS
+; void mul_bitmaps(uint8_t *dst, intptr_t dst_stride,
+;                  uint8_t *src1, intptr_t src1_stride,
+;                  uint8_t *src2, intptr_t src2_stride,
+;                  intptr_t width, intptr_t height);
+;------------------------------------------------------------------------------
 
+%macro MUL_BITMAPS 0
 %if ARCH_X86_64
+cglobal mul_bitmaps, 7,9,7
+    DECLARE_REG_TMP 8,7
+%else
+cglobal mul_bitmaps, 1,7,7
+    DECLARE_REG_TMP 1,3
+    mov r2, r2m
+    mov r4, r4m
+    mov r5, r5m
+    mov r6, r6m
+%endif
+    lea r0, [r0 + r6]
+    lea r2, [r2 + r6]
+    lea r4, [r4 + r6]
+    neg r6
+    mov t0, r6
+    and r6, mmsize - 1
+    lea t1, [edge_mask]
+    movu m4, [t1 + r6 - mmsize]
+    mova m5, [words_255]
+    pxor m6, m6
+    mov t1, r7m
+    imul t1, r5
+    add t1, r4
+    mov r6, t0
+    jmp .loop_entry
 
-;------------------------------------------------------------------------------
-; void mul_bitmaps( uint8_t *dst, intptr_t dst_stride,
-;                   uint8_t *src1, intptr_t src1_stride,
-;                   uint8_t *src2, intptr_t src2_stride,
-;                   intptr_t width, intptr_t height );
-;------------------------------------------------------------------------------
-
-INIT_XMM
-cglobal mul_bitmaps_x86, 8,12
-.skip_prologue:
-    imul r7, r3
-    add r7, r2 ; last address
-.height_loop:
-    xor r8, r8 ; x offset
-.stride_loop:
-    movzx r9, byte [r2 + r8]
-    movzx r10, byte [r4 + r8]
-    imul r9, r10
-    add r9, 255
-    shr r9, 8
-    mov byte [r0 + r8], r9b
-    inc r8
-    cmp r8, r6
-    jl .stride_loop ; still in scan line
+.width_loop:
+    mova [r0 + r6 - mmsize], m0
+.loop_entry:
+    movu m0, [r2 + r6]
+    movu m1, [r4 + r6]
+    punpckhbw m2, m0, m6
+    punpckhbw m3, m1, m6
+    punpcklbw m0, m6
+    punpcklbw m1, m6
+    pmullw m2, m3
+    pmullw m0, m1
+    paddw m2, m5
+    paddw m0, m5
+    psrlw m2, 8
+    psrlw m0, 8
+    packuswb m0, m2
+    add r6, mmsize
+    jnc .width_loop
+    pand m0, m4
+    mova [r0 + r6 - mmsize], m0
+%if ARCH_X86_64
     add r0, r1
     add r2, r3
+%else
+    add r0, r1m
+    add r2, r3m
+%endif
     add r4, r5
-    cmp r2, r7
-    jl .height_loop
+    mov r6, t0
+    cmp r4, t1
+    jl .loop_entry
     RET
+%endmacro
 
 INIT_XMM sse2
-cglobal mul_bitmaps, 8,12
-.skip_prologue:
-    cmp r6, 8
-    jl mul_bitmaps_x86.skip_prologue
-    imul r7, r3
-    add r7, r2 ; last address
-    pxor xmm2, xmm2
-    movdqa xmm3, [words_255]
-    mov r9, r6
-    and r9, -8 ; &= (~8);
-.height_loop:
-    xor r8, r8 ; x offset
-.stride_loop:
-    movq xmm0, [r2 + r8]
-    movq xmm1, [r4 + r8]
-    punpcklbw xmm0, xmm2
-    punpcklbw xmm1, xmm2
-    pmullw xmm0, xmm1
-    paddw xmm0, xmm3
-    psrlw xmm0, 0x08
-    packuswb xmm0, xmm0
-    movq [r0 + r8], xmm0
-    add r8, 8
-    cmp r8, r9
-    jl .stride_loop ; still in scan line
-.stride_loop2:
-    cmp r8, r6
-    jge .finish
-    movzx r10, byte [r2 + r8]
-    movzx r11, byte [r4 + r8]
-    imul r10, r11
-    add r10, 255
-    shr r10, 8
-    mov byte [r0 + r8], r10b
-    inc r8
-    jmp .stride_loop2
-.finish:
-    add r0, r1
-    add r2, r3
-    add r4, r5
-    cmp r2, r7
-    jl .height_loop
-    RET
-
+MUL_BITMAPS
 INIT_YMM avx2
-cglobal mul_bitmaps, 8,12
-    cmp r6, 16
-    jl mul_bitmaps_sse2.skip_prologue
-    %if mmsize == 32
-        vzeroupper
-    %endif
-    imul r7, r3
-    add r7, r2 ; last address
-    vpxor ymm2, ymm2
-    vmovdqa ymm3, [words_255]
-    mov r9, r6
-    and r9, -16 ; &= (~16);
-.height_loop:
-    xor r8, r8 ; x offset
-.stride_loop:
-    vmovdqu xmm0, [r2 + r8]
-    vpermq ymm0, ymm0, 0x10
-    vmovdqu xmm1, [r4 + r8]
-    vpermq ymm1, ymm1, 0x10
-    vpunpcklbw ymm0, ymm0, ymm2
-    vpunpcklbw ymm1, ymm1, ymm2
-    vpmullw ymm0, ymm0, ymm1
-    vpaddw ymm0, ymm0, ymm3
-    vpsrlw ymm0, ymm0, 0x08
-    vextracti128 xmm4, ymm0, 0x1
-    vpackuswb ymm0, ymm0, ymm4
-    vmovdqa [r0 + r8], xmm0
-    add r8, 16
-    cmp r8, r9
-    jl .stride_loop ; still in scan line
-.stride_loop2:
-    cmp r8, r6
-    jge .finish
-    movzx r10, byte [r2 + r8]
-    movzx r11, byte [r4 + r8]
-    imul r10, r11
-    add r10, 255
-    shr r10, 8
-    mov byte [r0 + r8], r10b
-    inc r8
-    jmp .stride_loop2
-.finish:
-    add r0, r1
-    add r2, r3
-    add r4, r5
-    cmp r2, r7
-    jl .height_loop
-    RET
-
-%endif
+MUL_BITMAPS
