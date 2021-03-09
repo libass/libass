@@ -108,11 +108,7 @@ const BitmapEngine DECORATE(bitmap_engine) = {
     .sub_bitmaps = DECORATE(sub_bitmaps),
     .mul_bitmaps = DECORATE(mul_bitmaps),
 
-#ifdef __x86_64__
     .be_blur = DECORATE(be_blur),
-#else
-    .be_blur = ass_be_blur_c,
-#endif
 
     .stripe_unpack = DECORATE(stripe_unpack),
     .stripe_pack = DECORATE(stripe_pack),
