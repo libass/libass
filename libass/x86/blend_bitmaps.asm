@@ -22,159 +22,74 @@
 
 SECTION_RODATA 32
 
-words_255: dw 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF
+times 32 db 0xFF
+edge_mask: times 32 db 0x00
+words_255: times 16 dw 0xFF
 
 SECTION .text
 
 ;------------------------------------------------------------------------------
-; void add_bitmaps( uint8_t *dst, intptr_t dst_stride,
-;                   uint8_t *src, intptr_t src_stride,
-;                   intptr_t height, intptr_t width );
+; BLEND_BITMAPS 1:add/sub
+; void add_bitmaps(uint8_t *dst, intptr_t dst_stride,
+;                  uint8_t *src, intptr_t src_stride,
+;                  intptr_t height, intptr_t width);
+; void sub_bitmaps(uint8_t *dst, intptr_t dst_stride,
+;                  uint8_t *src, intptr_t src_stride,
+;                  intptr_t height, intptr_t width);
 ;------------------------------------------------------------------------------
 
-INIT_XMM
-cglobal add_bitmaps_x86, 6,7
-.skip_prologue:
+%macro BLEND_BITMAPS 1
+%if ARCH_X86_64
+cglobal %1_bitmaps, 6,8,3
+    DECLARE_REG_TMP 7
+%else
+cglobal %1_bitmaps, 4,7,3
+    DECLARE_REG_TMP 4
+    mov r5, r5m
+%endif
+    lea r0, [r0 + r5]
+    lea r2, [r2 + r5]
+    neg r5
+    mov r6, r5
+    and r5, mmsize - 1
+    lea t0, [edge_mask]
+    movu m2, [t0 + r5 - mmsize]
+%if !ARCH_X86_64
+    mov r4, r4m
+%endif
     imul r4, r3
     add r4, r2
-    PUSH r4
-    mov r4, r3
-.height_loop:
-    xor r6, r6 ; x offset
-.stride_loop:
-    movzx r3, byte [r0 + r6]
-    add r3b, byte [r2 + r6]
-    jnc .continue
-    mov r3b, 0xff
-.continue:
-    mov byte [r0 + r6], r3b
-    inc r6
-    cmp r6, r5
-    jl .stride_loop ; still in scan line
-    add r0, r1
-    add r2, r4
-    cmp r2, [rsp]
-    jl .height_loop
-    ADD rsp, gprsize
-    RET
+    mov r5, r6
+    jmp .loop_entry
 
-%macro ADD_BITMAPS 0
-    cglobal add_bitmaps, 6,7
-    .skip_prologue:
-        cmp r5, mmsize
-        %if mmsize == 16
-            jl add_bitmaps_x86.skip_prologue
-        %else
-            jl add_bitmaps_sse2.skip_prologue
-        %endif
-        %if mmsize == 32
-            vzeroupper
-        %endif
-        imul r4, r3
-        add r4, r2 ; last address
-    .height_loop:
-        xor r6, r6 ; x offset
-    .stride_loop:
-        movu m0, [r0 + r6]
-        paddusb m0, [r2 + r6]
-        movu [r0 + r6], m0
-        add r6, mmsize
-        cmp r6, r5
-        jl .stride_loop ; still in scan line
-        add r0, r1
-        add r2, r3
-        cmp r2, r4
-        jl .height_loop
-        RET
+.width_loop:
+    p%1usb m0, m1
+    movu [r0 + r5 - mmsize], m0
+.loop_entry:
+    movu m0, [r0 + r5]
+    movu m1, [r2 + r5]
+    add r5, mmsize
+    jnc .width_loop
+    pand m1, m2
+    p%1usb m0, m1
+    movu [r0 + r5 - mmsize], m0
+    add r0, r1
+    add r2, r3
+    mov r5, r6
+    cmp r2, r4
+    jl .loop_entry
+    RET
 %endmacro
 
 INIT_XMM sse2
-ADD_BITMAPS
+BLEND_BITMAPS add
+BLEND_BITMAPS sub
 INIT_YMM avx2
-ADD_BITMAPS
+BLEND_BITMAPS add
+BLEND_BITMAPS sub
 
-;------------------------------------------------------------------------------
-; void sub_bitmaps( uint8_t *dst, intptr_t dst_stride,
-;                   uint8_t *src, intptr_t src_stride,
-;                   intptr_t height, intptr_t width );
-;------------------------------------------------------------------------------
-
-INIT_XMM
-cglobal sub_bitmaps_x86, 6,10
-.skip_prologue:
-    imul r4, r3
-    add r4, r2 ; last address
-    PUSH r4
-    mov r4, r3
-.height_loop:
-    xor r6, r6 ; x offset
-.stride_loop:
-    mov r3b, byte [r0 + r6]
-    sub r3b, byte [r2 + r6]
-    jnc .continue
-    mov r3b, 0x0
-.continue:
-    mov byte [r0 + r6], r3b
-    inc r6
-    cmp r6, r5
-    jl .stride_loop ; still in scan line
-    add r0, r1
-    add r2, r4
-    cmp r2, [rsp]
-    jl .height_loop
-    ADD rsp, gprsize
-    RET
 
 %if ARCH_X86_64
-
-%macro SUB_BITMAPS 0
-    cglobal sub_bitmaps, 6,10
-    .skip_prologue:
-        cmp r5, mmsize
-        %if mmsize == 16
-            jl sub_bitmaps_x86.skip_prologue
-        %else
-            jl sub_bitmaps_sse2.skip_prologue
-        %endif
-        %if mmsize == 32
-            vzeroupper
-        %endif
-        imul r4, r3
-        add r4, r2 ; last address
-        mov r7, r5
-        and r7, -mmsize ; &= (16);
-        xor r9, r9
-    .height_loop:
-        xor r6, r6 ; x offset
-    .stride_loop:
-        movu m0, [r0 + r6]
-        movu m1, [r2 + r6]
-        psubusb m0, m1
-        movu [r0 + r6], m0
-        add r6, mmsize
-        cmp r6, r7
-        jl .stride_loop ; still in scan line
-    .stride_loop2:
-        cmp r6, r5
-        jge .finish
-        movzx r8, byte [r0 + r6]
-        sub r8b, byte [r2 + r6]
-        cmovc r8, r9
-        mov byte [r0 + r6], r8b
-        inc r6
-        jmp .stride_loop2
-    .finish:
-        add r0, r1
-        add r2, r3
-        cmp r2, r4
-        jl .height_loop
-        RET
-%endmacro
-
-INIT_XMM sse2
-SUB_BITMAPS
-INIT_YMM avx2
-SUB_BITMAPS
 
 ;------------------------------------------------------------------------------
 ; void mul_bitmaps( uint8_t *dst, intptr_t dst_stride,

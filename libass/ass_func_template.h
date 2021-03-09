@@ -105,11 +105,10 @@ const BitmapEngine DECORATE(bitmap_engine) = {
 #endif
 
     .add_bitmaps = DECORATE(add_bitmaps),
-#ifdef __x86_64__
     .sub_bitmaps = DECORATE(sub_bitmaps),
+#ifdef __x86_64__
     .mul_bitmaps = DECORATE(mul_bitmaps),
 #else
-    .sub_bitmaps = ass_sub_bitmaps_c,
     .mul_bitmaps = ass_mul_bitmaps_c,
 #endif
 
