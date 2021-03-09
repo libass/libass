@@ -86,12 +86,10 @@ void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
     if (--be) {
         be_blur_pre(buf, w, h, stride);
         do {
-            memset(tmp, 0, stride * 2);
             engine->be_blur(buf, w, h, stride, tmp);
         } while (--be);
         be_blur_post(buf, w, h, stride);
     }
-    memset(tmp, 0, stride * 2);
     engine->be_blur(buf, w, h, stride, tmp);
     ass_aligned_free(tmp);
 }
@@ -266,7 +264,6 @@ void ass_be_blur_c(uint8_t *buf, intptr_t w, intptr_t h,
     uint16_t *col_sum_buf = tmp + w;
     unsigned x, y, old_pix, old_sum, temp1, temp2;
     uint8_t *src, *dst;
-    memset(tmp, 0, sizeof(uint16_t) * w * 2);
     y = 0;
 
     {
