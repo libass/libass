@@ -24,13 +24,11 @@ SECTION_RODATA 32
 
 words_zero: times 16 dw 0
 words_one: times 16 dw 1
-words_15_6: times 8 dw 15, 6
-words_dither0: times 8 dw  8, 40
-words_dither1: times 8 dw 56, 24
+words_dither_init: times 8 dw  8, 40
+words_dither_flip: times 16 dw 48
 words_sign: times 16 dw 0x8000
 
 dwords_two: times 8 dd 2
-dwords_32: times 8 dd 32
 dwords_round: times 8 dd 0x8000
 dwords_lomask: times 8 dd 0xFFFF
 
@@ -45,12 +43,12 @@ SECTION .text
 %macro STRIPE_UNPACK 0
 cglobal stripe_unpack, 5,6,3
     lea r3, [2 * r3 + mmsize - 1]
-    and r3, ~(mmsize - 1)
+    and r3, -mmsize
     mov r5, r3
     imul r3, r4
     shr r5, 1
     MUL r4, mmsize
-    and r5, ~(mmsize - 1)
+    and r5, -mmsize
     sub r3, r4
     sub r2, r5
     xor r5, r5
@@ -117,13 +115,14 @@ STRIPE_UNPACK
 cglobal stripe_pack, 5,7,5
     lea r3, [2 * r3 + mmsize - 1]
     mov r6, r1
-    and r3, ~(mmsize - 1)
+    and r3, -mmsize
     mov r5, mmsize
     imul r3, r4
     imul r6, r4
     add r3, r2
     MUL r4, mmsize
     sub r5, r6
+    mova m4, [words_dither_flip]
     jmp .row_loop
 
 .col_loop:
@@ -144,9 +143,7 @@ cglobal stripe_pack, 5,7,5
     vpermq m0, m0, q3120
 %endif
     mova [r0], m0
-    mova m2, m3
-    mova m3, m4
-    mova m4, m2
+    pxor m3, m4
     add r2, mmsize
     add r0, r1
     cmp r2, r6
@@ -154,8 +151,7 @@ cglobal stripe_pack, 5,7,5
     add r0, r5
     add r2, r4
 .row_loop:
-    mova m3, [words_dither0]
-    mova m4, [words_dither1]
+    mova m3, [words_dither_init]
     lea r6, [r2 + r4]
     cmp r6, r3
     jb .col_loop
@@ -176,9 +172,7 @@ cglobal stripe_pack, 5,7,5
     vpermq m0, m0, q3120
 %endif
     mova [r0], m0
-    mova m2, m3
-    mova m3, m4
-    mova m4, m2
+    pxor m3, m4
     add r2, mmsize
     add r0, r1
     cmp r2, r6
@@ -246,8 +240,8 @@ cglobal shrink_horz, 4,7,8
 %endif
     lea t0, [r2 + mmsize + 3]
     lea r2, [2 * r2 + mmsize - 1]
-    and t0, ~(mmsize - 1)
-    and r2, ~(mmsize - 1)
+    and t0, -mmsize
+    and r2, -mmsize
     imul t0, r3
     imul r2, r3
     add t0, r0
@@ -354,11 +348,11 @@ cglobal shrink_horz, 4,7,8
 %if ARCH_X86_64
     cmp r0, t0
 %else
-    cmp r0, [rstk]
+    cmp r0, [rsp]
 %endif
     jb .main_loop
-%if ARCH_X86_64 == 0
-    ADD rstk, 4
+%if !ARCH_X86_64
+    ADD rsp, 4
 %endif
     RET
 %endmacro
@@ -382,7 +376,7 @@ cglobal shrink_vert, 4,7,8
 %endif
     lea r2, [2 * r2 + mmsize - 1]
     lea r5, [r3 + 5]
-    and r2, ~(mmsize - 1)
+    and r2, -mmsize
     shr r5, 1
     imul r2, r5
     MUL r3, mmsize
@@ -467,8 +461,8 @@ cglobal expand_horz, 4,7,5
 %endif
     lea t0, [4 * r2 + 7]
     lea r2, [2 * r2 + mmsize - 1]
-    and t0, ~(mmsize - 1)
-    and r2, ~(mmsize - 1)
+    and t0, -mmsize
+    and r2, -mmsize
     imul t0, r3
     imul r2, r3
     add t0, r0
@@ -484,7 +478,7 @@ cglobal expand_horz, 4,7,5
     lea r5, [r0 + r3]
     cmp r0, t0
     jae .odd_stripe
-%if ARCH_X86_64 == 0
+%if !ARCH_X86_64
     PUSH t0
 %endif
 .main_loop:
@@ -532,14 +526,14 @@ cglobal expand_horz, 4,7,5
     jb .main_loop
     add r0, r3
     lea r5, [r0 + r3]
-%if ARCH_X86_64 == 0
-    mov t0, [rstk]
+%if !ARCH_X86_64
+    mov t0, [rsp]
 %endif
     cmp r0, t0
     jb .main_loop
     add t0, r3
-%if ARCH_X86_64 == 0
-    ADD rstk, 4
+%if !ARCH_X86_64
+    ADD rsp, 4
 %endif
     cmp r0, t0
     jb .odd_stripe
@@ -601,7 +595,7 @@ EXPAND_HORZ
 cglobal expand_vert, 4,7,5
     lea r2, [2 * r2 + mmsize - 1]
     lea r5, [2 * r3 + 4]
-    and r2, ~(mmsize - 1)
+    and r2, -mmsize
     imul r2, r5
     MUL r3, mmsize
     add r2, r0
@@ -756,8 +750,8 @@ cglobal blur%1_horz, 5,7,8
     LOAD_MULTIPLIER %1, 9, r4, r5
     lea r5, [2 * r2 + mmsize + 4 * %1 - 1]
     lea r2, [2 * r2 + mmsize - 1]
-    and r5, ~(mmsize - 1)
-    and r2, ~(mmsize - 1)
+    and r5, -mmsize
+    and r2, -mmsize
     imul r5, r3
     imul r2, r3
     add r5, r0
@@ -846,7 +840,7 @@ cglobal blur%1_horz, 5,7,8
     FILTER_PAIR 5,6, 3,4, 8, 9,%%i
 %endrep
 
-%if ARCH_X86_64 == 0
+%if !ARCH_X86_64
     SWAP 1, 8
     mova m1, [r0]
 %if %1 % 2
@@ -872,7 +866,7 @@ cglobal blur%1_horz, 5,7,8
 
 %if %%i > 2
     %assign %%i %%i - 2
-%if ARCH_X86_64 == 0
+%if !ARCH_X86_64
     SWAP 2, 8
     mova m2, [r0]
 %endif
@@ -923,7 +917,7 @@ cglobal blur%1_vert, 5,7,8
     LOAD_MULTIPLIER %1, 7, r4, r5
     lea r2, [2 * r2 + mmsize - 1]
     lea r5, [r3 + 2 * %1]
-    and r2, ~(mmsize - 1)
+    and r2, -mmsize
     imul r2, r5
     MUL r3, mmsize
     add r2, r0
