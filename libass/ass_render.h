@@ -188,6 +188,7 @@ typedef struct {
 typedef struct {
     GlyphInfo *glyphs;
     FriBidiChar *event_text;
+    char *breaks;
     int length;
     LineInfo *lines;
     int n_lines;

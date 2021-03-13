@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01600000
+#define LIBASS_VERSION 0x01600010
 
 #ifdef __cplusplus
 extern "C" {
@@ -265,6 +265,19 @@ typedef enum {
      * events to be always processed as if this feature is enabled.
      */
     ASS_FEATURE_WHOLE_TEXT_LAYOUT,
+
+    /**
+     * Break lines according to the Unicode Line Breaking Algorithm.
+     * If the track language is set, some additional language-specific tweaks
+     * may be applied. Setting this enables more breaking opportunities
+     * compared to classic ASS. However, it is still possible for long words
+     * without breaking opportunities to cause overfull lines.
+     * This is incompatible with VSFilter and disabled by default.
+     *
+     * This feature may be unavailable at runtime if
+     * libass was compiled without libunibreak support.
+     */
+    ASS_FEATURE_WRAP_UNICODE,
 
     // New enum values can be added here in new ABI-compatible library releases.
 } ASS_Feature;
