@@ -65,20 +65,23 @@ AC_SEARCH_LIBS([lrint], [m], [
 ])
 pkg_libs="$LIBS"
 
-## Check for libraries via pkg-config
+## Check for libraries via pkg-config and add to pkg_requires as needed
 PKG_CHECK_MODULES([FREETYPE], [freetype2 >= 9.10.3], [
+    pkg_requires="freetype2 >= 9.10.3"
     CFLAGS="$CFLAGS $FREETYPE_CFLAGS"
     LIBS="$LIBS $FREETYPE_LIBS"
     AC_DEFINE(CONFIG_FREETYPE, 1, [found freetype2 via pkg-config])
 ])
 
 PKG_CHECK_MODULES([FRIBIDI], [fribidi >= 0.19.0], [
+    pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
     CFLAGS="$CFLAGS $FRIBIDI_CFLAGS"
     LIBS="$LIBS $FRIBIDI_LIBS"
     AC_DEFINE(CONFIG_FRIBIDI, 1, [found fribidi via pkg-config])
 ])
 
 PKG_CHECK_MODULES([HARFBUZZ], [harfbuzz >= 1.2.3], [
+    pkg_requires="harfbuzz >= 1.2.3, ${pkg_requires}"
     CFLAGS="$CFLAGS $HARFBUZZ_CFLAGS"
     LIBS="$LIBS $HARFBUZZ_LIBS"
     AC_DEFINE(CONFIG_HARFBUZZ, 1, [found harfbuzz via pkg-config])
@@ -87,6 +90,7 @@ PKG_CHECK_MODULES([HARFBUZZ], [harfbuzz >= 1.2.3], [
 libpng=false
 AS_IF([test "x$enable_test" = xyes || test "x$enable_compare" = xyes], [
     PKG_CHECK_MODULES([LIBPNG], [libpng >= 1.2.0], [
+        # Only used for test programs, must not be used for distribution
         CFLAGS="$CFLAGS $LIBPNG_CFLAGS"
         AC_DEFINE(CONFIG_LIBPNG, 1, [found libpng via pkg-config])
         libpng=true
@@ -97,6 +101,7 @@ AS_IF([test "x$enable_test" = xyes || test "x$enable_compare" = xyes], [
 ### Fontconfig
 AS_IF([test "x$enable_fontconfig" != xno], [
     PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.10.92], [
+        pkg_requires="fontconfig >= 2.10.92, ${pkg_requires}"
         CFLAGS="$CFLAGS $FONTCONFIG_CFLAGS"
         LIBS="$LIBS $FONTCONFIG_LIBS"
         AC_DEFINE(CONFIG_FONTCONFIG, 1, [found fontconfig via pkg-config])
@@ -189,14 +194,6 @@ AS_IF([test "x$enable_require_system_font_provider" != xno  dnl
         [No system font provider!],
         [78]
     ))
-])
-
-## Now add packages to pkg_requires
-pkg_requires="freetype2 >= 9.10.3"
-pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
-pkg_requires="harfbuzz >= 1.2.3, ${pkg_requires}"
-AS_IF([test "x$fontconfig" = xtrue], [
-    pkg_requires="fontconfig >= 2.10.92, ${pkg_requires}"
 ])
 
 
