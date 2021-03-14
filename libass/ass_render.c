@@ -1703,7 +1703,7 @@ wrap_lines_naive(ASS_Renderer *render_priv, double max_text_width, char *unibrks
 
 /*
  * Shift soft linebreaks to balance out line lengths
- * May remove but never add linebreaks
+ * Does not change the linebreak count
  * FIXME: implement style 0 and 3 correctly
  */
 static void
@@ -1742,6 +1742,8 @@ wrap_lines_rebalance(ASS_Renderer *render_priv, double max_text_width, char *uni
                     }
                     if (w->symbol == ' ')
                         ++w;
+                    if (w == s1)
+                        continue; // Merging linebreaks is never beneficial
 
                     l1 = d6_to_double(((s2 - 1)->bbox.x_max + (s2 - 1)->pos.x) -
                         (s1->bbox.x_min + s1->pos.x));
@@ -1755,10 +1757,7 @@ wrap_lines_rebalance(ASS_Renderer *render_priv, double max_text_width, char *uni
                         (w->bbox.x_min + w->pos.x));
 
                     if (DIFF(l1_new, l2_new) < DIFF(l1, l2)) {
-                        if (w->linebreak || w == text_info->glyphs)
-                            text_info->n_lines--;
-                        if (w != text_info->glyphs)
-                            w->linebreak = 1;
+                        w->linebreak = 1;
                         s2->linebreak = 0;
                         exit = 0;
                     }
