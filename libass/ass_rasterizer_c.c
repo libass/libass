@@ -86,14 +86,15 @@ void ass_fill_halfplane_tile16_c(uint8_t *buf, ptrdiff_t stride,
         va2[x] = aa * x + delta;
     }
 
-    static const int16_t full = (1 << 10) - 1;
+    static const int16_t full = 1 << 10;
     for (int y = 0; y < 16; y++) {
         for (int x = 0; x < 16; x++) {
             int16_t c1 = cc - va1[x];
             int16_t c2 = cc - va2[x];
             c1 = FFMINMAX(c1, 0, full);
             c2 = FFMINMAX(c2, 0, full);
-            buf[x] = (c1 + c2) >> 3;
+            int16_t res = (c1 + c2) >> 3;
+            buf[x] = FFMIN(res, 255);
         }
         buf += stride;
         cc -= bb;
@@ -118,14 +119,15 @@ void ass_fill_halfplane_tile32_c(uint8_t *buf, ptrdiff_t stride,
         va2[x] = aa * x + delta;
     }
 
-    static const int16_t full = (1 << 9) - 1;
+    static const int16_t full = 1 << 9;
     for (int y = 0; y < 32; y++) {
         for (int x = 0; x < 32; x++) {
             int16_t c1 = cc - va1[x];
             int16_t c2 = cc - va2[x];
             c1 = FFMINMAX(c1, 0, full);
             c2 = FFMINMAX(c2, 0, full);
-            buf[x] = (c1 + c2) >> 2;
+            int16_t res = (c1 + c2) >> 2;
+            buf[x] = FFMIN(res, 255);
         }
         buf += stride;
         cc -= bb;

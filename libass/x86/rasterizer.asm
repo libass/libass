@@ -403,17 +403,18 @@ endstruc
 
     imul %7d, %4d  ; sum * b
     sar %7d, 7  ; avg * b
-    add %7d, %9d  ; avg * b + dc
-    add %9d, %9d  ; 2 * dc
+    sub %7d, %9d  ; avg * b - dc
+    lea %9d, [%7d + 2 * %9d]  ; avg * b + dc
 
     imul %7d, %8d
-    sar %7d, 16
-    sub %7d, %6d  ; -offs1
-    BCASTW %10, %7d
     imul %9d, %8d
-    sar %9d, 16  ; offs2 - offs1
-    BCASTW %11, %9d
+    sar %7d, 16
+    sar %9d, 16
+    sub %7d, %9d  ; offs1 - offs2
+    sub %9d, %6d  ; -offs1
     add %6d, %6d
+    BCASTW %11, %7d
+    BCASTW %10, %9d
     BCASTW %12, %6d
 
 %assign %%i 0
@@ -428,7 +429,7 @@ endstruc
     pmulhw m%13, mm_c, m%14
 %endif
     psubw m%13, m%10  ; c1
-    paddw m%14, m%13, m%11  ; c2
+    psubw m%14, m%13, m%11  ; c2
     pmaxsw m%13, mm_zero
     pmaxsw m%14, mm_zero
     pminsw m%13, m%12
