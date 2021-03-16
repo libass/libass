@@ -32,10 +32,10 @@ SECTION .text
 ; BLEND_BITMAPS 1:add/sub
 ; void add_bitmaps(uint8_t *dst, intptr_t dst_stride,
 ;                  uint8_t *src, intptr_t src_stride,
-;                  intptr_t height, intptr_t width);
+;                  intptr_t width, intptr_t height);
 ; void sub_bitmaps(uint8_t *dst, intptr_t dst_stride,
 ;                  uint8_t *src, intptr_t src_stride,
-;                  intptr_t height, intptr_t width);
+;                  intptr_t width, intptr_t height);
 ;------------------------------------------------------------------------------
 
 %macro BLEND_BITMAPS 1
@@ -43,40 +43,39 @@ SECTION .text
 cglobal %1_bitmaps, 6,8,3
     DECLARE_REG_TMP 7
 %else
-cglobal %1_bitmaps, 4,7,3
-    DECLARE_REG_TMP 4
+cglobal %1_bitmaps, 5,7,3
+    DECLARE_REG_TMP 5
+%endif
+    lea r0, [r0 + r4]
+    lea r2, [r2 + r4]
+    neg r4
+    mov r6, r4
+    and r4, mmsize - 1
+    lea t0, [edge_mask]
+    movu m2, [t0 + r4 - mmsize]
+%if !ARCH_X86_64
     mov r5, r5m
 %endif
-    lea r0, [r0 + r5]
-    lea r2, [r2 + r5]
-    neg r5
-    mov r6, r5
-    and r5, mmsize - 1
-    lea t0, [edge_mask]
-    movu m2, [t0 + r5 - mmsize]
-%if !ARCH_X86_64
-    mov r4, r4m
-%endif
-    imul r4, r3
-    add r4, r2
-    mov r5, r6
+    imul r5, r3
+    add r5, r2
+    mov r4, r6
     jmp .loop_entry
 
 .width_loop:
     p%1usb m0, m1
-    movu [r0 + r5 - mmsize], m0
+    movu [r0 + r4 - mmsize], m0
 .loop_entry:
-    movu m0, [r0 + r5]
-    movu m1, [r2 + r5]
-    add r5, mmsize
+    movu m0, [r0 + r4]
+    movu m1, [r2 + r4]
+    add r4, mmsize
     jnc .width_loop
     pand m1, m2
     p%1usb m0, m1
-    movu [r0 + r5 - mmsize], m0
+    movu [r0 + r4 - mmsize], m0
     add r0, r1
     add r2, r3
-    mov r5, r6
-    cmp r2, r4
+    mov r4, r6
+    cmp r2, r5
     jl .loop_entry
     RET
 %endmacro

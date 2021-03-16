@@ -84,13 +84,13 @@ void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
     ptrdiff_t stride = bm->stride;
     uint8_t *buf = bm->buffer;
     if (--be) {
-        be_blur_pre(buf, w, h, stride);
+        be_blur_pre(buf, stride, w, h);
         do {
-            engine->be_blur(buf, w, h, stride, tmp);
+            engine->be_blur(buf, stride, w, h, tmp);
         } while (--be);
-        be_blur_post(buf, w, h, stride);
+        be_blur_post(buf, stride, w, h);
     }
-    engine->be_blur(buf, w, h, stride, tmp);
+    engine->be_blur(buf, stride, w, h, tmp);
     ass_aligned_free(tmp);
 }
 
@@ -257,11 +257,11 @@ void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
  * This blur is the same as the one employed by vsfilter.
  * Pure C implementation.
  */
-void ass_be_blur_c(uint8_t *buf, intptr_t w, intptr_t h,
-                   intptr_t stride, uint16_t *tmp)
+void ass_be_blur_c(uint8_t *buf, intptr_t stride,
+                   intptr_t width, intptr_t height, uint16_t *tmp)
 {
     uint16_t *col_pix_buf = tmp;
-    uint16_t *col_sum_buf = tmp + w;
+    uint16_t *col_sum_buf = tmp + width;
     unsigned x, y, old_pix, old_sum, temp1, temp2;
     uint8_t *src, *dst;
     y = 0;
@@ -272,7 +272,7 @@ void ass_be_blur_c(uint8_t *buf, intptr_t w, intptr_t h,
         x = 1;
         old_pix = src[x-1];
         old_sum = old_pix;
-        for ( ; x < w; x++) {
+        for ( ; x < width; x++) {
             temp1 = src[x];
             temp2 = old_pix + temp1;
             old_pix = temp1;
@@ -286,14 +286,14 @@ void ass_be_blur_c(uint8_t *buf, intptr_t w, intptr_t h,
         col_sum_buf[x-1] = temp1;
     }
 
-    for (y++; y < h; y++) {
+    for (y++; y < height; y++) {
         src=buf+y*stride;
         dst=buf+(y-1)*stride;
 
         x = 1;
         old_pix = src[x-1];
         old_sum = old_pix;
-        for ( ; x < w; x++) {
+        for ( ; x < width; x++) {
             temp1 = src[x];
             temp2 = old_pix + temp1;
             old_pix = temp1;
@@ -314,16 +314,16 @@ void ass_be_blur_c(uint8_t *buf, intptr_t w, intptr_t h,
 
     {
         dst=buf+(y-1)*stride;
-        for (x = 0; x < w; x++)
+        for (x = 0; x < width; x++)
             dst[x] = (col_sum_buf[x] + col_pix_buf[x]) >> 4;
     }
 }
 
-void be_blur_pre(uint8_t *buf, intptr_t w, intptr_t h, intptr_t stride)
+void be_blur_pre(uint8_t *buf, intptr_t stride, intptr_t width, intptr_t height)
 {
-    for (int y = 0; y < h; ++y)
+    for (int y = 0; y < height; ++y)
     {
-        for (int x = 0; x < w; ++x)
+        for (int x = 0; x < width; ++x)
         {
             // This is equivalent to (value * 64 + 127) / 255 for all
             // values from 0 to 256 inclusive. Assist vectorizing
@@ -334,11 +334,11 @@ void be_blur_pre(uint8_t *buf, intptr_t w, intptr_t h, intptr_t stride)
     }
 }
 
-void be_blur_post(uint8_t *buf, intptr_t w, intptr_t h, intptr_t stride)
+void be_blur_post(uint8_t *buf, intptr_t stride, intptr_t width, intptr_t height)
 {
-    for (int y = 0; y < h; ++y)
+    for (int y = 0; y < height; ++y)
     {
-        for (int x = 0; x < w; ++x)
+        for (int x = 0; x < width; ++x)
         {
             // This is equivalent to (value * 255 + 32) / 64 for all values
             // from 0 to 96 inclusive, and we only care about 0 to 64.
@@ -381,7 +381,7 @@ int be_padding(int be)
  */
 void ass_add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
                        uint8_t *src, intptr_t src_stride,
-                       intptr_t height, intptr_t width)
+                       intptr_t width, intptr_t height)
 {
     unsigned out;
     uint8_t* end = dst + dst_stride * height;
@@ -397,7 +397,7 @@ void ass_add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
 
 void ass_sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
                        uint8_t *src, intptr_t src_stride,
-                       intptr_t height, intptr_t width)
+                       intptr_t width, intptr_t height)
 {
     short out;
     uint8_t* end = dst + dst_stride * height;
@@ -414,11 +414,11 @@ void ass_sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
 void ass_mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
                        uint8_t *src1, intptr_t src1_stride,
                        uint8_t *src2, intptr_t src2_stride,
-                       intptr_t w, intptr_t h)
+                       intptr_t width, intptr_t height)
 {
-    uint8_t* end = src1 + src1_stride * h;
+    uint8_t* end = src1 + src1_stride * height;
     while (src1 < end) {
-        for (unsigned x = 0; x < w; ++x) {
+        for (unsigned x = 0; x < width; ++x) {
             dst[x] = (src1[x] * src2[x] + 255) >> 8;
         }
         dst  += dst_stride;

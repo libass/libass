@@ -37,14 +37,14 @@ typedef void (*FillGenericTileFunc)(uint8_t *buf, ptrdiff_t stride,
 
 typedef void (*BitmapBlendFunc)(uint8_t *dst, intptr_t dst_stride,
                                 uint8_t *src, intptr_t src_stride,
-                                intptr_t height, intptr_t width);
+                                intptr_t width, intptr_t height);
 typedef void (*BitmapMulFunc)(uint8_t *dst, intptr_t dst_stride,
                               uint8_t *src1, intptr_t src1_stride,
                               uint8_t *src2, intptr_t src2_stride,
                               intptr_t width, intptr_t height);
 
-typedef void (*BeBlurFunc)(uint8_t *buf, intptr_t w, intptr_t h,
-                           intptr_t stride, uint16_t *tmp);
+typedef void (*BeBlurFunc)(uint8_t *buf, intptr_t stride,
+                           intptr_t width, intptr_t height, uint16_t *tmp);
 
 // intermediate bitmaps represented as sets of verical stripes of int16_t[alignment / 2]
 typedef void (*Convert8to16Func)(int16_t *dst, const uint8_t *src, ptrdiff_t src_stride,
@@ -107,10 +107,8 @@ void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
                     int be, double blur_r2);
 
 int be_padding(int be);
-void be_blur_pre(uint8_t *buf, intptr_t w,
-                 intptr_t h, intptr_t stride);
-void be_blur_post(uint8_t *buf, intptr_t w,
-                  intptr_t h, intptr_t stride);
+void be_blur_pre(uint8_t *buf, intptr_t stride, intptr_t width, intptr_t height);
+void be_blur_post(uint8_t *buf, intptr_t stride, intptr_t width, intptr_t height);
 bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2);
 void shift_bitmap(Bitmap *bm, int shift_x, int shift_y);
 void fix_outline(Bitmap *bm_g, Bitmap *bm_o);

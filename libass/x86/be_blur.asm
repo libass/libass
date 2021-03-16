@@ -24,19 +24,19 @@ SECTION .text
 
 ;------------------------------------------------------------------------------
 ; BE_BLUR
-; void be_blur(uint8_t *buf, intptr_t width, intptr_t height,
-;              intptr_t stride, uint16_t *tmp);
+; void be_blur(uint8_t *buf, intptr_t stride,
+;              intptr_t width, intptr_t height, uint16_t *tmp);
 ;------------------------------------------------------------------------------
 
 %macro BE_BLUR 0
 cglobal be_blur, 5,7,8
-    lea r0, [r0 + r1]
-    lea r4, [r4 + 4 * r1]
+    lea r0, [r0 + r2]
+    lea r4, [r4 + 4 * r2]
     mov r6, r0
-    neg r1
-    mov r5, r1
-    imul r2, r3
-    add r2, r0
+    neg r2
+    mov r5, r2
+    imul r3, r1
+    add r3, r0
     pxor m6, m6
 
     mova m3, [r0 + r5]
@@ -109,12 +109,12 @@ cglobal be_blur, 5,7,8
     mova [r4 + 4 * r5 - 2 * mmsize], m3
     mova [r4 + 4 * r5 - mmsize], m3
 
-    add r0, r3
-    cmp r0, r2
+    add r0, r1
+    cmp r0, r3
     jge .last_row
 
 .height_loop:
-    mov r5, r1
+    mov r5, r2
     mova m3, [r0 + r5]
 %if mmsize == 32
     vpermq m3, m3, q3120
@@ -204,13 +204,13 @@ cglobal be_blur, 5,7,8
 %endif
     mova [r6 + r5 - mmsize], m2
 
-    add r0, r3
-    add r6, r3
-    cmp r0, r2
+    add r0, r1
+    add r6, r1
+    cmp r0, r3
     jl .height_loop
 
 .last_row:
-    mov r5, r1
+    mov r5, r2
 .last_width_loop:
     mova m2, [r4 + 4 * r5]
     paddw m2, [r4 + 4 * r5 + mmsize]

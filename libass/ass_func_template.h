@@ -33,17 +33,17 @@ void DECORATE(fill_generic_tile32)(uint8_t *buf, ptrdiff_t stride,
 
 void DECORATE(add_bitmaps)(uint8_t *dst, intptr_t dst_stride,
                            uint8_t *src, intptr_t src_stride,
-                           intptr_t height, intptr_t width);
+                           intptr_t width, intptr_t height);
 void DECORATE(sub_bitmaps)(uint8_t *dst, intptr_t dst_stride,
                            uint8_t *src, intptr_t src_stride,
-                           intptr_t height, intptr_t width);
+                           intptr_t width, intptr_t height);
 void DECORATE(mul_bitmaps)(uint8_t *dst, intptr_t dst_stride,
                            uint8_t *src1, intptr_t src1_stride,
                            uint8_t *src2, intptr_t src2_stride,
                            intptr_t width, intptr_t height);
 
-void DECORATE(be_blur)(uint8_t *buf, intptr_t w, intptr_t h,
-                       intptr_t stride, uint16_t *tmp);
+void DECORATE(be_blur)(uint8_t *buf, intptr_t stride,
+                       intptr_t width, intptr_t height, uint16_t *tmp);
 
 void DECORATE(stripe_unpack)(int16_t *dst, const uint8_t *src, ptrdiff_t src_stride,
                              uintptr_t width, uintptr_t height);

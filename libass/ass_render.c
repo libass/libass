@@ -731,7 +731,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
             memcpy(nbuffer, abuffer, ((ah - 1) * as) + aw);
             render_priv->engine->sub_bitmaps(nbuffer + atop * as + aleft, as,
                                              bbuffer + btop * bs + bleft, bs,
-                                             h, w);
+                                             w, h);
         } else {
             // Regular clip
             if (ax + aw < bx || ay + ah < by || ax > bx + bw ||
@@ -2508,7 +2508,7 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
             unsigned char *buf = dst->buffer + y * dst->stride + x;
             render_priv->engine->add_bitmaps(buf, dst->stride,
                                              src->buffer, src->stride,
-                                             src->h, src->w);
+                                             src->w, src->h);
         }
     }
     if (!bord && n_bm_o == 1) {
@@ -2533,7 +2533,7 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
             unsigned char *buf = dst->buffer + y * dst->stride + x;
             render_priv->engine->add_bitmaps(buf, dst->stride,
                                              src->buffer, src->stride,
-                                             src->h, src->w);
+                                             src->w, src->h);
         }
     }
 

@@ -675,7 +675,7 @@ static bool rasterizer_fill_level(const BitmapEngine *engine, RasterizerData *rs
             engine->fill_halfplane(rst->tile, width, line1->a, line1->b, line1->c,
                                    flags1 & FLAG_REVERSE ? -line1->scale : line1->scale);
         // XXX: better to use max instead of add
-        engine->add_bitmaps(buf, stride, rst->tile, width, height, width);
+        engine->add_bitmaps(buf, stride, rst->tile, width, width, height);
         rst->size[index] = offs;
         return true;
     }
