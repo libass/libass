@@ -26,7 +26,7 @@ AC_ARG_ENABLE([compare], AS_HELP_STRING([--enable-compare],
 AC_ARG_ENABLE([profile], AS_HELP_STRING([--enable-profile],
     [enable profiling program @<:@default=no@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
-    [disable fontconfig support @<:@default=enabled@:>@]))
+    [disable fontconfig support @<:@default=check@:>@]))
 AC_ARG_ENABLE([directwrite], AS_HELP_STRING([--disable-directwrite],
     [disable DirectWrite support (Windows only) @<:@default=check@:>@]))
 AC_ARG_ENABLE([coretext], AS_HELP_STRING([--disable-coretext],
@@ -108,6 +108,9 @@ AS_IF([test "x$enable_fontconfig" != xno], [
         fontconfig=true
     ], [
         fontconfig=false
+        AS_IF([test "x$enable_fontconfig" = xyes], [
+            AC_MSG_ERROR([fontconfig support was requested, but it was not found.])
+        ])
     ])
 ])
 
@@ -141,6 +144,9 @@ AS_IF([test "x$enable_coretext" != xno], [
         ], [
             coretext=false
             AC_MSG_RESULT([no])
+            AS_IF([test "x$enable_coretext" = xyes], [
+                AC_MSG_ERROR([CoreText support was requested, but it was not found.])
+            ])
         ])
     ])
 ])
@@ -178,6 +184,9 @@ AS_IF([test "x$enable_directwrite" != xno], [
     ], [
         directwrite=false
         AC_MSG_RESULT([no])
+        AS_IF([test "x$enable_directwrite" = xyes], [
+            AC_MSG_ERROR([DirectWrite support was requested, but it was not found.])
+        ])
     ])
 ])
 
@@ -198,6 +207,7 @@ AS_IF([test "x$enable_require_system_font_provider" != xno  dnl
 
 
 # Locate and configure Assembler appropriately
+can_asm=false
 AS_IF([test "x$enable_asm" != xno], [
     AS_CASE([$host],
         [i?86-*], [
@@ -226,6 +236,7 @@ AS_IF([test "x$enable_asm" != xno], [
         ],
         [ # default
             INTEL=false
+            AC_MSG_NOTICE([Assembly optimizations are not yet supported on this architecture; disabling.])
         ]
     )
     AS_IF([test "x$INTEL" = xtrue], [
@@ -233,7 +244,6 @@ AS_IF([test "x$enable_asm" != xno], [
         AS_IF([test "x$nasm_check" != xyes], [
             AC_MSG_WARN(nasm was not found; ASM functions are disabled.)
             AC_MSG_WARN(Install nasm for a significantly faster libass build.)
-            enable_asm=no
         ], [
             AS_CASE([$host],
                 [*darwin*], [
@@ -267,18 +277,21 @@ AS_IF([test "x$enable_asm" != xno], [
             echo "vpmovzxwd ymm0, xmm0" > conftest.asm
             AS_IF([$AS conftest.asm $ASFLAGS -o conftest.o >conftest.log 2>&1], [
                 AC_MSG_RESULT([yes])
+                can_asm=true
             ], [
                 AC_MSG_RESULT([no])
                 VER=`($AS --version || echo no assembler) 2>/dev/null | head -n 1`
                 AC_MSG_WARN([nasm is too old (found $VER); ASM functions are disabled.])
                 AC_MSG_WARN([Install nasm-2.10 or later for a significantly faster libass build.])
-                enable_asm=no
             ])
             rm conftest.asm conftest.o > /dev/null 2>&1
         ])
     ])
 ])
 
+AS_IF([test x"$enable_asm" = xyes && test x"$can_asm" != xtrue], [
+    AC_MSG_ERROR([Assembly was requested, but cannot be built; see prior messages.])
+])
 
 # Relay config results to output files
 
@@ -291,7 +304,7 @@ AC_SUBST([PKG_LIBS_PRIVATE], [${pkg_libs}])
 AC_SUBST([PKG_REQUIRES_PRIVATE], [${pkg_requires}])
 
 ## Setup conditionals for use in Makefiles
-AM_CONDITIONAL([ASM], [test "x$enable_asm" != xno])
+AM_CONDITIONAL([ASM], [test "x$can_asm" = xtrue])
 AM_CONDITIONAL([INTEL], [test "x$INTEL" = xtrue])
 AM_CONDITIONAL([X86], [test "x$X86" = xtrue])
 AM_CONDITIONAL([X64], [test "x$X64" = xtrue])
