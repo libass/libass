@@ -22,15 +22,18 @@
 
 SECTION_RODATA 32
 
+%if ARCH_X86_64 || !PIC
 words_zero: times 16 dw 0
 words_one: times 16 dw 1
 words_dither_init: times 8 dw  8, 40
 words_dither_flip: times 16 dw 48
+%if ARCH_X86_64
 words_sign: times 16 dw 0x8000
-
+%endif
 dwords_two: times 8 dd 2
 dwords_round: times 8 dd 0x8000
 dwords_lomask: times 8 dd 0xFFFF
+%endif
 
 SECTION .text
 
@@ -51,8 +54,13 @@ cglobal stripe_unpack, 5,6,3
     and r5, -mmsize
     sub r3, r4
     sub r2, r5
-    xor r5, r5
+%if ARCH_X86_64 || !PIC
     mova m2, [words_one]
+%else
+    mov r5d, 0x10001
+    BCASTD 2, r5d
+%endif
+    xor r5, r5
     jmp .row_loop
 
 .col_loop:
@@ -122,7 +130,12 @@ cglobal stripe_pack, 5,7,5
     add r3, r2
     MUL r4, mmsize
     sub r5, r6
+%if ARCH_X86_64 || !PIC
     mova m4, [words_dither_flip]
+%else
+    mov r6d, 48 * 0x10001
+    BCASTD 4, r6d
+%endif
     jmp .row_loop
 
 .col_loop:
@@ -151,7 +164,12 @@ cglobal stripe_pack, 5,7,5
     add r0, r5
     add r2, r4
 .row_loop:
+%if ARCH_X86_64 || !PIC
     mova m3, [words_dither_init]
+%else
+    mov r6d, 8 | 40 << 16
+    BCASTD 3, r6d
+%endif
     lea r6, [r2 + r4]
     cmp r6, r3
     jb .col_loop
@@ -209,7 +227,11 @@ STRIPE_PACK
 %endmacro
 
 %macro LOAD_LINE_COMPACT 5-6
+%if ARCH_X86_64 || !PIC
     lea %5, [words_zero]
+%else
+    mov %5, rsp
+%endif
     sub %5, %2
     cmp %4, %3
     cmovb %5, %4
@@ -235,7 +257,13 @@ STRIPE_PACK
 cglobal shrink_horz, 4,9,9
     DECLARE_REG_TMP 8
 %else
+%if !PIC
 cglobal shrink_horz, 4,7,8
+%else
+cglobal shrink_horz, 4,7,8, -mmsize
+    pxor m0, m0
+    mova [rsp], m0
+%endif
     DECLARE_REG_TMP 6
 %endif
     lea t0, [r2 + mmsize + 3]
@@ -248,13 +276,18 @@ cglobal shrink_horz, 4,7,8
     xor r4, r4
     MUL r3, mmsize
     sub r4, r3
+%if ARCH_X86_64 || !PIC
     mova m7, [dwords_lomask]
+%else
+    mov r5d, 0xFFFF
+    BCASTD 7, r5d
+%endif
 %if ARCH_X86_64
     mova m8, [dwords_two]
     lea r7, [words_zero]
     sub r7, r1
 %else
-    PUSH t0
+    mov [rsp - 4], t0
 %endif
 
     lea r5, [r0 + r3]
@@ -327,7 +360,12 @@ cglobal shrink_horz, 4,7,8
     paddd m0, m8
     paddd m1, m8
 %else
+%if !PIC
     mova m6, [dwords_two]
+%else
+    mov r6d, 2
+    BCASTD 6, r6d
+%endif
     paddd m0, m6
     paddd m1, m6
 %endif
@@ -348,12 +386,9 @@ cglobal shrink_horz, 4,7,8
 %if ARCH_X86_64
     cmp r0, t0
 %else
-    cmp r0, [rsp]
+    cmp r0, [rsp - 4]
 %endif
     jb .main_loop
-%if !ARCH_X86_64
-    ADD rsp, 4
-%endif
     RET
 %endmacro
 
@@ -371,8 +406,12 @@ SHRINK_HORZ
 %macro SHRINK_VERT 0
 %if ARCH_X86_64
 cglobal shrink_vert, 4,7,9
-%else
+%elif !PIC
 cglobal shrink_vert, 4,7,8
+%else
+cglobal shrink_vert, 4,7,8, -mmsize
+    pxor m0, m0
+    mova [rsp], m0
 %endif
     lea r2, [2 * r2 + mmsize - 1]
     lea r5, [r3 + 5]
@@ -381,11 +420,17 @@ cglobal shrink_vert, 4,7,8
     imul r2, r5
     MUL r3, mmsize
     add r2, r0
+%if ARCH_X86_64 || !PIC
     mova m7, [words_one]
 %if ARCH_X86_64
     mova m8, [words_sign]
 %endif
     lea r6, [words_zero]
+%else
+    mov r4d, 0x10001
+    BCASTD 7, r4d
+    mov r6, rsp
+%endif
     sub r6, r1
 
 .col_loop:
@@ -456,7 +501,13 @@ SHRINK_VERT
 cglobal expand_horz, 4,9,5
     DECLARE_REG_TMP 8
 %else
+%if !PIC
 cglobal expand_horz, 4,7,5
+%else
+cglobal expand_horz, 4,7,5, -mmsize
+    pxor m0, m0
+    mova [rsp], m0
+%endif
     DECLARE_REG_TMP 6
 %endif
     lea t0, [4 * r2 + 7]
@@ -469,7 +520,12 @@ cglobal expand_horz, 4,7,5
     xor r4, r4
     MUL r3, mmsize
     sub r4, r3
+%if ARCH_X86_64 || !PIC
     mova m4, [words_one]
+%else
+    mov r5d, 0x10001
+    BCASTD 4, r5d
+%endif
 %if ARCH_X86_64
     lea r7, [words_zero]
     sub r7, r1
@@ -479,7 +535,7 @@ cglobal expand_horz, 4,7,5
     cmp r0, t0
     jae .odd_stripe
 %if !ARCH_X86_64
-    PUSH t0
+    mov [rsp - 4], t0
 %endif
 .main_loop:
 %if ARCH_X86_64
@@ -527,14 +583,11 @@ cglobal expand_horz, 4,7,5
     add r0, r3
     lea r5, [r0 + r3]
 %if !ARCH_X86_64
-    mov t0, [rsp]
+    mov t0, [rsp - 4]
 %endif
     cmp r0, t0
     jb .main_loop
     add t0, r3
-%if !ARCH_X86_64
-    ADD rsp, 4
-%endif
     cmp r0, t0
     jb .odd_stripe
     RET
@@ -592,15 +645,27 @@ EXPAND_HORZ
 ;------------------------------------------------------------------------------
 
 %macro EXPAND_VERT 0
+%if ARCH_X86_64 || !PIC
 cglobal expand_vert, 4,7,5
+%else
+cglobal expand_vert, 4,7,5, -mmsize
+    pxor m0, m0
+    mova [rsp], m0
+%endif
     lea r2, [2 * r2 + mmsize - 1]
     lea r5, [2 * r3 + 4]
     and r2, -mmsize
     imul r2, r5
     MUL r3, mmsize
     add r2, r0
+%if ARCH_X86_64 || !PIC
     mova m4, [words_one]
     lea r6, [words_zero]
+%else
+    mov r4d, 0x10001
+    BCASTD 4, r4d
+    mov r6, rsp
+%endif
     sub r6, r1
 
 .col_loop:
@@ -744,7 +809,13 @@ EXPAND_VERT
     %assign %%narg 9 + (%1 + 1) / 2
 cglobal blur%1_horz, 5,8,%%narg
 %else
+%if !PIC
 cglobal blur%1_horz, 5,7,8
+%else
+cglobal blur%1_horz, 5,7,8, -mmsize
+    pxor m0, m0
+    mova [rsp], m0
+%endif
     SWAP 7, 9
 %endif
     LOAD_MULTIPLIER %1, 9, r4, r5
@@ -821,7 +892,12 @@ cglobal blur%1_horz, 5,7,8
 %if ARCH_X86_64
     mova m6, m7
 %else
+%if !PIC
     mova m6, [dwords_round]
+%else
+    mov r6d, 0x8000
+    BCASTD 6, r6d
+%endif
     mova [r0], m1
     SWAP 1, 8
 %endif
@@ -911,8 +987,12 @@ BLUR_HORZ 8
 %if ARCH_X86_64
     %assign %%narg 7 + (%1 + 1) / 2
 cglobal blur%1_vert, 5,7,%%narg
-%else
+%elif !PIC
 cglobal blur%1_vert, 5,7,8
+%else
+cglobal blur%1_vert, 5,7,8, -mmsize
+    pxor m0, m0
+    mova [rsp], m0
 %endif
     LOAD_MULTIPLIER %1, 7, r4, r5
     lea r2, [2 * r2 + mmsize - 1]
@@ -921,8 +1001,14 @@ cglobal blur%1_vert, 5,7,8
     imul r2, r5
     MUL r3, mmsize
     add r2, r0
+%if ARCH_X86_64 || !PIC
     mova m4, [dwords_round]
     lea r6, [words_zero]
+%else
+    mov r5d, 0x8000
+    BCASTD 4, r5d
+    mov r6, rsp
+%endif
     sub r6, r1
 
 .col_loop:

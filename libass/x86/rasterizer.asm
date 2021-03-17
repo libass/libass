@@ -23,8 +23,10 @@
 SECTION_RODATA 32
 
 words_index: dw 0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F
+%if ARCH_X86_64 || !PIC
 words_tile16: times 16 dw 1024
 words_tile32: times 16 dw 512
+%endif
 
 SECTION .text
 
@@ -56,12 +58,7 @@ cglobal fill_solid_tile%2, 3,4,1
     mov r3d, -1
     test r2d, r2d
     cmovnz r2d, r3d
-    movd xm0, r2d
-%if mmsize == 32
-    vpbroadcastd m0, xm0
-%else
-    pshufd m0, m0, q0000
-%endif
+    BCASTD 0, r2d
 
 %rep (1 << %1) - 1
     FILL_LINE r0, 0, 1 << %1
@@ -123,8 +120,13 @@ FILL_SOLID_TILE 5,32
     DEF_A_SHIFT %1
 %if ARCH_X86_64 && a_shift
 cglobal fill_halfplane_tile%2, 6,7,9
-%else
+%elif ARCH_X86_64 || !PIC
 cglobal fill_halfplane_tile%2, 0,7,8
+%else
+cglobal fill_halfplane_tile%2, 0,7,8, -mmsize
+    LEA r0, words_index
+    mova m0, [r0]
+    mova [rsp], m0
 %endif
 %if !a_shift
     SWAP 3, 8
@@ -182,7 +184,11 @@ cglobal fill_halfplane_tile%2, 0,7,8
 %if a_shift
     psllw m3, m2, a_shift  ; aa * (mmsize / 2)
 %endif
+%if ARCH_X86_64 || !PIC
     pmullw m2, [words_index]
+%else
+    pmullw m2, [rsp]
+%endif
     psubw m1, m2  ; cc - aa * i
 
     mov r4d, r2d  ; aa
@@ -212,7 +218,12 @@ cglobal fill_halfplane_tile%2, 0,7,8
 %endif
 
     pxor m0, m0
+%if ARCH_X86_64 || !PIC
     mova m4, [words_tile%2]
+%else
+    mov r4d, 0x10001 << (14 - %1)
+    BCASTD 4, r4d
+%endif
     mov r2d, (1 << %1)
     jmp .loop_entry
 
@@ -510,13 +521,15 @@ endstruc
     %assign alloc_size buf_size + 32
 %endif
     %assign alloc_size (alloc_size + mmsize - 1) & -mmsize
+%if !ARCH_X86_64 && PIC
+    %assign alloc_size alloc_size + mmsize
+%endif
     %xdefine delta (rsp + delta_offs)
     DEF_A_SHIFT %1
 
     %define zero 5
     %define vc   7
 %if ARCH_X86_64
-    %define m_index m8
     %define full 9
     %define vba 10
     %define van 11
@@ -525,9 +538,9 @@ cglobal fill_generic_tile%2, 5,14,12, -alloc_size
 %else
 cglobal fill_generic_tile%2, 5,14,11, -alloc_size
 %endif
+    %define m_index m8
 
 %else
-    %define m_index [words_index]
     %define full 4
 %if a_shift
     %define vba  3
@@ -543,6 +556,14 @@ cglobal fill_generic_tile%2, 0,7,8, -alloc_size
     %define args (rsp + buf_size + 16)
     movu xm0, r0m
     mova [args], xm0
+%endif
+%if ARCH_X86_64 || !PIC
+    %define m_index [words_index]
+%else
+    %define m_index [rsp + alloc_size - mmsize]
+    LEA r0, words_index
+    mova m1, [r0]
+    mova m_index, m1
 %endif
     mov r4d, r4m
 %endif
@@ -747,7 +768,12 @@ cglobal fill_generic_tile%2, 0,7,8, -alloc_size
     BCASTW 0, t2d
     paddw m%+vc, m0
 
+%if !PIC
     mova m%+full, [words_tile%2]
+%else
+    mov t0d, 0x10001 << (14 - %1)
+    BCASTD full, t0d
+%endif
 %endif
 .internal_loop:
 %assign i 0

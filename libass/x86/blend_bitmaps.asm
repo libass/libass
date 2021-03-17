@@ -18,15 +18,46 @@
 ;* OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ;******************************************************************************
 
-%include "x86/x86inc.asm"
+%include "x86/utils.asm"
 
 SECTION_RODATA 32
 
+%if ARCH_X86_64 || !PIC
 times 32 db 0xFF
 edge_mask: times 32 db 0x00
 words_255: times 16 dw 0xFF
+%endif
 
 SECTION .text
+
+;------------------------------------------------------------------------------
+; LOAD_EDGE_MASK 1:m_dst, 2:n, 3:tmp
+; Set n last bytes of xmm/ymm register to zero and other bytes to 255
+;------------------------------------------------------------------------------
+
+%macro LOAD_EDGE_MASK 3
+%if !PIC
+    movu m%1, [edge_mask + %2 - mmsize]
+%elif ARCH_X86_64
+    lea %3, [rel edge_mask]
+    movu m%1, [%3 + %2 - mmsize]
+%elif mmsize <= STACK_ALIGNMENT
+    %assign %%pad -(stack_offset + gprsize) & (mmsize - 1)
+    pxor m%1, m%1
+    mova [rsp - %%pad - mmsize], m%1
+    pcmpeqb m%1, m%1
+    mova [rsp - %%pad - 2 * mmsize], m%1
+    movu m%1, [rsp + %2 - %%pad - 2 * mmsize]
+%else
+    mov %3, rsp
+    and %3, -mmsize
+    pxor m%1, m%1
+    mova [%3 - mmsize], m%1
+    pcmpeqb m%1, m%1
+    mova [%3 - 2 * mmsize], m%1
+    movu m%1, [%3 + %2 - 2 * mmsize]
+%endif
+%endmacro
 
 ;------------------------------------------------------------------------------
 ; BLEND_BITMAPS 1:add/sub
@@ -51,8 +82,7 @@ cglobal %1_bitmaps, 5,7,3
     neg r4
     mov r6, r4
     and r4, mmsize - 1
-    lea t0, [edge_mask]
-    movu m2, [t0 + r4 - mmsize]
+    LOAD_EDGE_MASK 2, r4, t0
 %if !ARCH_X86_64
     mov r5, r5m
 %endif
@@ -113,9 +143,13 @@ cglobal mul_bitmaps, 1,7,7
     neg r6
     mov t0, r6
     and r6, mmsize - 1
-    lea t1, [edge_mask]
-    movu m4, [t1 + r6 - mmsize]
+    LOAD_EDGE_MASK 4, r6, t1
+%if ARCH_X86_64 || !PIC
     mova m5, [words_255]
+%else
+    mov t1d, 255 * 0x10001
+    BCASTD 5, t1d
+%endif
     pxor m6, m6
     mov t1, r7m
     imul t1, r5

@@ -64,8 +64,21 @@
     movd xm%1, %2
 %if mmsize == 32
     vpbroadcastw m%1, xm%1
-%elif mmsize == 16
+%else
     punpcklwd m%1, m%1
+    pshufd m%1, m%1, q0000
+%endif
+%endmacro
+
+;------------------------------------------------------------------------------
+; BCASTD 1:m_dst, 2:r_src
+;------------------------------------------------------------------------------
+
+%macro BCASTD 2
+    movd xm%1, %2
+%if mmsize == 32
+    vpbroadcastd m%1, xm%1
+%else
     pshufd m%1, m%1, q0000
 %endif
 %endmacro
