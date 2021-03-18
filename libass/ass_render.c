@@ -107,6 +107,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->text_info.n_bitmaps = 0;
     priv->text_info.combined_bitmaps = calloc(MAX_BITMAPS_INITIAL, sizeof(CombinedBitmapInfo));
     priv->text_info.glyphs = calloc(MAX_GLYPHS_INITIAL, sizeof(GlyphInfo));
+    priv->text_info.event_text = calloc(MAX_GLYPHS_INITIAL, sizeof(FriBidiChar));
     priv->text_info.lines = calloc(MAX_LINES_INITIAL, sizeof(LineInfo));
     if (!priv->text_info.combined_bitmaps || !priv->text_info.glyphs || !priv->text_info.lines)
         goto fail;
@@ -153,6 +154,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
         FT_Done_FreeType(render_priv->ftlibrary);
     free(render_priv->eimg);
     free(render_priv->text_info.glyphs);
+    free(render_priv->text_info.event_text);
     free(render_priv->text_info.lines);
 
     free(render_priv->text_info.combined_bitmaps);
@@ -1967,10 +1969,12 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
 
         if (text_info->length >= text_info->max_glyphs) {
             // Raise maximum number of glyphs
-            int new_max = 2 * FFMIN(text_info->max_glyphs, INT_MAX / 2);
+            int new_max = 2 * FFMIN(FFMAX(text_info->max_glyphs, text_info->length / 2 + 1),
+                                    INT_MAX / 2);
             if (text_info->length >= new_max)
                 goto fail;
-            if (!ASS_REALLOC_ARRAY(text_info->glyphs, new_max))
+            if (!ASS_REALLOC_ARRAY(text_info->glyphs, new_max) ||
+                    !ASS_REALLOC_ARRAY(text_info->event_text, new_max))
                 goto fail;
             text_info->max_glyphs = new_max;
         }

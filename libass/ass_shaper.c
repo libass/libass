@@ -50,7 +50,7 @@ struct ass_shaper {
 
     // FriBidi log2vis
     int n_glyphs, n_pars;
-    FriBidiChar *event_text;
+    FriBidiChar *event_text; // just a reference, owned by text_info
     FriBidiCharType *ctypes;
     FriBidiLevel *emblevels;
     FriBidiStrIndex *cmap;
@@ -103,8 +103,7 @@ void ass_shaper_info(ASS_Library *lib)
 static bool check_allocations(ASS_Shaper *shaper, size_t new_size, size_t n_pars)
 {
     if (new_size > shaper->n_glyphs) {
-        if (!ASS_REALLOC_ARRAY(shaper->event_text, new_size) ||
-            !ASS_REALLOC_ARRAY(shaper->ctypes, new_size) ||
+        if (!ASS_REALLOC_ARRAY(shaper->ctypes, new_size) ||
 #ifdef USE_FRIBIDI_EX_API
             (shaper->bidi_brackets && !ASS_REALLOC_ARRAY(shaper->btypes, new_size)) ||
 #endif
@@ -128,7 +127,6 @@ void ass_shaper_free(ASS_Shaper *shaper)
 {
     ass_cache_done(shaper->metrics_cache);
     free(shaper->features);
-    free(shaper->event_text);
     free(shaper->ctypes);
 #ifdef USE_FRIBIDI_EX_API
     free(shaper->btypes);
@@ -974,6 +972,7 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     int i, ret, last_break;
     FriBidiParType dir, *pdir;
     GlyphInfo *glyphs = text_info->glyphs;
+    shaper->event_text = text_info->event_text;
 
     int n_pars = 1;
     for (i = 0; i < text_info->length - 1; i++)
