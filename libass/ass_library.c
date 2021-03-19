@@ -24,6 +24,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#ifdef CONFIG_UNIBREAK
+#include <linebreak.h>
+#endif
 
 #include "ass.h"
 #include "ass_library.h"
@@ -44,6 +47,10 @@ ASS_Library *ass_library_init(void)
     ASS_Library* lib = calloc(1, sizeof(*lib));
     if (lib)
         lib->msg_callback = ass_msg_handler;
+    #ifdef CONFIG_UNIBREAK
+    // libunibreak also works without this, but suggests that it improves performance
+    init_linebreak();
+    #endif
     return lib;
 }
 

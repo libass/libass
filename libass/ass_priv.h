@@ -64,6 +64,10 @@ struct parser_priv {
 #ifdef USE_FRIBIDI_EX_API
     bool bidi_brackets;
 #endif
+
+#ifdef CONFIG_UNIBREAK
+    bool wrap_unicode;
+#endif
 };
 
 #endif /* LIBASS_PRIV_H */

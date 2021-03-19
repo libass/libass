@@ -22,6 +22,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <fribidi.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
@@ -186,6 +187,8 @@ typedef struct {
 
 typedef struct {
     GlyphInfo *glyphs;
+    FriBidiChar *event_text;
+    char *breaks;
     int length;
     LineInfo *lines;
     int n_lines;
