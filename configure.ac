@@ -1,4 +1,5 @@
-AC_INIT(libass, 0.15.0)
+m4_define([LIBASS_VERSION], [0.15.0])
+AC_INIT(libass, LIBASS_VERSION)
 AM_INIT_AUTOMAKE([foreign])
 AC_CONFIG_MACRO_DIR([m4])
 # Disable Fortran checks
@@ -300,6 +301,21 @@ AM_COND_IF([ENABLE_LARGE_TILES], [
 ], [
     AC_DEFINE(CONFIG_LARGE_TILES, 0, [use small tiles])
 ])
+
+## Make a guess about the source code version
+AS_IF([test -d "${srcdir}/.git"], [
+    AC_PATH_PROG([git_bin], [git])
+    AS_IF([test -n "$git_bin"], [
+        srcversion_string="commit: $("$git_bin" -C "$srcdir" describe --tags --long --always --dirty --broken --abbrev=40)"
+    ], [
+        srcversion_string="custom after: LIBASS_VERSION"
+    ])
+], [
+    dnl# Hope no one creates custom tarballs without adjusting the version
+    srcversion_string="tarball: LIBASS_VERSION"
+])
+AC_DEFINE_UNQUOTED([CONFIG_SOURCEVERSION], ["$srcversion_string"],
+                   [string containing info about the used source])
 
 ## Setup output beautifier.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])

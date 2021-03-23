@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include "ass.h"
 #include "ass_outline.h"
 #include "ass_render.h"
 #include "ass_parse.h"
@@ -49,6 +50,9 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     FT_Library ft;
     ASS_Renderer *priv = 0;
     int vmajor, vminor, vpatch;
+
+    ass_msg(library, MSGL_INFO, "libass API version: 0x%X", LIBASS_VERSION);
+    ass_msg(library, MSGL_INFO, "libass source: %s", CONFIG_SOURCEVERSION);
 
     error = FT_Init_FreeType(&ft);
     if (error) {
