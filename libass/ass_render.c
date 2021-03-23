@@ -2124,8 +2124,11 @@ static void reorder_text(ASS_Renderer *render_priv)
             last_pen_x = pen.x;
         }
         last_fay = info->fay;
-        if (info->skip) continue;
+        if (info->skip)
+            continue;
         ASS_Vector cluster_pen = pen;
+        pen.x += info->cluster_advance.x;
+        pen.y += info->cluster_advance.y;
         while (info) {
             info->pos.x = info->offset.x + cluster_pen.x;
             info->pos.y = info->offset.y + cluster_pen.y;
@@ -2133,9 +2136,6 @@ static void reorder_text(ASS_Renderer *render_priv)
             cluster_pen.y += info->advance.y;
             info = info->next;
         }
-        info = text_info->glyphs + cmap[i];
-        pen.x += info->cluster_advance.x;
-        pen.y += info->cluster_advance.y;
     }
 }
 
