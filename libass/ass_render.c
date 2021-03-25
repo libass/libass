@@ -510,15 +510,18 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
     // z = m_zx * x + m_zy * y + m_zz
     //  = m_zx * (x + sign(m_zx) * dx) + m_zy * (y + sign(m_zy) * dy) + z0.
 
-    // D(f)--absolute value of error in quantity f
-    // as function of error in matrix coefficients, i. e. D(m_ij) for i, j from {x, y, z}.
-    // Error in constant is zero, i. e. D(dx) = D(dy) = D(z0) = 0.
-    // In the following calculation errors are considered small
-    // and second- and higher-order terms are dropped.
-    // That approximation is valid as long as glyph dimensions are larger than couple of pixels.
-    // Therefore standard relations for derivatives can be used for D(?):
-    // D(A * B) <= D(A) * max|B| + max|A| * D(B),
-    // D(1 / C) <= D(C) * max|1 / C^2|.
+    // Let D(f) denote the absolute error of a quantity f.
+    // Our goal is to determine tolerable error for matrix coefficients,
+    // so that the total error of the output x_out, y_out is still acceptable.
+    // As glyph dimensions are usually larger than a couple of pixels, errors
+    // will be relatively small and we can use first order approximation.
+
+    // z0 is effectively a scale factor and can thus be treated as a constant.
+    // Error of constants is obviously zero, so:  D(dx) = D(dy) = D(z0) = 0.
+    // For arbitrary quantities A, B, C with C not zero, the following holds true:
+    //   D(A * B) <= D(A) * max|B| + max|A| * D(B),
+    //   D(1 / C) <= D(C) * max|1 / C^2|.
+    // Write ~ for 'same magnitude' and ~= for 'approximately'.
 
     // D(x_out) = D((m_xx * x + m_xy * y) / z)
     //  <= D(m_xx * x + m_xy * y) * max|1 / z| + max|m_xx * x + m_xy * y| * D(1 / z)
@@ -534,14 +537,14 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
     // D(y_out) <= (D(m_yx) * dx + D(m_yy) * dy) / z0
     //       + 2 * (D(m_zx) * dx + D(m_zy) * dy) * y_lim / z0^2.
 
-    // To estimate acceptable error in matrix coefficient
-    // set error in all other coefficients to zero and solve system
-    // D(x_out) <= ACCURACY & D(y_out) <= ACCURACY for desired D(m_ij).
-    // ACCURACY here is some part of total error, i. e. ACCURACY ~ POSITION_PRECISION.
-    // Note that POSITION_PRECISION isn't total error, it's convenient constant.
-    // True error can be up to several POSITION_PRECISION.
+    // To estimate acceptable error in a matrix coefficient, pick ACCURACY for this substep,
+    // set error in all other coefficients to zero and solve the system
+    // D(x_out) <= ACCURACY, D(y_out) <= ACCURACY for desired D(m_ij).
+    // Note that ACCURACY isn't equal to total error.
+    // Total error is larger than each ACCURACY, but still of the same magnitude.
+    // Via our choice of ACCURACY, we get a total error of up to several POSITION_PRECISION.
 
-    // Quantization steps (ACCURACY ~ POSITION_PRECISION):
+    // Quantization steps (pick: ACCURARY = POSITION_PRECISION):
     // D(m_xx), D(m_yx) ~ q_x = POSITION_PRECISION * z0 / dx,
     // D(m_xy), D(m_yy) ~ q_y = POSITION_PRECISION * z0 / dy,
     // qm_xx = round(m_xx / q_x), qm_xy = round(m_xy / q_y),
@@ -565,7 +568,7 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
     // max(x_lim, y_lim) / z0 ~= w
     //  = max(|qm_xx| + |qm_xy|, |qm_yx| + |qm_yy|) * POSITION_PRECISION.
 
-    // Quantization steps (ACCURACY ~ 2 * POSITION_PRECISION):
+    // Quantization steps (pick: ACCURACY = 2 * POSITION_PRECISION):
     // D(m_zx) ~ POSITION_PRECISION * z0^2 / max(x_lim, y_lim) / dx ~= q_zx = q_x / w,
     // D(m_zy) ~ POSITION_PRECISION * z0^2 / max(x_lim, y_lim) / dy ~= q_zy = q_y / w,
     // qm_zx = round(m_zx / q_zx), qm_zy = round(m_zy / q_zy).
@@ -1412,7 +1415,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
         //  <= (|m_yx| / z0 + |m_zx| * y_lim / z0^2) * D(x)
         //   + (|m_yy| / z0 + |m_zy| * y_lim / z0^2) * D(y).
 
-        // Quantization steps (ACCURACY ~ POSITION_PRECISION):
+        // Quantization steps (pick: ACCURACY = POSITION_PRECISION):
         // STROKER_PRECISION / 2^scale_ord_x ~ D(x) ~ POSITION_PRECISION /
         //   (max(|m_xx|, |m_yx|) / z0 + |m_zx| * max(x_lim, y_lim) / z0^2),
         // STROKER_PRECISION / 2^scale_ord_y ~ D(y) ~ POSITION_PRECISION /
