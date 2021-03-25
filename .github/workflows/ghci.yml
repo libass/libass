@@ -29,14 +29,6 @@ jobs:
       - name: checkout code
         uses: actions/checkout@v2
 
-      - name: retrieve caches
-        uses: actions/cache@v2
-        with:
-          path: |
-            $HOME/Library/Caches/Homebrew
-            /usr/local/Homebrew
-          key: ${{ runner.os }}-${{ matrix.os }}-build
-
       - name: install deps
         run: |
           if echo "${{ matrix.os }}" | grep -qE '^macos-' ; then
