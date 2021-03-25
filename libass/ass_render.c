@@ -2007,12 +2007,14 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         info->fay = render_priv->state.fay;
         info->fade = render_priv->state.fade;
 
-        info->hspacing_scaled = double_to_d6(info->hspacing *
-                render_priv->font_scale * info->scale_x);
+        info->hspacing_scaled = 0;
         info->scale_fix = 1;
 
-        if (!drawing_text.str)
+        if (!drawing_text.str) {
+            info->hspacing_scaled = double_to_d6(info->hspacing *
+                    render_priv->font_scale * info->scale_x);
             fix_glyph_scaling(render_priv, info);
+        }
 
         text_info->length++;
 
