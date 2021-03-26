@@ -99,6 +99,7 @@ static void init(int frame_w, int frame_h)
     }
 
     ass_set_message_cb(ass_library, msg_callback, NULL);
+    ass_set_extract_fonts(ass_library, 1);
 
     ass_renderer = ass_renderer_init(ass_library);
     if (!ass_renderer) {

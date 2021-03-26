@@ -155,7 +155,7 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
     if (priv->fontselect)
         ass_fontselect_free(priv->fontselect);
     priv->fontselect = ass_fontselect_init(priv->library, priv->ftlibrary,
-            default_family, default_font, config, dfp);
+            &priv->num_emfonts, default_family, default_font, config, dfp);
 }
 
 void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits)

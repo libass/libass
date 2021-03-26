@@ -990,7 +990,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
  */
 static ASS_FontProvider *
 ass_embedded_fonts_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
-                                FT_Library ftlib)
+                                FT_Library ftlib, size_t *num_emfonts)
 {
     ASS_FontProvider *priv = ass_font_provider_new(selector, &ft_funcs, NULL);
     if (priv == NULL)
@@ -1002,6 +1002,7 @@ ass_embedded_fonts_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
 
     for (size_t i = 0; i < lib->num_fontdata; i++)
         process_fontdata(priv, lib, ftlib, i);
+    *num_emfonts = lib->num_fontdata;
 
     return priv;
 }
@@ -1035,9 +1036,8 @@ struct font_constructors font_constructors[] = {
  * \return newly created font selector
  */
 ASS_FontSelector *
-ass_fontselect_init(ASS_Library *library,
-                    FT_Library ftlibrary, const char *family,
-                    const char *path, const char *config,
+ass_fontselect_init(ASS_Library *library, FT_Library ftlibrary, size_t *num_emfonts,
+                    const char *family, const char *path, const char *config,
                     ASS_DefaultFontProvider dfp)
 {
     ASS_FontSelector *priv = calloc(1, sizeof(ASS_FontSelector));
@@ -1050,7 +1050,7 @@ ass_fontselect_init(ASS_Library *library,
     priv->index_default = 0;
 
     priv->embedded_provider = ass_embedded_fonts_add_provider(library, priv,
-            ftlibrary);
+            ftlibrary, num_emfonts);
 
     if (priv->embedded_provider == NULL) {
         ass_msg(library, MSGL_WARN, "failed to create embedded font provider");
@@ -1133,4 +1133,15 @@ void ass_map_font(const ASS_FontMapping *map, int len, const char *name,
             return;
         }
     }
+}
+
+size_t ass_update_embedded_fonts(ASS_Library *lib, ASS_FontSelector *selector,
+                                 FT_Library ftlib, size_t num_loaded)
+{
+    if (!selector->embedded_provider)
+        return num_loaded;
+
+    for (size_t i = num_loaded; i < lib->num_fontdata; i++)
+        process_fontdata(selector->embedded_provider, lib, ftlib, i);
+    return lib->num_fontdata;
 }

@@ -535,6 +535,7 @@ int main(int argc, char *argv[])
         return 1;
     }
     ass_set_message_cb(lib, msg_callback, NULL);
+    ass_set_extract_fonts(lib, true);
 
     ItemList list;
     if (!init_items(&list)) {

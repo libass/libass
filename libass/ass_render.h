@@ -293,6 +293,7 @@ struct ass_renderer {
     ASS_Library *library;
     FT_Library ftlibrary;
     ASS_FontSelector *fontselect;
+    size_t num_emfonts;
     ASS_Settings settings;
     int render_id;
     ASS_Shaper *shaper;

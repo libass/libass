@@ -2862,6 +2862,12 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
 
     ass_lazy_track_init(render_priv->library, render_priv->track);
 
+    if (render_priv->library->num_fontdata != render_priv->num_emfonts) {
+        assert(render_priv->library->num_fontdata > render_priv->num_emfonts);
+        render_priv->num_emfonts = ass_update_embedded_fonts(render_priv->library,
+            render_priv->fontselect, render_priv->ftlibrary, render_priv->num_emfonts);
+    }
+
     ass_shaper_set_kerning(render_priv->shaper, track->Kerning);
     ass_shaper_set_language(render_priv->shaper, track->Language);
     ass_shaper_set_level(render_priv->shaper, render_priv->settings.shaper);
