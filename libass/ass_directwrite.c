@@ -749,7 +749,8 @@ typedef HRESULT (WINAPI *DWriteCreateFactoryFn)(
  */
 ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
                                                ASS_FontSelector *selector,
-                                               const char *config)
+                                               const char *config,
+                                               FT_Library ftlib)
 {
     HRESULT hr = S_OK;
     IDWriteFactory *dwFactory = NULL;

@@ -125,17 +125,11 @@ static char *get_name(CTFontDescriptorRef fontd, CFStringRef attr)
     return ret;
 }
 
-static void process_descriptors(ASS_Library *lib, ASS_FontProvider *provider,
-                                CFArrayRef fontsd)
+static void process_descriptors(ASS_Library *lib, FT_Library ftlib,
+                                ASS_FontProvider *provider, CFArrayRef fontsd)
 {
     if (!fontsd)
         return;
-
-    FT_Library ftlib;
-    if (FT_Init_FreeType(&ftlib)) {
-        ass_msg(lib, MSGL_WARN, "Failed to create FT lib");
-        return;
-    }
 
     for (int i = 0; i < CFArrayGetCount(fontsd); i++) {
         ASS_FontProviderMetaData meta = {0};
@@ -170,13 +164,13 @@ static void process_descriptors(ASS_Library *lib, ASS_FontProvider *provider,
         free(ps_name);
         free(path);
     }
-
-    FT_Done_FreeType(ftlib);
 }
 
-static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
+static void match_fonts(void *priv, ASS_Library *lib, ASS_FontProvider *provider,
                         char *name)
 {
+    FT_Library ftlib = priv;
+
     enum { attributes_n = 3 };
     CTFontDescriptorRef ctdescrs[attributes_n];
     CFMutableDictionaryRef cfattrs[attributes_n];
@@ -204,7 +198,7 @@ static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
     CFArrayRef fontsd =
         CTFontCollectionCreateMatchingFontDescriptors(ctcoll);
 
-    process_descriptors(lib, provider, fontsd);
+    process_descriptors(lib, ftlib, provider, fontsd);
 
     SAFE_CFRelease(fontsd);
     SAFE_CFRelease(ctcoll);
@@ -261,7 +255,7 @@ static ASS_FontProviderFuncs coretext_callbacks = {
 
 ASS_FontProvider *
 ass_coretext_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
-                          const char *config)
+                          const char *config, FT_Library ftlib)
 {
-    return ass_font_provider_new(selector, &coretext_callbacks, NULL);
+    return ass_font_provider_new(selector, &coretext_callbacks, ftlib);
 }
