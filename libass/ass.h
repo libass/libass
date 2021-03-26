@@ -698,6 +698,8 @@ void ass_add_font(ASS_Library *library, const char *name, const char *data,
 
 /**
  * \brief Remove all fonts stored in an ass_library object.
+ * This can only be called safely if all ASS_Track and ASS_Renderer instances
+ * associated with the library handle have been released first.
  * \param library library handle
  */
 void ass_clear_fonts(ASS_Library *library);
