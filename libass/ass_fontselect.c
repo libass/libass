@@ -992,7 +992,6 @@ static ASS_FontProvider *
 ass_embedded_fonts_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
                                 FT_Library ftlib)
 {
-    int i;
     ASS_FontProvider *priv = ass_font_provider_new(selector, &ft_funcs, NULL);
     if (priv == NULL)
         return NULL;
@@ -1001,7 +1000,7 @@ ass_embedded_fonts_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
         load_fonts_from_dir(lib, lib->fonts_dir);
     }
 
-    for (i = 0; i < lib->num_fontdata; ++i)
+    for (size_t i = 0; i < lib->num_fontdata; i++)
         process_fontdata(priv, lib, ftlib, i);
 
     return priv;

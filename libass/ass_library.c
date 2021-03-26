@@ -95,24 +95,13 @@ void ass_set_style_overrides(ASS_Library *priv, char **list)
         *q = strdup(*p);
 }
 
-static int grow_array(void **array, int nelem, size_t elsize)
-{
-    if (!(nelem & 31)) {
-        void *ptr = realloc(*array, (nelem + 32) * elsize);
-        if (!ptr)
-            return 0;
-        *array = ptr;
-    }
-    return 1;
-}
-
 void ass_add_font(ASS_Library *priv, const char *name, const char *data, int size)
 {
-    int idx = priv->num_fontdata;
+    size_t idx = priv->num_fontdata;
     if (!name || !data || !size)
         return;
-    if (!grow_array((void **) &priv->fontdata, priv->num_fontdata,
-                    sizeof(*priv->fontdata)))
+    if (!(idx & (idx - 32)) && // power of two >= 32, or zero --> time for realloc
+            !ASS_REALLOC_ARRAY(priv->fontdata, FFMAX(2 * idx, 32)))
         return;
 
     priv->fontdata[idx].name = strdup(name);
@@ -135,8 +124,7 @@ error:
 
 void ass_clear_fonts(ASS_Library *priv)
 {
-    int i;
-    for (i = 0; i < priv->num_fontdata; ++i) {
+    for (size_t i = 0; i < priv->num_fontdata; i++) {
         free(priv->fontdata[i].name);
         free(priv->fontdata[i].data);
     }

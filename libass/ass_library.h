@@ -33,7 +33,7 @@ struct ass_library {
     char **style_overrides;
 
     ASS_Fontdata *fontdata;
-    int num_fontdata;
+    size_t num_fontdata;
     void (*msg_callback)(int, const char *, va_list, void *);
     void *msg_callback_data;
 };
