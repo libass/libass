@@ -101,11 +101,13 @@ typedef void    (*DestroyProviderFunc)(void *priv);
  * This is called by fontselect whenever a new logical font is created. The
  * font provider set as default is used.
  *
+ * \param priv font provider private data
  * \param lib ASS_Library instance
  * \param provider font provider instance
  * \param name font name (as specified in script)
  */
-typedef void    (*MatchFontsFunc)(ASS_Library *lib,
+typedef void    (*MatchFontsFunc)(void *priv,
+                                  ASS_Library *lib,
                                   ASS_FontProvider *provider,
                                   char *name);
 

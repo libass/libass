@@ -658,7 +658,8 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
         // TODO: consider changing the API to make more efficient
         // implementations possible.
         for (int i = 0; i < meta.n_fullname; i++) {
-            default_provider->funcs.match_fonts(library, default_provider,
+            default_provider->funcs.match_fonts(default_provider->priv,
+                                                library, default_provider,
                                                 meta.fullnames[i]);
         }
         result = find_font(priv, library, meta, bold, italic, index,
@@ -1010,7 +1011,7 @@ ass_embedded_fonts_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
 struct font_constructors {
     ASS_DefaultFontProvider id;
     ASS_FontProvider *(*constructor)(ASS_Library *, ASS_FontSelector *,
-                                     const char *);
+                                     const char *, FT_Library);
     const char *name;
 };
 
@@ -1062,7 +1063,8 @@ ass_fontselect_init(ASS_Library *library,
             if (dfp == font_constructors[i].id ||
                 dfp == ASS_FONTPROVIDER_AUTODETECT) {
                 priv->default_provider =
-                    font_constructors[i].constructor(library, priv, config);
+                    font_constructors[i].constructor(library, priv,
+                                                     config, ftlibrary);
                 if (priv->default_provider) {
                     ass_msg(library, MSGL_INFO, "Using font provider %s",
                             font_constructors[i].name);

@@ -317,7 +317,7 @@ static ASS_FontProviderFuncs fontconfig_callbacks = {
 
 ASS_FontProvider *
 ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
-                            const char *config)
+                            const char *config, FT_Library ftlib)
 {
     int rc;
     ProviderPrivate *fc = NULL;
