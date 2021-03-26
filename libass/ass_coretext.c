@@ -143,7 +143,7 @@ static void process_descriptors(ASS_Library *lib, ASS_FontProvider *provider,
         int index = -1;
 
         char *path = get_font_file(fontd);
-        if (!path || strcmp("", path) == 0) {
+        if (!path || !*path) {
             // skip the font if the URL field in the font descriptor is empty
             free(path);
             continue;
