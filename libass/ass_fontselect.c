@@ -756,7 +756,8 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
  * \return success
  */
 static bool
-get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
+get_font_info(FT_Library lib, FT_Face face, bool require_family_name,
+              ASS_FontProviderMetaData *info)
 {
     int i;
     int num_fullname = 0;
@@ -800,17 +801,19 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 
     }
 
-    // check if we got a valid family - if not use whatever FreeType gives us
-    if (num_family == 0 && face->family_name) {
-        families[0] = strdup(face->family_name);
-        if (families[0] == NULL)
-            goto error;
-        num_family++;
-    }
+    if (require_family_name) {
+        // check if we got a valid family - if not use whatever FreeType gives us
+        if (num_family == 0 && face->family_name) {
+            families[0] = strdup(face->family_name);
+            if (families[0] == NULL)
+                goto error;
+            num_family++;
+        }
 
-    // we absolutely need a name
-    if (num_family == 0)
-        goto error;
+        // we absolutely need a name
+        if (num_family == 0)
+            goto error;
+    }
 
     // calculate sensible slant and weight from style attributes
     slant  = 110 * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
@@ -823,11 +826,13 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 
     info->postscript_name = (char *)FT_Get_Postscript_Name(face);
 
-    info->families = calloc(sizeof(char *), num_family);
-    if (info->families == NULL)
-        goto error;
-    memcpy(info->families, &families, sizeof(char *) * num_family);
-    info->n_family = num_family;
+    if (num_family) {
+        info->families = calloc(sizeof(char *), num_family);
+        if (info->families == NULL)
+            goto error;
+        memcpy(info->families, &families, sizeof(char *) * num_family);
+        info->n_family = num_family;
+    }
 
     if (num_fullname) {
         info->fullnames = calloc(sizeof(char *), num_fullname);
@@ -857,6 +862,7 @@ error:
 
 bool ass_get_font_info(ASS_Library *lib, FT_Library ftlib, const char *path,
                        const char *postscript_name, int index,
+                       bool require_family_name,
                        ASS_FontProviderMetaData *info)
 {
     bool ret = false;
@@ -887,7 +893,7 @@ bool ass_get_font_info(ASS_Library *lib, FT_Library ftlib, const char *path,
     }
 
     if (face) {
-        ret = get_font_info(ftlib, face, info);
+        ret = get_font_info(ftlib, face, require_family_name, info);
         if (ret)
             info->postscript_name = strdup(info->postscript_name);
         FT_Done_Face(face);
@@ -952,7 +958,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         charmap_magic(library, face);
 
         memset(&info, 0, sizeof(ASS_FontProviderMetaData));
-        if (!get_font_info(ftlibrary, face, &info)) {
+        if (!get_font_info(ftlibrary, face, true, &info)) {
             ass_msg(library, MSGL_WARN,
                     "Error getting metadata for embedded font '%s'", name);
             FT_Done_Face(face);

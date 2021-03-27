@@ -125,6 +125,49 @@ static char *get_name(CTFontDescriptorRef fontd, CFStringRef attr)
     return ret;
 }
 
+static bool fill_family_name(CTFontDescriptorRef fontd,
+                             ASS_FontProviderMetaData *info)
+{
+    if (info->n_family)
+        return true;
+
+    char *family_name = get_name(fontd, kCTFontFamilyNameAttribute);
+    if (!family_name)
+        return false;
+
+    info->families = malloc(sizeof(char *));
+    if (!info->families) {
+        free(family_name);
+        return false;
+    }
+
+    info->families[0] = family_name;
+    info->n_family++;
+    return true;
+}
+
+static bool get_font_info_ct(ASS_Library *lib, FT_Library ftlib,
+                             CTFontDescriptorRef fontd,
+                             char **path_out,
+                             ASS_FontProviderMetaData *info)
+{
+    char *path = get_font_file(fontd);
+    *path_out = path;
+    if (!path || !*path) {
+        // skip the font if the URL field in the font descriptor is empty
+        return false;
+    }
+
+    char *ps_name = get_name(fontd, kCTFontNameAttribute);
+    if (!ps_name)
+        return false;
+
+    bool got_info = ass_get_font_info(lib, ftlib, path, ps_name, -1, false, info);
+    free(ps_name);
+
+    return got_info && fill_family_name(fontd, info);
+}
+
 static void process_descriptors(ASS_Library *lib, FT_Library ftlib,
                                 ASS_FontProvider *provider, CFArrayRef fontsd)
 {
@@ -136,16 +179,8 @@ static void process_descriptors(ASS_Library *lib, FT_Library ftlib,
         CTFontDescriptorRef fontd = CFArrayGetValueAtIndex(fontsd, i);
         int index = -1;
 
-        char *path = get_font_file(fontd);
-        if (!path || !*path) {
-            // skip the font if the URL field in the font descriptor is empty
-            free(path);
-            continue;
-        }
-
-        char *ps_name = get_name(fontd, kCTFontNameAttribute);
-
-        if (ass_get_font_info(lib, ftlib, path, ps_name, -1, &meta)) {
+        char *path = NULL;
+        if (get_font_info_ct(lib, ftlib, fontd, &path, &meta)) {
             CFRetain(fontd);
             ass_font_provider_add_font(provider, &meta, path, index, (void*)fontd);
         }
@@ -161,7 +196,6 @@ static void process_descriptors(ASS_Library *lib, FT_Library ftlib,
 
         free(meta.postscript_name);
 
-        free(ps_name);
         free(path);
     }
 }
