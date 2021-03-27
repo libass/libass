@@ -717,7 +717,7 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
         if (!search_family || !*search_family)
             search_family = "Arial";
         char *fallback_family = default_provider->funcs.get_fallback(
-                default_provider->priv, search_family, code);
+                default_provider->priv, library, search_family, code);
 
         if (fallback_family) {
             res = select_font(priv, library, fallback_family, bold, italic,
