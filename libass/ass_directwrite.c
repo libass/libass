@@ -424,7 +424,8 @@ static int encode_utf16(wchar_t *chars, uint32_t codepoint)
     }
 }
 
-static char *get_fallback(void *priv, const char *base, uint32_t codepoint)
+static char *get_fallback(void *priv, ASS_Library *lib,
+                          const char *base, uint32_t codepoint)
 {
     HRESULT hr;
     ProviderPrivate *provider_priv = (ProviderPrivate *)priv;

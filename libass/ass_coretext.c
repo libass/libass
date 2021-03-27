@@ -246,8 +246,11 @@ static void match_fonts(void *priv, ASS_Library *lib, ASS_FontProvider *provider
     SAFE_CFRelease(cfname);
 }
 
-static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
+static char *get_fallback(void *priv, ASS_Library *lib,
+                          const char *family, uint32_t codepoint)
 {
+    FT_Library ftlib = priv;
+
     CFStringRef name = CFStringCreateWithBytes(
         0, (UInt8 *)family, strlen(family), kCFStringEncodingUTF8, false);
     CTFontRef font = CTFontCreateWithName(name, 0, NULL);
@@ -256,17 +259,32 @@ static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
         0, (UInt8*)&codepointle, sizeof(codepointle),
         kCFStringEncodingUTF32LE, false);
     CTFontRef fb = CTFontCreateForString(font, r, CFRangeMake(0, 1));
-    CFNumberRef cfformat = CTFontCopyAttribute(fb, kCTFontFormatAttribute);
-    CFStringRef cfname = is_postscript_font_format(cfformat) ?
-        CTFontCopyPostScriptName(fb) : CTFontCopyFullName(fb);
-    char *res_name = cfstr2buf(cfname);
+    CTFontDescriptorRef fontd = CTFontCopyFontDescriptor(fb);
+
+    char *res_name = NULL;
+    char *path = NULL;
+    ASS_FontProviderMetaData meta = {0};
+    if (get_font_info_ct(lib, ftlib, fontd, &path, &meta))
+        res_name = meta.families[0];
+
+    for (int i = 1 /* skip res_name */; i < meta.n_family; i++)
+        free(meta.families[i]);
+
+    for (int i = 0; i < meta.n_fullname; i++)
+        free(meta.fullnames[i]);
+
+    free(meta.families);
+    free(meta.fullnames);
+
+    free(meta.postscript_name);
+
+    free(path);
 
     SAFE_CFRelease(name);
     SAFE_CFRelease(font);
     SAFE_CFRelease(r);
     SAFE_CFRelease(fb);
-    SAFE_CFRelease(cfformat);
-    SAFE_CFRelease(cfname);
+    SAFE_CFRelease(fontd);
 
     return res_name;
 }
