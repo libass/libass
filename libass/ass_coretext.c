@@ -49,7 +49,8 @@ static char *cfstr2buf(CFStringRef string)
         size_t len = CFStringGetLength(string);
         CFIndex buf_len = CFStringGetMaximumSizeForEncoding(len, encoding);
         char *buf = malloc(buf_len);
-        CFStringGetCString(string, buf, buf_len, encoding);
+        if (buf)
+            CFStringGetCString(string, buf, buf_len, encoding);
         return buf;
     }
 }
@@ -57,7 +58,7 @@ static char *cfstr2buf(CFStringRef string)
 static void destroy_font(void *priv)
 {
     CTFontDescriptorRef fontd = priv;
-    SAFE_CFRelease(fontd);
+    CFRelease(fontd);
 }
 
 static bool is_postscript_font_format(CFNumberRef cfformat)
@@ -76,8 +77,10 @@ static bool check_postscript(void *priv)
     CTFontDescriptorRef fontd = priv;
     CFNumberRef cfformat =
         CTFontDescriptorCopyAttribute(fontd, kCTFontFormatAttribute);
+    if (!cfformat)
+        return false;
     bool ret = is_postscript_font_format(cfformat);
-    SAFE_CFRelease(cfformat);
+    CFRelease(cfformat);
     return ret;
 }
 
@@ -94,7 +97,7 @@ static bool check_glyph(void *priv, uint32_t code)
         return true;
 
     bool result = CFCharacterSetIsLongCharacterMember(set, code);
-    SAFE_CFRelease(set);
+    CFRelease(set);
     return result;
 }
 
@@ -104,13 +107,11 @@ static char *get_font_file(CTFontDescriptorRef fontd)
     if (!url)
         return NULL;
     CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
-    if (!path) {
-        SAFE_CFRelease(url);
+    CFRelease(url);
+    if (!path)
         return NULL;
-    }
     char *buffer = cfstr2buf(path);
-    SAFE_CFRelease(path);
-    SAFE_CFRelease(url);
+    CFRelease(path);
     return buffer;
 }
 
@@ -120,7 +121,7 @@ static char *get_name(CTFontDescriptorRef fontd, CFStringRef attr)
     CFStringRef name = CTFontDescriptorCopyAttribute(fontd, attr);
     if (name) {
         ret = cfstr2buf(name);
-        SAFE_CFRelease(name);
+        CFRelease(name);
     }
     return ret;
 }
@@ -205,45 +206,61 @@ static void match_fonts(void *priv, ASS_Library *lib, ASS_FontProvider *provider
 {
     FT_Library ftlib = priv;
 
+    CFStringRef cfname =
+        CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8);
+    if (!cfname)
+        return;
+
     enum { attributes_n = 3 };
-    CTFontDescriptorRef ctdescrs[attributes_n];
-    CFMutableDictionaryRef cfattrs[attributes_n];
+    CTFontDescriptorRef ctdescrs[attributes_n] = {0};
     CFStringRef attributes[attributes_n] = {
         kCTFontFamilyNameAttribute,
         kCTFontDisplayNameAttribute,
         kCTFontNameAttribute,
     };
 
-    CFStringRef cfname =
-        CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8);
+    CFArrayRef descriptors = NULL;
+    CTFontCollectionRef ctcoll = NULL;
+    CFArrayRef fontsd = NULL;
 
     for (int i = 0; i < attributes_n; i++) {
-        cfattrs[i] = CFDictionaryCreateMutable(NULL, 0, 0, 0);
-        CFDictionaryAddValue(cfattrs[i], attributes[i], cfname);
-        ctdescrs[i] = CTFontDescriptorCreateWithAttributes(cfattrs[i]);
+        CFDictionaryRef cfattrs =
+            CFDictionaryCreate(NULL,
+                (const void **)&attributes[i],
+                (const void **)&cfname,
+                1, NULL, NULL);
+        if (!cfattrs)
+            goto cleanup;
+        ctdescrs[i] = CTFontDescriptorCreateWithAttributes(cfattrs);
+        CFRelease(cfattrs);
+        if (!ctdescrs[i])
+            goto cleanup;
     }
 
-    CFArrayRef descriptors =
+    descriptors =
         CFArrayCreate(NULL, (const void **)&ctdescrs, attributes_n, NULL);
+    if (!descriptors)
+        goto cleanup;
 
-    CTFontCollectionRef ctcoll =
-        CTFontCollectionCreateWithFontDescriptors(descriptors, 0);
+    ctcoll = CTFontCollectionCreateWithFontDescriptors(descriptors, 0);
+    if (!ctcoll)
+        goto cleanup;
 
-    CFArrayRef fontsd =
-        CTFontCollectionCreateMatchingFontDescriptors(ctcoll);
+    fontsd = CTFontCollectionCreateMatchingFontDescriptors(ctcoll);
+    if (!fontsd)
+        goto cleanup;
 
     process_descriptors(lib, ftlib, provider, fontsd);
 
+cleanup:
     SAFE_CFRelease(fontsd);
     SAFE_CFRelease(ctcoll);
 
-    for (int i = 0; i < attributes_n; i++) {
-        SAFE_CFRelease(cfattrs[i]);
+    for (int i = 0; i < attributes_n; i++)
         SAFE_CFRelease(ctdescrs[i]);
-    }
 
     SAFE_CFRelease(descriptors);
-    SAFE_CFRelease(cfname);
+    CFRelease(cfname);
 }
 
 static char *get_fallback(void *priv, ASS_Library *lib,
@@ -253,19 +270,42 @@ static char *get_fallback(void *priv, ASS_Library *lib,
 
     CFStringRef name = CFStringCreateWithBytes(
         0, (UInt8 *)family, strlen(family), kCFStringEncodingUTF8, false);
+    if (!name)
+        return NULL;
+
     CTFontRef font = CTFontCreateWithName(name, 0, NULL);
+    CFRelease(name);
+    if (!font)
+        return NULL;
+
     uint32_t codepointle = OSSwapHostToLittleInt32(codepoint);
+
     CFStringRef r = CFStringCreateWithBytes(
         0, (UInt8*)&codepointle, sizeof(codepointle),
         kCFStringEncodingUTF32LE, false);
+    if (!r) {
+        CFRelease(font);
+        return NULL;
+    }
+
     CTFontRef fb = CTFontCreateForString(font, r, CFRangeMake(0, 1));
+    CFRelease(font);
+    CFRelease(r);
+    if (!fb)
+        return NULL;
+
     CTFontDescriptorRef fontd = CTFontCopyFontDescriptor(fb);
+    CFRelease(fb);
+    if (!fontd)
+        return NULL;
 
     char *res_name = NULL;
     char *path = NULL;
     ASS_FontProviderMetaData meta = {0};
     if (get_font_info_ct(lib, ftlib, fontd, &path, &meta))
         res_name = meta.families[0];
+
+    CFRelease(fontd);
 
     for (int i = 1 /* skip res_name */; i < meta.n_family; i++)
         free(meta.families[i]);
@@ -279,12 +319,6 @@ static char *get_fallback(void *priv, ASS_Library *lib,
     free(meta.postscript_name);
 
     free(path);
-
-    SAFE_CFRelease(name);
-    SAFE_CFRelease(font);
-    SAFE_CFRelease(r);
-    SAFE_CFRelease(fb);
-    SAFE_CFRelease(fontd);
 
     return res_name;
 }
