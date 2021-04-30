@@ -763,8 +763,9 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
     if (!directwrite_lib)
         goto cleanup;
 
-    DWriteCreateFactoryPtr = (DWriteCreateFactoryFn)GetProcAddress(directwrite_lib,
-                                                                   "DWriteCreateFactory");
+    DWriteCreateFactoryPtr =
+        (DWriteCreateFactoryFn)(void *)GetProcAddress(directwrite_lib,
+                                                      "DWriteCreateFactory");
     if (!DWriteCreateFactoryPtr)
         goto cleanup;
 
