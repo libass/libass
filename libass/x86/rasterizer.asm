@@ -120,7 +120,9 @@ FILL_SOLID_TILE 5,32
     DEF_A_SHIFT %1
 %if ARCH_X86_64 && a_shift
 cglobal fill_halfplane_tile%2, 6,7,9
-%elif ARCH_X86_64 || !PIC
+%elif ARCH_X86_64
+cglobal fill_halfplane_tile%2, 6,7,8
+%elif !PIC
 cglobal fill_halfplane_tile%2, 0,7,8
 %else
 cglobal fill_halfplane_tile%2, 0,7,8, -mmsize
