@@ -16,13 +16,36 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "image.h"
-#include "../libass/ass.h"
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <dirent.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
+#include "image.h"
+#include "../libass/ass.h"
+
+// --- WINDOWS COMPAT MACROS
+#include "../config.h"
+#ifndef HAVE_STRNDUP
+static char *strndup_fallback(const char *s, size_t n)
+{
+    char *end = memchr(s, 0, n);
+    size_t len = end ? end - s : n;
+    char *new_str = len < SIZE_MAX ? malloc(len + 1) : NULL;
+    if (new_str) {
+        memcpy(new_str, s, len);
+        new_str[len] = 0;
+    }
+    return new_str;
+}
+#define strndup strndup_fallback
+#endif
+
+#if defined(_WIN32) && !defined(__CYGWIN__)
+    // Also in <sys/stat.h>, but different signature
+    #define mkdir(a,b) mkdir(a)
+#endif
+// --- END COMPAT MACROS
 
 #define FFMAX(a,b) ((a) > (b) ? (a) : (b))
 #define FFMIN(a,b) ((a) > (b) ? (b) : (a))
