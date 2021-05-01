@@ -357,7 +357,7 @@ typedef struct {
 
 static bool init_items(ItemList *list)
 {
-    int n = 256;
+    size_t n = 256;
     list->n_items = list->max_items = 0;
     list->items = malloc(n * sizeof(Item));
     if (!list->items)
@@ -371,7 +371,7 @@ static bool add_item(ItemList *list)
     if (list->n_items < list->max_items)
         return true;
 
-    int n = 2 * list->max_items;
+    size_t n = 2 * list->max_items;
     Item *next = realloc(list->items, n * sizeof(Item));
     if (!next)
         return out_of_memory();
@@ -401,7 +401,7 @@ static int item_compare(const void *ptr1, const void *ptr2)
 }
 
 
-static bool add_sub_item(ItemList *list, const char *file, int len)
+static bool add_sub_item(ItemList *list, const char *file, size_t len)
 {
     if (!add_item(list))
         return false;
@@ -415,12 +415,12 @@ static bool add_sub_item(ItemList *list, const char *file, int len)
     return true;
 }
 
-static bool add_img_item(ItemList *list, const char *file, int len)
+static bool add_img_item(ItemList *list, const char *file, size_t len)
 {
     // Parse image name:
     // <subtitle_name>-<time_in_msec>.png
 
-    int pos = len, first = len;
+    size_t pos = len, first = len;
     while (true) {
         if (!pos--)
             return true;
@@ -443,7 +443,7 @@ static bool add_img_item(ItemList *list, const char *file, int len)
         return out_of_memory();
     item->name[pos] = '\0';
     item->time = 0;
-    for (int i = first; i < len; i++)
+    for (size_t i = first; i < len; i++)
         item->time = 10 * item->time + (file[i] - '0');
     list->n_items++;
     return true;
@@ -584,7 +584,7 @@ int main(int argc, char *argv[])
     }
     ass_set_fonts(renderer, NULL, NULL, ASS_FONTPROVIDER_NONE, NULL, 0);
 
-    int prefix;
+    size_t prefix;
     const char *prev = "";
     ASS_Track *track = NULL;
     unsigned total = 0, good = 0;
