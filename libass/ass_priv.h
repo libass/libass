@@ -61,9 +61,8 @@ struct parser_priv {
     // tracks [Script Info] headers set by the script
     uint32_t header_flags;
 
-#ifdef USE_FRIBIDI_EX_API
-    bool bidi_brackets;
-#endif
+    // Enabled ASS_Feature flags
+    uint32_t features;
 };
 
 #endif /* LIBASS_PRIV_H */
