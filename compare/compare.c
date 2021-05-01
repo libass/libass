@@ -23,6 +23,10 @@
 #include <dirent.h>
 #include <string.h>
 
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#define mkdir(path, mode) _mkdir(path)
+#endif
+
 
 #define FFMAX(a,b) ((a) > (b) ? (a) : (b))
 #define FFMIN(a,b) ((a) > (b) ? (b) : (a))
@@ -407,9 +411,11 @@ static bool add_sub_item(ItemList *list, const char *file, size_t len)
         return false;
 
     Item *item = &list->items[list->n_items];
-    item->name = strndup(file, len);
+    item->name = malloc(len + 1);
     if (!item->name)
         return out_of_memory();
+    memcpy(item->name, file, len);
+    item->name[len] = '\0';
     item->time = -1;
     list->n_items++;
     return true;
