@@ -1,4 +1,4 @@
-m4_define([LIBASS_VERSION], [0.15.0])
+m4_define([LIBASS_VERSION], [0.15.1])
 AC_INIT(libass, LIBASS_VERSION)
 AM_INIT_AUTOMAKE([foreign])
 AC_CONFIG_MACRO_DIR([m4])

@@ -1,3 +1,32 @@
+libass (0.15.1)
+ * Fix currently known 0.15.0 regressions:
+    * Fix crashing on some ASS files with embedded fonts
+    * Fix total font fallback failure with some fonts on Core Text
+ * Fix embedded and memory fonts not actually being used
+   unless ass_set_fonts was called after they have been added
+ * Fix events assuming the largest xbord-value of a preceding
+   event of the same frame during collision handling
+ * Fix \fscx0 and \fscy0 making more text disappear than they should
+ * Fix shift in vertical positioning of some right-to-left
+   events with \an4-6, \pos, \move or Scroll effects
+ * Fix imprecise output for \be with huge argument
+ * Fix the --enable-large-tiles configure switch doing nothing
+ * Fix output of ASM-enabled builds deviating from non-ASM builds
+ * Fix ASM-builds on Haiku and 32-bit *BSDs
+ * Overhaul x86 assembly for better performance
+   and to allow ASM-enabled PIC-builds on 32-bit
+ * Reduce temporary allocation in rendering
+ * DirectWrite: request fonts on demand for better performance and
+   improved compatibility with external on-demand font activation
+ * Log libass version numbers upon renderer startup
+ * Accept pointers to const as arguments to ass_add_font
+ * Improve VSFilter compatibility:
+    * Disregard zero area events in collision handling
+    * Do not apply \fsp to vector drawings
+    * Fix bug preventing cutting out glyphs from border & shadow
+      with abnormal \fad values (or causing aliasing artifacts
+      in some cases with normal values)
+
 libass (0.15.0)
  * Fix backwards/VSFilter-incompatible font sizes with FreeType 2.10+
  * Improve speed via better caching
