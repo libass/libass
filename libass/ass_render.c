@@ -590,8 +590,10 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
         offset->x = center[0] - qr[0];
         offset->y = center[1] - qr[1];
     }
-    pos->x = qr[0] >> SUBPIXEL_ORDER;
-    pos->y = qr[1] >> SUBPIXEL_ORDER;
+    *pos = (ASS_Vector) {
+        .x = qr[0] >> SUBPIXEL_ORDER,
+        .y = qr[1] >> SUBPIXEL_ORDER,
+    };
     key->offset.x = qr[0] & ((1 << SUBPIXEL_ORDER) - 1);
     key->offset.y = qr[1] & ((1 << SUBPIXEL_ORDER) - 1);
     key->matrix_x.x = qm[0][0];  key->matrix_x.y = qm[0][1];
