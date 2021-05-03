@@ -577,9 +577,9 @@ void msg_callback(int level, const char *fmt, va_list va, void *data)
 {
     if (level > 3)
         return;
-    printf("libass: ");
-    vprintf(fmt, va);
-    printf("\n");
+    fprintf(stderr, "libass: ");
+    vfprintf(stderr, fmt, va);
+    fprintf(stderr, "\n");
 }
 
 int main(int argc, char *argv[])
