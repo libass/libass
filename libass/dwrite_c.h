@@ -699,6 +699,10 @@ DECLARE_INTERFACE_(IDWriteGdiInterop,IUnknown)
     STDMETHOD(CreateFontFromLOGFONT)(THIS_
                                      LOGFONTW const *logFont,
                                      IDWriteFont **font) PURE;
+
+    STDMETHOD(CreateFontFaceFromHdc)(THIS_
+                                     HDC logFont,
+                                     IDWriteFontFace **fontFace) PURE;
     /* rest dropped */
     END_INTERFACE
 };
@@ -707,6 +711,7 @@ DECLARE_INTERFACE_(IDWriteGdiInterop,IUnknown)
 #define IDWriteGdiInterop_AddRef(This) (This)->lpVtbl->AddRef(This)
 #define IDWriteGdiInterop_Release(This) (This)->lpVtbl->Release(This)
 #define IDWriteGdiInterop_CreateFontFromLOGFONT(This,logFont,font) (This)->lpVtbl->CreateFontFromLOGFONT(This,logFont,font)
+#define IDWriteGdiInterop_CreateFontFaceFromHdc(This,hdc,fontFace) (This)->lpVtbl->CreateFontFaceFromHdc(This,hdc,fontFace)
 #endif /*COBJMACROS*/
 
 DEFINE_GUID(IID_IDWriteFactory, 0xb859ee5a,0xd838,0x4b5b,0xa2,0xe8,0x1a,0xdc,0x7d,0x93,0xdb,0x48);

@@ -694,7 +694,45 @@ static void match_fonts(void *priv, ASS_Library *lib,
 
     hr = IDWriteGdiInterop_CreateFontFromLOGFONT(provider_priv->gdi_interop, &lf, &font);
     if (FAILED(hr) || !font)
-        return;
+    {
+        ass_msg(lib, MSGL_INFO, "Failed to create iterop for font: \"%s\". Trying GDI fallback.", name);
+        HFONT hf = CreateFontIndirect(&lf);
+        HDC dc = CreateCompatibleDC(NULL);
+        IDWriteFontFace* fontFace;
+        HGDIOBJ response = SelectObject(dc, hf);
+        if (response == NULL)
+        {
+            DeleteDC(dc);
+            DeleteObject(hf);
+            ass_msg(lib, MSGL_INFO, "GDI fallback failed due to SelectObject", name);
+        }
+        hr = IDWriteGdiInterop_CreateFontFaceFromHdc(provider_priv->gdi_interop, dc, &fontFace);
+        if (FAILED(hr) || !fontFace)
+        {
+            ass_msg(lib, MSGL_INFO, "GDI fallback failed due to CreateFontFaceFromHdc.", name);
+            DeleteDC(dc);
+            DeleteObject(hf);
+            return;
+        }
+        IDWriteFontCollection* font_coll = NULL;
+        IDWriteFactory_GetSystemFontCollection(provider_priv->factory, &font_coll, false);
+        if (FAILED(hr))
+        {
+            ass_msg(lib, MSGL_INFO, "GDI fallback failed due to GetSystemFontCollection.", name);
+            DeleteDC(dc);
+            DeleteObject(hf);
+            return;
+        }
+        IDWriteFontCollection_GetFontFromFontFace(font_coll, &fontFace, &font);
+        if (FAILED(hr))
+        {
+            ass_msg(lib, MSGL_INFO, "GDI fallback failed due to GetFontFromFontFace, probably not in system's font collection.", name);
+            DeleteDC(dc);
+            DeleteObject(hf);
+            return;
+        }
+        ass_msg(lib, MSGL_INFO, "GDI fallback success: %s", name);
+    }
 
     hr = IDWriteFont_GetFontFamily(font, &fontFamily);
     if (FAILED(hr) || !fontFamily)
