@@ -24,25 +24,50 @@ jobs:
           - os: ubuntu-18.04
             cc: clang
             do_coverity: yes
+          # Add an additional Windows build (MinGW-gcc via MSYS2) with no extras
+          - os: windows-2019
+            cc: gcc
+            shell: 'msys2 {0}'
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell || 'bash' }}
 
     steps:
       - name: checkout code
         uses: actions/checkout@v2
 
+      - name: Setup MSys2
+        uses: msys2/setup-msys2@v2
+        if: matrix.os == 'windows-2019'
+        with:
+          msystem: MINGW64
+          update: false
+
       - name: install deps
         run: |
-          if echo "${{ matrix.os }}" | grep -qE '^macos-' ; then
-            #brew update
-            # fontconfig, freetype, autoconf and libtool are preinstalled
-            # and `brew install` fails if a non-uptodate version is already installed
-            #brew upgrade fontconfig freetype autoconf libtool
-            brew install automake fribidi harfbuzz nasm
-          else
-            sudo apt-get update #&& sudo apt-get upgrade
-            sudo apt-get install -y \
-                 libfontconfig1-dev libfreetype6-dev libfribidi-dev \
-                 libharfbuzz-dev nasm ${{ matrix.cc }}
-          fi
+          case "${{ matrix.os }}" in
+            macos-*)
+              #brew update
+              # fontconfig, freetype, autoconf and libtool are preinstalled
+              # and `brew install` fails if a non-uptodate version is already installed
+              #brew upgrade fontconfig freetype autoconf libtool
+              brew install automake fribidi harfbuzz nasm
+              ;;
+            windows-*)
+              pre="mingw-w64-x86_64"
+              pacman --noconfirm -S \
+                      automake autoconf nasm make \
+                      $pre-libtool $pre-pkg-config $pre-gcc \
+                      $pre-fribidi $pre-freetype $pre-harfbuzz $pre-fontconfig
+              ;;
+            *)
+              sudo apt-get update #&& sudo apt-get upgrade
+              sudo apt-get install -y \
+                   libfontconfig1-dev libfreetype6-dev libfribidi-dev \
+                   libharfbuzz-dev nasm ${{ matrix.cc }}
+              ;;
+          esac
 
       - name: configure
         run: ./autogen.sh && CC="${{ matrix.cc }}" ./configure
