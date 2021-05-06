@@ -158,6 +158,12 @@ void skip_spaces(const char **str)
     *str = p;
 }
 
+void vskip_spaces(ASS_StringView *str)
+{
+    while (str->len > 0 && ((*str->str == ' ') || (*str->str == '\t')))
+        ++str->str, --str->len;
+}
+
 void rskip_spaces(const char **str, const char *limit)
 {
     const char *p = *str;
@@ -166,29 +172,36 @@ void rskip_spaces(const char **str, const char *limit)
     *str = p;
 }
 
-static int read_digits(const char **str, unsigned base, uint32_t *res)
+void vrskip_spaces(ASS_StringView *str)
 {
-    const char *p = *str;
-    const char *start = p;
+    while (str->len > 0 && ((str->str[str->len - 1] == ' ') ||
+                            (str->str[str->len - 1] == '\t')))
+        --str->len;
+}
+
+static int read_digits(ASS_StringView *str, unsigned base, uint32_t *res)
+{
+    ASS_StringView start = *str;
     uint32_t val = 0;
 
     while (1) {
         unsigned digit;
-        if (*p >= '0' && *p < FFMIN(base, 10) + '0')
-            digit = *p - '0';
-        else if (*p >= 'a' && *p < base - 10 + 'a')
-            digit = *p - 'a' + 10;
-        else if (*p >= 'A' && *p < base - 10 + 'A')
-            digit = *p - 'A' + 10;
+        char c = ass_sv_peekc(*str);
+
+        if (c >= '0' && c < FFMIN(base, 10) + '0')
+            digit = c - '0';
+        else if (c >= 'a' && c < base - 10 + 'a')
+            digit = c - 'a' + 10;
+        else if (c >= 'A' && c < base - 10 + 'A')
+            digit = c - 'A' + 10;
         else
             break;
         val = val * base + digit;
-        ++p;
+        ass_sv_getc(str);
     }
 
     *res = val;
-    *str = p;
-    return p != start;
+    return str->str != start.str;
 }
 
 /**
@@ -196,7 +209,7 @@ static int read_digits(const char **str, unsigned base, uint32_t *res)
  * Follows the rules for strtoul but reduces the number modulo 2**32
  * instead of saturating it to 2**32 - 1.
  */
-static int mystrtou32_modulo(const char **p, unsigned base, uint32_t *res)
+static int mystrtoi32_modulo(ASS_StringView *p, unsigned base, int32_t *res)
 {
     // This emulates scanf with %d or %x format as it works on
     // Windows, because that's what is used by VSFilter. In practice,
@@ -205,21 +218,19 @@ static int mystrtou32_modulo(const char **p, unsigned base, uint32_t *res)
 
     // Unlike scanf and like strtoul, produce 0 for invalid inputs.
 
-    const char *start = *p;
+    ASS_StringView start = *p;
     int sign = 1;
 
-    skip_spaces(p);
+    vskip_spaces(p);
 
-    if (**p == '+')
-        ++*p;
-    else if (**p == '-')
-        sign = -1, ++*p;
+    if (*p->str == '+')
+        ++p->str, --p->len;
+    else if (*p->str == '-')
+        sign = -1, ++p->str, --p->len;
 
-    if (base == 16 && !ass_strncasecmp(*p, "0x", 2))
-        *p += 2;
-
-    if (read_digits(p, base, res)) {
-        *res *= sign;
+    uint32_t ret = 0;
+    if (read_digits(p, base, &ret)) {
+        *res = ret * sign;
         return 1;
     } else {
         *p = start;
@@ -249,62 +260,63 @@ uint32_t parse_color_tag(const char *str)
     return ass_bswap32((uint32_t) color);
 }
 
-uint32_t parse_color_header(const char *str)
+int32_t parse_int_header(ASS_StringView str)
 {
-    uint32_t color = 0;
+    int32_t val = 0;
     unsigned base;
 
-    if (!ass_strncasecmp(str, "&h", 2) || !ass_strncasecmp(str, "0x", 2)) {
-        str += 2;
+    vskip_spaces(&str);
+
+    if (ASS_SV_ISTARTSWITH(str, "&h") || ASS_SV_ISTARTSWITH(str, "0x")) {
+        str.str += 2, str.len -= 2;
         base = 16;
     } else
         base = 10;
 
-    mystrtou32_modulo(&str, base, &color);
-    return ass_bswap32(color);
+    mystrtoi32_modulo(&str, base, &val);
+
+    return val;
+}
+
+uint32_t parse_color_header(ASS_StringView str)
+{
+    uint32_t ret = parse_int_header(str);
+    return ass_bswap32(ret);
 }
 
 // Return a boolean value for a string
-char parse_bool(const char *str)
+// String must be terminated in
+char parse_bool(ASS_StringView str)
 {
-    skip_spaces(&str);
-    return !ass_strncasecmp(str, "yes", 3) || strtol(str, NULL, 10) > 0;
+    vskip_spaces(&str);
+    return ASS_SV_ISTARTSWITH(str, "yes") || parse_int_header(str) > 0;
 }
 
-int parse_ycbcr_matrix(const char *str)
+int parse_ycbcr_matrix(ASS_StringView str)
 {
-    skip_spaces(&str);
-    if (*str == '\0')
+    vskip_spaces(&str);
+    if (!str.len)
         return YCBCR_DEFAULT;
 
-    const char *end = str + strlen(str);
-    rskip_spaces(&end, str);
+    vrskip_spaces(&str);
 
-    // Trim a local copy of the input that we know is safe to
-    // modify. The buffer is larger than any valid string + NUL,
-    // so we can simply chop off the rest of the input.
-    char buffer[16];
-    size_t n = FFMIN(end - str, sizeof buffer - 1);
-    memcpy(buffer, str, n);
-    buffer[n] = '\0';
-
-    if (!ass_strcasecmp(buffer, "none"))
+    if (ASS_SV_IEQ(str, "none"))
         return YCBCR_NONE;
-    if (!ass_strcasecmp(buffer, "tv.601"))
+    if (ASS_SV_IEQ(str, "tv.601"))
         return YCBCR_BT601_TV;
-    if (!ass_strcasecmp(buffer, "pc.601"))
+    if (ASS_SV_IEQ(str, "pc.601"))
         return YCBCR_BT601_PC;
-    if (!ass_strcasecmp(buffer, "tv.709"))
+    if (ASS_SV_IEQ(str, "tv.709"))
         return YCBCR_BT709_TV;
-    if (!ass_strcasecmp(buffer, "pc.709"))
+    if (ASS_SV_IEQ(str, "pc.709"))
         return YCBCR_BT709_PC;
-    if (!ass_strcasecmp(buffer, "tv.240m"))
+    if (ASS_SV_IEQ(str, "tv.240m"))
         return YCBCR_SMPTE240M_TV;
-    if (!ass_strcasecmp(buffer, "pc.240m"))
+    if (ASS_SV_IEQ(str, "pc.240m"))
         return YCBCR_SMPTE240M_PC;
-    if (!ass_strcasecmp(buffer, "tv.fcc"))
+    if (ASS_SV_IEQ(str, "tv.fcc"))
         return YCBCR_FCC_TV;
-    if (!ass_strcasecmp(buffer, "pc.fcc"))
+    if (ASS_SV_IEQ(str, "pc.fcc"))
         return YCBCR_FCC_PC;
     return YCBCR_UNKNOWN;
 }
@@ -467,25 +479,25 @@ void ass_utf16be_to_utf8(char *dst, size_t dst_size, const uint8_t *src, size_t 
  * Returns 0 if no styles found => expects at least 1 style.
  * Parsing code always adds "Default" style in the beginning.
  */
-int lookup_style(ASS_Track *track, const char *name)
+int lookup_style(ASS_Track *track, ASS_StringView name)
 {
     int i;
     // '*' seem to mean literally nothing;
     // VSFilter removes them as soon as it can
-    while (*name == '*')
-        ++name;
+    while (name.len && *name.str == '*')
+        ++name.str, --name.len;
     // VSFilter then normalizes the case of "Default"
     // (only in contexts where this function is called)
-    if (ass_strcasecmp(name, "Default") == 0)
-        name = "Default";
+    if (ASS_SV_IEQ(name, "Default"))
+        name = ASS_SV("Default");
     for (i = track->n_styles - 1; i >= 0; --i) {
-        if (strcmp(track->styles[i].Name, name) == 0)
+        if (ass_sv_equal_cstr(name, track->styles[i].Name))
             return i;
     }
     i = track->default_style;
     ass_msg(track->library, MSGL_WARN,
-            "[%p]: Warning: no style named '%s' found, using '%s'",
-            track, name, track->styles[i].Name);
+            "[%p]: Warning: no style named '%.*s' found, using '%s'",
+            track, (int)name.len, name.str, track->styles[i].Name);
     return i;
 }
 

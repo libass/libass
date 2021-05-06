@@ -76,11 +76,14 @@ void *ass_try_realloc_array(void *ptr, size_t nmemb, size_t size);
 
 void skip_spaces(const char **str);
 void rskip_spaces(const char **str, const char *limit);
+void vskip_spaces(ASS_StringView *str);
+void vrskip_spaces(ASS_StringView *str);
 int32_t parse_alpha_tag(const char *str);
 uint32_t parse_color_tag(const char *str);
-uint32_t parse_color_header(const char *str);
-char parse_bool(const char *str);
-int parse_ycbcr_matrix(const char *str);
+int32_t parse_int_header(ASS_StringView str);
+uint32_t parse_color_header(ASS_StringView str);
+char parse_bool(ASS_StringView str);
+int parse_ycbcr_matrix(ASS_StringView str);
 int numpad2align(int val);
 unsigned ass_utf8_get_char(const char **str);
 unsigned ass_utf8_put_char(char *dest, uint32_t ch);
@@ -91,7 +94,7 @@ void ass_utf16be_to_utf8(char *dst, size_t dst_size, const uint8_t *src, size_t 
     __attribute__ ((format (printf, 3, 4)))
 #endif
 void ass_msg(ASS_Library *priv, int lvl, const char *fmt, ...);
-int lookup_style(ASS_Track *track, const char *name);
+int lookup_style(ASS_Track *track, ASS_StringView name);
 ASS_Style *lookup_style_strict(ASS_Track *track, const char *name, size_t len);
 
 /* defined in ass_strtod.c */

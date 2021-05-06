@@ -41,21 +41,36 @@
 
 #define ass_atof(STR) (ass_strtod((STR),NULL))
 
-static const char *const ass_style_format =
-        "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
-        "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, "
-        "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
-        "Alignment, MarginL, MarginR, MarginV, Encoding";
-static const char *const ass_event_format =
-        "Layer, Start, End, Style, Name, "
-        "MarginL, MarginR, MarginV, Effect, Text";
-static const char *const ssa_style_format =
-        "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
-        "TertiaryColour, BackColour, Bold, Italic, BorderStyle, Outline, "
-        "Shadow, Alignment, MarginL, MarginR, MarginV, AlphaLevel, Encoding";
-static const char *const ssa_event_format =
-        "Marked, Start, End, Style, Name, "
-        "MarginL, MarginR, MarginV, Effect, Text";
+static const ASS_StringView ass_style_format = ASS_SV(
+    "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
+    "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, "
+    "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+    "Alignment, MarginL, MarginR, MarginV, Encoding"
+);
+static const ASS_StringView ass_event_format = ASS_SV(
+    "Layer, Start, End, Style, Name, "
+    "MarginL, MarginR, MarginV, Effect, Text"
+);
+static const ASS_StringView ssa_style_format = ASS_SV(
+    "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
+    "TertiaryColour, BackColour, Bold, Italic, BorderStyle, Outline, "
+    "Shadow, Alignment, MarginL, MarginR, MarginV, AlphaLevel, Encoding"
+);
+static const ASS_StringView ssa_event_format = ASS_SV(
+    "Marked, Start, End, Style, Name, "
+    "MarginL, MarginR, MarginV, Effect, Text"
+);
+
+static inline bool gather_prefix(ASS_StringView *str, ASS_StringView prefix)
+{
+    if (!ass_sv_istartswith(*str, prefix))
+        return false;
+
+    ass_sv_get(str, prefix.len);
+    return true;
+}
+
+#define GATHER_PREFIX(str, lit) gather_prefix(&str, ASS_SV(lit))
 
 #define ASS_STYLES_ALLOC 20
 
@@ -75,6 +90,7 @@ void ass_free_track(ASS_Track *track)
         free(track->parser_priv->read_order_bitmap);
         free(track->parser_priv->fontname);
         free(track->parser_priv->fontdata);
+        free(track->parser_priv->process_data_buf);
         free(track->parser_priv);
     }
     free(track->style_format);
@@ -226,11 +242,14 @@ static void set_default_style(ASS_Style *style)
     style->MarginL = style->MarginR = style->MarginV = 20;
 }
 
-static long long string2timecode(ASS_Library *library, char *p)
+static long long string2timecode(ASS_Library *library, ASS_StringView p)
 {
     int h, m, s, ms;
     long long tm;
-    int res = sscanf(p, "%d:%d:%d.%d", &h, &m, &s, &ms);
+
+    // This is never the last field in a line, so this can't overflow;
+    // TIMEVAL ensures this
+    int res = sscanf(p.str, "%d:%d:%d.%d", &h, &m, &s, &ms);
     if (res < 4) {
         ass_msg(library, MSGL_WARN, "Bad timestamp");
         return 0;
@@ -239,13 +258,13 @@ static long long string2timecode(ASS_Library *library, char *p)
     return tm;
 }
 
-#define NEXT(str,token) \
-    token = next_token(&str); \
-    if (!token) break;
+#define NEXT(s,token) \
+    token = next_token(&s); \
+    if (!token.str) break;
 
 
 #define ALIAS(alias,name) \
-        if (ass_strcasecmp(tname, #alias) == 0) {tname = #name;}
+        if (ass_string_equal(tname, ASS_SV(#alias))) {tname = ASS_SV(#name);}
 
 /* One section started with PARSE_START and PARSE_END parses a single token
  * (contained in the variable named token) for the header indicated by the
@@ -261,64 +280,64 @@ static long long string2timecode(ASS_Library *library, char *p)
 #define PARSE_END   }
 
 #define ANYVAL(name,func) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
+    } else if (ASS_SV_IEQ(tname, #name)) { \
         target->name = func(token);
 
 #define STRVAL(name) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
-        char *new_str = strdup(token); \
+    } else if (ASS_SV_IEQ(tname, #name)) { \
+        char *new_str = ass_copy_string(token); \
         if (new_str) { \
             free(target->name); \
             target->name = new_str; \
         }
 
 #define STARREDSTRVAL(name) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
-        while (*token == '*') ++token; \
-        char *new_str = strdup(token); \
+    } else if (ASS_SV_IEQ(tname, #name)) { \
+        while (token.len && *token.str == '*') ++token.str, --token.len; \
+        char *new_str = ass_copy_string(token); \
         if (new_str) { \
             free(target->name); \
             target->name = new_str; \
         }
 
+static float sv_atof(ASS_StringView val)
+{
+    // Header lines always end in a newline or \0, so this can't overflow
+    return ass_atof(val.str);
+}
+
 #define COLORVAL(name) ANYVAL(name,parse_color_header)
-#define INTVAL(name) ANYVAL(name,atoi)
-#define FPVAL(name) ANYVAL(name,ass_atof)
+#define INTVAL(name) ANYVAL(name,parse_int_header)
+#define FPVAL(name) ANYVAL(name,sv_atof)
 #define TIMEVAL(name) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
+    } else if (ASS_SV_IEQ(tname, #name)) { \
+        if (!p.len) \
+            return 0; \
         target->name = string2timecode(track->library, token);
 
 #define STYLEVAL(name) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
+    } else if (ASS_SV_IEQ(tname, #name)) { \
         target->name = lookup_style(track, token);
 
 // skip spaces in str beforehand, or trim leading spaces afterwards
-static inline void advance_token_pos(const char **const str,
-                                     const char **const start,
-                                     const char **const end)
+static ASS_StringView next_token(ASS_StringView *str)
 {
-    *start = *str;
-    *end   = *start;
-    while (**end != '\0' && **end != ',') ++*end;
-    *str = *end + (**end == ',');
-    rskip_spaces(end, *start);
-}
+    vskip_spaces(str);
+    if (!str->len)
+        return (ASS_StringView){ NULL, 0 };
 
-static char *next_token(char **str)
-{
-    char *p;
-    char *start;
-    skip_spaces((const char **)str);
-    if (**str == '\0') {
-        return 0;
-    }
+    ASS_StringView ret = (ASS_StringView){ str->str, 0 };
 
-    advance_token_pos((const char**)str,
-                      (const char**)&start,
-                      (const char**)&p);
+    while (str->len && *str->str != ',')
+        ++ret.len, ++str->str, --str->len;
 
-    *p = '\0';
-    return start;
+    // Chop the comma, if we ended on one
+    if (str->len)
+        ++str->str, --str->len;
+
+    vrskip_spaces(&ret);
+
+    return ret;
 }
 
 /**
@@ -329,18 +348,14 @@ static char *next_token(char **str)
  * \param n_ignored number of format options to skip at the beginning
 */
 static int process_event_tail(ASS_Track *track, ASS_Event *event,
-                              char *str, int n_ignored)
+                              ASS_StringView p, int n_ignored)
 {
-    char *token;
-    char *tname;
-    char *p = str;
+    ASS_StringView token;
+    ASS_StringView tname;
     int i;
     ASS_Event *target = event;
 
-    char *format = strdup(track->event_format);
-    if (!format)
-        return -1;
-    char *q = format;           // format scanning pointer
+    ASS_StringView q = { track->event_format, strlen(track->event_format) }; // format scanning pointer
 
     for (i = 0; i < n_ignored; ++i) {
         NEXT(q, tname);
@@ -348,16 +363,15 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
 
     while (1) {
         NEXT(q, tname);
-        if (ass_strcasecmp(tname, "Text") == 0) {
+        if (ass_string_equal(tname, ASS_SV("Text"))) {
             char *last;
-            event->Text = strdup(p);
+            event->Text = ass_copy_string(p);
             if (event->Text && *event->Text != 0) {
                 last = event->Text + strlen(event->Text) - 1;
                 if (last >= event->Text && *last == '\r')
                     *last = 0;
             }
             event->Duration -= event->Start;
-            free(format);
             return event->Text ? 0 : -1;           // "Text" is always the last
         }
         NEXT(p, token);
@@ -375,7 +389,6 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
             TIMEVAL(Duration)
         PARSE_END
     }
-    free(format);
     return 1;
 }
 
@@ -386,49 +399,52 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
  */
 void ass_process_force_style(ASS_Track *track)
 {
-    char **fs, *eq, *dt, *style, *tname, *token;
-    ASS_Style *target;
-    int sid;
     char **list = track->library->style_overrides;
 
     if (!list)
         return;
 
-    for (fs = list; *fs; ++fs) {
-        eq = strrchr(*fs, '=');
+    for (char **item = list; *item; ++item) {
+        ASS_StringView name = { *item, 0 };
+        const char *eq = strrchr(name.str, '=');
         if (!eq)
             continue;
-        *eq = '\0';
-        token = eq + 1;
+        name.len = (eq - name.str);
 
-        if (!ass_strcasecmp(*fs, "PlayResX"))
-            track->PlayResX = atoi(token);
-        else if (!ass_strcasecmp(*fs, "PlayResY"))
-            track->PlayResY = atoi(token);
-        else if (!ass_strcasecmp(*fs, "Timer"))
-            track->Timer = ass_atof(token);
-        else if (!ass_strcasecmp(*fs, "WrapStyle"))
-            track->WrapStyle = atoi(token);
-        else if (!ass_strcasecmp(*fs, "ScaledBorderAndShadow"))
+        ASS_StringView token = { eq + 1, strlen(eq + 1) };
+
+        if (ASS_SV_IEQ(name, "PlayResX"))
+            track->PlayResX = parse_int_header(token);
+        else if (ASS_SV_IEQ(name, "PlayResY"))
+            track->PlayResY = parse_int_header(token);
+        else if (ASS_SV_IEQ(name, "Timer"))
+            track->Timer = ass_atof(token.str);
+        else if (ASS_SV_IEQ(name, "WrapStyle"))
+            track->WrapStyle = parse_int_header(token);
+        else if (ASS_SV_IEQ(name, "ScaledBorderAndShadow"))
             track->ScaledBorderAndShadow = parse_bool(token);
-        else if (!ass_strcasecmp(*fs, "Kerning"))
+        else if (ASS_SV_IEQ(name, "Kerning"))
             track->Kerning = parse_bool(token);
-        else if (!ass_strcasecmp(*fs, "YCbCr Matrix"))
+        else if (ASS_SV_IEQ(name, "YCbCr Matrix"))
             track->YCbCrMatrix = parse_ycbcr_matrix(token);
 
-        dt = strrchr(*fs, '.');
-        if (dt) {
-            *dt = '\0';
-            style = *fs;
-            tname = dt + 1;
-        } else {
-            style = NULL;
-            tname = *fs;
+        size_t dt;
+        for (dt = name.len; dt; dt--) {
+            if (name.str[dt - 1] == '.')
+                break;
         }
-        for (sid = 0; sid < track->n_styles; ++sid) {
-            if (style == NULL
-                || ass_strcasecmp(track->styles[sid].Name, style) == 0) {
-                target = track->styles + sid;
+
+        ASS_StringView tname, style;
+        if (dt) {
+            style = (ASS_StringView){ name.str, dt - 1};
+            tname = (ASS_StringView){ name.str + dt, name.len - dt };
+        } else {
+            style = (ASS_StringView){ NULL, 0 };
+            tname = name;
+        }
+        for (int sid = 0; sid < track->n_styles; ++sid) {
+            if (!style.str || ass_sv_iequal_cstr(style, track->styles[sid].Name)) {
+                ASS_Style *target = track->styles + sid;
                 PARSE_START
                     STRVAL(FontName)
                     COLORVAL(PrimaryColour)
@@ -457,9 +473,6 @@ void ass_process_force_style(ASS_Track *track)
                 PARSE_END
             }
         }
-        *eq = '=';
-        if (dt)
-            *dt = '.';
     }
 }
 
@@ -469,14 +482,10 @@ void ass_process_force_style(ASS_Track *track)
  * \param str string to parse, zero-terminated
  * Allocates a new style struct.
 */
-static int process_style(ASS_Track *track, char *str)
+static int process_style(ASS_Track *track, ASS_StringView p)
 {
-
-    char *token;
-    char *tname;
-    char *p = str;
-    char *format;
-    char *q;                    // format scanning pointer
+    ASS_StringView token;
+    ASS_StringView tname;
     int sid;
     ASS_Style *style;
     ASS_Style *target;
@@ -485,24 +494,20 @@ static int process_style(ASS_Track *track, char *str)
         // no style format header
         // probably an ancient script version
         if (track->track_type == TRACK_TYPE_SSA)
-            track->style_format = strdup(ssa_style_format);
+            track->style_format = ass_copy_string(ssa_style_format);
         else
-            track->style_format = strdup(ass_style_format);
+            track->style_format = ass_copy_string(ass_style_format);
         if (!track->style_format)
             return -1;
     }
 
-    q = format = strdup(track->style_format);
-    if (!q)
-        return -1;
+    ASS_StringView q = { track->style_format, strlen(track->style_format) }; // format scanning pointer
 
-    ass_msg(track->library, MSGL_V, "[%p] Style: %s", track, str);
+    ass_msg(track->library, MSGL_V, "[%p] Style: %.*s", track, (int)p.len, p.str);
 
     sid = ass_alloc_style(track);
-    if (sid < 0) {
-        free(format);
+    if (sid < 0)
         return -1;
-    }
 
     style = track->styles + sid;
     target = style;
@@ -552,7 +557,6 @@ static int process_style(ASS_Track *track, char *str)
             FPVAL(Shadow)
         PARSE_END
     }
-    free(format);
     style->ScaleX = FFMAX(style->ScaleX, 0.) / 100.;
     style->ScaleY = FFMAX(style->ScaleY, 0.) / 100.;
     style->Spacing = FFMAX(style->Spacing, 0.);
@@ -577,26 +581,21 @@ static int process_style(ASS_Track *track, char *str)
 
 }
 
-static bool format_line_compare(const char *fmt1, const char *fmt2)
+static bool format_line_compare(ASS_StringView fmt1, ASS_StringView fmt2)
 {
     while (true) {
-        const char *tk1_start, *tk2_start;
-        const char *tk1_end, *tk2_end;
-
-        skip_spaces(&fmt1);
-        skip_spaces(&fmt2);
-        if (!*fmt1 || !*fmt2)
+        vskip_spaces(&fmt1);
+        vskip_spaces(&fmt2);
+        if (!fmt1.len || !fmt2.len)
             break;
 
-        advance_token_pos(&fmt1, &tk1_start, &tk1_end);
-        advance_token_pos(&fmt2, &tk2_start, &tk2_end);
+        ASS_StringView tk1 = next_token(&fmt1);
+        ASS_StringView tk2 = next_token(&fmt2);
 
-        if ((tk1_end-tk1_start) != (tk2_end-tk2_start))
-            return false;
-        if (ass_strncasecmp(tk1_start, tk2_start, tk1_end-tk1_start))
+        if (!ass_sv_iequal(tk1, tk2))
             return false;
     }
-    return *fmt1 == *fmt2;
+    return !fmt1.len && !fmt2.len;
 }
 
 
@@ -611,9 +610,9 @@ static bool format_line_compare(const char *fmt1, const char *fmt2)
  * To avoid breaking released scripts with custom format lines,
  * keep SBAS=1 default for custom format files.
  */
-static void custom_format_line_compatibility(ASS_Track *const track,
-                                             const char *const fmt,
-                                             const char *const std)
+static void custom_format_line_compatibility(ASS_Track *track,
+                                             ASS_StringView fmt,
+                                             ASS_StringView std)
 {
     if (!(track->parser_priv->header_flags & SINFO_SCALEDBORDER)
         && !format_line_compare(fmt, std)) {
@@ -624,26 +623,24 @@ static void custom_format_line_compatibility(ASS_Track *const track,
     }
 }
 
-static int process_styles_line(ASS_Track *track, char *str)
+static int process_styles_line(ASS_Track *track, ASS_StringView str)
 {
     int ret = 0;
-    if (!strncmp(str, "Format:", 7)) {
-        const char *p = str + 7;
-        skip_spaces(&p);
+    if (GATHER_PREFIX(str, "Format:")) {
+        vskip_spaces(&str);
         free(track->style_format);
-        track->style_format = strdup(p);
+        track->style_format = ass_copy_string(str);
         if (!track->style_format)
             return -1;
         ass_msg(track->library, MSGL_DBG2, "Style format: %s",
                track->style_format);
         if (track->track_type == TRACK_TYPE_ASS)
-            custom_format_line_compatibility(track, p, ass_style_format);
+            custom_format_line_compatibility(track, str, ass_style_format);
         else
-            custom_format_line_compatibility(track, p, ssa_style_format);
-    } else if (!strncmp(str, "Style:", 6)) {
-        char *p = str + 6;
-        skip_spaces((const char**)&p);
-        ret = process_style(track, p);
+            custom_format_line_compatibility(track, str, ssa_style_format);
+    } else if (GATHER_PREFIX(str, "Style:")) {
+        vskip_spaces(&str);
+        ret = process_style(track, str);
     }
     return ret;
 }
@@ -660,38 +657,37 @@ static inline void check_duplicate_info_line(const ASS_Track *const track,
         track->parser_priv->header_flags |= si;
 }
 
-static int process_info_line(ASS_Track *track, char *str)
+static int process_info_line(ASS_Track *track, ASS_StringView str)
 {
-    if (!strncmp(str, "PlayResX:", 9)) {
+    if (GATHER_PREFIX(str, "PlayResX:")) {
         check_duplicate_info_line(track, SINFO_PLAYRESX, "PlayResX");
-        track->PlayResX = atoi(str + 9);
-    } else if (!strncmp(str, "PlayResY:", 9)) {
+        track->PlayResX = parse_int_header(str);
+    } else if (GATHER_PREFIX(str, "PlayResY:")) {
         check_duplicate_info_line(track, SINFO_PLAYRESY, "PlayResY");
-        track->PlayResY = atoi(str + 9);
-    } else if (!strncmp(str, "Timer:", 6)) {
+        track->PlayResY = parse_int_header(str);
+    } else if (GATHER_PREFIX(str, "Timer:")) {
         check_duplicate_info_line(track, SINFO_TIMER, "Timer");
-        track->Timer = ass_atof(str + 6);
-    } else if (!strncmp(str, "WrapStyle:", 10)) {
+        // Not parsed, as this doesn't actually do anything
+    } else if (GATHER_PREFIX(str, "WrapStyle:")) {
         check_duplicate_info_line(track, SINFO_WRAPSTYLE, "WrapStyle");
-        track->WrapStyle = atoi(str + 10);
-    } else if (!strncmp(str, "ScaledBorderAndShadow:", 22)) {
+        track->WrapStyle = parse_int_header(str);
+    } else if (GATHER_PREFIX(str, "ScaledBorderAndShadow:")) {
         check_duplicate_info_line(track, SINFO_SCALEDBORDER,
                                     "ScaledBorderAndShadow");
-        track->ScaledBorderAndShadow = parse_bool(str + 22);
-    } else if (!strncmp(str, "Kerning:", 8)) {
+        track->ScaledBorderAndShadow = parse_bool(str);
+    } else if (GATHER_PREFIX(str, "Kerning:")) {
         check_duplicate_info_line(track, SINFO_KERNING, "Kerning");
-        track->Kerning = parse_bool(str + 8);
-    } else if (!strncmp(str, "YCbCr Matrix:", 13)) {
+        track->Kerning = parse_bool(str);
+    } else if (GATHER_PREFIX(str, "YCbCr Matrix:")) {
         check_duplicate_info_line(track, SINFO_COLOURMATRIX, "YCbCr Matrix");
-        track->YCbCrMatrix = parse_ycbcr_matrix(str + 13);
-    } else if (!strncmp(str, "Language:", 9)) {
+        track->YCbCrMatrix = parse_ycbcr_matrix(str);
+    } else if (GATHER_PREFIX(str, "Language:")) {
         check_duplicate_info_line(track, SINFO_LANGUAGE, "Language");
-        char *p = str + 9;
-        while (*p && ass_isspace(*p)) p++;
+        vskip_spaces(&str);
         free(track->Language);
-        track->Language = strndup(p, 2);
-    } else if (!strncmp(str, "; Script generated by ", 22)) {
-        if (!strncmp(str + 22,"FFmpeg/Lavc", 11))
+        track->Language = strndup(str.str, FFMIN(str.len, 2));
+    } else if (GATHER_PREFIX(str, "; Script generated by ")) {
+        if (ASS_SV_STARTSWITH(str, "FFmpeg/Lavc"))
             track->parser_priv->header_flags |= GENBY_FFMPEG;
     }
     return 0;
@@ -701,9 +697,9 @@ static void event_format_fallback(ASS_Track *track)
 {
     track->parser_priv->state = PST_EVENTS;
     if (track->track_type == TRACK_TYPE_SSA)
-        track->event_format = strdup(ssa_event_format);
+        track->event_format = ass_copy_string(ssa_event_format);
     else
-        track->event_format = strdup(ass_event_format);
+        track->event_format = ass_copy_string(ass_event_format);
     ass_msg(track->library, MSGL_V,
             "No event format found, using fallback");
 }
@@ -765,20 +761,19 @@ static bool detect_legacy_conv_subs(ASS_Track *track)
 }
 
 
-static int process_events_line(ASS_Track *track, char *str)
+static int process_events_line(ASS_Track *track, ASS_StringView str)
 {
-    if (!strncmp(str, "Format:", 7)) {
-        const char *p = str + 7;
-        skip_spaces(&p);
+    if (GATHER_PREFIX(str, "Format:")) {
+        vskip_spaces(&str);
         free(track->event_format);
-        track->event_format = strdup(p);
+        track->event_format = ass_copy_string(str);
         if (!track->event_format)
             return -1;
         ass_msg(track->library, MSGL_DBG2, "Event format: %s", track->event_format);
         if (track->track_type == TRACK_TYPE_ASS)
-            custom_format_line_compatibility(track, p, ass_event_format);
+            custom_format_line_compatibility(track, str, ass_event_format);
         else
-            custom_format_line_compatibility(track, p, ssa_event_format);
+            custom_format_line_compatibility(track, str, ssa_event_format);
 
         // Guess if we are dealing with legacy ffmpeg subs and change accordingly
         // If file has no event format it was probably not created by ffmpeg/libav
@@ -787,7 +782,7 @@ static int process_events_line(ASS_Track *track, char *str)
             ass_msg(track->library, MSGL_INFO,
                     "Track treated as legacy ffmpeg sub.");
         }
-    } else if (!strncmp(str, "Dialogue:", 9)) {
+    } else if (GATHER_PREFIX(str, "Dialogue:")) {
         // This should never be reached for embedded subtitles.
         // They have slightly different format and are parsed in ass_process_chunk,
         // called directly from demuxer
@@ -801,8 +796,7 @@ static int process_events_line(ASS_Track *track, char *str)
                 return -1;
         }
 
-        str += 9;
-        skip_spaces((const char**)&str);
+        vskip_spaces(&str);
 
         eid = ass_alloc_event(track);
         if (eid < 0)
@@ -811,7 +805,7 @@ static int process_events_line(ASS_Track *track, char *str)
 
         return process_event_tail(track, event, str, 0);
     } else {
-        ass_msg(track->library, MSGL_V, "Not understood: '%.30s'", str);
+        ass_msg(track->library, MSGL_V, "Not understood: '%.*s'", (int)FFMIN(str.len, 30), str.str);
     }
     return 0;
 }
@@ -884,17 +878,14 @@ error_decode_font:
     return 0;
 }
 
-static int process_fonts_line(ASS_Track *track, char *str)
+static int process_fonts_line(ASS_Track *track, ASS_StringView str)
 {
-    size_t len;
-
-    if (!strncmp(str, "fontname:", 9)) {
-        const char *p = str + 9;
-        skip_spaces(&p);
+    if (GATHER_PREFIX(str, "fontname:")) {
+        vskip_spaces(&str);
         if (track->parser_priv->fontname) {
             decode_font(track);
         }
-        track->parser_priv->fontname = strdup(p);
+        track->parser_priv->fontname = ass_copy_string(str);
         if (!track->parser_priv->fontname)
             return -1;
         ass_msg(track->library, MSGL_V, "Fontname: %s",
@@ -903,25 +894,24 @@ static int process_fonts_line(ASS_Track *track, char *str)
     }
 
     if (!track->parser_priv->fontname) {
-        ass_msg(track->library, MSGL_V, "Not understood: '%s'", str);
+        ass_msg(track->library, MSGL_V, "Not understood: '%.*s'", (int)str.len, str.str);
         return 1;
     }
 
-    len = strlen(str);
     if (track->parser_priv->fontdata_used >=
-        SIZE_MAX - FFMAX(len, 100 * 1024)) {
+        SIZE_MAX - FFMAX(str.len, 100 * 1024)) {
         goto mem_fail;
-    } else if (track->parser_priv->fontdata_used + len >
+    } else if (track->parser_priv->fontdata_used + str.len >
                track->parser_priv->fontdata_size) {
         size_t new_size =
-                track->parser_priv->fontdata_size + FFMAX(len, 100 * 1024);
+                track->parser_priv->fontdata_size + FFMAX(str.len, 100 * 1024);
         if (!ASS_REALLOC_ARRAY(track->parser_priv->fontdata, new_size))
             goto mem_fail;
         track->parser_priv->fontdata_size = new_size;
     }
     memcpy(track->parser_priv->fontdata + track->parser_priv->fontdata_used,
-           str, len);
-    track->parser_priv->fontdata_used += len;
+           str.str, str.len);
+    track->parser_priv->fontdata_used += str.len;
 
     return 0;
 
@@ -935,20 +925,20 @@ mem_fail:
  * \param track track
  * \param str string to parse, zero-terminated
 */
-static int process_line(ASS_Track *track, char *str)
+static int process_line(ASS_Track *track, ASS_StringView str)
 {
-    skip_spaces((const char**)&str);
-    if (!ass_strncasecmp(str, "[Script Info]", 13)) {
+    vskip_spaces(&str);
+    if (ASS_SV_ISTARTSWITH(str, "[Script Info]")) {
         track->parser_priv->state = PST_INFO;
-    } else if (!ass_strncasecmp(str, "[V4 Styles]", 11)) {
+    } else if (ASS_SV_ISTARTSWITH(str, "[V4 Styles]")) {
         track->parser_priv->state = PST_STYLES;
         track->track_type = TRACK_TYPE_SSA;
-    } else if (!ass_strncasecmp(str, "[V4+ Styles]", 12)) {
+    } else if (ASS_SV_ISTARTSWITH(str, "[V4+ Styles]")) {
         track->parser_priv->state = PST_STYLES;
         track->track_type = TRACK_TYPE_ASS;
-    } else if (!ass_strncasecmp(str, "[Events]", 8)) {
+    } else if (ASS_SV_ISTARTSWITH(str, "[Events]")) {
         track->parser_priv->state = PST_EVENTS;
-    } else if (!ass_strncasecmp(str, "[Fonts]", 7)) {
+    } else if (ASS_SV_ISTARTSWITH(str, "[Fonts]")) {
         track->parser_priv->state = PST_FONTS;
     } else {
         switch (track->parser_priv->state) {
@@ -971,34 +961,65 @@ static int process_line(ASS_Track *track, char *str)
     return 0;
 }
 
-static int process_text(ASS_Track *track, char *str)
+static int process_text(ASS_Track *track, ASS_StringView *str)
 {
-    char *p = str;
     while (1) {
-        char *q;
         while (1) {
-            if ((*p == '\r') || (*p == '\n'))
-                ++p;
-            else if (p[0] == '\xef' && p[1] == '\xbb' && p[2] == '\xbf')
-                p += 3;         // U+FFFE (BOM)
+            if (ASS_SV_STARTSWITH(*str, "\r")  || ASS_SV_STARTSWITH(*str, "\n"))
+                ass_sv_get(str, 1);
+            else if (ASS_SV_STARTSWITH(*str, "\xef\xbb\xbf"))
+                ass_sv_get(str, 3); // U+FFFE (BOM)
             else
                 break;
         }
-        for (q = p; ((*q != '\0') && (*q != '\r') && (*q != '\n')); ++q) {
-        };
-        if (q == p)
+
+        size_t len;
+        for (len = 0; len < str->len &&
+                      str->str[len] != '\r' &&
+                      str->str[len] != '\n';
+             len++)
+             ;
+
+        if (!len || len == str->len)
             break;
-        if (*q != '\0')
-            *(q++) = '\0';
-        process_line(track, p);
-        if (*q == '\0')
-            break;
-        p = q;
+
+        process_line(track, ass_sv_get(str, len));
     }
     // there is no explicit end-of-font marker in ssa/ass
     if (track->parser_priv->fontname)
         decode_font(track);
     return 0;
+}
+
+static int process_text_full(ASS_Track *track, ASS_StringView str)
+{
+    int ret = process_text(track, &str);
+    if (ret < 0)
+        return ret;
+
+    if (!str.len)
+        return 0;
+
+    // Absurd? Yes.
+    if (str.len >= SIZE_MAX - 1)
+        return -ENOMEM;
+
+    // If there was a partial line left over, alloc a buffer and parse it again
+    // with a \n tacked on the end
+    char *buf = malloc(str.len + 1);
+    if (!buf)
+        return -ENOMEM;
+
+    memcpy(buf, str.str, str.len);
+    buf[str.len] = '\n';
+
+    str.str = buf;
+    str.len++;
+
+    ret = process_text(track, &str);
+
+    free(buf);
+    return ret;
 }
 
 /**
@@ -1007,18 +1028,65 @@ static int process_text(ASS_Track *track, char *str)
  * \param data string to parse
  * \param size length of data
 */
-void ass_process_data(ASS_Track *track, char *data, int size)
+void ass_process_data(ASS_Track *track, const char *data, int size)
 {
-    char *str = malloc(size + 1);
-    if (!str)
-        return;
+    ass_msg(track->library, MSGL_DBG2, "Event: %.*s", size, data);
 
-    memcpy(str, data, size);
-    str[size] = '\0';
+    if (track->parser_priv->process_data_buf) {
+        int pos;
+        for (pos = 0; pos < size; pos++)
+            if (data[pos] == '\r' ||
+                data[pos] == '\n')
+                break;
 
-    ass_msg(track->library, MSGL_V, "Event: %s", str);
-    process_text(track, str);
-    free(str);
+        if (pos == size) {
+            if (track->parser_priv->process_data_buf_size >= SIZE_MAX - size)
+                goto wipe;
+
+            char *newbuf = realloc(track->parser_priv->process_data_buf, track->parser_priv->process_data_buf_size + size);
+            if (!newbuf)
+                goto wipe;
+
+            memcpy(newbuf + track->parser_priv->process_data_buf_size, data, size);
+            track->parser_priv->process_data_buf = newbuf;
+            track->parser_priv->process_data_buf_size += size;
+        }
+
+        if (track->parser_priv->process_data_buf_size >= SIZE_MAX - pos - 1)
+            goto wipe;
+
+        size_t alloc_size = track->parser_priv->process_data_buf_size + pos + 1;
+        char *alloced = malloc(alloc_size);
+        if (!alloced)
+            goto wipe;
+
+        memcpy(alloced, track->parser_priv->process_data_buf, track->parser_priv->process_data_buf_size);
+        memcpy(alloced + track->parser_priv->process_data_buf_size, data, pos + 1);
+
+        ASS_StringView buf_str = { alloced, alloc_size };
+        process_text(track, &buf_str);
+        free(alloced);
+        free(track->parser_priv->process_data_buf);
+        track->parser_priv->process_data_buf = NULL;
+
+        data += pos + 1;
+        size -= pos + 1;
+    }
+
+    ASS_StringView str = { data, size };
+    process_text(track, &str);
+
+    if (str.len) {
+        track->parser_priv->process_data_buf = ass_copy_string(str);
+        track->parser_priv->process_data_buf_size = str.len;
+    }
+
+    return;
+
+wipe:
+    free(track->parser_priv->process_data_buf);
+    track->parser_priv->process_data_buf = NULL;
+    return; // ENOMEM
 }
 
 /**
@@ -1028,9 +1096,9 @@ void ass_process_data(ASS_Track *track, char *data, int size)
  * \param size length of data
  CodecPrivate section contains [Stream Info] and [V4+ Styles] ([V4 Styles] for SSA) sections
 */
-void ass_process_codec_private(ASS_Track *track, char *data, int size)
+void ass_process_codec_private(ASS_Track *track, const char *data, int size)
 {
-    ass_process_data(track, data, size);
+    process_text_full(track, (ASS_StringView){ data, size });
 
     // probably an mkv produced by ancient mkvtoolnix
     // such files don't have [Events] and Format: headers
@@ -1064,13 +1132,12 @@ void ass_set_check_readorder(ASS_Track *track, int check_readorder)
  * \param timecode starting time of the event (milliseconds)
  * \param duration duration of the event (milliseconds)
 */
-void ass_process_chunk(ASS_Track *track, char *data, int size,
+void ass_process_chunk(ASS_Track *track, const char *data, int size,
                        long long timecode, long long duration)
 {
-    char *str = NULL;
     int eid;
-    char *p;
-    char *token;
+    ASS_StringView p = { data, size };
+    ASS_StringView token;
     ASS_Event *event;
     int check_readorder = track->parser_priv->check_readorder;
 
@@ -1083,47 +1150,41 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
 
     if (!track->event_format) {
         ass_msg(track->library, MSGL_WARN, "Event format header missing");
-        goto cleanup;
+        return;
     }
 
-    str = malloc(size + 1);
-    if (!str)
-        goto cleanup;
-    memcpy(str, data, size);
-    str[size] = '\0';
-    ass_msg(track->library, MSGL_V, "Event at %" PRId64 ", +%" PRId64 ": %s",
-           (int64_t) timecode, (int64_t) duration, str);
+    ass_msg(track->library, MSGL_V, "Event at %" PRId64 ", +%" PRId64 ": %.*s",
+           (int64_t) timecode, (int64_t) duration, (int)p.len, p.str);
 
     eid = ass_alloc_event(track);
     if (eid < 0)
-        goto cleanup;
+        return;
     event = track->events + eid;
-
-    p = str;
 
     do {
         NEXT(p, token);
-        event->ReadOrder = atoi(token);
+        if (!p.len)
+            break;
+        event->ReadOrder = atoi(token.str);
         if (check_readorder && check_duplicate_event(track, event->ReadOrder))
             break;
 
         NEXT(p, token);
-        event->Layer = atoi(token);
+        if (!p.len)
+            break;
+        event->Layer = atoi(token.str);
 
         process_event_tail(track, event, p, 3);
 
         event->Start = timecode;
         event->Duration = duration;
 
-        goto cleanup;
+        return;
 //              dump_events(tid);
     } while (0);
     // some error
     ass_free_event(track, eid);
     track->n_events--;
-
-cleanup:
-    free(str);
 }
 
 /**
@@ -1150,13 +1211,14 @@ void ass_flush_events(ASS_Track *track)
  * \param size buffer size
  * \return a pointer to recoded buffer, caller is responsible for freeing it
 **/
-static char *sub_recode(ASS_Library *library, char *data, size_t size,
-                        char *codepage)
+static char *sub_recode(ASS_Library *library, const char *data, size_t size,
+                        const char *codepage, size_t *outsize)
 {
     iconv_t icdsc;
-    char *tocp = "UTF-8";
+    const char *tocp = "UTF-8";
     char *outbuf;
     assert(codepage);
+    assert(outsize);
 
     if ((icdsc = iconv_open(tocp, codepage)) != (iconv_t) (-1)) {
         ass_msg(library, MSGL_V, "Opened iconv descriptor");
@@ -1177,7 +1239,7 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
         outbuf = malloc(osize);
         if (!outbuf)
             goto out;
-        ip = data;
+        ip = (char*)data; // iconv takes a char**, but doesn't modify the pointed data
         op = outbuf;
 
         while (1) {
@@ -1210,6 +1272,8 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
                 break;
         }
         outbuf[osize - oleft - 1] = 0;
+
+        *outsize = osize - oleft - 1;
     }
 
 out:
@@ -1283,7 +1347,7 @@ char *read_file(ASS_Library *library, const char *fname, size_t *bufsize)
 /*
  * \param buf pointer to subtitle text in utf-8
  */
-static ASS_Track *parse_memory(ASS_Library *library, char *buf)
+static ASS_Track *parse_memory(ASS_Library *library, const char *buf, size_t size)
 {
     ASS_Track *track;
     int i;
@@ -1293,20 +1357,23 @@ static ASS_Track *parse_memory(ASS_Library *library, char *buf)
         return NULL;
 
     // process header
-    process_text(track, buf);
+    if (process_text_full(track, (ASS_StringView){ buf, size }) < 0)
+        goto fail;
 
     // external SSA/ASS subs does not have ReadOrder field
     for (i = 0; i < track->n_events; ++i)
         track->events[i].ReadOrder = i;
 
-    if (track->track_type == TRACK_TYPE_UNKNOWN) {
-        ass_free_track(track);
-        return 0;
-    }
+    if (track->track_type == TRACK_TYPE_UNKNOWN)
+        goto fail;
 
     ass_process_force_style(track);
 
     return track;
+
+fail:
+    ass_free_track(track);
+    return NULL;
 }
 
 /**
@@ -1317,34 +1384,24 @@ static ASS_Track *parse_memory(ASS_Library *library, char *buf)
  * \param codepage recode buffer contents from given codepage
  * \return newly allocated track
 */
-ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
-                           size_t bufsize, char *codepage)
+ASS_Track *ass_read_memory(ASS_Library *library, const char *buf,
+                           size_t bufsize, const char *codepage)
 {
     ASS_Track *track;
-    int copied = 0;
+    char *alloced = NULL;
 
     if (!buf)
         return 0;
 
 #ifdef CONFIG_ICONV
     if (codepage) {
-        buf = sub_recode(library, buf, bufsize, codepage);
+        buf = alloced = sub_recode(library, buf, bufsize, codepage, &bufsize);
         if (!buf)
             return 0;
-        else
-            copied = 1;
     }
 #endif
-    if (!copied) {
-        char *newbuf = malloc(bufsize + 1);
-        if (!newbuf)
-            return 0;
-        memcpy(newbuf, buf, bufsize);
-        newbuf[bufsize] = '\0';
-        buf = newbuf;
-    }
-    track = parse_memory(library, buf);
-    free(buf);
+    track = parse_memory(library, buf, bufsize);
+    free(alloced);
     if (!track)
         return 0;
 
@@ -1354,25 +1411,23 @@ ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
     return track;
 }
 
-static char *read_file_recode(ASS_Library *library, char *fname,
-                              char *codepage, size_t *size)
+static char *read_file_recode(ASS_Library *library, const char *fname,
+                              const char *codepage, size_t *size)
 {
     char *buf;
-    size_t bufsize;
 
-    buf = read_file(library, fname, &bufsize);
+    buf = read_file(library, fname, size);
     if (!buf)
         return 0;
 #ifdef CONFIG_ICONV
     if (codepage) {
-        char *tmpbuf = sub_recode(library, buf, bufsize, codepage);
+        char *tmpbuf = sub_recode(library, buf, *size, codepage, size);
         free(buf);
         buf = tmpbuf;
     }
     if (!buf)
         return 0;
 #endif
-    *size = bufsize;
     return buf;
 }
 
@@ -1383,8 +1438,8 @@ static char *read_file_recode(ASS_Library *library, char *fname,
  * \param codepage recode buffer contents from given codepage
  * \return newly allocated track
 */
-ASS_Track *ass_read_file(ASS_Library *library, char *fname,
-                         char *codepage)
+ASS_Track *ass_read_file(ASS_Library *library, const char *fname,
+                         const char *codepage)
 {
     char *buf;
     ASS_Track *track;
@@ -1393,7 +1448,7 @@ ASS_Track *ass_read_file(ASS_Library *library, char *fname,
     buf = read_file_recode(library, fname, codepage, &bufsize);
     if (!buf)
         return 0;
-    track = parse_memory(library, buf);
+    track = parse_memory(library, buf, bufsize);
     free(buf);
     if (!track)
         return 0;
@@ -1410,7 +1465,7 @@ ASS_Track *ass_read_file(ASS_Library *library, char *fname,
 /**
  * \brief read styles from file into already initialized track
  */
-int ass_read_styles(ASS_Track *track, char *fname, char *codepage)
+int ass_read_styles(ASS_Track *track, const char *fname, const char *codepage)
 {
     char *buf;
     ParserState old_state;
@@ -1422,7 +1477,7 @@ int ass_read_styles(ASS_Track *track, char *fname, char *codepage)
 #ifdef CONFIG_ICONV
     if (codepage) {
         char *tmpbuf;
-        tmpbuf = sub_recode(track->library, buf, sz, codepage);
+        tmpbuf = sub_recode(track->library, buf, sz, codepage, &sz);
         free(buf);
         buf = tmpbuf;
     }
@@ -1432,7 +1487,7 @@ int ass_read_styles(ASS_Track *track, char *fname, char *codepage)
 
     old_state = track->parser_priv->state;
     track->parser_priv->state = PST_STYLES;
-    process_text(track, buf);
+    process_text_full(track, (ASS_StringView){buf, sz});
     free(buf);
     track->parser_priv->state = old_state;
 
