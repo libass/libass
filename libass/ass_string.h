@@ -16,7 +16,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef ASS_STRING_H
 #define ASS_STRING_H
@@ -33,6 +35,28 @@ static inline int ass_isspace(int c)
 static inline int ass_isdigit(int c)
 {
     return c >= '0' && c <= '9';
+}
+
+// ASS_StringView struct and utilities
+
+typedef struct {
+    const char *str;
+    size_t len;
+} ASS_StringView;
+
+static inline char *ass_copy_string(ASS_StringView src)
+{
+    char *buf = malloc(src.len + 1);
+    if (buf) {
+        memcpy(buf, src.str, src.len);
+        buf[src.len] = '\0';
+    }
+    return buf;
+}
+
+static inline bool ass_string_equal(ASS_StringView str1, ASS_StringView str2)
+{
+    return str1.len == str2.len && !memcmp(str1.str, str2.str, str1.len);
 }
 
 #endif

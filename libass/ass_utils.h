@@ -30,6 +30,7 @@
 #include <math.h>
 
 #include "ass.h"
+#include "ass_string.h"
 
 #ifndef SIZE_MAX
 #define SIZE_MAX ((size_t)-1)
@@ -53,26 +54,6 @@ int has_sse2(void);
 int has_avx(void);
 int has_avx2(void);
 #endif
-
-typedef struct {
-    const char *str;
-    size_t len;
-} ASS_StringView;
-
-static inline char *ass_copy_string(ASS_StringView src)
-{
-    char *buf = malloc(src.len + 1);
-    if (buf) {
-        memcpy(buf, src.str, src.len);
-        buf[src.len] = '\0';
-    }
-    return buf;
-}
-
-static inline bool ass_string_equal(ASS_StringView str1, ASS_StringView str2)
-{
-    return str1.len == str2.len && !memcmp(str1.str, str2.str, str1.len);
-}
 
 void *ass_aligned_alloc(size_t alignment, size_t size, bool zero);
 void ass_aligned_free(void *ptr);
