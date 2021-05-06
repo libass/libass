@@ -76,3 +76,17 @@ int ass_strncasecmp(const char *s1, const char *s2, size_t n)
     return a - b;
 }
 
+bool ass_sv_iequal_cstr(ASS_StringView s1, const char *s2)
+{
+    unsigned char a, b;
+
+    do {
+        if (s1.len--)
+            a = lowertab[(unsigned char)*s1.str++];
+        else
+            a = 0;
+        b = lowertab[(unsigned char)*s2++];
+    } while (a && a == b);
+
+    return a - b;
+}
