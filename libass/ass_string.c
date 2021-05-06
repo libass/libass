@@ -65,6 +65,9 @@ int ass_strncasecmp(const char *s1, const char *s2, size_t n)
     unsigned char a, b;
     const char *last = s1 + n;
 
+    if (n == 0)
+        return 0;
+
     do {
         a = lowertab[(unsigned char)*s1++];
         b = lowertab[(unsigned char)*s2++];
