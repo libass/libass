@@ -792,6 +792,28 @@ void ass_shaper_set_kerning(ASS_Shaper *shaper, bool kern)
 }
 
 /**
+  * \param symbol codepoint
+  * \return true if codepoint is default-ignorable, else false
+  */
+static bool is_default_ignorable(uint_least32_t symbol)
+{
+    // TODO: this list is incomplete. maybe match harfbuzz list, or Unicode at:
+    //       https://ftp.unicode.org/Public/UNIDATA/DerivedCoreProperties.txt
+    // TODO: maybe cascade tests (e.g. first symbol>>12) to improve performance.
+    return (symbol <= 0x202e && symbol >= 0x202a) // directional control
+            || (symbol <= 0x200f && symbol >= 0x200b) // zero width, directional
+            || (symbol <= 0x206f && symbol >= 0x2060) // WJ, Invisible ops, deprecated
+            || (symbol <= 0xfe0f && symbol >= 0xfe00) // variantion selectors
+            || (symbol <= 0xe01ef && symbol >= 0xe0100) // variantion selectors
+            || (symbol <= 0x180f && symbol >= 0x180b) // variant selectors, vowel separator
+            || symbol == 0x061c // arabic letter mark
+            || symbol == 0xfeff // Arabic zero width
+            || symbol == 0x00ad // soft hyphen
+            || symbol == 0x034f // Combining Grapheme Joiner
+            ;
+}
+
+/**
  * \brief Find shape runs according to the event's selected fonts
  */
 void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
@@ -805,6 +827,7 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
     // find appropriate fonts for the shape runs
     for (i = 0; i < len; i++) {
         GlyphInfo *info = glyphs + i;
+        info->skip = is_default_ignorable(info->symbol);
         if (!info->drawing_text.str) {
             // set size and get glyph index
             ass_font_get_index(render_priv->fontselect, info->font,
@@ -865,33 +888,6 @@ void ass_shaper_set_bidi_brackets(ASS_Shaper *shaper, bool match_brackets)
 #endif
 
 /**
-  * \brief Remove all zero-width invisible characters from the text.
-  * \param text_info text
-  */
-static void ass_shaper_skip_characters(TextInfo *text_info)
-{
-    int i;
-    GlyphInfo *glyphs = text_info->glyphs;
-
-    for (i = 0; i < text_info->length; i++) {
-        // Skip direction override control characters
-        if ((glyphs[i].symbol <= 0x202e && glyphs[i].symbol >= 0x202a)
-                || (glyphs[i].symbol <= 0x200f && glyphs[i].symbol >= 0x200b)
-                || (glyphs[i].symbol <= 0x206f && glyphs[i].symbol >= 0x2060)
-                || (glyphs[i].symbol <= 0xfe0f && glyphs[i].symbol >= 0xfe00)
-                || (glyphs[i].symbol <= 0xe01ef && glyphs[i].symbol >= 0xe0100)
-                || (glyphs[i].symbol <= 0x180f && glyphs[i].symbol >= 0x180b)
-                || glyphs[i].symbol == 0x061c
-                || glyphs[i].symbol == 0xfeff
-                || glyphs[i].symbol == 0x00ad
-                || glyphs[i].symbol == 0x034f) {
-            glyphs[i].symbol = 0;
-            glyphs[i].skip = true;
-        }
-    }
-}
-
-/**
  * \brief Shape an event's text. Calculates directional runs and shapes them.
  * \param text_info event's text
  * \return success, when 0
@@ -938,7 +934,6 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     switch (shaper->shaping_level) {
     case ASS_SHAPING_SIMPLE:
         shape_fribidi(shaper, glyphs, text_info->length);
-        ass_shaper_skip_characters(text_info);
         return true;
     case ASS_SHAPING_COMPLEX:
     default:
