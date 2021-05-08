@@ -359,23 +359,12 @@ typedef struct {
     Item *items;
 } ItemList;
 
-static bool init_items(ItemList *list)
-{
-    size_t n = 256;
-    list->n_items = list->max_items = 0;
-    list->items = malloc(n * sizeof(Item));
-    if (!list->items)
-        return out_of_memory();
-    list->max_items = n;
-    return true;
-}
-
 static bool add_item(ItemList *list)
 {
     if (list->n_items < list->max_items)
         return true;
 
-    size_t n = 2 * list->max_items;
+    size_t n = list->max_items ? 2 * list->max_items : 256;
     Item *next = realloc(list->items, n * sizeof(Item));
     if (!next)
         return out_of_memory();
@@ -455,13 +444,75 @@ static bool add_img_item(ItemList *list, const char *file, size_t len)
     return true;
 }
 
-
-static int print_usage(const char *program)
+static bool process_input(ItemList *list, const char *path, ASS_Library *lib)
 {
+    DIR *dir = opendir(path);
+    if (!dir) {
+        printf("Cannot open input directory '%s'!\n", path);
+        return false;
+    }
+    struct dirent *file;
+    while ((file = readdir(dir))) {
+        const char *name = file->d_name;
+        if (name[0] == '.')
+            continue;
+        const char *ext = strrchr(name + 1, '.');
+        if (!ext)
+            continue;
+
+        if (!strcmp(ext, ".png")) {
+            if (add_img_item(list, name, ext - name))
+                continue;
+        } else if (!strcmp(ext, ".ass")) {
+            if (add_sub_item(list, name, ext - name))
+                continue;
+        } else if (!strcmp(ext, ".ttf") || !strcmp(ext, ".otf") || !strcmp(ext, ".pfb")) {
+            if (load_font(lib, path, name))
+                continue;
+            printf("Cannot load font '%s'!\n", name);
+        } else {
+            continue;
+        }
+        closedir(dir);
+        return false;
+    }
+    closedir(dir);
+    return true;
+}
+
+
+enum {
+    INPUT, OUTPUT, SCALE
+};
+
+static bool parse_cmdline(int pos[3], int argc, char *argv[])
+{
+    for (int i = 1; i < argc; i++) {
+        if (argv[i][0] != '-') {
+            if (pos[INPUT])
+                goto fail;
+            pos[INPUT] = i;
+            continue;
+        }
+        int index;
+        switch (argv[i][1]) {
+        case 'i':  index = INPUT;   break;
+        case 'o':  index = OUTPUT;  break;
+        case 's':  index = SCALE;   break;
+        default:   goto fail;
+        }
+        if (argv[i][2] || ++i >= argc || pos[index])
+            goto fail;
+        pos[index] = i;
+    }
+    if (pos[INPUT])
+        return true;
+
+fail:;
     const char *fmt =
         "Usage: %s [-i] <input-dir> [-o <output-dir>] [-s <scale:1-8>]\n";
-    printf(fmt, program);
-    return 1;
+    printf(fmt, argv[0]);
+    return false;
 }
 
 void msg_callback(int level, const char *fmt, va_list va, void *data)
@@ -475,46 +526,22 @@ void msg_callback(int level, const char *fmt, va_list va, void *data)
 
 int main(int argc, char *argv[])
 {
-    enum {
-        INPUT, OUTPUT, SCALE
-    };
     int pos[3] = {0};
-    for (int i = 1; i < argc; i++) {
-        if (argv[i][0] != '-') {
-            if (pos[INPUT])
-                return print_usage(argv[0]);
-            pos[INPUT] = i;
-            continue;
-        }
-        int index;
-        switch (argv[i][1]) {
-        case 'i':  index = INPUT;   break;
-        case 'o':  index = OUTPUT;  break;
-        case 's':  index = SCALE;   break;
-        default:  return print_usage(argv[0]);
-        }
-        if (argv[i][2] || ++i >= argc || pos[index])
-            return print_usage(argv[0]);
-        pos[index] = i;
-    }
-    if (!pos[INPUT])
-        return print_usage(argv[0]);
+    if (!parse_cmdline(pos, argc, argv))
+        return 1;
+
+    ASS_Library *lib = NULL;
+    ItemList list = {0};
+    int result = 1;
 
     int scale = 1;
     if (pos[SCALE]) {
         const char *arg = argv[pos[SCALE]];
         if (arg[0] < '1' || arg[0] > '8' || arg[1]) {
             printf("Invalid scale value, should be 1-8!\n");
-            return 1;
+            goto end;
         }
         scale = arg[0] - '0';
-    }
-
-    const char *input = argv[pos[INPUT]];
-    DIR *dir = opendir(input);
-    if (!dir) {
-        printf("Cannot open input directory '%s'!\n", input);
-        return 1;
     }
 
     const char *output = NULL;
@@ -524,69 +551,30 @@ int main(int argc, char *argv[])
         if (stat(output, &st)) {
             if (mkdir(output, 0755)) {
                 printf("Cannot create output directory '%s'!\n", output);
-                closedir(dir);
-                return 1;
+                goto end;
             }
         } else if (!(st.st_mode & S_IFDIR)) {
             printf("Invalid output directory '%s'!\n", output);
-            closedir(dir);
-            return 1;
+            goto end;
         }
     }
 
-    ASS_Library *lib = ass_library_init();
+    lib = ass_library_init();
     if (!lib) {
         printf("ass_library_init failed!\n");
-        closedir(dir);
-        return 1;
+        goto end;
     }
     ass_set_message_cb(lib, msg_callback, NULL);
     ass_set_extract_fonts(lib, true);
 
-    ItemList list;
-    if (!init_items(&list)) {
-        ass_library_done(lib);
-        closedir(dir);
-        return 1;
-    }
-
-    while (true) {
-        struct dirent *file = readdir(dir);
-        if (!file)
-            break;
-        const char *name = file->d_name;
-        if (name[0] == '.')
-            continue;
-        const char *ext = strrchr(name + 1, '.');
-        if (!ext)
-            continue;
-
-        if (!strcmp(ext, ".png")) {
-            if (add_img_item(&list, name, ext - name))
-                continue;
-        } else if (!strcmp(ext, ".ass")) {
-            if (add_sub_item(&list, name, ext - name))
-                continue;
-        } else if (!strcmp(ext, ".ttf") || !strcmp(ext, ".otf") || !strcmp(ext, ".pfb")) {
-            if (load_font(lib, input, name))
-                continue;
-            printf("Cannot load font '%s'!\n", name);
-        } else {
-            continue;
-        }
-        delete_items(&list);
-        ass_library_done(lib);
-        closedir(dir);
-        return 1;
-    }
-    closedir(dir);
+    const char *input = argv[pos[INPUT]];
+    if (!process_input(&list, input, lib))
+        goto end;
 
     ASS_Renderer *renderer = ass_renderer_init(lib);
     if (!renderer) {
         printf("ass_renderer_init failed!\n");
-        delete_items(&list);
-        ass_library_done(lib);
-        return 1;
+        goto end;
     }
     ass_set_fonts(renderer, NULL, NULL, ASS_FONTPROVIDER_NONE, NULL, 0);
 
@@ -596,16 +584,18 @@ int main(int argc, char *argv[])
     unsigned total = 0, good = 0;
     qsort(list.items, list.n_items, sizeof(Item), item_compare);
     for (size_t i = 0; i < list.n_items; i++) {
-        if (strcmp(prev, list.items[i].name)) {
-            if (track)
+        char *name = list.items[i].name;
+        if (strcmp(prev, name)) {
+            if (track) {
                 ass_free_track(track);
-            prev = list.items[i].name;
-            prefix = strlen(prev);
-            if (list.items[i].time < 0)
-                track = load_track(lib, input, prev);
-            else {
-                printf("Missing subtitle file '%s.ass'!\n", prev);
                 track = NULL;
+            }
+            prev = name;
+            prefix = strlen(name);
+            if (list.items[i].time < 0)
+                track = load_track(lib, input, name);
+            else {
+                printf("Missing subtitle file '%s.ass'!\n", name);
                 total++;
             }
             continue;
@@ -614,7 +604,6 @@ int main(int argc, char *argv[])
         total++;
         if (!track)
             continue;
-        char *name = list.items[i].name;
         name[prefix] = '-';  // restore initial filename
         if (process_image(renderer, track, input, output,
                           name, list.items[i].time, scale))
@@ -622,14 +611,20 @@ int main(int argc, char *argv[])
     }
     if (track)
         ass_free_track(track);
-    delete_items(&list);
     ass_renderer_done(renderer);
-    ass_library_done(lib);
 
-    if (good < total) {
+    if (!total) {
+        printf("No images found!\n");
+    } else if (good < total) {
         printf("Only %u of %u images have passed test\n", good, total);
-        return 1;
+    } else {
+        printf("All %u images have passed test\n", total);
+        result = 0;
     }
-    printf("All %u images have passed test\n", total);
-    return 0;
+
+end:
+    delete_items(&list);
+    if (lib)
+        ass_library_done(lib);
+    return result;
 }
