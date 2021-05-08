@@ -284,13 +284,13 @@ static ASS_Track *load_track(ASS_Library *lib,
                              const char *dir, const char *file)
 {
     char path[4096];
-    snprintf(path, sizeof(path), "%s/%s.ass", dir, file);
+    snprintf(path, sizeof(path), "%s/%s", dir, file);
     ASS_Track *track = ass_read_file(lib, path, NULL);
     if (!track) {
-        printf("Cannot load subtitle file '%s.ass'!\n", file);
+        printf("Cannot load subtitle file '%s'!\n", file);
         return NULL;
     }
-    printf("Processing '%s.ass':\n", file);
+    printf("Processing '%s':\n", file);
     return track;
 }
 
@@ -351,6 +351,7 @@ static bool process_image(ASS_Renderer *renderer, ASS_Track *track,
 
 typedef struct {
     char *name;
+    size_t prefix;
     const char *dir;
     int64_t time;
 } Item;
@@ -384,9 +385,20 @@ static void delete_items(ItemList *list)
 static int item_compare(const void *ptr1, const void *ptr2)
 {
     const Item *e1 = ptr1, *e2 = ptr2;
-    int cmp = strcmp(e1->name, e2->name);
+
+    int cmp_len = 0;
+    size_t len = e1->prefix;
+    if (len > e2->prefix) {
+        cmp_len = +1;
+        len = e2->prefix;
+    } else if (len < e2->prefix) {
+        cmp_len = -1;
+    }
+    int cmp = memcmp(e1->name, e2->name, len);
     if (cmp)
         return cmp;
+    if (cmp_len)
+        return cmp_len;
     if (e1->time > e2->time)
         return +1;
     if (e1->time < e2->time)
@@ -401,11 +413,10 @@ static bool add_sub_item(ItemList *list, const char *dir, const char *file, size
         return false;
 
     Item *item = &list->items[list->n_items];
-    item->name = malloc(len + 1);
+    item->name = strdup(file);
     if (!item->name)
         return out_of_memory();
-    memcpy(item->name, file, len);
-    item->name[len] = '\0';
+    item->prefix = len;
     item->dir = dir;
     item->time = -1;
     list->n_items++;
@@ -438,7 +449,7 @@ static bool add_img_item(ItemList *list, const char *dir, const char *file, size
     item->name = strdup(file);
     if (!item->name)
         return out_of_memory();
-    item->name[pos] = '\0';
+    item->prefix = pos;
     item->dir = dir;
     item->time = 0;
     for (size_t i = first; i < len; i++)
@@ -463,13 +474,28 @@ static bool process_input(ItemList *list, const char *path, ASS_Library *lib)
         if (!ext)
             continue;
 
-        if (!strcmp(ext, ".png")) {
+        char ext_lc[5];
+        size_t pos = 0;
+        while (pos < sizeof(ext_lc) - 1) {
+            char c = ext[pos + 1];
+            if (!c)
+                break;
+            if (c >= 'A' && c <= 'Z')
+                c += 'a' - 'A';
+            ext_lc[pos] = c;
+            pos++;
+        }
+        ext_lc[pos] = '\0';
+
+        if (!strcmp(ext_lc, "png")) {
             if (add_img_item(list, path, name, ext - name))
                 continue;
-        } else if (!strcmp(ext, ".ass")) {
+        } else if (!strcmp(ext_lc, "ass")) {
             if (add_sub_item(list, path, name, ext - name))
                 continue;
-        } else if (!strcmp(ext, ".ttf") || !strcmp(ext, ".otf") || !strcmp(ext, ".pfb")) {
+        } else if (!strcmp(ext_lc, "ttf") ||
+                   !strcmp(ext_lc, "otf") ||
+                   !strcmp(ext_lc, "pfb")) {
             if (load_font(lib, path, name))
                 continue;
             printf("Cannot load font '%s'!\n", name);
@@ -587,35 +613,35 @@ int main(int argc, char *argv[])
     }
     ass_set_fonts(renderer, NULL, NULL, ASS_FONTPROVIDER_NONE, NULL, 0);
 
-    size_t prefix;
+    size_t prefix = 0;
     const char *prev = "";
     ASS_Track *track = NULL;
     unsigned total = 0, good = 0;
     qsort(list.items, list.n_items, sizeof(Item), item_compare);
     for (size_t i = 0; i < list.n_items; i++) {
         char *name = list.items[i].name;
-        if (strcmp(prev, name)) {
+        size_t len = list.items[i].prefix;
+        if (prefix != len || memcmp(prev, name, len)) {
             if (track) {
                 ass_free_track(track);
                 track = NULL;
             }
             prev = name;
-            prefix = strlen(name);
+            prefix = len;
             if (list.items[i].time >= 0) {
-                printf("Missing subtitle file '%s.ass'!\n", name);
+                printf("Missing subtitle file '%.*s.ass'!\n", (int) len, name);
                 total++;
             } else if (i + 1 < list.n_items && list.items[i + 1].time >= 0)
                 track = load_track(lib, list.items[i].dir, prev);
             continue;
         }
         if (list.items[i].time < 0) {
-            printf("Multiple subtitle files '%s.ass'!\n", name);
+            printf("Multiple subtitle files '%.*s.ass'!\n", (int) len, name);
             continue;
         }
         total++;
         if (!track)
             continue;
-        name[prefix] = '-';  // restore initial filename
         if (process_image(renderer, track, list.items[i].dir, output,
                           name, list.items[i].time, scale))
             good++;
