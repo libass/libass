@@ -267,55 +267,6 @@ static long long string2timecode(ASS_Library *library, char *p)
     if (!token) break;
 
 
-#define ALIAS(alias,name) \
-        if (ass_strcasecmp(tname, #alias) == 0) {tname = #name;}
-
-/* One section started with PARSE_START and PARSE_END parses a single token
- * (contained in the variable named token) for the header indicated by the
- * variable tname. It does so by chaining a number of else-if statements, each
- * of which checks if the tname variable indicates that this header should be
- * parsed. The first parameter of the macro gives the name of the header.
- *
- * The string that is passed is in str. str is advanced to the next token if
- * a header could be parsed. The parsed results are stored in the variable
- * target, which has the type ASS_Style* or ASS_Event*.
- */
-#define PARSE_START if (0) {
-#define PARSE_END   }
-
-#define ANYVAL(name,func) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
-        target->name = func(token);
-
-#define STRVAL(name) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
-        char *new_str = strdup(token); \
-        if (new_str) { \
-            free(target->name); \
-            target->name = new_str; \
-        }
-
-#define STARREDSTRVAL(name) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
-        while (*token == '*') ++token; \
-        char *new_str = strdup(token); \
-        if (new_str) { \
-            free(target->name); \
-            target->name = new_str; \
-        }
-
-#define COLORVAL(name) ANYVAL(name,parse_color_header)
-#define INTVAL(name) ANYVAL(name,atoi)
-#define FPVAL(name) ANYVAL(name,ass_atof)
-#define TIMEVAL(name) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
-        target->name = string2timecode(track->library, token);
-
-#define STYLEVAL(name) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
-        target->name = lookup_style(track, token);
-
-
 #define PARSE_START_TK switch (fmt->tokens[tokenpos]) {
 #define PARSE_END_TK   }
 
@@ -501,6 +452,37 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
     return event->Text ? 0 : -1;
 }
 
+
+/* One section started with PARSE_START and PARSE_END parses a single token
+ * (contained in the variable named token) for the header indicated by the
+ * variable tname. It does so by chaining a number of else-if statements, each
+ * of which checks if the tname variable indicates that this header should be
+ * parsed. The first parameter of the macro gives the name of the header.
+ *
+ * The string that is passed is in str. str is advanced to the next token if
+ * a header could be parsed. The parsed results are stored in the variable
+ * target, which has the type ASS_Style* (or ASS_Event*).
+ */
+#define PARSE_START if (0) {
+#define PARSE_END   }
+
+#define ANYVAL(name,func) \
+    } else if (ass_strcasecmp(tname, #name) == 0) { \
+        target->name = func(token);
+
+#define STRVAL(name) \
+    } else if (ass_strcasecmp(tname, #name) == 0) { \
+        char *new_str = strdup(token); \
+        if (new_str) { \
+            free(target->name); \
+            target->name = new_str; \
+        }
+
+#define COLORVAL(name) ANYVAL(name,parse_color_header)
+#define INTVAL(name) ANYVAL(name,atoi)
+#define FPVAL(name) ANYVAL(name,ass_atof)
+
+
 /**
  * \brief Parse command line style overrides (--ass-force-style option)
  * \param track track to apply overrides to
@@ -584,6 +566,13 @@ void ass_process_force_style(ASS_Track *track)
             *dt = '.';
     }
 }
+
+#undef PARSE_START
+#undef PARSE_END
+#undef STRVAL
+#undef COLORVAL
+#undef FPVAL
+#undef INTVAL
 
 /**
  * \brief Parse the Style line
