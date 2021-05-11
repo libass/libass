@@ -267,40 +267,40 @@ static long long string2timecode(ASS_Library *library, char *p)
     if (!token) break;
 
 
-#define PARSE_START_TK switch (fmt->tokens[tokenpos]) {
-#define PARSE_END_TK   }
+#define PARSE_START switch (fmt->tokens[tokenpos]) {
+#define PARSE_END   }
 
-#define STRVAL_TK(name) \
+#define STRVAL(name) \
     case ASS_FMT_ ## name : \
         free(target->name); \
         target->name = strdup(token); \
         break;
 
-#define STARREDSTRVAL_TK(name) \
+#define STARREDSTRVAL(name) \
     case ASS_FMT_ ## name : \
         while (*token == '*') ++token; \
         free(target->name); \
         target->name = strdup(token); \
         break;
 
-#define TIMEVAL_ALTNAME_TK(fieldname,formatname) \
+#define TIMEVAL_ALTNAME(fieldname,formatname) \
     case ASS_FMT_ ## formatname : \
         target->fieldname = string2timecode(track->library, token); \
         break;
 
-#define STYLEVAL_TK(name) \
+#define STYLEVAL(name) \
     case ASS_FMT_ ## name : \
         target->name = lookup_style(track, token); \
         break;
 
-#define ANYVAL_TK(name,func) \
+#define ANYVAL(name,func) \
     case ASS_FMT_ ## name : \
         target->name = func(token); \
         break;
 
-#define COLORVAL_TK(name) ANYVAL_TK(name,parse_color_header)
-#define INTVAL_TK(name)   ANYVAL_TK(name,atoi)
-#define FPVAL_TK(name)    ANYVAL_TK(name,ass_atof)
+#define COLORVAL(name) ANYVAL(name,parse_color_header)
+#define INTVAL(name)   ANYVAL(name,atoi)
+#define FPVAL(name)    ANYVAL(name,ass_atof)
 
 // skip spaces in str beforehand, or trim leading spaces afterwards
 static inline void advance_token_pos(const char **const str,
@@ -424,20 +424,20 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
     for (tokenpos = n_ignored; tokenpos + 1 < fmt->n_tokens; ++tokenpos) {
         NEXT(p, token);
 
-        PARSE_START_TK
-            INTVAL_TK(Layer)
-            STYLEVAL_TK(Style)
-            STRVAL_TK(Name)
-            STRVAL_TK(Effect)
-            INTVAL_TK(MarginL)
-            INTVAL_TK(MarginR)
-            INTVAL_TK(MarginV)
-            TIMEVAL_ALTNAME_TK(Start,Start)
-            TIMEVAL_ALTNAME_TK(Duration,End)
+        PARSE_START
+            INTVAL(Layer)
+            STYLEVAL(Style)
+            STRVAL(Name)
+            STRVAL(Effect)
+            INTVAL(MarginL)
+            INTVAL(MarginR)
+            INTVAL(MarginV)
+            TIMEVAL_ALTNAME(Start,Start)
+            TIMEVAL_ALTNAME(Duration,End)
             default:
                 //Nothing
                 break;
-        PARSE_END_TK
+        PARSE_END
     }
     if (tokenpos != fmt->n_tokens - 1)
         return 1;
@@ -463,14 +463,14 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
  * a header could be parsed. The parsed results are stored in the variable
  * target, which has the type ASS_Style* (or ASS_Event*).
  */
-#define PARSE_START if (0) {
-#define PARSE_END   }
+#define PARSE_START_STR if (0) {
+#define PARSE_END_STR   }
 
-#define ANYVAL(name,func) \
+#define ANYVAL_STR(name,func) \
     } else if (ass_strcasecmp(tname, #name) == 0) { \
         target->name = func(token);
 
-#define STRVAL(name) \
+#define STRVAL_STR(name) \
     } else if (ass_strcasecmp(tname, #name) == 0) { \
         char *new_str = strdup(token); \
         if (new_str) { \
@@ -478,9 +478,9 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
             target->name = new_str; \
         }
 
-#define COLORVAL(name) ANYVAL(name,parse_color_header)
-#define INTVAL(name) ANYVAL(name,atoi)
-#define FPVAL(name) ANYVAL(name,ass_atof)
+#define COLORVAL_STR(name) ANYVAL_STR(name,parse_color_header)
+#define INTVAL_STR(name) ANYVAL_STR(name,atoi)
+#define FPVAL_STR(name) ANYVAL_STR(name,ass_atof)
 
 
 /**
@@ -533,32 +533,32 @@ void ass_process_force_style(ASS_Track *track)
             if (style == NULL
                 || ass_strcasecmp(track->styles[sid].Name, style) == 0) {
                 target = track->styles + sid;
-                PARSE_START
-                    STRVAL(FontName)
-                    COLORVAL(PrimaryColour)
-                    COLORVAL(SecondaryColour)
-                    COLORVAL(OutlineColour)
-                    COLORVAL(BackColour)
-                    FPVAL(FontSize)
-                    INTVAL(Bold)
-                    INTVAL(Italic)
-                    INTVAL(Underline)
-                    INTVAL(StrikeOut)
-                    FPVAL(Spacing)
-                    FPVAL(Angle)
-                    INTVAL(BorderStyle)
-                    INTVAL(Alignment)
-                    INTVAL(Justify)
-                    INTVAL(MarginL)
-                    INTVAL(MarginR)
-                    INTVAL(MarginV)
-                    INTVAL(Encoding)
-                    FPVAL(ScaleX)
-                    FPVAL(ScaleY)
-                    FPVAL(Outline)
-                    FPVAL(Shadow)
-                    FPVAL(Blur)
-                PARSE_END
+                PARSE_START_STR
+                    STRVAL_STR(FontName)
+                    COLORVAL_STR(PrimaryColour)
+                    COLORVAL_STR(SecondaryColour)
+                    COLORVAL_STR(OutlineColour)
+                    COLORVAL_STR(BackColour)
+                    FPVAL_STR(FontSize)
+                    INTVAL_STR(Bold)
+                    INTVAL_STR(Italic)
+                    INTVAL_STR(Underline)
+                    INTVAL_STR(StrikeOut)
+                    FPVAL_STR(Spacing)
+                    FPVAL_STR(Angle)
+                    INTVAL_STR(BorderStyle)
+                    INTVAL_STR(Alignment)
+                    INTVAL_STR(Justify)
+                    INTVAL_STR(MarginL)
+                    INTVAL_STR(MarginR)
+                    INTVAL_STR(MarginV)
+                    INTVAL_STR(Encoding)
+                    FPVAL_STR(ScaleX)
+                    FPVAL_STR(ScaleY)
+                    FPVAL_STR(Outline)
+                    FPVAL_STR(Shadow)
+                    FPVAL_STR(Blur)
+                PARSE_END_STR
             }
         }
         *eq = '=';
@@ -567,12 +567,12 @@ void ass_process_force_style(ASS_Track *track)
     }
 }
 
-#undef PARSE_START
-#undef PARSE_END
-#undef STRVAL
-#undef COLORVAL
-#undef FPVAL
-#undef INTVAL
+#undef PARSE_START_STR
+#undef PARSE_END_STR
+#undef STRVAL_STR
+#undef COLORVAL_STR
+#undef FPVAL_STR
+#undef INTVAL_STR
 
 /**
  * \brief Parse the Style line
@@ -619,34 +619,34 @@ static int process_style(ASS_Track *track, char *str)
     for (tokenpos = 0; tokenpos < fmt->n_tokens; ++tokenpos) {
         NEXT(p, token); //breaks if no more tokens
 
-        PARSE_START_TK
-            STARREDSTRVAL_TK(Name)
-            STRVAL_TK(FontName)
-            COLORVAL_TK(PrimaryColour)
-            COLORVAL_TK(SecondaryColour)
-            COLORVAL_TK(OutlineColour) // TertiaryColor
-            COLORVAL_TK(BackColour)
-            FPVAL_TK(FontSize)
-            INTVAL_TK(Bold)
-            INTVAL_TK(Italic)
-            INTVAL_TK(Underline)
-            INTVAL_TK(StrikeOut)
-            FPVAL_TK(Spacing)
-            FPVAL_TK(Angle)
-            INTVAL_TK(BorderStyle)
-            INTVAL_TK(Alignment)
-            INTVAL_TK(MarginL)
-            INTVAL_TK(MarginR)
-            INTVAL_TK(MarginV)
-            INTVAL_TK(Encoding)
-            FPVAL_TK(ScaleX)
-            FPVAL_TK(ScaleY)
-            FPVAL_TK(Outline)
-            FPVAL_TK(Shadow)
+        PARSE_START
+            STARREDSTRVAL(Name)
+            STRVAL(FontName)
+            COLORVAL(PrimaryColour)
+            COLORVAL(SecondaryColour)
+            COLORVAL(OutlineColour) // TertiaryColor
+            COLORVAL(BackColour)
+            FPVAL(FontSize)
+            INTVAL(Bold)
+            INTVAL(Italic)
+            INTVAL(Underline)
+            INTVAL(StrikeOut)
+            FPVAL(Spacing)
+            FPVAL(Angle)
+            INTVAL(BorderStyle)
+            INTVAL(Alignment)
+            INTVAL(MarginL)
+            INTVAL(MarginR)
+            INTVAL(MarginV)
+            INTVAL(Encoding)
+            FPVAL(ScaleX)
+            FPVAL(ScaleY)
+            FPVAL(Outline)
+            FPVAL(Shadow)
             default:
                 //Nothing
                 break;
-        PARSE_END_TK
+        PARSE_END
     }
     if (tokenpos != fmt->n_tokens) {
         ass_free_style(track, sid);
