@@ -694,20 +694,6 @@ static int process_style(ASS_Track *track, char *str)
     return 0;
 }
 
-static bool format_line_compare(const ASS_FormatToken *fmt1, size_t num1,
-                                const ASS_FormatToken *fmt2, size_t num2)
-{
-    if (num1 != num2)
-        return false;
-    for (size_t i = 0; i < num1; ++i) {
-        if (*fmt1 != *fmt2)
-            return false;
-        ++fmt1;
-        ++fmt2;
-    }
-    return true;
-}
-
 
 /**
  * \brief Set SBAS=1 if not set explicitly in case of custom format line
@@ -728,8 +714,8 @@ static void custom_format_line_compatibility(ASS_Track *const track,
                                              const ASS_FormatToken *std,
                                              size_t num_std)
 {
-    if (!(track->parser_priv->header_flags & SINFO_SCALEDBORDER)
-        && !format_line_compare(fmt, num_fmt, std, num_std)) {
+    if (!(track->parser_priv->header_flags & SINFO_SCALEDBORDER) &&
+            (num_std != num_fmt || memcmp(fmt, std, num_std * sizeof(*fmt)))) {
         ass_msg(track->library, MSGL_INFO,
                "Track has custom format line(s). "
                 "'ScaledBorderAndShadow' will default to 'yes'.");
