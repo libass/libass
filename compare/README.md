@@ -5,16 +5,16 @@ To build a test utility configure libass with the `--enable-compare` flag.
 The utility works with `png` image files so there is external dependency of libpng.
 
 Test program command line:  
-`compare [-i] <input-dir> [-o <output-dir>] [-s <scale:1-8>]`
+`compare ([-i] <input-dir>)+ [-o <output-dir>] [-s <scale:1-8>]`
 
-* `<input-dir>` is a test input directory;
+* `<input-dir>` is a test input directory, can be several of them;
 * `<output-dir>` if present sets directory to store the rendering results;
 * `<scale>` sets an oversampling factor (positive integer up to 8, default 1).
 
 An input directory consists of font files (`*.ttf`, `*.otf` and `*.pfb`), subtitle files (`*.ass`), and image files (`*.png`).
-All the fonts required for rendering should be present in the input directory as
+All the fonts required for rendering should be present in the input directories as
 libass is configured to not use anything external outside of it (`ASS_FONTPROVIDER_NONE`).
-After loading all the fonts in the directory, the test program scans for subtitle files (`<sub_name>.ass`)
+After loading all the fonts in the directories, the test program scans for subtitle files (`<sub_name>.ass`)
 and their corresponding image files in the form of `<sub_name>-NNNN.png`,
 where `NNNN` is an arbitrary number of decimal digits.
 The subtitle file then would be rendered at the time of `NNNN` milliseconds and compared with the loaded image file.
@@ -32,7 +32,7 @@ test/
   sub2-153000.png
 ```
 
-More precisely, the test program (`compare`) would scan the input directory and do the following:
+More precisely, the test program (`compare`) would scan all input directories and do the following:
 1) load all the fonts found (`*.ttf`, `*.otf`, `*.pfb`);
 2) search for subtitle files (`*.ass`);
 3) for every file found (`<sub_name>.ass`) scan for the files with names of `<sub_name>-NNNN.png`;

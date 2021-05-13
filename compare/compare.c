@@ -351,6 +351,7 @@ static bool process_image(ASS_Renderer *renderer, ASS_Track *track,
 
 typedef struct {
     char *name;
+    const char *dir;
     int64_t time;
 } Item;
 
@@ -394,7 +395,7 @@ static int item_compare(const void *ptr1, const void *ptr2)
 }
 
 
-static bool add_sub_item(ItemList *list, const char *file, size_t len)
+static bool add_sub_item(ItemList *list, const char *dir, const char *file, size_t len)
 {
     if (!add_item(list))
         return false;
@@ -405,12 +406,13 @@ static bool add_sub_item(ItemList *list, const char *file, size_t len)
         return out_of_memory();
     memcpy(item->name, file, len);
     item->name[len] = '\0';
+    item->dir = dir;
     item->time = -1;
     list->n_items++;
     return true;
 }
 
-static bool add_img_item(ItemList *list, const char *file, size_t len)
+static bool add_img_item(ItemList *list, const char *dir, const char *file, size_t len)
 {
     // Parse image name:
     // <subtitle_name>-<time_in_msec>.png
@@ -437,6 +439,7 @@ static bool add_img_item(ItemList *list, const char *file, size_t len)
     if (!item->name)
         return out_of_memory();
     item->name[pos] = '\0';
+    item->dir = dir;
     item->time = 0;
     for (size_t i = first; i < len; i++)
         item->time = 10 * item->time + (file[i] - '0');
@@ -461,10 +464,10 @@ static bool process_input(ItemList *list, const char *path, ASS_Library *lib)
             continue;
 
         if (!strcmp(ext, ".png")) {
-            if (add_img_item(list, name, ext - name))
+            if (add_img_item(list, path, name, ext - name))
                 continue;
         } else if (!strcmp(ext, ".ass")) {
-            if (add_sub_item(list, name, ext - name))
+            if (add_sub_item(list, path, name, ext - name))
                 continue;
         } else if (!strcmp(ext, ".ttf") || !strcmp(ext, ".otf") || !strcmp(ext, ".pfb")) {
             if (load_font(lib, path, name))
@@ -482,23 +485,27 @@ static bool process_input(ItemList *list, const char *path, ASS_Library *lib)
 
 
 enum {
-    INPUT, OUTPUT, SCALE
+    OUTPUT, SCALE, INPUT
 };
 
-static bool parse_cmdline(int pos[3], int argc, char *argv[])
+static int *parse_cmdline(int argc, char *argv[])
 {
+    int *pos = calloc(INPUT + argc, sizeof(int));
+    if (!pos) {
+        out_of_memory();
+        return NULL;
+    }
+    int input = INPUT;
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] != '-') {
-            if (pos[INPUT])
-                goto fail;
-            pos[INPUT] = i;
+            pos[input++] = i;
             continue;
         }
         int index;
         switch (argv[i][1]) {
-        case 'i':  index = INPUT;   break;
-        case 'o':  index = OUTPUT;  break;
-        case 's':  index = SCALE;   break;
+        case 'i':  index = input++;  break;
+        case 'o':  index = OUTPUT;   break;
+        case 's':  index = SCALE;    break;
         default:   goto fail;
         }
         if (argv[i][2] || ++i >= argc || pos[index])
@@ -506,13 +513,14 @@ static bool parse_cmdline(int pos[3], int argc, char *argv[])
         pos[index] = i;
     }
     if (pos[INPUT])
-        return true;
+        return pos;
 
-fail:;
+fail:
+    free(pos);
     const char *fmt =
-        "Usage: %s [-i] <input-dir> [-o <output-dir>] [-s <scale:1-8>]\n";
+        "Usage: %s ([-i] <input-dir>)+ [-o <output-dir>] [-s <scale:1-8>]\n";
     printf(fmt, argv[0]);
-    return false;
+    return NULL;
 }
 
 void msg_callback(int level, const char *fmt, va_list va, void *data)
@@ -526,8 +534,8 @@ void msg_callback(int level, const char *fmt, va_list va, void *data)
 
 int main(int argc, char *argv[])
 {
-    int pos[3] = {0};
-    if (!parse_cmdline(pos, argc, argv))
+    int *pos = parse_cmdline(argc, argv);
+    if (!pos)
         return 1;
 
     ASS_Library *lib = NULL;
@@ -567,9 +575,10 @@ int main(int argc, char *argv[])
     ass_set_message_cb(lib, msg_callback, NULL);
     ass_set_extract_fonts(lib, true);
 
-    const char *input = argv[pos[INPUT]];
-    if (!process_input(&list, input, lib))
-        goto end;
+    for (int *input = pos + INPUT; *input; input++) {
+        if (!process_input(&list, argv[*input], lib))
+            goto end;
+    }
 
     ASS_Renderer *renderer = ass_renderer_init(lib);
     if (!renderer) {
@@ -592,20 +601,22 @@ int main(int argc, char *argv[])
             }
             prev = name;
             prefix = strlen(name);
-            if (list.items[i].time < 0)
-                track = load_track(lib, input, name);
-            else {
+            if (list.items[i].time >= 0) {
                 printf("Missing subtitle file '%s.ass'!\n", name);
                 total++;
-            }
+            } else if (i + 1 < list.n_items && list.items[i + 1].time >= 0)
+                track = load_track(lib, list.items[i].dir, prev);
             continue;
         }
-
+        if (list.items[i].time < 0) {
+            printf("Multiple subtitle files '%s.ass'!\n", name);
+            continue;
+        }
         total++;
         if (!track)
             continue;
         name[prefix] = '-';  // restore initial filename
-        if (process_image(renderer, track, input, output,
+        if (process_image(renderer, track, list.items[i].dir, output,
                           name, list.items[i].time, scale))
             good++;
     }
@@ -626,5 +637,6 @@ end:
     delete_items(&list);
     if (lib)
         ass_library_done(lib);
+    free(pos);
     return result;
 }
