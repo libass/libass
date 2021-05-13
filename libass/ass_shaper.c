@@ -885,7 +885,6 @@ static void ass_shaper_skip_characters(TextInfo *text_info)
                 || glyphs[i].symbol == 0xfeff
                 || glyphs[i].symbol == 0x00ad
                 || glyphs[i].symbol == 0x034f) {
-            glyphs[i].symbol = 0;
             glyphs[i].skip = true;
         }
     }
