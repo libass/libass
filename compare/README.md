@@ -5,11 +5,16 @@ To build a test utility configure libass with the `--enable-compare` flag.
 The utility works with `png` image files so there is external dependency of libpng.
 
 Test program command line:  
-`compare ([-i] <input-dir>)+ [-o <output-dir>] [-s <scale:1-8>]`
+`compare ([-i] <input-dir>)+ [-o <output-dir>] [-s <scale:1-8>] [-p <pass-level:0-3>]`
 
 * `<input-dir>` is a test input directory, can be several of them;
 * `<output-dir>` if present sets directory to store the rendering results;
-* `<scale>` sets an oversampling factor (positive integer up to 8, default 1).
+* `<scale>` sets an oversampling factor (positive integer up to 8, default 1);
+* `<pass-level>` corresponds to the level of image differences required to pass test:
+  - 0: only `SAME` level accepted, bitwise comparison mode;
+  - 1: `GOOD` level or less required;
+  - 2: `BAD` level or less required, default mode;
+  - 3: `FAIL` level or less required, i. e. any difference accepted, error checking mode.
 
 An input directory consists of font files (`*.ttf`, `*.otf` and `*.pfb`), subtitle files (`*.ass`), and image files (`*.png`).
 All the fonts required for rendering should be present in the input directories as
@@ -62,11 +67,13 @@ Processing 'sub2.ass':
   Time 0:02:33.000 - 0.728 OK
 Only 3 of 4 images have passed test
 ```
-For each target image file the program reports a maximal ratio of the per pixel comparison error to the baseline error scale.
-The baseline error scale tries to take account of neighboring pixels to estimate visibility of an error in that specific pixel location.
-Currently the range of [0&ndash;2.0] is marked as `OK`, the range of [2.0&ndash;4.0] as `BAD` and more than 4.0 as `FAIL`.
-At the end there is a summary of how many images don't fail tests.
-If all images pass that test the program returns 0 otherwise 1.
+For each target image file the program reports a maximal ratio of the per pixel comparison difference to the baseline error scale.
+The baseline error scale tries to take account of neighboring pixels to estimate visibility of a difference in that specific pixel location.
+Zero difference is marked as `SAME` (level 0), nonzero value in the range of [0–2.0] is marked as `GOOD` (level 1),
+in the range of [2.0–4.0] as `BAD` (level 2) and more than 4.0 as `FAIL` (level 3).
+Any problem during processing of a specific image is treated as a level 4 difference.
+If all images have level of difference less or equal to pass level (`-p` switch, default 2) then the test is considered as passed
+and program returns 0. Otherwise program returns maximal level of difference throughout all images (4 in case of error).
 
 Note that almost any type of a rendering error can be greatly exaggerated by the specially tailored test cases.
 Therefore test cases should be chosen to represent generic real world scenarios only.

@@ -300,9 +300,29 @@ static bool out_of_memory()
     return false;
 }
 
-static bool process_image(ASS_Renderer *renderer, ASS_Track *track,
-                          const char *input, const char *output,
-                          const char *file, int64_t time, int scale)
+typedef enum {
+    R_SAME, R_GOOD, R_BAD, R_FAIL, R_ERROR
+} Result;
+
+static const char *result_text[R_ERROR] = {
+    "SAME", "GOOD", "BAD", "FAIL"
+};
+
+Result classify_result(double error)
+{
+    if (error == 0)
+        return R_SAME;
+    else if (error < 2)
+        return R_GOOD;
+    else if (error < 4)
+        return R_BAD;
+    else
+        return R_FAIL;
+}
+
+static Result process_image(ASS_Renderer *renderer, ASS_Track *track,
+                            const char *input, const char *output,
+                            const char *file, int64_t time, int scale)
 {
     uint64_t tm = time;
     unsigned msec = tm % 1000;  tm /= 1000;
@@ -316,13 +336,14 @@ static bool process_image(ASS_Renderer *renderer, ASS_Track *track,
     Image16 target;
     if (!read_png(path, &target)) {
         printf("PNG reading failed!\n");
-        return false;
+        return R_ERROR;
     }
 
     uint16_t *grad = malloc(2 * target.width * target.height);
     if (!grad) {
         free(target.buffer);
-        return out_of_memory();
+        out_of_memory();
+        return R_ERROR;
     }
     calc_grad(&target, grad);
 
@@ -339,10 +360,12 @@ static bool process_image(ASS_Renderer *renderer, ASS_Track *track,
     int res = compare(&target, grad, img, out_file, &max_err, scale);
     free(target.buffer);
     free(grad);
-    if (!res)
-        return out_of_memory();
-    bool flag = max_err < 4;
-    printf("%.3f %s\n", max_err, flag ? (max_err < 2 ? "OK" : "BAD") : "FAIL");
+    if (!res) {
+        out_of_memory();
+        return R_ERROR;
+    }
+    Result flag = classify_result(max_err);
+    printf("%.3f %s\n", max_err, result_text[flag]);
     if (res < 0)
         printf("Cannot write PNG to file '%s'!\n", path);
     return flag;
@@ -511,7 +534,7 @@ static bool process_input(ItemList *list, const char *path, ASS_Library *lib)
 
 
 enum {
-    OUTPUT, SCALE, INPUT
+    OUTPUT, SCALE, LEVEL, INPUT
 };
 
 static int *parse_cmdline(int argc, char *argv[])
@@ -532,6 +555,7 @@ static int *parse_cmdline(int argc, char *argv[])
         case 'i':  index = input++;  break;
         case 'o':  index = OUTPUT;   break;
         case 's':  index = SCALE;    break;
+        case 'p':  index = LEVEL;    break;
         default:   goto fail;
         }
         if (argv[i][2] || ++i >= argc || pos[index])
@@ -544,7 +568,7 @@ static int *parse_cmdline(int argc, char *argv[])
 fail:
     free(pos);
     const char *fmt =
-        "Usage: %s ([-i] <input-dir>)+ [-o <output-dir>] [-s <scale:1-8>]\n";
+        "Usage: %s ([-i] <input-dir>)+ [-o <output-dir>] [-s <scale:1-8>] [-p <pass-level:0-3>]\n";
     printf(fmt, argv[0]);
     return NULL;
 }
@@ -562,11 +586,11 @@ int main(int argc, char *argv[])
 {
     int *pos = parse_cmdline(argc, argv);
     if (!pos)
-        return 1;
+        return R_ERROR;
 
     ASS_Library *lib = NULL;
     ItemList list = {0};
-    int result = 1;
+    int result = R_ERROR;
 
     int scale = 1;
     if (pos[SCALE]) {
@@ -576,6 +600,16 @@ int main(int argc, char *argv[])
             goto end;
         }
         scale = arg[0] - '0';
+    }
+
+    int level = R_BAD;
+    if (pos[LEVEL]) {
+        const char *arg = argv[pos[LEVEL]];
+        if (arg[0] < '0' || arg[0] > '3' || arg[1]) {
+            printf("Invalid pass level value, should be 0-3!\n");
+            goto end;
+        }
+        level = arg[0] - '0';
     }
 
     const char *output = NULL;
@@ -613,6 +647,7 @@ int main(int argc, char *argv[])
     }
     ass_set_fonts(renderer, NULL, NULL, ASS_FONTPROVIDER_NONE, NULL, 0);
 
+    result = 0;
     size_t prefix = 0;
     const char *prev = "";
     ASS_Track *track = NULL;
@@ -642,8 +677,10 @@ int main(int argc, char *argv[])
         total++;
         if (!track)
             continue;
-        if (process_image(renderer, track, list.items[i].dir, output,
-                          name, list.items[i].time, scale))
+        Result res = process_image(renderer, track, list.items[i].dir, output,
+                                   name, list.items[i].time, scale);
+        result = FFMAX(result, res);
+        if (res <= level)
             good++;
     }
     if (track)
@@ -652,10 +689,13 @@ int main(int argc, char *argv[])
 
     if (!total) {
         printf("No images found!\n");
+        result = R_ERROR;
     } else if (good < total) {
-        printf("Only %u of %u images have passed test\n", good, total);
+        printf("Only %u of %u images have passed test (%s or better)\n",
+               good, total, result_text[level]);
     } else {
-        printf("All %u images have passed test\n", total);
+        printf("All %u images have passed test (%s or better)\n",
+               total, result_text[level]);
         result = 0;
     }
 
