@@ -242,7 +242,21 @@ static void match_fonts(void *priv, ASS_Library *lib, ASS_FontProvider *provider
     if (!descriptors)
         goto cleanup;
 
-    ctcoll = CTFontCollectionCreateWithFontDescriptors(descriptors, 0);
+    const int nonzero = 1;
+    CFNumberRef cfnonzero = CFNumberCreate(NULL, kCFNumberIntType, &nonzero);
+    if (!cfnonzero)
+        goto cleanup;
+    CFDictionaryRef options =
+        CFDictionaryCreate(NULL,
+            (const void **)&kCTFontCollectionRemoveDuplicatesOption,
+            (const void **)&cfnonzero,
+            1, NULL, NULL);
+    CFRelease(cfnonzero);
+    if (!options)
+        goto cleanup;
+
+    ctcoll = CTFontCollectionCreateWithFontDescriptors(descriptors, options);
+    CFRelease(options);
     if (!ctcoll)
         goto cleanup;
 
