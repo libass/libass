@@ -316,6 +316,37 @@ int ass_face_get_weight(FT_Face face)
 }
 
 /**
+ * \brief Get face width
+ **/
+int ass_face_get_width(FT_Face face)
+{
+#if FREETYPE_MAJOR > 2 || (FREETYPE_MAJOR == 2 && FREETYPE_MINOR >= 6)
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
+#else
+    // This old name is still included (as a macro), but deprecated as of 2.6, so avoid using it if we can
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
+#endif
+    if (os2 && os2->version != 0xffff && os2->usWidthClass) {
+		WidthClass wdth = os2->usWidthClass;
+		switch (wdth) {
+		case FWIDTH_ULTRA_CONDENSED:	return 50;
+		case FWIDTH_EXTRA_CONDENSED:	return 62;
+		case FWIDTH_CONDENSED:		return FONT_WIDTH_CONDENSED;
+		case FWIDTH_SEMI_CONDENSED:	return 87;
+		case FWIDTH_NORMAL:		return FONT_WIDTH_NORMAL;
+		case FWIDTH_SEMI_EXPANDED:	return 112;
+		case FWIDTH_EXPANDED:		return FONT_WIDTH_EXPANDED;
+		case FWIDTH_EXTRA_EXPANDED:	return 150;
+		case FWIDTH_ULTRA_EXPANDED:	return 200;
+		default:
+			return FONT_WIDTH_NORMAL;
+	}
+    }
+    else
+        return FONT_WIDTH_NORMAL;
+}
+
+/**
  * \brief Get maximal font ascender and descender.
  **/
 void ass_font_get_asc_desc(ASS_Font *font, int face_index,

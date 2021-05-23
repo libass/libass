@@ -763,7 +763,7 @@ get_font_info(FT_Library lib, FT_Face face, bool require_family_name,
     int num_fullname = 0;
     int num_family   = 0;
     int num_names = FT_Get_Sfnt_Name_Count(face);
-    int slant, weight;
+    int slant, weight, width;
     char *fullnames[MAX_FULLNAME];
     char *families[MAX_FULLNAME];
 
@@ -818,11 +818,12 @@ get_font_info(FT_Library lib, FT_Face face, bool require_family_name,
     // calculate sensible slant and weight from style attributes
     slant  = 110 * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
     weight = ass_face_get_weight(face);
+    width = ass_face_get_width(face);
 
     // fill our struct
     info->slant  = slant;
     info->weight = weight;
-    info->width  = 100;     // FIXME, should probably query the OS/2 table
+    info->width  = width;
 
     info->postscript_name = (char *)FT_Get_Postscript_Name(face);
 
