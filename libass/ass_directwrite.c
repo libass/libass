@@ -610,7 +610,7 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
     IDWriteLocalizedStrings *familyNames;
     hr = IDWriteFont_GetInformationalStrings(font,
             DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES, &familyNames, &exists);
-    if (FAILED(hr) || !exists)
+    if (!FAILED(hr) && !exists)
         hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &familyNames);
     if (FAILED(hr))
         goto cleanup;
