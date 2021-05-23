@@ -39,7 +39,7 @@
 #include "ass_shaper.h"
 #include "ass_string.h"
 
-#define ass_atof(STR) (ass_strtod((STR),NULL))
+#define ass_atof(STR) (ass_strtod((STR), NULL))
 
 static const ASS_FormatToken ass_style_format[] = {
     ASS_FMT_Name, ASS_FMT_FontName, ASS_FMT_FontSize, ASS_FMT_PrimaryColour,
@@ -262,7 +262,7 @@ static long long string2timecode(ASS_Library *library, char *p)
     return tm;
 }
 
-#define NEXT(str,token) \
+#define NEXT(str, token) \
     token = next_token(&str); \
     if (!token) break;
 
@@ -283,7 +283,7 @@ static long long string2timecode(ASS_Library *library, char *p)
         target->name = strdup(token); \
         break;
 
-#define TIMEVAL_ALTNAME(fieldname,formatname) \
+#define TIMEVAL_ALTNAME(fieldname, formatname) \
     case ASS_FMT_ ## formatname : \
         target->fieldname = string2timecode(track->library, token); \
         break;
@@ -293,14 +293,14 @@ static long long string2timecode(ASS_Library *library, char *p)
         target->name = lookup_style(track, token); \
         break;
 
-#define ANYVAL(name,func) \
+#define ANYVAL(name, func) \
     case ASS_FMT_ ## name : \
         target->name = func(token); \
         break;
 
-#define COLORVAL(name) ANYVAL(name,parse_color_header)
-#define INTVAL(name)   ANYVAL(name,atoi)
-#define FPVAL(name)    ANYVAL(name,ass_atof)
+#define COLORVAL(name) ANYVAL(name, parse_color_header)
+#define INTVAL(name)   ANYVAL(name, atoi)
+#define FPVAL(name)    ANYVAL(name, ass_atof)
 
 // skip spaces in str beforehand, or trim leading spaces afterwards
 static inline void advance_token_pos(const char **const str,
@@ -432,8 +432,8 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
-            TIMEVAL_ALTNAME(Start,Start)
-            TIMEVAL_ALTNAME(Duration,End)
+            TIMEVAL_ALTNAME(Start, Start)
+            TIMEVAL_ALTNAME(Duration, End)
             default:
                 //Nothing
                 break;
@@ -466,7 +466,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
 #define PARSE_START_STR if (0) {
 #define PARSE_END_STR   }
 
-#define ANYVAL_STR(name,func) \
+#define ANYVAL_STR(name, func) \
     } else if (ass_strcasecmp(tname, #name) == 0) { \
         target->name = func(token);
 
@@ -478,9 +478,9 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
             target->name = new_str; \
         }
 
-#define COLORVAL_STR(name) ANYVAL_STR(name,parse_color_header)
-#define INTVAL_STR(name) ANYVAL_STR(name,atoi)
-#define FPVAL_STR(name) ANYVAL_STR(name,ass_atof)
+#define COLORVAL_STR(name) ANYVAL_STR(name, parse_color_header)
+#define INTVAL_STR(name) ANYVAL_STR(name, atoi)
+#define FPVAL_STR(name) ANYVAL_STR(name, ass_atof)
 
 
 /**
