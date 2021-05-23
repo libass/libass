@@ -87,7 +87,7 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
 {
     int i;
     FcFontSet *fonts;
-    ASS_FontProviderMetaData meta;
+    ASS_FontProviderMetaData meta = {0};
 
     // get list of fonts
     fonts = FcConfigGetFonts(config, FcSetSystem);

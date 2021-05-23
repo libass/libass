@@ -132,7 +132,7 @@ typedef void    (*SubstituteFontFunc)(void *priv, const char *name,
                                       ASS_FontProviderMetaData *meta);
 
 /**
- * Get an appropriate fallback font for a given codepoint.
+ * Get an appropriate fallback extended font family for a given codepoint.
  *
  * This is called by fontselect whenever a glyph is not found in the
  * physical font list of a logical font. fontselect will try to add the
@@ -147,7 +147,7 @@ typedef void    (*SubstituteFontFunc)(void *priv, const char *name,
  * \param lib ASS_Library instance
  * \param family original font family name (try matching a similar font) (never NULL)
  * \param codepoint Unicode codepoint (UTF-32)
- * \return output font family, allocated with malloc(), must be freed
+ * \return output extended font family, allocated with malloc(), must be freed
  *         by caller.
  */
 typedef char   *(*GetFallbackFunc)(void *priv,
@@ -173,20 +173,31 @@ typedef struct font_provider_funcs {
  */
 struct ass_font_provider_meta_data {
     /**
-     * List of localized font family names, e.g. "Arial".
+     * List of localized font family names,
+     * e.g. "Arial", "Arial Narrow" or "Arial Black".
      */
     char **families;
 
     /**
-     * List of localized full names, e.g. "Arial Bold".
+     * List of localized full names, e.g. "Arial Bold",
+     * "Arial Narrow Bold", "Arial Black" or "Arial Black Normal".
      * The English name should be listed first to speed up typical matching.
      */
     char **fullnames;
 
     /**
-     * The PostScript name, e.g. "Arial-BoldMT".
+     * The PostScript name, e.g. "Arial-BoldMT",
+     * "ArialNarrow-Bold" or "Arial-Black".
      */
     char *postscript_name;
+
+    /**
+     * Any name that identifies an extended font family, e.g. "Arial".
+     * This could be the full designer-named typographic family or (perhaps
+     * even better) a (sub)family limited to weight/width/slant variations.
+     * Names returned by get_fallback are matched against this field.
+     */
+    char *extended_family;
 
     int n_family;       // Number of localized family names
     int n_fullname;     // Number of localized full names
