@@ -71,6 +71,8 @@ struct font_info {
     char *postscript_name; // can be used as an alternative to index to
                            // identify a font inside a collection
 
+    char *extended_family;
+
     // font source
     ASS_FontProvider *provider;
 
@@ -235,6 +237,8 @@ static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
     if (info->postscript_name)
         free(info->postscript_name);
 
+    if (info->extended_family)
+        free(info->extended_family);
 }
 
 /**
@@ -334,6 +338,12 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
             goto error;
     }
 
+    if (meta->extended_family) {
+        info->extended_family = strdup(meta->extended_family);
+        if (info->extended_family == NULL)
+            goto error;
+    }
+
     if (path) {
         info->path = strdup(path);
         if (info->path == NULL)
@@ -423,10 +433,15 @@ static bool check_postscript(ASS_FontInfo *fi)
 /**
  * \brief Return whether the given font is in the given family.
  */
-static bool matches_family_name(ASS_FontInfo *f, const char *family)
+static bool matches_family_name(ASS_FontInfo *f, const char *family,
+                                bool match_extended_family)
 {
     for (int i = 0; i < f->n_family; i++) {
         if (ass_strcasecmp(f->families[i], family) == 0)
+            return true;
+    }
+    if (match_extended_family && f->extended_family) {
+        if (ass_strcasecmp(f->extended_family, family) == 0)
             return true;
     }
     return false;
@@ -517,7 +532,8 @@ static bool check_glyph(ASS_FontInfo *fi, uint32_t code)
 
 static char *
 find_font(ASS_FontSelector *priv, ASS_Library *library,
-          ASS_FontProviderMetaData meta, unsigned bold, unsigned italic,
+          ASS_FontProviderMetaData meta, bool match_extended_family,
+          unsigned bold, unsigned italic,
           int *index, char **postscript_name, int *uid, ASS_FontStream *stream,
           uint32_t code, bool *name_match)
 {
@@ -542,7 +558,7 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
             ASS_FontInfo *font = &priv->font_infos[x];
             unsigned score = UINT_MAX;
 
-            if (matches_family_name(font, fullname)) {
+            if (matches_family_name(font, fullname, match_extended_family)) {
                 // If there's a family match, compare font attributes
                 // to determine best match in that particular family
                 score = font_attributes_similarity(font, &req);
@@ -620,7 +636,8 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
 }
 
 static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
-                         const char *family, unsigned bold, unsigned italic,
+                         const char *family, bool match_extended_family,
+                         unsigned bold, unsigned italic,
                          int *index, char **postscript_name, int *uid,
                          ASS_FontStream *stream, uint32_t code)
 {
@@ -647,8 +664,9 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
         meta = default_meta;
     }
 
-    result = find_font(priv, library, meta, bold, italic, index,
-                       postscript_name, uid, stream, code, &name_match);
+    result = find_font(priv, library, meta, match_extended_family,
+                       bold, italic, index, postscript_name, uid,
+                       stream, code, &name_match);
 
     // If no matching font was found, it might not exist in the font list
     // yet. Call the match_fonts callback to fill in the missing fonts
@@ -662,8 +680,9 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
                                                 library, default_provider,
                                                 meta.fullnames[i]);
         }
-        result = find_font(priv, library, meta, bold, italic, index,
-                           postscript_name, uid, stream, code, &name_match);
+        result = find_font(priv, library, meta, match_extended_family,
+                           bold, italic, index, postscript_name, uid,
+                           stream, code, &name_match);
     }
 
     // cleanup
@@ -699,11 +718,11 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
     ASS_FontProvider *default_provider = priv->default_provider;
 
     if (family && *family)
-        res = select_font(priv, library, family, bold, italic, index,
+        res = select_font(priv, library, family, false, bold, italic, index,
                 postscript_name, uid, data, code);
 
     if (!res && priv->family_default) {
-        res = select_font(priv, library, priv->family_default, bold,
+        res = select_font(priv, library, priv->family_default, false, bold,
                 italic, index, postscript_name, uid, data, code);
         if (res)
             ass_msg(library, MSGL_WARN, "fontselect: Using default "
@@ -720,7 +739,7 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
                 default_provider->priv, library, search_family, code);
 
         if (fallback_family) {
-            res = select_font(priv, library, fallback_family, bold, italic,
+            res = select_font(priv, library, fallback_family, true, bold, italic,
                     index, postscript_name, uid, data, code);
             free(fallback_family);
         }
