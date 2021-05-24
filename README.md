@@ -14,7 +14,7 @@ Source code is available from our [GitHub repository](https://github.com/libass/
 
 Contact
 =======
-Please use the [issue tracker](https://github.com/libass/libass/issues?state=open) to report bugs or feature requests. We have an IRC channel, too. Talk to us on [irc.freenode.net/#libass](irc://irc.freenode.net/libass).
+Please use the [issue tracker](https://github.com/libass/libass/issues?state=open) to report bugs or feature requests. We have an IRC channel, too. Talk to us on [irc.libera.chat/#libass](irc://irc.libera.chat/libass).
 
 Related Links
 =============
