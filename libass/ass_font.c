@@ -474,7 +474,7 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
         int face_idx;
         ass_msg(font->library, MSGL_INFO,
                 "Glyph 0x%X not found, selecting one more "
-                "font for (%s, %d, %d)", symbol, font->desc.family,
+                "font for (%.*s, %d, %d)", symbol, (int)font->desc.family.len, font->desc.family.str,
                 font->desc.bold, font->desc.italic);
         face_idx = *face_index = add_face(fontsel, font, symbol);
         if (face_idx >= 0) {
@@ -491,8 +491,8 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
             }
             if (index == 0) {
                 ass_msg(font->library, MSGL_ERR,
-                        "Glyph 0x%X not found in font for (%s, %d, %d)",
-                        symbol, font->desc.family, font->desc.bold,
+                        "Glyph 0x%X not found in font for (%.*s, %d, %d)",
+                        symbol, (int)font->desc.family.len, font->desc.family.str, font->desc.bold,
                         font->desc.italic);
             }
         }

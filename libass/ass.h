@@ -613,7 +613,7 @@ void ass_free_event(ASS_Track *track, int eid);
  * \param data string to parse
  * \param size length of data
  */
-void ass_process_data(ASS_Track *track, char *data, int size);
+void ass_process_data(ASS_Track *track, const char *data, int size);
 
 /**
  * \brief Parse Codec Private section of the subtitle stream, in Matroska
@@ -622,7 +622,7 @@ void ass_process_data(ASS_Track *track, char *data, int size);
  * \param data string to parse
  * \param size length of data
  */
-void ass_process_codec_private(ASS_Track *track, char *data, int size);
+void ass_process_codec_private(ASS_Track *track, const char *data, int size);
 
 /**
  * \brief Parse a chunk of subtitle stream data. A chunk contains exactly one
@@ -638,7 +638,7 @@ void ass_process_codec_private(ASS_Track *track, char *data, int size);
  * \param timecode starting time of the event (milliseconds)
  * \param duration duration of the event (milliseconds)
  */
-void ass_process_chunk(ASS_Track *track, char *data, int size,
+void ass_process_chunk(ASS_Track *track, const char *data, int size,
                        long long timecode, long long duration);
 
 /**
@@ -665,8 +665,8 @@ void ass_flush_events(ASS_Track *track);
  * \param codepage encoding (iconv format)
  * \return newly allocated track or NULL on failure
 */
-ASS_Track *ass_read_file(ASS_Library *library, char *fname,
-                         char *codepage);
+ASS_Track *ass_read_file(ASS_Library *library, const char *fname,
+                         const char *codepage);
 
 /**
  * \brief Read subtitles from memory.
@@ -676,15 +676,15 @@ ASS_Track *ass_read_file(ASS_Library *library, char *fname,
  * \param codepage encoding (iconv format)
  * \return newly allocated track or NULL on failure
 */
-ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
-                           size_t bufsize, char *codepage);
+ASS_Track *ass_read_memory(ASS_Library *library, const char *buf,
+                           size_t bufsize, const char *codepage);
 /**
  * \brief Read styles from file into already initialized track.
  * \param fname file name
  * \param codepage encoding (iconv format)
  * \return 0 on success
  */
-int ass_read_styles(ASS_Track *track, char *fname, char *codepage);
+int ass_read_styles(ASS_Track *track, const char *fname, const char *codepage);
 
 /**
  * \brief Add a memory font.

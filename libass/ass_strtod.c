@@ -89,7 +89,7 @@ ass_strtod(
                              * The "E" may actually be an "e".  E and X
                              * may both be omitted (but not just one).
                              */
-    char **endPtr           /* If non-NULL, store terminating character's
+    const char **endPtr     /* If non-NULL, store terminating character's
                              * address here. */
     )
 {

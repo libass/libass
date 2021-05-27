@@ -51,7 +51,7 @@ static bool token_check_values(ASS_DrawingToken *token, int i, int type)
  */
 static ASS_DrawingToken *drawing_tokenize(const char *str)
 {
-    char *p = (char *) str;
+    const char *p = str;
     int type = -1, is_set = 0;
     double val;
     ASS_Vector point = {0, 0};
@@ -257,7 +257,7 @@ bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
 
     if (lib)
         ass_msg(lib, MSGL_V,
-                "Parsed drawing with %d points and %d segments",
+                "Parsed drawing with %zu points and %zu segments",
                 outline->n_points, outline->n_segments);
 
     drawing_free_tokens(tokens);
