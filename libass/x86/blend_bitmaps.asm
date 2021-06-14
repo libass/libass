@@ -60,21 +60,18 @@ SECTION .text
 %endmacro
 
 ;------------------------------------------------------------------------------
-; BLEND_BITMAPS 1:add/sub
+; ADD_BITMAPS
 ; void add_bitmaps(uint8_t *dst, intptr_t dst_stride,
-;                  uint8_t *src, intptr_t src_stride,
-;                  intptr_t width, intptr_t height);
-; void sub_bitmaps(uint8_t *dst, intptr_t dst_stride,
 ;                  uint8_t *src, intptr_t src_stride,
 ;                  intptr_t width, intptr_t height);
 ;------------------------------------------------------------------------------
 
-%macro BLEND_BITMAPS 1
+%macro ADD_BITMAPS 0
 %if ARCH_X86_64
-cglobal %1_bitmaps, 6,8,3
+cglobal add_bitmaps, 6,8,3
     DECLARE_REG_TMP 7
 %else
-cglobal %1_bitmaps, 5,7,3
+cglobal add_bitmaps, 5,7,3
     DECLARE_REG_TMP 5
 %endif
     lea r0, [r0 + r4]
@@ -92,7 +89,7 @@ cglobal %1_bitmaps, 5,7,3
     jmp .loop_entry
 
 .width_loop:
-    p%1usb m0, m1
+    paddusb m0, m1
     movu [r0 + r4 - mmsize], m0
 .loop_entry:
     movu m0, [r0 + r4]
@@ -100,7 +97,7 @@ cglobal %1_bitmaps, 5,7,3
     add r4, mmsize
     jnc .width_loop
     pand m1, m2
-    p%1usb m0, m1
+    paddusb m0, m1
     movu [r0 + r4 - mmsize], m0
     add r0, r1
     add r2, r3
@@ -111,11 +108,92 @@ cglobal %1_bitmaps, 5,7,3
 %endmacro
 
 INIT_XMM sse2
-BLEND_BITMAPS add
-BLEND_BITMAPS sub
+ADD_BITMAPS
 INIT_YMM avx2
-BLEND_BITMAPS add
-BLEND_BITMAPS sub
+ADD_BITMAPS
+
+;------------------------------------------------------------------------------
+; IMUL_BITMAPS
+; void imul_bitmaps(uint8_t *dst, intptr_t dst_stride,
+;                   uint8_t *src, intptr_t src_stride,
+;                   intptr_t width, intptr_t height);
+;------------------------------------------------------------------------------
+
+%macro IMUL_BITMAPS 0
+%if ARCH_X86_64
+cglobal imul_bitmaps, 6,8,8
+    DECLARE_REG_TMP 7
+%else
+cglobal imul_bitmaps, 5,7,8
+    DECLARE_REG_TMP 5
+%endif
+    lea r0, [r0 + r4]
+    lea r2, [r2 + r4]
+    neg r4
+    mov r6, r4
+    and r4, mmsize - 1
+    LOAD_EDGE_MASK 4, r4, t0
+%if ARCH_X86_64 || !PIC
+    mova m5, [words_255]
+%else
+    mov t0d, 255 * 0x10001
+    BCASTD 5, t0d
+%endif
+    pxor m6, m6
+    pcmpeqb m7, m7
+%if !ARCH_X86_64
+    mov r5, r5m
+%endif
+    imul r5, r3
+    add r5, r2
+    mov r4, r6
+    jmp .loop_entry
+
+.width_loop:
+    pxor m1, m7
+    punpckhbw m2, m0, m6
+    punpckhbw m3, m1, m6
+    punpcklbw m0, m6
+    punpcklbw m1, m6
+    pmullw m2, m3
+    pmullw m0, m1
+    paddw m2, m5
+    paddw m0, m5
+    psrlw m2, 8
+    psrlw m0, 8
+    packuswb m0, m2
+    movu [r0 + r4 - mmsize], m0
+.loop_entry:
+    movu m0, [r0 + r4]
+    movu m1, [r2 + r4]
+    add r4, mmsize
+    jnc .width_loop
+    pand m1, m4
+    pxor m1, m7
+    punpckhbw m2, m0, m6
+    punpckhbw m3, m1, m6
+    punpcklbw m0, m6
+    punpcklbw m1, m6
+    pmullw m2, m3
+    pmullw m0, m1
+    paddw m2, m5
+    paddw m0, m5
+    psrlw m2, 8
+    psrlw m0, 8
+    packuswb m0, m2
+    movu [r0 + r4 - mmsize], m0
+    add r0, r1
+    add r2, r3
+    mov r4, r6
+    cmp r2, r5
+    jl .loop_entry
+    RET
+%endmacro
+
+INIT_XMM sse2
+IMUL_BITMAPS
+INIT_YMM avx2
+IMUL_BITMAPS
 
 ;------------------------------------------------------------------------------
 ; MUL_BITMAPS

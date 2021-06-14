@@ -731,9 +731,9 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
 
             // Blend together
             memcpy(nbuffer, abuffer, ((ah - 1) * as) + aw);
-            render_priv->engine->sub_bitmaps(nbuffer + atop * as + aleft, as,
-                                             bbuffer + btop * bs + bleft, bs,
-                                             w, h);
+            render_priv->engine->imul_bitmaps(nbuffer + atop * as + aleft, as,
+                                              bbuffer + btop * bs + bleft, bs,
+                                              w, h);
         } else {
             // Regular clip
             if (ax + aw < bx || ay + ah < by || ax > bx + bw ||
