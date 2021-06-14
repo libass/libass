@@ -69,7 +69,7 @@ typedef struct {
     FillGenericTileFunc fill_generic;
 
     // blend functions
-    BitmapBlendFunc add_bitmaps, sub_bitmaps;
+    BitmapBlendFunc add_bitmaps, imul_bitmaps;
     BitmapMulFunc mul_bitmaps;
 
     // be blur function
