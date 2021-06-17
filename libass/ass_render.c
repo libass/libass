@@ -2878,8 +2878,8 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
 
     if (render_priv->library->num_fontdata != render_priv->num_emfonts) {
         assert(render_priv->library->num_fontdata > render_priv->num_emfonts);
-        render_priv->num_emfonts = ass_update_embedded_fonts(render_priv->library,
-            render_priv->fontselect, render_priv->ftlibrary, render_priv->num_emfonts);
+        render_priv->num_emfonts = ass_update_embedded_fonts(
+            render_priv->fontselect, render_priv->num_emfonts);
     }
 
     ass_shaper_set_kerning(render_priv->shaper, track->Kerning);

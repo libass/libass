@@ -226,7 +226,7 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     if (font->n_faces == ASS_FONT_MAX_FACES)
         return -1;
 
-    path = ass_font_select(fontsel, font->library, font , &index,
+    path = ass_font_select(fontsel, font, &index,
             &postscript_name, &uid, &stream, ch);
 
     if (!path)

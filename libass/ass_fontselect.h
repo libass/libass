@@ -242,7 +242,7 @@ ASS_FontSelector *
 ass_fontselect_init(ASS_Library *library, FT_Library ftlibrary, size_t *num_emfonts,
                     const char *family, const char *path, const char *config,
                     ASS_DefaultFontProvider dfp);
-char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
+char *ass_font_select(ASS_FontSelector *priv,
                       ASS_Font *font, int *index, char **postscript_name,
                       int *uid, ASS_FontStream *data, uint32_t code);
 void ass_fontselect_free(ASS_FontSelector *priv);
@@ -305,7 +305,6 @@ void ass_font_provider_free(ASS_FontProvider *provider);
 /**
  * \brief Update embedded and memory fonts
  */
-size_t ass_update_embedded_fonts(ASS_Library *lib, ASS_FontSelector *selector,
-                                 FT_Library ftlib, size_t num_loaded);
+size_t ass_update_embedded_fonts(ASS_FontSelector *selector, size_t num_loaded);
 
 #endif                          /* LIBASS_FONTSELECT_H */
