@@ -203,8 +203,13 @@ FT_Face ass_face_stream(ASS_Library *lib, FT_Library ftlib, const char *name,
     FT_Face face;
     int error = FT_Open_Face(ftlib, &args, index, &face);
     if (error) {
-        ass_msg(lib, MSGL_WARN,
-                "Error opening memory font: '%s'", name);
+        if (name) {
+            ass_msg(lib, MSGL_WARN,
+                    "Error opening memory font: '%s'", name);
+        } else {
+            ass_msg(lib, MSGL_WARN,
+                    "Error opening memory font");
+        }
         return NULL;
     }
 

@@ -171,6 +171,9 @@ typedef struct font_provider_funcs {
 /*
  * Basic font metadata. All strings must be encoded with UTF-8.
  * At minimum one family is required.
+ * If no family names are present, ass_font_provider_add_font
+ * will open the font file and read metadata from there,
+ * replacing everything but extended_family.
  */
 struct ass_font_provider_meta_data {
     /**
@@ -278,22 +281,6 @@ bool
 ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
                            int index, void *data);
-
-/**
- * \brief Read a font's parameters
- * \param lib a FT_Library to use (need not be the global one)
- * \param path the path to the font file to read
- * \param postscript_name the PS name of the specific face to read (set either this or index)
- * \param index the face index to read, or -1 if not applicable
- * \param fallback_family_name family name from outside source, used as last resort
- * \param info the struct to store results into
- * \return success
- *
- */
-bool ass_get_font_info(ASS_Library *lib, FT_Library ftlib, const char *path,
-                       const char *postscript_name, int index,
-                       const char *fallback_family_name,
-                       ASS_FontProviderMetaData *info);
 
 /**
  * \brief Free font provider and associated fonts.
