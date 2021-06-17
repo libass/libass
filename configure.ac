@@ -158,15 +158,16 @@ AS_IF([test "x$enable_directwrite" != xno], [
                 #endif
             ]], [[;]])
         ], [
-            # WinRT/UWP/app build: LoadLibrary is
+            # WinRT/UWP/app build: GDI and LoadLibrary are
             # unavailable, but DirectWrite is always present
             LIBS="$LIBS -ldwrite"
             AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite (WinRT/UWP)])
             AC_MSG_RESULT([no])
         ], [
-            # Win32/desktop build:
+            # Win32/desktop build: GDI is always present;
             # DirectWrite is optional but can be loaded via LoadLibrary
-            AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite (Win32)])
+            LIBS="$LIBS -lgdi32"
+            AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite and GDI (Win32)])
             AC_MSG_RESULT([yes])
         ])
     ], [

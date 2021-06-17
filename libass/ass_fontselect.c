@@ -1052,7 +1052,13 @@ struct font_constructors font_constructors[] = {
     { ASS_FONTPROVIDER_CORETEXT,        &ass_coretext_add_provider,     "coretext"},
 #endif
 #ifdef CONFIG_DIRECTWRITE
-    { ASS_FONTPROVIDER_DIRECTWRITE,     &ass_directwrite_add_provider,  "directwrite"},
+    { ASS_FONTPROVIDER_DIRECTWRITE,     &ass_directwrite_add_provider,  "directwrite"
+#if ASS_WINAPI_DESKTOP
+        " (with GDI)"
+#else
+        " (without GDI)"
+#endif
+    },
 #endif
 #ifdef CONFIG_FONTCONFIG
     { ASS_FONTPROVIDER_FONTCONFIG,      &ass_fontconfig_add_provider,   "fontconfig"},
