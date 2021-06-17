@@ -63,4 +63,9 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, int face_index, int index,
                             ASS_Hinting hinting, int deco);
 void ass_font_clear(ASS_Font *font);
 
+FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
+                      const char *postscript_name, int index);
+FT_Face ass_face_stream(ASS_Library *lib, FT_Library ftlib, const char *name,
+                        const ASS_FontStream *stream, int index);
+
 #endif                          /* LIBASS_FONT_H */
