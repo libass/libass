@@ -771,11 +771,12 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
  * as required for the FontSelector for matching and sorting.
  * \param lib FreeType library
  * \param face FreeType face
+ * \param fallback_family_name family name from outside source, used as last resort
  * \param info metadata, returned here
  * \return success
  */
 static bool
-get_font_info(FT_Library lib, FT_Face face, bool require_family_name,
+get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
               ASS_FontProviderMetaData *info)
 {
     int i;
@@ -820,19 +821,19 @@ get_font_info(FT_Library lib, FT_Face face, bool require_family_name,
 
     }
 
-    if (require_family_name) {
-        // check if we got a valid family - if not use whatever FreeType gives us
-        if (num_family == 0 && face->family_name) {
-            families[0] = strdup(face->family_name);
-            if (families[0] == NULL)
-                goto error;
-            num_family++;
-        }
-
-        // we absolutely need a name
-        if (num_family == 0)
+    // check if we got a valid family - if not, use
+    // whatever the font provider or FreeType gives us
+    if (num_family == 0 && (fallback_family_name || face->family_name)) {
+        families[0] =
+            strdup(fallback_family_name ? fallback_family_name : face->family_name);
+        if (families[0] == NULL)
             goto error;
+        num_family++;
     }
+
+    // we absolutely need a name
+    if (num_family == 0)
+        goto error;
 
     // calculate sensible slant and weight from style attributes
     slant  = 110 * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
@@ -881,14 +882,14 @@ error:
 
 bool ass_get_font_info(ASS_Library *lib, FT_Library ftlib, const char *path,
                        const char *postscript_name, int index,
-                       bool require_family_name,
+                       const char *fallback_family_name,
                        ASS_FontProviderMetaData *info)
 {
     FT_Face face = ass_face_open(lib, ftlib, path, postscript_name, index);
     if (!face)
         return false;
 
-    bool ret = get_font_info(ftlib, face, require_family_name, info);
+    bool ret = get_font_info(ftlib, face, fallback_family_name, info);
     if (ret)
         info->postscript_name = strdup(info->postscript_name);
     FT_Done_Face(face);
@@ -952,7 +953,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         charmap_magic(library, face);
 
         memset(&info, 0, sizeof(ASS_FontProviderMetaData));
-        if (!get_font_info(ftlibrary, face, true, &info)) {
+        if (!get_font_info(ftlibrary, face, NULL, &info)) {
             ass_msg(library, MSGL_WARN,
                     "Error getting metadata for embedded font '%s'", name);
             FT_Done_Face(face);

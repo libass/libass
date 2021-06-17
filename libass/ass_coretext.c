@@ -126,36 +126,6 @@ static char *get_name(CTFontDescriptorRef fontd, CFStringRef attr)
     return ret;
 }
 
-static bool fill_family_name(CTFontDescriptorRef fontd,
-                             ASS_FontProviderMetaData *info)
-{
-    char *family_name = get_name(fontd, kCTFontFamilyNameAttribute);
-    if (!family_name)
-        return false;
-
-    info->extended_family = family_name;
-
-    if (!info->n_family) {
-        family_name = strdup(family_name);
-        if (!family_name) {
-            free(info->extended_family);
-            return false;
-        }
-
-        info->families = malloc(sizeof(char *));
-        if (!info->families) {
-            free(family_name);
-            free(info->extended_family);
-            return false;
-        }
-
-        info->families[0] = family_name;
-        info->n_family++;
-    }
-
-    return true;
-}
-
 static bool get_font_info_ct(ASS_Library *lib, FT_Library ftlib,
                              CTFontDescriptorRef fontd,
                              char **path_out,
@@ -172,10 +142,22 @@ static bool get_font_info_ct(ASS_Library *lib, FT_Library ftlib,
     if (!ps_name)
         return false;
 
-    bool got_info = ass_get_font_info(lib, ftlib, path, ps_name, -1, false, info);
+    char *family_name = get_name(fontd, kCTFontFamilyNameAttribute);
+    if (!family_name) {
+        free(ps_name);
+        return false;
+    }
+
+    bool got_info =
+        ass_get_font_info(lib, ftlib, path, ps_name, -1, family_name, info);
     free(ps_name);
 
-    return got_info && fill_family_name(fontd, info);
+    if (got_info)
+        info->extended_family = family_name;
+    else
+        free(family_name);
+
+    return got_info;
 }
 
 static void process_descriptors(ASS_Library *lib, FT_Library ftlib,
