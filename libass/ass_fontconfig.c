@@ -166,17 +166,17 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
 
         // read family names
         meta.n_family = 0;
-        while (FcPatternGetString(pat, FC_FAMILY, meta.n_family,
-                    (FcChar8 **)&families[meta.n_family]) == FcResultMatch
-                    && meta.n_family < MAX_NAME)
+        while (meta.n_family < MAX_NAME &&
+                FcPatternGetString(pat, FC_FAMILY, meta.n_family,
+                    (FcChar8 **)&families[meta.n_family]) == FcResultMatch)
             meta.n_family++;
         meta.families = families;
 
         // read fullnames
         meta.n_fullname = 0;
-        while (FcPatternGetString(pat, FC_FULLNAME, meta.n_fullname,
-                    (FcChar8 **)&fullnames[meta.n_fullname]) == FcResultMatch
-                    && meta.n_fullname < MAX_NAME)
+        while (meta.n_fullname < MAX_NAME &&
+                FcPatternGetString(pat, FC_FULLNAME, meta.n_fullname,
+                    (FcChar8 **)&fullnames[meta.n_fullname]) == FcResultMatch)
             meta.n_fullname++;
         meta.fullnames = fullnames;
 
