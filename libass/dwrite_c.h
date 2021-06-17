@@ -346,7 +346,7 @@ DECLARE_INTERFACE_(IDWriteFontFace,IUnknown)
 #ifdef COBJMACROS
 #define IDWriteFontFace_Release(This) (This)->lpVtbl->Release(This)
 #define IDWriteFontFace_GetType(This) (This)->lpVtbl->GetType(This)
-#define IDWriteFontFace_GetFiles(This,fontFiles,b) (This)->lpVtbl->GetFiles(This,fontFiles,b)
+#define IDWriteFontFace_GetFiles(This,numberOfFiles,fontFiles) (This)->lpVtbl->GetFiles(This,numberOfFiles,fontFiles)
 #define IDWriteFontFace_GetIndex(This) (This)->lpVtbl->GetIndex(This)
 #endif /*COBJMACROS*/
 
