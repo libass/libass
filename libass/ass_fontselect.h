@@ -285,14 +285,14 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
  * \param path the path to the font file to read
  * \param postscript_name the PS name of the specific face to read (set either this or index)
  * \param index the face index to read, or -1 if not applicable
- * \param require_family_name whether to try a fallback family name and fail if none found
+ * \param fallback_family_name family name from outside source, used as last resort
  * \param info the struct to store results into
  * \return success
  *
  */
 bool ass_get_font_info(ASS_Library *lib, FT_Library ftlib, const char *path,
                        const char *postscript_name, int index,
-                       bool require_family_name,
+                       const char *fallback_family_name,
                        ASS_FontProviderMetaData *info);
 
 /**
