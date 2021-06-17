@@ -27,6 +27,7 @@
 typedef struct ass_shaper_font_data ASS_ShaperFontData;
 typedef struct font_selector ASS_FontSelector;
 typedef struct font_info ASS_FontInfo;
+typedef struct ass_font_stream ASS_FontStream;
 
 #include "ass_types.h"
 #include "ass.h"
@@ -208,8 +209,6 @@ struct ass_font_provider_meta_data {
     int width;          // Font weight in percent, normally 100
                         // See FONT_WIDTH_*
 };
-
-typedef struct ass_font_stream ASS_FontStream;
 
 struct ass_font_stream {
     // GetDataFunc

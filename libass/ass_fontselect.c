@@ -884,39 +884,14 @@ bool ass_get_font_info(ASS_Library *lib, FT_Library ftlib, const char *path,
                        bool require_family_name,
                        ASS_FontProviderMetaData *info)
 {
-    bool ret = false;
-    FT_Face face = NULL;
-    int error = FT_New_Face(ftlib, path, index, &face);
-    if (error) {
-        ass_msg(lib, MSGL_WARN, "Error opening font: '%s', %d", path, index);
+    FT_Face face = ass_face_open(lib, ftlib, path, postscript_name, index);
+    if (!face)
         return false;
-    }
 
-    if (postscript_name && index < 0 && face->num_faces > 0) {
-        // The font provider gave us a postscript name and is not sure
-        // about the face index.. so use the postscript name to find the
-        // correct face_index in the collection!
-        for (int i = 0; i < face->num_faces; i++) {
-            FT_Done_Face(face);
-            error = FT_New_Face(ftlib, path, i, &face);
-            if (error) {
-                ass_msg(lib, MSGL_WARN, "Error opening font: '%s', %d", path, i);
-                return false;
-            }
-
-            const char *face_psname = FT_Get_Postscript_Name(face);
-            if (face_psname != NULL &&
-                strcmp(face_psname, postscript_name) == 0)
-                break;
-        }
-    }
-
-    if (face) {
-        ret = get_font_info(ftlib, face, require_family_name, info);
-        if (ret)
-            info->postscript_name = strdup(info->postscript_name);
-        FT_Done_Face(face);
-    }
+    bool ret = get_font_info(ftlib, face, require_family_name, info);
+    if (ret)
+        info->postscript_name = strdup(info->postscript_name);
+    FT_Done_Face(face);
 
     return ret;
 }
