@@ -19,6 +19,7 @@ typedef struct IDWriteFactory3 IDWriteFactory3;
 typedef struct IDWriteFont IDWriteFont;
 typedef struct IDWriteFontCollection IDWriteFontCollection;
 typedef struct IDWriteFontFace IDWriteFontFace;
+typedef struct IDWriteFontFace3 IDWriteFontFace3;
 typedef struct IDWriteFontFaceReference IDWriteFontFaceReference;
 typedef struct IDWriteFontFamily IDWriteFontFamily;
 typedef struct IDWriteFontList IDWriteFontList;
@@ -482,11 +483,110 @@ DECLARE_INTERFACE_(IDWriteFontFace,IUnknown)
     END_INTERFACE
 };
 #ifdef COBJMACROS
+#define IDWriteFontFace_QueryInterface(This,riid,ppvObject) (This)->lpVtbl->QueryInterface(This,riid,ppvObject)
+#define IDWriteFontFace_AddRef(This) (This)->lpVtbl->AddRef(This)
 #define IDWriteFontFace_Release(This) (This)->lpVtbl->Release(This)
 #define IDWriteFontFace_GetType(This) (This)->lpVtbl->GetType(This)
 #define IDWriteFontFace_GetFiles(This,numberOfFiles,fontFiles) (This)->lpVtbl->GetFiles(This,numberOfFiles,fontFiles)
 #define IDWriteFontFace_GetIndex(This) (This)->lpVtbl->GetIndex(This)
 #define IDWriteFontFace_GetGlyphIndices(This,codePoints,codePointCount,glyphIndices) (This)->lpVtbl->GetGlyphIndices(This,codePoints,codePointCount,glyphIndices)
+#endif /*COBJMACROS*/
+
+#undef  INTERFACE
+#define INTERFACE IDWriteFontFace3
+DECLARE_INTERFACE_(IDWriteFontFace3,IDWriteFontFace)
+{
+    BEGIN_INTERFACE
+
+#ifndef __cplusplus
+    /* IUnknown methods */
+    STDMETHOD(QueryInterface)(THIS_ REFIID riid, void **ppvObject) PURE;
+    STDMETHOD_(ULONG, AddRef)(THIS) PURE;
+    STDMETHOD_(ULONG, Release)(THIS) PURE;
+
+    /* IDWriteFontFace methods */
+    STDMETHOD_(DWRITE_FONT_FACE_TYPE, GetType)(THIS) PURE;
+
+    STDMETHOD(GetFiles)(THIS_
+        UINT32 *numberOfFiles,
+        IDWriteFontFile **fontFiles) PURE;
+
+    STDMETHOD_(UINT32, GetIndex)(THIS) PURE;
+
+    STDMETHOD(dummy1)(THIS);
+    STDMETHOD(dummy2)(THIS);
+    STDMETHOD(dummy3)(THIS);
+    STDMETHOD(dummy4)(THIS);
+    STDMETHOD(dummy5)(THIS);
+
+    STDMETHOD(GetGlyphIndices)(THIS_
+        UINT32 const *codePoints,
+        UINT32 codePointCount,
+        UINT16 *glyphIndices) PURE;
+
+    STDMETHOD(dummy6)(THIS);
+    STDMETHOD(dummy7)(THIS);
+    STDMETHOD(dummy8)(THIS);
+    STDMETHOD(dummy9)(THIS);
+    STDMETHOD(dummy10)(THIS);
+    STDMETHOD(dummy11)(THIS);
+#endif
+
+    /* IDWriteFontFace1 methods */
+    STDMETHOD(dummy12)(THIS);
+    STDMETHOD(dummy13)(THIS);
+    STDMETHOD(dummy14)(THIS);
+    STDMETHOD(dummy15)(THIS);
+    STDMETHOD(dummy16)(THIS);
+    STDMETHOD(dummy17)(THIS);
+    STDMETHOD(dummy18)(THIS);
+    STDMETHOD(dummy19)(THIS);
+    STDMETHOD(dummy20)(THIS);
+    STDMETHOD(dummy21)(THIS);
+    STDMETHOD(dummy22)(THIS);
+    STDMETHOD(dummy23)(THIS);
+
+    /* IDWriteFontFace2 methods */
+    STDMETHOD(dummy24)(THIS);
+    STDMETHOD(dummy25)(THIS);
+    STDMETHOD(dummy26)(THIS);
+    STDMETHOD(dummy27)(THIS);
+    STDMETHOD(dummy28)(THIS);
+
+    /* IDWriteFontFace3 methods */
+    STDMETHOD(dummy29)(THIS);
+    STDMETHOD(dummy30)(THIS);
+
+    STDMETHOD_(DWRITE_FONT_WEIGHT, GetWeight)(THIS) PURE;
+    STDMETHOD_(DWRITE_FONT_STRETCH, GetStretch)(THIS) PURE;
+    STDMETHOD_(DWRITE_FONT_STYLE, GetStyle)(THIS) PURE;
+
+    STDMETHOD(GetFamilyNames)(THIS_
+        IDWriteLocalizedStrings **names) PURE;
+
+    STDMETHOD(dummy31)(THIS);
+
+    STDMETHOD(GetInformationalStrings)(THIS_
+        DWRITE_INFORMATIONAL_STRING_ID informationalStringID,
+        IDWriteLocalizedStrings **informationalStrings,
+        BOOL *exists) PURE;
+
+    /* rest dropped */
+    END_INTERFACE
+};
+#ifdef COBJMACROS
+#define IDWriteFontFace3_QueryInterface(This,riid,ppvObject) (This)->lpVtbl->QueryInterface(This,riid,ppvObject)
+#define IDWriteFontFace3_AddRef(This) (This)->lpVtbl->AddRef(This)
+#define IDWriteFontFace3_Release(This) (This)->lpVtbl->Release(This)
+#define IDWriteFontFace3_GetType(This) (This)->lpVtbl->GetType(This)
+#define IDWriteFontFace3_GetFiles(This,numberOfFiles,fontFiles) (This)->lpVtbl->GetFiles(This,numberOfFiles,fontFiles)
+#define IDWriteFontFace3_GetIndex(This) (This)->lpVtbl->GetIndex(This)
+#define IDWriteFontFace3_GetGlyphIndices(This,codePoints,codePointCount,glyphIndices) (This)->lpVtbl->GetGlyphIndices(This,codePoints,codePointCount,glyphIndices)
+#define IDWriteFontFace3_GetWeight(This) (This)->lpVtbl->GetWeight(This)
+#define IDWriteFontFace3_GetStretch(This) (This)->lpVtbl->GetStretch(This)
+#define IDWriteFontFace3_GetStyle(This) (This)->lpVtbl->GetStyle(This)
+#define IDWriteFontFace3_GetFamilyNames(This,names) (This)->lpVtbl->GetFamilyNames(This,names)
+#define IDWriteFontFace3_GetInformationalStrings(This,informationalStringID,informationalStrings,exists) (This)->lpVtbl->GetInformationalStrings(This,informationalStringID,informationalStrings,exists)
 #endif /*COBJMACROS*/
 
 #undef  INTERFACE
@@ -503,7 +603,7 @@ DECLARE_INTERFACE_(IDWriteFontFaceReference,IUnknown)
 #endif
 
     STDMETHOD(CreateFontFace)(THIS_
-        IDWriteFontFace/*3*/ **fontFace) PURE;
+        IDWriteFontFace3 **fontFace) PURE;
 
     STDMETHOD(dummy1)(THIS);
     STDMETHOD(dummy2)(THIS);
@@ -947,6 +1047,7 @@ DECLARE_INTERFACE_(IDWriteGdiInterop,IUnknown)
 
 DEFINE_GUID(IID_IDWriteFactory, 0xb859ee5a,0xd838,0x4b5b,0xa2,0xe8,0x1a,0xdc,0x7d,0x93,0xdb,0x48);
 DEFINE_GUID(IID_IDWriteFactory3, 0x9a1b41c3,0xd3bb,0x466a,0x87,0xfc,0xfe,0x67,0x55,0x6a,0x3b,0x65);
+DEFINE_GUID(IID_IDWriteFontFace3, 0xd37d7598,0x09be,0x4222,0xa2,0x36,0x20,0x81,0x34,0x1c,0xc1,0xf2);
 DEFINE_GUID(IID_IDWritePixelSnapping, 0xeaf3a2da,0xecf4,0x4d24,0xb6,0x44,0xb3,0x4f,0x68,0x42,0x02,0x4b);
 DEFINE_GUID(IID_IDWriteTextRenderer, 0xef8a8135,0x5cc6,0x45fe,0x88,0x25,0xc5,0xa0,0x72,0x4e,0xb8,0x19);
 
