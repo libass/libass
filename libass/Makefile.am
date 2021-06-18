@@ -18,7 +18,7 @@ SRC_INTEL = x86/rasterizer.asm x86/blend_bitmaps.asm x86/be_blur.asm x86/blur.as
             x86/cpuid.h
 
 SRC_FONTCONFIG = ass_fontconfig.c ass_fontconfig.h
-SRC_DIRECTWRITE = ass_directwrite.c ass_directwrite.h dwrite_c.h
+SRC_DIRECTWRITE = ass_directwrite.c ass_directwrite.h ass_directwrite_info_template.h dwrite_c.h
 SRC_CORETEXT = ass_coretext.c ass_coretext.h
 
 lib_LTLIBRARIES = libass.la

@@ -597,22 +597,55 @@ static int map_width(enum DWRITE_FONT_STRETCH stretch)
     }
 }
 
+#define FONT_TYPE IDWriteFontFace3
+#include "ass_directwrite_info_template.h"
+#undef FONT_TYPE
+
 static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
                           ASS_SharedHDC *shared_hdc)
 {
     ASS_FontProviderMetaData meta = {0};
 
-    FontPrivate *font_priv = (FontPrivate *) calloc(1, sizeof(*font_priv));
-    if (!font_priv) {
-        IDWriteFontFace_Release(face);
-        return;
+    IDWriteFontFace3 *face3;
+    HRESULT hr = IDWriteFontFace_QueryInterface(face, &IID_IDWriteFontFace3,
+                                                (void **) &face3);
+    if (SUCCEEDED(hr) && face3) {
+        bool success = get_font_info_IDWriteFontFace3(face3, &meta);
+        IDWriteFontFace3_Release(face3);
+        if (!success)
+            goto cleanup;
     }
+
+    FontPrivate *font_priv = (FontPrivate *) calloc(1, sizeof(*font_priv));
+    if (!font_priv)
+        goto cleanup;
+
     font_priv->face = face;
+    face = NULL;
+
 #if ASS_WINAPI_DESKTOP
     font_priv->shared_hdc = hdc_retain(shared_hdc);
 #endif
 
     ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
+
+cleanup:
+    if (meta.families) {
+        for (int k = 0; k < meta.n_family; k++)
+            free(meta.families[k]);
+        free(meta.families);
+    }
+
+    if (meta.fullnames) {
+        for (int k = 0; k < meta.n_fullname; k++)
+            free(meta.fullnames[k]);
+        free(meta.fullnames);
+    }
+
+    free(meta.postscript_name);
+
+    if (face)
+        IDWriteFontFace_Release(face);
 }
 
 #if ASS_WINAPI_DESKTOP
@@ -757,91 +790,30 @@ static void add_font_set(IDWriteFontSet *fontSet, ASS_FontProvider *provider)
         if (IDWriteFontFaceReference_GetSimulations(faceRef) != 0)
             goto cleanup;
 
-        IDWriteFontFace *face;
+        IDWriteFontFace3 *face;
         hr = IDWriteFontFaceReference_CreateFontFace(faceRef, &face);
-        if (FAILED(hr))
+        if (FAILED(hr) || !face)
             goto cleanup;
 
-        add_font_face(face, provider, NULL);
+        add_font_face((IDWriteFontFace *) face, provider, NULL);
 
 cleanup:
         IDWriteFontFaceReference_Release(faceRef);
     }
 }
 
+#define FONT_TYPE IDWriteFont
+#define FAMILY_AS_ARG
+#include "ass_directwrite_info_template.h"
+#undef FONT_TYPE
+#undef FAMILY_AS_ARG
+
 static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
                      ASS_FontProvider *provider)
 {
-    HRESULT hr;
-    BOOL exists;
     ASS_FontProviderMetaData meta = {0};
-
-    meta.weight = IDWriteFont_GetWeight(font);
-    meta.width = map_width(IDWriteFont_GetStretch(font));
-
-    DWRITE_FONT_STYLE style = IDWriteFont_GetStyle(font);
-    meta.slant = (style == DWRITE_FONT_STYLE_NORMAL) ? FONT_SLANT_NONE :
-                 (style == DWRITE_FONT_STYLE_OBLIQUE)? FONT_SLANT_OBLIQUE :
-                 (style == DWRITE_FONT_STYLE_ITALIC) ? FONT_SLANT_ITALIC : FONT_SLANT_NONE;
-
-    IDWriteLocalizedStrings *psNames;
-    hr = IDWriteFont_GetInformationalStrings(font,
-            DWRITE_INFORMATIONAL_STRING_POSTSCRIPT_NAME, &psNames, &exists);
-    if (FAILED(hr))
+    if (!get_font_info_IDWriteFont(font, fontFamily, &meta))
         goto cleanup;
-
-    if (exists) {
-        meta.postscript_name = get_utf8_name(psNames, 0);
-        IDWriteLocalizedStrings_Release(psNames);
-        if (!meta.postscript_name)
-            goto cleanup;
-    }
-
-    IDWriteLocalizedStrings *fontNames;
-    hr = IDWriteFont_GetInformationalStrings(font,
-            DWRITE_INFORMATIONAL_STRING_FULL_NAME, &fontNames, &exists);
-    if (FAILED(hr))
-        goto cleanup;
-
-    if (exists) {
-        meta.n_fullname = IDWriteLocalizedStrings_GetCount(fontNames);
-        meta.fullnames = (char **) calloc(meta.n_fullname, sizeof(char *));
-        if (!meta.fullnames) {
-            IDWriteLocalizedStrings_Release(fontNames);
-            goto cleanup;
-        }
-        for (int k = 0; k < meta.n_fullname; k++) {
-            meta.fullnames[k] = get_utf8_name(fontNames, k);
-            if (!meta.fullnames[k]) {
-                IDWriteLocalizedStrings_Release(fontNames);
-                goto cleanup;
-            }
-        }
-        IDWriteLocalizedStrings_Release(fontNames);
-    }
-
-    IDWriteLocalizedStrings *familyNames;
-    hr = IDWriteFont_GetInformationalStrings(font,
-            DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES, &familyNames, &exists);
-    if (!FAILED(hr) && !exists)
-        hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &familyNames);
-    if (FAILED(hr))
-        goto cleanup;
-
-    meta.n_family = IDWriteLocalizedStrings_GetCount(familyNames);
-    meta.families = (char **) calloc(meta.n_family, sizeof(char *));
-    if (!meta.families) {
-        IDWriteLocalizedStrings_Release(familyNames);
-        goto cleanup;
-    }
-    for (int k = 0; k < meta.n_family; k++) {
-        meta.families[k] = get_utf8_name(familyNames, k);
-        if (!meta.families[k]) {
-            IDWriteLocalizedStrings_Release(familyNames);
-            goto cleanup;
-        }
-    }
-    IDWriteLocalizedStrings_Release(familyNames);
 
     FontPrivate *font_priv = (FontPrivate *) calloc(1, sizeof(*font_priv));
     if (!font_priv)
