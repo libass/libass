@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    name: build(${{ matrix.docker_image || matrix.os }}, ${{ matrix.cc }})
     strategy:
       matrix:
         os: [ubuntu-18.04, macos-10.15]
@@ -24,6 +25,11 @@ jobs:
           - os: ubuntu-18.04
             cc: clang
             do_coverity: yes
+          # Build in an Alpine Docker image
+          - os: ubuntu-latest
+            cc: gcc
+            docker_image: alpine:latest
+            shell: '/usr/bin/docker exec dockerciimage sh -e {0}'
           # Add an additional Windows build (MinGW-gcc via MSYS2) with no extras
           - os: windows-2019
             cc: gcc
@@ -37,6 +43,17 @@ jobs:
       - name: checkout code
         uses: actions/checkout@v2
 
+      - name: Start Docker
+        if: matrix.docker_image
+        shell: bash
+        run: |
+          # Note: With this setup everything inside the container will be run as root
+          docker pull "${{ matrix.docker_image }}"
+          docker create --name dockerciimage \
+            -v "/home/runner/work:/home/runner/work" --workdir "$PWD"  \
+            --entrypoint "tail" "${{ matrix.docker_image }}" "-f" "/dev/null"
+          docker start dockerciimage
+
       - name: Setup MSys2
         uses: msys2/setup-msys2@v2
         if: matrix.os == 'windows-2019'
@@ -46,7 +63,7 @@ jobs:
 
       - name: install deps
         run: |
-          case "${{ matrix.os }}" in
+          case "${{ matrix.docker_image || matrix.os }}" in
             macos-*)
               #brew update
               # fontconfig, freetype, autoconf and libtool are preinstalled
@@ -60,6 +77,11 @@ jobs:
                       automake autoconf nasm make \
                       $pre-libtool $pre-pkg-config $pre-gcc \
                       $pre-fribidi $pre-freetype $pre-harfbuzz $pre-fontconfig
+              ;;
+            alpine:*)
+              apk add nasm ${{ matrix.cc }} musl-dev \
+                      make automake autoconf libtool pkgconf \
+                      fontconfig-dev freetype-dev fribidi-dev harfbuzz-dev
               ;;
             *)
               sudo apt-get update #&& sudo apt-get upgrade
@@ -161,3 +183,10 @@ jobs:
 
             exit $exit_code
           fi
+
+
+      - name: Stop Docker
+        if: matrix.docker_image
+        shell: bash
+        run: |
+          docker rm --force dockerciimage
