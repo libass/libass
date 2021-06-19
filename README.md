@@ -1,4 +1,4 @@
-[![Build status](https://api.travis-ci.org/libass/libass.png)](https://travis-ci.org/libass/libass)
+[![Build status](https://github.com/libass/libass/actions/workflows/ghci.yml/badge.svg?branch=master&event=push)](https://github.com/libass/libass/actions/workflows/ghci.yml?query=branch%3Amaster+event%3Apush)
 
 [![Coverity scan build status](https://scan.coverity.com/projects/3531/badge.svg)](https://scan.coverity.com/projects/3531)
 
