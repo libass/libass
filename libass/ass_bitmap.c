@@ -21,6 +21,7 @@
 #include "config.h"
 #include "ass_compat.h"
 
+#include <float.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -59,25 +60,26 @@
 #endif
 
 
-void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
+bool ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
                     int be, double blur_r2)
 {
     if (!bm->buffer)
-        return;
+        return false;
 
     // Apply gaussian blur
+    bool blurred = false;
     if (blur_r2 > 0.001)
-        ass_gaussian_blur(engine, bm, blur_r2);
+        blurred = ass_gaussian_blur(engine, bm, blur_r2);
 
     if (!be)
-        return;
+        return blurred;
 
     // Apply box blur (multiple passes, if requested)
     unsigned align = 1 << engine->align_order;
     size_t size = sizeof(uint16_t) * bm->stride * 2;
     uint16_t *tmp = ass_aligned_alloc(align, size, false);
     if (!tmp)
-        return;
+        return blurred;
 
     int32_t w = bm->w;
     int32_t h = bm->h;
@@ -92,6 +94,7 @@ void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
     }
     engine->be_blur(buf, stride, w, h, tmp);
     ass_aligned_free(tmp);
+    return true;
 }
 
 bool alloc_bitmap(const BitmapEngine *engine, Bitmap *bm,
@@ -192,13 +195,15 @@ bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
 /**
  * \brief fix outline bitmap
  *
- * The glyph bitmap is subtracted from outline bitmap. This way looks much
- * better in some cases.
+ * The glyph bitmap is subtracted from outline bitmap to preserve
+ * the final color despite alpha blending being done in two steps.
  */
-void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
+void fix_outline(Bitmap *bm_g, Bitmap *bm_o, uint8_t alpha_g, bool blurred)
 {
     if (!bm_g->buffer || !bm_o->buffer)
         return;
+
+    alpha_g = 0xFF - alpha_g;
 
     int32_t l = FFMAX(bm_o->left, bm_g->left);
     int32_t t = FFMAX(bm_o->top,  bm_g->top);
@@ -208,9 +213,23 @@ void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
     uint8_t *g = bm_g->buffer + (t - bm_g->top) * bm_g->stride + (l - bm_g->left);
     uint8_t *o = bm_o->buffer + (t - bm_o->top) * bm_o->stride + (l - bm_o->left);
 
+    // Use a number just above 65025 to ensure den > 0 and we don't divide
+    // by zero. This allows us to save a branch and assist autovectorization.
+    // The cost (which we accept) with IEEE float32 is that just two out
+    // of the 33 million possible operand tuples round in the "wrong"
+    // direction (to the more distant nearby integer) after evaluating
+    // to almost exactly an integer and a half. (Three more round up
+    // to 1 from 0.5; all other tuples round to nearest, half to zero.)
+    const float over65025 = nextafterf(65025, FLT_MAX);
+
     for (int32_t y = 0; y < b - t; y++) {
-        for (int32_t x = 0; x < r - l; x++)
-            o[x] = (o[x] > g[x]) ? o[x] - (g[x] / 2) : 0;
+        for (int32_t x = 0; x < r - l; x++) {
+            int num = blurred ?
+                o[x] * (255 - g[x]) * 255 :
+                FFMAX(o[x] - g[x], 0) * 65025;
+            float den = over65025 - alpha_g * g[x];
+            o[x] = num / den + 0.5f;
+        }
         g += bm_g->stride;
         o += bm_o->stride;
     }
