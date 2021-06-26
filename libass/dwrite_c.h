@@ -506,8 +506,10 @@ DECLARE_INTERFACE_(IDWriteLocalizedStrings,IUnknown)
     STDMETHOD(dummy1)(THIS);
     STDMETHOD(dummy2)(THIS);
     STDMETHOD(dummy3)(THIS);
-    STDMETHOD(dummy4)(THIS);
 
+    STDMETHOD(GetStringLength)(THIS_
+        UINT32 index,
+        UINT32 *length) PURE;
     STDMETHOD(GetString)(THIS_
         UINT32 index,
         WCHAR *stringBuffer,
@@ -518,6 +520,7 @@ DECLARE_INTERFACE_(IDWriteLocalizedStrings,IUnknown)
 #ifdef COBJMACROS
 #define IDWriteLocalizedStrings_Release(This) (This)->lpVtbl->Release(This)
 #define IDWriteLocalizedStrings_GetCount(This) (This)->lpVtbl->GetCount(This)
+#define IDWriteLocalizedStrings_GetStringLength(This,index,length) (This)->lpVtbl->GetStringLength(This,index,length)
 #define IDWriteLocalizedStrings_GetString(This,index,stringBuffer,size) (This)->lpVtbl->GetString(This,index,stringBuffer,size)
 #endif /*COBJMACROS*/
 

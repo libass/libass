@@ -29,7 +29,6 @@
 #include "ass_directwrite.h"
 #include "ass_utils.h"
 
-#define NAME_MAX_LENGTH 256
 #define FALLBACK_DEFAULT_FONT L"Arial"
 
 static const ASS_FontMapping font_substitutions[] = {
@@ -428,19 +427,38 @@ static int encode_utf16(wchar_t *chars, uint32_t codepoint)
 
 static char *get_utf8_name(IDWriteLocalizedStrings *names, int k)
 {
-    wchar_t temp_name[NAME_MAX_LENGTH];
-    HRESULT hr = IDWriteLocalizedStrings_GetString(names, k,
-                                                   temp_name,
-                                                   NAME_MAX_LENGTH);
-    if (FAILED(hr))
-        return NULL;
+    wchar_t *temp_name = NULL;
+    char *mbName = NULL;
 
-    temp_name[NAME_MAX_LENGTH-1] = 0;
-    int size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
-    char *mbName = (char *) malloc(size_needed);
+    UINT32 length;
+    HRESULT hr = IDWriteLocalizedStrings_GetStringLength(names, k, &length);
+    if (FAILED(hr))
+        goto cleanup;
+
+    if (length >= (UINT32) -1 || length + (size_t) 1 > SIZE_MAX / sizeof(wchar_t))
+        goto cleanup;
+
+    temp_name = (wchar_t *) malloc((length + 1) * sizeof(wchar_t));
+    if (!temp_name)
+        goto cleanup;
+
+    hr = IDWriteLocalizedStrings_GetString(names, k, temp_name, length + 1);
+    if (FAILED(hr))
+        goto cleanup;
+
+    int size_needed =
+        WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
+    if (!size_needed)
+        goto cleanup;
+
+    mbName = (char *) malloc(size_needed);
     if (!mbName)
-        return NULL;
+        goto cleanup;
+
     WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
+
+cleanup:
+    free(temp_name);
     return mbName;
 }
 
