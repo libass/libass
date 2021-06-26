@@ -490,8 +490,18 @@ static char *get_fallback(void *priv, ASS_Library *lib,
     IDWriteTextLayout_Release(text_layout);
     IDWriteTextFormat_Release(text_format);
 
-    // Now, just extract the first family name
+    // DirectWrite may not have found a valid fallback, so check that
+    // the selected font actually has the requested glyph.
     BOOL exists = FALSE;
+    if (codepoint > 0) {
+        hr = IDWriteFont_HasCharacter(font, codepoint, &exists);
+        if (FAILED(hr) || !exists) {
+            IDWriteFont_Release(font);
+            return NULL;
+        }
+    }
+
+    // Now, just extract the first family name
     IDWriteLocalizedStrings *familyNames = NULL;
     hr = IDWriteFont_GetInformationalStrings(font,
             DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES,
@@ -499,17 +509,6 @@ static char *get_fallback(void *priv, ASS_Library *lib,
     if (FAILED(hr) || !exists) {
         IDWriteFont_Release(font);
         return NULL;
-    }
-
-    // DirectWrite may not have found a valid fallback, so check that
-    // the selected font actually has the requested glyph.
-    if (codepoint > 0) {
-        hr = IDWriteFont_HasCharacter(font, codepoint, &exists);
-        if (FAILED(hr) || !exists) {
-            IDWriteLocalizedStrings_Release(familyNames);
-            IDWriteFont_Release(font);
-            return NULL;
-        }
     }
 
     char *family = get_utf8_name(familyNames, 0);
