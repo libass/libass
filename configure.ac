@@ -28,7 +28,7 @@ AC_ARG_ENABLE([profile], AS_HELP_STRING([--enable-profile],
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
     [disable fontconfig support @<:@default=enabled@:>@]))
 AC_ARG_ENABLE([directwrite], AS_HELP_STRING([--disable-directwrite],
-    [disable DirectWrite support (win32 only) @<:@default=check@:>@]))
+    [disable DirectWrite support (Windows only) @<:@default=check@:>@]))
 AC_ARG_ENABLE([coretext], AS_HELP_STRING([--disable-coretext],
     [disable CoreText support (OSX only) @<:@default=check@:>@]))
 AC_ARG_ENABLE([require-system-font-provider], AS_HELP_STRING([--disable-require-system-font-provider],
@@ -147,9 +147,28 @@ AS_IF([test "x$enable_directwrite" != xno], [
     AC_LINK_IFELSE([
         AC_LANG_PROGRAM([[#include <windows.h>]], [[;]])
     ], [
-        AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite])
         directwrite=true
         AC_MSG_RESULT([yes])
+        AC_MSG_CHECKING([for Win32 desktop APIs])
+        AC_COMPILE_IFELSE([
+            AC_LANG_PROGRAM([[
+                #include <winapifamily.h>
+                #if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+                #error Win32 desktop APIs are available
+                #endif
+            ]], [[;]])
+        ], [
+            # WinRT/UWP/app build: LoadLibrary is
+            # unavailable, but DirectWrite is always present
+            LIBS="$LIBS -ldwrite"
+            AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite (WinRT/UWP)])
+            AC_MSG_RESULT([no])
+        ], [
+            # Win32/desktop build:
+            # DirectWrite is optional but can be loaded via LoadLibrary
+            AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite (Win32)])
+            AC_MSG_RESULT([yes])
+        ])
     ], [
         directwrite=false
         AC_MSG_RESULT([no])
