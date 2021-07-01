@@ -39,10 +39,8 @@
 #include "ass_shaper.h"
 #include "ass_string.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__CYGWIN__)
 #include <windows.h>
-#include <io.h>
-#include <fcntl.h>
 #endif
 
 #define ass_atof(STR) (ass_strtod((STR),NULL))
@@ -1228,14 +1226,16 @@ out:
 }
 #endif                          // ICONV
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__CYGWIN__)
+/**
+ * Use win32 API to open file. It will first use UTF-8 encoding to open file otherwise ANSI.
+ * \param path File name (encoding in UTF-8 or ANSI)
+ * \return poointer to FILE.
+*/
 FILE *win32_open_file(char *path) {
     wchar_t *wpath;
-    int wlen, fd;
-    int flags = _O_BINARY | _O_RDONLY;
-
-    fd = _open(path, flags);
-    if (fd != -1) return _fdopen(fd, "r");
+    int wlen;
+    FILE *f;
 
     wlen = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
     if (wlen < -1) {
@@ -1246,10 +1246,10 @@ FILE *win32_open_file(char *path) {
         free(wpath);
         return NULL;
     }
-    fd = _wopen(wpath, flags);
+    f = _wfopen(wpath, L"rb");
     free(wpath);
-    if (fd == -1) return NULL;
-    return _wfdopen(fd, L"r");
+    if (f != NULL) return f;
+    return fopen(path, "rb");
 }
 #endif
 
@@ -1266,10 +1266,10 @@ char *read_file(ASS_Library *library, char *fname, size_t *bufsize)
     long bytes_read;
     char *buf;
 
-#ifndef _WIN32
-    FILE *fp = fopen(fname, "rb");
-#else
+#if defined(_WIN32) && !defined(__CYGWIN__)
     FILE *fp = win32_open_file(fname);
+#else
+    FILE *fp = fopen(fname, "rb");
 #endif
     if (!fp) {
         ass_msg(library, MSGL_WARN,

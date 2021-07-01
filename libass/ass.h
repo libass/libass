@@ -661,7 +661,7 @@ void ass_flush_events(ASS_Track *track);
 /**
  * \brief Read subtitles from file.
  * \param library library handle
- * \param fname file name
+ * \param fname file name (UTF-8 or ANSI encoding on WIN32 Platform, UTF-8 is preferred.)
  * \param codepage encoding (iconv format)
  * \return newly allocated track or NULL on failure
 */
