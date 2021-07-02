@@ -1255,7 +1255,7 @@ FILE *win32_open_file(char *path) {
 
 /**
  * \brief read file contents into newly allocated buffer
- * \param fname file name
+ * \param fname file name (UTF-8 or ANSI encoding on WIN32 Platform, UTF-8 is preferred.)
  * \param bufsize out: file size
  * \return pointer to file contents. Caller is responsible for its deallocation.
  */

@@ -680,7 +680,7 @@ ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
                            size_t bufsize, char *codepage);
 /**
  * \brief Read styles from file into already initialized track.
- * \param fname file name
+ * \param fname file name (UTF-8 or ANSI encoding on WIN32 Platform, UTF-8 is preferred.)
  * \param codepage encoding (iconv format)
  * \return 0 on success
  */
