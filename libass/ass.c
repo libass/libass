@@ -1238,7 +1238,7 @@ FILE *win32_open_file(char *path) {
     FILE *f;
 
     wlen = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
-    if (wlen < -1) {
+    if (!wlen) {
         return NULL;
     }
     wpath = (wchar_t*)malloc(sizeof(wchar_t) * wlen);
