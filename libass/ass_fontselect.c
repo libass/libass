@@ -167,6 +167,62 @@ static ASS_FontProviderFuncs ft_funcs = {
     .destroy_font      = destroy_font_ft,
 };
 
+#if defined(_WIN32) && !defined(__CYGWIN__)
+static int load_fonts_from_dir_win32(ASS_Library *library, const char *dir, UINT codePage) {
+	// The dir name must ending with \*, D:\temp not work, D:\temp\* works well.
+	size_t dir_len = strlen(dir);
+	char* tdir = malloc(dir_len + 3);
+	strcpy(tdir, dir);
+	strcat(tdir, "\\*");
+	WIN32_FIND_DATAW wfdata;
+	HANDLE whFind;
+	wchar_t *wdir;
+	int wlen;
+
+	wlen = MultiByteToWideChar(codePage, 0, tdir, -1, NULL, 0);
+	if (wlen > 0) {
+		wdir = (wchar_t*)malloc(sizeof(wchar_t) * wlen);
+		if (MultiByteToWideChar(codePage, 0, tdir, -1, wdir, wlen)) {
+			whFind = FindFirstFileW(wdir, &wfdata);
+			if (whFind != INVALID_HANDLE_VALUE) {
+				do {
+					char *filename;
+					int fn_len;
+					fn_len = WideCharToMultiByte(CP_UTF8, 0, wfdata.cFileName, -1, NULL, 0, NULL, FALSE);
+					if (fn_len > 0) {
+						filename = (char*)malloc(fn_len);
+						if (WideCharToMultiByte(CP_UTF8, 0, wfdata.cFileName, -1, filename, fn_len, NULL, FALSE)) {
+							if (filename && filename[0] == '.') {
+								free(filename);
+								continue;
+							}
+							size_t buffsize = strlen(filename) + strlen(tdir) + 2;
+							char *fullname = (char*)malloc(buffsize);
+							snprintf(fullname, buffsize, "%s/%s", dir, filename);
+							size_t bufsize = 0;
+							ass_msg(library, MSGL_INFO, "Loading font file '%s'", fullname);
+							void *data = read_file(library, fullname, &bufsize);
+							if (data) {
+								ass_add_font(library, filename, data, bufsize);
+								free(data);
+							}
+							free(fullname);
+						}
+						free(filename);
+					}
+				} while (FindNextFileW(whFind, &wfdata) != 0);
+				FindClose(whFind);
+				free(tdir);
+				free(wdir);
+				return 1;
+			}
+		}
+		free(wdir);
+	}
+	return 0;
+}
+#endif
+
 static void load_fonts_from_dir(ASS_Library *library, const char *dir)
 {
 #if !defined(_WIN32) || defined(__CYGWIN__)
@@ -191,78 +247,9 @@ static void load_fonts_from_dir(ASS_Library *library, const char *dir)
     }
     closedir(d);
 #else
-    // The dir name must ending with \*, D:\temp not work, D:\temp\* works well.
-    size_t dir_len = strlen(dir);
-    char* tdir = malloc(dir_len + 3);
-    strcpy(tdir, dir);
-    strcat(tdir, "\\*");
-    WIN32_FIND_DATAW wfdata;
-    HANDLE whFind;
-    wchar_t *wdir;
-    int wlen;
-    
-    wlen = MultiByteToWideChar(CP_UTF8, 0, tdir, -1, NULL, 0);
-    if (wlen > 0) {
-        wdir = (wchar_t*) malloc(sizeof(wchar_t) * wlen);
-        if (MultiByteToWideChar(CP_UTF8, 0, tdir, -1, wdir, wlen)) {
-            whFind = FindFirstFileW(wdir, &wfdata);
-            if (whFind != INVALID_HANDLE_VALUE) {
-                do {
-                    char *filename;
-                    int fn_len;
-                    fn_len = WideCharToMultiByte(CP_UTF8, 0, wfdata.cFileName, -1, NULL, 0, NULL, FALSE);
-                    if (fn_len > 0) {
-                        filename = (char*) malloc(fn_len);
-                        if (WideCharToMultiByte(CP_UTF8, 0, wfdata.cFileName, -1, filename, fn_len, NULL, FALSE)) {
-                            if (!strcmp(filename, ".") || !strcmp(filename, "..")) {
-                                free(filename);
-                                continue;
-                            }
-                            size_t buffsize = strlen(filename) + strlen(tdir) + 2;
-                            char *fullname = (char*) malloc(buffsize);
-                            snprintf(fullname, buffsize, "%s/%s", dir, filename);
-                            size_t bufsize = 0;
-                            ass_msg(library, MSGL_INFO, "Loading font file '%s'", fullname);
-                            void *data = read_file(library, fullname, &bufsize);
-                            if (data) {
-                                ass_add_font(library, filename, data, bufsize);
-                                free(data);
-                            }
-                            free(fullname);
-                        }
-                        free(filename);
-                    }
-                } while (FindNextFileW(whFind, &wfdata) != 0);
-                FindClose(whFind);
-                free(tdir);
-                free(wdir);
-                return;
-            }
-        }
-        free(wdir);
-    }
-    WIN32_FIND_DATAA fdata;
-    HANDLE hFind;
-    hFind = FindFirstFileA(tdir, &fdata);
-    if (hFind == INVALID_HANDLE_VALUE) {
-        free(tdir);
-        return;
-    }
-    do {
-        if (!strcmp(fdata.cFileName, ".") || !strcmp(fdata.cFileName, "..")) continue;
-        char *fullname = (char*) malloc(dir_len + MAX_PATH + 2);
-        snprintf(fullname, dir_len + MAX_PATH + 2, "%s/%s", dir, fdata.cFileName);
-        size_t bufsize = 0;
-        ass_msg(library, MSGL_INFO, "Loading font file '%s'", fullname);
-        void *data = read_file(library, fullname, &bufsize);
-        if (data) {
-            ass_add_font(library, fdata.cFileName, data, bufsize);
-            free(data);
-        }
-        free(fullname);
-    } while (FindNextFileA(hFind, &fdata) != 0);
-    FindClose(hFind);
-    free(tdir);
+	if (load_fonts_from_dir_win32(library, dir, CP_UTF8)) return;
+	if (load_fonts_from_dir_win32(library, dir, CP_OEMCP)) return;
+	if (load_fonts_from_dir_win32(library, dir, CP_ACP)) return;
 #endif
 }
 

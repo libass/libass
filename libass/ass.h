@@ -260,7 +260,7 @@ void ass_library_done(ASS_Library *priv);
  * NOTE: A valid font directory is not needed to support embedded fonts.
  *
  * \param priv library handle
- * \param fonts_dir directory with additional fonts (UTF-8 or ANSI encoding on WIN32 Platform, UTF-8 is preferred.)
+ * \param fonts_dir directory with additional fonts (UTF-8/OEM/ANSI encoding on WIN32 Platform, priority: UTF-8 > OEM > ANSI.)
  */
 void ass_set_fonts_dir(ASS_Library *priv, const char *fonts_dir);
 
