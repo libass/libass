@@ -33,11 +33,11 @@ jobs:
             shell: '/usr/bin/docker exec dockerciimage sh -e {0}'
           # Add an additional Windows build (MinGW-gcc via MSYS2) with no extras
           - os: windows-2019
-            msystem: MINGW64
+            msystem: MINGW32
             cc: gcc
             api: desktop
             shell: 'msys2 {0}'
-            package_prefix: mingw-w64-x86_64
+            package_prefix: mingw-w64-i686
           # Add a best-effort build for UWP apps for Microsoft Store
           - os: windows-2019
             msystem: UCRT64
