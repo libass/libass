@@ -535,7 +535,7 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
           ASS_FontProviderMetaData meta, bool match_extended_family,
           unsigned bold, unsigned italic,
           int *index, char **postscript_name, int *uid, ASS_FontStream *stream,
-          uint32_t code, bool *name_match)
+          uint32_t code, bool *name_match, bool force_full_match)
 {
     ASS_FontInfo req = {0};
     ASS_FontInfo *selected = NULL;
@@ -562,13 +562,11 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
                 // If there's a family match, compare font attributes
                 // to determine best match in that particular family
                 score = font_attributes_similarity(font, &req);
-                *name_match = true;
             } else if (matches_full_or_postscript_name(font, fullname)) {
                 // If we don't have any match, compare fullnames against request
                 // if there is a match now, assign lowest score possible. This means
                 // the font should be chosen instantly, without further search.
                 score = 0;
-                *name_match = true;
             }
 
             // Consider updating idx if score is better than current minimum
@@ -600,6 +598,12 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
         if (selected != NULL)
             break;
     }
+
+    if (force_full_match && score_min != 0)
+        return NULL;
+
+    if (selected != NULL)
+        *name_match = true;
 
     // found anything?
     char *result = NULL;
@@ -666,7 +670,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
 
     result = find_font(priv, library, meta, match_extended_family,
                        bold, italic, index, postscript_name, uid,
-                       stream, code, &name_match);
+                       stream, code, &name_match, true);
 
     // If no matching font was found, it might not exist in the font list
     // yet. Call the match_fonts callback to fill in the missing fonts
@@ -682,7 +686,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
         }
         result = find_font(priv, library, meta, match_extended_family,
                            bold, italic, index, postscript_name, uid,
-                           stream, code, &name_match);
+                           stream, code, &name_match, false);
     }
 
     // cleanup
