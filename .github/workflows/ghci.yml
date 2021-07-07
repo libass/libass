@@ -118,12 +118,18 @@ jobs:
         run: ./autogen.sh && ./configure
 
       - name: compile
-        run: test "x${{ matrix.do_distc }}" = "xyes" || make -j 2
+        if: matrix.do_distc != 'yes'
+        run: make -j 2
 
       - name: distcheck
-        run: if [ "x${{ matrix.do_distc }}" = "xyes" ] ; then make -j 2 distcheck; fi
+        if: matrix.do_distc == 'yes'
+        run: make -j 2 distcheck
 
       - name: Coverity scan
+        if: >
+          matrix.do_coverity == 'yes'
+          && github.repository == 'libass/libass'
+          && github.event_name != 'pull_request'
         env:
           COVERITY_SCAN_TOKEN: ${{ secrets.COVERITY_SCAN_TOKEN }}
           PROJECT_NAME: libass/libass
@@ -133,79 +139,74 @@ jobs:
           SCAN_URL: https://scan.coverity.com
           RES_DIR: cov-int
         run: |
-          if [ "x${{ matrix.do_coverity }}" = "xyes" ] \
-             && [ "x${{ github.repository }}" = "xlibass/libass" ] \
-             && [ "x${{ github.event_name }}" != "xpull_request" ]
+          exit_code=0
+          echo "Running Coverity ..."
+          # Remove previous build output
+          make clean
+          # The upstream script is borked and always exits with 1 even on success
+          # To get meaningful success/error status we're using our own script
+          # but we still want to be informed about upstream script changes
+          if curl -s https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh \
+              | shasum -a 256 \
+              | grep -Eq '^234d71b4a5257a79559e66dd3ba5765576d2af4845da83af4975b77b14ab536b '
           then
-            exit_code=0
-            echo "Running Coverity ..."
-            # Remove previous build output
-            make clean
-            # The upstream script is borked and always exits with 1 even on success
-            # To get meaningful success/error status we're using our own script
-            # but we still want to be informed about upstream script changes
-            if curl -s https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh \
-                | shasum -a 256 \
-                | grep -Eq '^234d71b4a5257a79559e66dd3ba5765576d2af4845da83af4975b77b14ab536b '
-            then
-               : remote unchanged
-            else
-              echo "Coverity's travis script changed!"
-              exit_code=1
-            fi
-
-            # Check if we are within quoata
-            quota_res="$(curl -s --form project="$PROJECT_NAME" \
-                                 --form token="$COVERITY_SCAN_TOKEN" \
-                                 "$SCAN_URL"/api/upload_permitted)"
-            if [ "$?" -ne 0 ] || [ "x$quota_res" = "xAccess denied" ] ; then
-              echo "Coverity denied access or did not respond!"
-              exit 1
-            elif echo "$quota_res" | grep -Eq 'upload_permitted": *true' ; then
-              echo "Within Coverity quota."
-            else
-              echo "Exceeding Coverity quota! Try again later."
-              echo "$quota_res" | grep -Eo 'next_upload_permitted_at":[^,}]*'
-              exit 0
-            fi
-
-            # Download cov tool and make it available
-            wget -nv "$TOOL_URL""$(uname)" \
-                 --post-data "project=$PROJECT_NAME&token=$COVERITY_SCAN_TOKEN" \
-                 -O cov-analysis-tool.tar.gz
-            mkdir cov-analysis-tool
-            tar xzf cov-analysis-tool.tar.gz --strip 1 -C cov-analysis-tool
-            export PATH="$(pwd)/cov-analysis-tool/bin:$PATH"
-
-            # Coverity Build
-            echo "Starting Coverity build..."
-            #mkdir "$RES_DIR" # already done by cov-build
-            COVERITY_UNSUPPORTED=1 cov-build --dir "$RES_DIR" make -j 2
-            cov-import-scm --dir "$RES_DIR" --scm git --log "$RES_DIR/scm_log.txt" 2>&1
-
-            # Submit results to Coverity's server
-            tar czf libass.tar.gz "$RES_DIR"
-            upstat="$(curl --silent --write-out "\n%{http_code}\n" \
-                       --form project="PROJECT_NAME"               \
-                       --form token="$COVERITY_SCAN_TOKEN"         \
-                       --form email="$NOTIFY_EMAIL"                \
-                       --form file=@libass.tar.gz                  \
-                       --form version="${{ github.sha }}"          \
-                       --form description="GitHubActions CI build" \
-                        "$UPLOAD_URL")"
-            if [ "$?" -ne 0 ] ; then
-              echo "Upload failed (curl error)"
-              exit_code=1
-            elif echo "$upstat" | tail -n 1 | grep -Eq '^2[0-9]{2}$' ; then
-              echo "Upload successful."
-            else
-              echo "Upload failed (server error)"
-              exit_code=1
-            fi
-            echo "$upstat" | head
-
-            exit $exit_code
+             : remote unchanged
+          else
+            echo "Coverity's travis script changed!"
+            exit_code=1
           fi
+
+          # Check if we are within quoata
+          quota_res="$(curl -s --form project="$PROJECT_NAME" \
+                               --form token="$COVERITY_SCAN_TOKEN" \
+                               "$SCAN_URL"/api/upload_permitted)"
+          if [ "$?" -ne 0 ] || [ "x$quota_res" = "xAccess denied" ] ; then
+            echo "Coverity denied access or did not respond!"
+            exit 1
+          elif echo "$quota_res" | grep -Eq 'upload_permitted": *true' ; then
+            echo "Within Coverity quota."
+          else
+            echo "Exceeding Coverity quota! Try again later."
+            echo "$quota_res" | grep -Eo 'next_upload_permitted_at":[^,}]*'
+            exit 0
+          fi
+
+          # Download cov tool and make it available
+          wget -nv "$TOOL_URL""$(uname)" \
+               --post-data "project=$PROJECT_NAME&token=$COVERITY_SCAN_TOKEN" \
+               -O cov-analysis-tool.tar.gz
+          mkdir cov-analysis-tool
+          tar xzf cov-analysis-tool.tar.gz --strip 1 -C cov-analysis-tool
+          export PATH="$(pwd)/cov-analysis-tool/bin:$PATH"
+
+          # Coverity Build
+          echo "Starting Coverity build..."
+          #mkdir "$RES_DIR" # already done by cov-build
+          COVERITY_UNSUPPORTED=1 cov-build --dir "$RES_DIR" make -j 2
+          cov-import-scm --dir "$RES_DIR" --scm git --log "$RES_DIR/scm_log.txt" 2>&1
+
+          # Submit results to Coverity's server
+          tar czf libass.tar.gz "$RES_DIR"
+          upstat="$(curl --silent --write-out "\n%{http_code}\n" \
+                     --form project="PROJECT_NAME"               \
+                     --form token="$COVERITY_SCAN_TOKEN"         \
+                     --form email="$NOTIFY_EMAIL"                \
+                     --form file=@libass.tar.gz                  \
+                     --form version="${{ github.sha }}"          \
+                     --form description="GitHubActions CI build" \
+                      "$UPLOAD_URL")"
+          if [ "$?" -ne 0 ] ; then
+            echo "Upload failed (curl error)"
+            exit_code=1
+          elif echo "$upstat" | tail -n 1 | grep -Eq '^2[0-9]{2}$' ; then
+            echo "Upload successful."
+          else
+            echo "Upload failed (server error)"
+            exit_code=1
+          fi
+          echo "$upstat" | head
+
+          exit $exit_code
 
 
       - name: Stop Docker
