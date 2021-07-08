@@ -8,7 +8,8 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-    name: build(${{ matrix.docker_image || matrix.os }}, ${{ matrix.cc }})
+    name: build(${{ matrix.msystem || matrix.docker_image || matrix.os }},
+      ${{ matrix.cc }}${{ matrix.api && ', ' }}${{ matrix.api }})
     strategy:
       matrix:
         os: [ubuntu-18.04, macos-10.15]
@@ -32,8 +33,19 @@ jobs:
             shell: '/usr/bin/docker exec dockerciimage sh -e {0}'
           # Add an additional Windows build (MinGW-gcc via MSYS2) with no extras
           - os: windows-2019
+            msystem: MINGW64
             cc: gcc
+            api: desktop
             shell: 'msys2 {0}'
+            package_prefix: mingw-w64-x86_64
+          # Add a best-effort build for UWP apps for Microsoft Store
+          - os: windows-2019
+            msystem: UCRT64
+            cc: gcc
+            api: app
+            extra_cflags: -DWINAPI_FAMILY=WINAPI_FAMILY_APP -specs=/tmp/windowsapp.specs
+            shell: 'msys2 {0}'
+            package_prefix: mingw-w64-ucrt-x86_64
 
     defaults:
       run:
@@ -56,9 +68,9 @@ jobs:
 
       - name: Setup MSys2
         uses: msys2/setup-msys2@v2
-        if: matrix.os == 'windows-2019'
+        if: matrix.msystem
         with:
-          msystem: MINGW64
+          msystem: ${{ matrix.msystem }}
           update: false
 
       - name: install deps
@@ -72,7 +84,7 @@ jobs:
               brew install automake fribidi harfbuzz nasm
               ;;
             windows-*)
-              pre="mingw-w64-x86_64"
+              pre="${{ matrix.package_prefix }}"
               pacman --noconfirm -S \
                       automake autoconf nasm make \
                       $pre-libtool $pre-pkg-config $pre-gcc \
@@ -91,8 +103,19 @@ jobs:
               ;;
           esac
 
+      - name: Customize compiler
+        if: matrix.api == 'app' && matrix.cc == 'gcc'
+        run: >
+          gcc -dumpspecs
+          | sed 's/-lmsvcrt/-lucrtapp/g; s/-lkernel32/-lwindowsapp/g;
+          s/-ladvapi32//g; s/-lshell32//g; s/-luser32//g'
+          > /tmp/windowsapp.specs
+
       - name: configure
-        run: ./autogen.sh && CC="${{ matrix.cc }}" ./configure
+        env:
+          CC: "${{ matrix.cc }}\
+            ${{ matrix.extra_cflags && ' ' }}${{ matrix.extra_cflags }}"
+        run: ./autogen.sh && ./configure
 
       - name: compile
         run: test "x${{ matrix.do_distc }}" = "xyes" || make -j 2
