@@ -39,25 +39,44 @@
 #include "ass_shaper.h"
 #include "ass_string.h"
 
-#define ass_atof(STR) (ass_strtod((STR),NULL))
+#define ass_atof(STR) (ass_strtod((STR), NULL))
 
-static const char *const ass_style_format =
-        "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
-        "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, "
-        "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
-        "Alignment, MarginL, MarginR, MarginV, Encoding";
-static const char *const ass_event_format =
-        "Layer, Start, End, Style, Name, "
-        "MarginL, MarginR, MarginV, Effect, Text";
-static const char *const ssa_style_format =
-        "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
-        "TertiaryColour, BackColour, Bold, Italic, BorderStyle, Outline, "
-        "Shadow, Alignment, MarginL, MarginR, MarginV, AlphaLevel, Encoding";
-static const char *const ssa_event_format =
-        "Marked, Start, End, Style, Name, "
-        "MarginL, MarginR, MarginV, Effect, Text";
+static const ASS_FormatToken ass_style_format[] = {
+    ASS_FMT_Name, ASS_FMT_FontName, ASS_FMT_FontSize, ASS_FMT_PrimaryColour,
+    ASS_FMT_SecondaryColour, ASS_FMT_OutlineColour, ASS_FMT_BackColour,
+    ASS_FMT_Bold, ASS_FMT_Italic, ASS_FMT_Underline, ASS_FMT_StrikeOut,
+    ASS_FMT_ScaleX, ASS_FMT_ScaleY, ASS_FMT_Spacing, ASS_FMT_Angle,
+    ASS_FMT_BorderStyle, ASS_FMT_Outline, ASS_FMT_Shadow, ASS_FMT_Alignment,
+    ASS_FMT_MarginL, ASS_FMT_MarginR, ASS_FMT_MarginV, ASS_FMT_Encoding
+};
+static const size_t ass_style_format_length = sizeof(ass_style_format) / sizeof(ass_style_format[0]);
 
+static const ASS_FormatToken ass_event_format[] = {
+    ASS_FMT_Layer, ASS_FMT_Start, ASS_FMT_End, ASS_FMT_Style, ASS_FMT_Name,
+    ASS_FMT_MarginL, ASS_FMT_MarginR, ASS_FMT_MarginV, ASS_FMT_Effect, ASS_FMT_Text
+};
+static const size_t ass_event_format_length = sizeof(ass_event_format) / sizeof(ass_event_format[0]);
+
+static const ASS_FormatToken ssa_style_format[] = {
+    ASS_FMT_Name, ASS_FMT_FontName, ASS_FMT_FontSize, ASS_FMT_PrimaryColour,
+    ASS_FMT_SecondaryColour, ASS_FMT_TertiaryColour, ASS_FMT_BackColour,
+    ASS_FMT_Bold, ASS_FMT_Italic, ASS_FMT_BorderStyle, ASS_FMT_Outline,
+    ASS_FMT_Shadow, ASS_FMT_Alignment, ASS_FMT_MarginL, ASS_FMT_MarginR,
+    ASS_FMT_MarginV, ASS_FMT_AlphaLevel, ASS_FMT_Encoding
+};
+static const size_t ssa_style_format_length = sizeof(ssa_style_format) / sizeof(ssa_style_format[0]);
+
+static const ASS_FormatToken ssa_event_format[] = {
+    ASS_FMT_Marked, ASS_FMT_Start, ASS_FMT_End, ASS_FMT_Style, ASS_FMT_Name,
+    ASS_FMT_MarginL, ASS_FMT_MarginR, ASS_FMT_MarginV, ASS_FMT_Effect, ASS_FMT_Text
+};
+static const size_t ssa_event_format_length = sizeof(ssa_event_format) / sizeof(ssa_event_format[0]);
+
+/* Choose ASS_FORMAT_ALLOC large enough to fit in all tokens once,
+   but without risking overflows */
+#define ASS_FORMAT_ALLOC 36
 #define ASS_STYLES_ALLOC 20
+
 
 int ass_library_version(void)
 {
@@ -75,6 +94,10 @@ void ass_free_track(ASS_Track *track)
         free(track->parser_priv->read_order_bitmap);
         free(track->parser_priv->fontname);
         free(track->parser_priv->fontdata);
+        free(track->parser_priv->style_format.tokens);
+        free(track->parser_priv->event_format.tokens);
+        free(track->parser_priv->style_format.string);
+        free(track->parser_priv->event_format.string);
         free(track->parser_priv);
     }
     free(track->style_format);
@@ -239,58 +262,45 @@ static long long string2timecode(ASS_Library *library, char *p)
     return tm;
 }
 
-#define NEXT(str,token) \
+#define NEXT(str, token) \
     token = next_token(&str); \
     if (!token) break;
 
 
-#define ALIAS(alias,name) \
-        if (ass_strcasecmp(tname, #alias) == 0) {tname = #name;}
-
-/* One section started with PARSE_START and PARSE_END parses a single token
- * (contained in the variable named token) for the header indicated by the
- * variable tname. It does so by chaining a number of else-if statements, each
- * of which checks if the tname variable indicates that this header should be
- * parsed. The first parameter of the macro gives the name of the header.
- *
- * The string that is passed is in str. str is advanced to the next token if
- * a header could be parsed. The parsed results are stored in the variable
- * target, which has the type ASS_Style* or ASS_Event*.
- */
-#define PARSE_START if (0) {
+#define PARSE_START switch (fmt->tokens[tokenpos]) {
 #define PARSE_END   }
 
-#define ANYVAL(name,func) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
-        target->name = func(token);
-
 #define STRVAL(name) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
-        char *new_str = strdup(token); \
-        if (new_str) { \
-            free(target->name); \
-            target->name = new_str; \
-        }
+    case ASS_FMT_ ## name : \
+        free(target->name); \
+        target->name = strdup(token); \
+        break;
 
 #define STARREDSTRVAL(name) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
+    case ASS_FMT_ ## name : \
         while (*token == '*') ++token; \
-        char *new_str = strdup(token); \
-        if (new_str) { \
-            free(target->name); \
-            target->name = new_str; \
-        }
+        free(target->name); \
+        target->name = strdup(token); \
+        break;
 
-#define COLORVAL(name) ANYVAL(name,parse_color_header)
-#define INTVAL(name) ANYVAL(name,atoi)
-#define FPVAL(name) ANYVAL(name,ass_atof)
-#define TIMEVAL(name) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
-        target->name = string2timecode(track->library, token);
+#define TIMEVAL_ALTNAME(fieldname, formatname) \
+    case ASS_FMT_ ## formatname : \
+        target->fieldname = string2timecode(track->library, token); \
+        break;
 
 #define STYLEVAL(name) \
-    } else if (ass_strcasecmp(tname, #name) == 0) { \
-        target->name = lookup_style(track, token);
+    case ASS_FMT_ ## name : \
+        target->name = lookup_style(track, token); \
+        break;
+
+#define ANYVAL(name, func) \
+    case ASS_FMT_ ## name : \
+        target->name = func(token); \
+        break;
+
+#define COLORVAL(name) ANYVAL(name, parse_color_header)
+#define INTVAL(name)   ANYVAL(name, atoi)
+#define FPVAL(name)    ANYVAL(name, ass_atof)
 
 // skip spaces in str beforehand, or trim leading spaces afterwards
 static inline void advance_token_pos(const char **const str,
@@ -321,6 +331,80 @@ static char *next_token(char **str)
     return start;
 }
 
+static int parse_format_line(ASS_FormatLine *fmt, const char *string)
+{
+    fmt->n_tokens = 0;
+
+    free(fmt->string);
+    fmt->string = strdup(string);
+    if (!fmt->string)
+        return -1;
+
+    skip_spaces((char **) &string);
+    while (*string) {
+        // NEXT would mess up track's fmt string on resync, so don't use it.
+        const char *tk_start, *tk_end;
+        advance_token_pos(&string, &tk_start, &tk_end);
+        skip_spaces((char **) &string);
+
+        if (fmt->n_tokens >= fmt->max_tokens) {
+            if (fmt->max_tokens >= SIZE_MAX/2 - 1 ||
+                    !ASS_REALLOC_ARRAY(fmt->tokens, 2*fmt->max_tokens + 1))
+                return -1;
+        }
+
+        #define FMTTOKEN(name) \
+            else if (tk_end-tk_start == sizeof( #name ) - 1 && \
+                    strncasecmp(tk_start, #name, tk_end-tk_start) == 0) { \
+                fmt->tokens[fmt->n_tokens++] = ASS_FMT_ ## name ; \
+            }
+
+        if (0) {}
+        FMTTOKEN(Name)
+        FMTTOKEN(FontName)
+        FMTTOKEN(FontSize)
+        FMTTOKEN(PrimaryColour)
+        FMTTOKEN(SecondaryColour)
+        FMTTOKEN(OutlineColour)
+        FMTTOKEN(BackColour)
+        FMTTOKEN(Bold)
+        FMTTOKEN(Italic)
+        FMTTOKEN(Underline)
+        FMTTOKEN(StrikeOut)
+        FMTTOKEN(ScaleX)
+        FMTTOKEN(ScaleY)
+        FMTTOKEN(Spacing)
+        FMTTOKEN(Angle)
+        FMTTOKEN(BorderStyle)
+        FMTTOKEN(Outline)
+        FMTTOKEN(Shadow)
+        FMTTOKEN(Alignment)
+        FMTTOKEN(MarginL)
+        FMTTOKEN(MarginR)
+        FMTTOKEN(MarginV)
+        FMTTOKEN(Encoding)
+        FMTTOKEN(Layer)
+        FMTTOKEN(Start)
+        FMTTOKEN(End)
+        FMTTOKEN(Style)
+        FMTTOKEN(Effect)
+        FMTTOKEN(Text)
+        FMTTOKEN(TertiaryColour)
+        FMTTOKEN(AlphaLevel)
+        FMTTOKEN(Marked)
+        FMTTOKEN(RelativeTo)
+        FMTTOKEN(MarginT)
+        FMTTOKEN(MarginB)
+        else {
+            fmt->tokens[fmt->n_tokens++] = ASS_FMT_UNKNOWN;
+        }
+
+        #undef FMTTOKEN
+    }
+
+    return 0;
+}
+
 /**
  * \brief Parse the tail of Dialogue line
  * \param track track
@@ -332,37 +416,14 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
                               char *str, int n_ignored)
 {
     char *token;
-    char *tname;
     char *p = str;
-    int i;
     ASS_Event *target = event;
+    size_t tokenpos = 0;
+    ASS_FormatLine *fmt = &track->parser_priv->event_format;
 
-    char *format = strdup(track->event_format);
-    if (!format)
-        return -1;
-    char *q = format;           // format scanning pointer
-
-    for (i = 0; i < n_ignored; ++i) {
-        NEXT(q, tname);
-    }
-
-    while (1) {
-        NEXT(q, tname);
-        if (ass_strcasecmp(tname, "Text") == 0) {
-            char *last;
-            event->Text = strdup(p);
-            if (event->Text && *event->Text != 0) {
-                last = event->Text + strlen(event->Text) - 1;
-                if (last >= event->Text && *last == '\r')
-                    *last = 0;
-            }
-            event->Duration -= event->Start;
-            free(format);
-            return event->Text ? 0 : -1;           // "Text" is always the last
-        }
+    for (tokenpos = n_ignored; tokenpos + 1 < fmt->n_tokens; ++tokenpos) {
         NEXT(p, token);
 
-        ALIAS(End, Duration)    // temporarily store end timecode in event->Duration
         PARSE_START
             INTVAL(Layer)
             STYLEVAL(Style)
@@ -371,13 +432,56 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
-            TIMEVAL(Start)
-            TIMEVAL(Duration)
+            TIMEVAL_ALTNAME(Start, Start)
+            TIMEVAL_ALTNAME(Duration, End)
+            default:
+                //Nothing
+                break;
         PARSE_END
     }
-    free(format);
-    return 1;
+    if (tokenpos != fmt->n_tokens - 1)
+        return 1;
+    // "Text" is always last and may contain commas
+    event->Text = strdup(p);
+    if (event->Text && *event->Text != 0) {
+        char *last = event->Text + strlen(event->Text) - 1;
+        if (last >= event->Text && *last == '\r')
+            *last = 0;
+    }
+    event->Duration -= event->Start;
+    return event->Text ? 0 : -1;
 }
+
+
+/* One section started with PARSE_START and PARSE_END parses a single token
+ * (contained in the variable named token) for the header indicated by the
+ * variable tname. It does so by chaining a number of else-if statements, each
+ * of which checks if the tname variable indicates that this header should be
+ * parsed. The first parameter of the macro gives the name of the header.
+ *
+ * The string that is passed is in str. str is advanced to the next token if
+ * a header could be parsed. The parsed results are stored in the variable
+ * target, which has the type ASS_Style* (or ASS_Event*).
+ */
+#define PARSE_START_STR if (0) {
+#define PARSE_END_STR   }
+
+#define ANYVAL_STR(name, func) \
+    } else if (ass_strcasecmp(tname, #name) == 0) { \
+        target->name = func(token);
+
+#define STRVAL_STR(name) \
+    } else if (ass_strcasecmp(tname, #name) == 0) { \
+        char *new_str = strdup(token); \
+        if (new_str) { \
+            free(target->name); \
+            target->name = new_str; \
+        }
+
+#define COLORVAL_STR(name) ANYVAL_STR(name, parse_color_header)
+#define INTVAL_STR(name) ANYVAL_STR(name, atoi)
+#define FPVAL_STR(name) ANYVAL_STR(name, ass_atof)
+
 
 /**
  * \brief Parse command line style overrides (--ass-force-style option)
@@ -429,32 +533,32 @@ void ass_process_force_style(ASS_Track *track)
             if (style == NULL
                 || ass_strcasecmp(track->styles[sid].Name, style) == 0) {
                 target = track->styles + sid;
-                PARSE_START
-                    STRVAL(FontName)
-                    COLORVAL(PrimaryColour)
-                    COLORVAL(SecondaryColour)
-                    COLORVAL(OutlineColour)
-                    COLORVAL(BackColour)
-                    FPVAL(FontSize)
-                    INTVAL(Bold)
-                    INTVAL(Italic)
-                    INTVAL(Underline)
-                    INTVAL(StrikeOut)
-                    FPVAL(Spacing)
-                    FPVAL(Angle)
-                    INTVAL(BorderStyle)
-                    INTVAL(Alignment)
-                    INTVAL(Justify)
-                    INTVAL(MarginL)
-                    INTVAL(MarginR)
-                    INTVAL(MarginV)
-                    INTVAL(Encoding)
-                    FPVAL(ScaleX)
-                    FPVAL(ScaleY)
-                    FPVAL(Outline)
-                    FPVAL(Shadow)
-                    FPVAL(Blur)
-                PARSE_END
+                PARSE_START_STR
+                    STRVAL_STR(FontName)
+                    COLORVAL_STR(PrimaryColour)
+                    COLORVAL_STR(SecondaryColour)
+                    COLORVAL_STR(OutlineColour)
+                    COLORVAL_STR(BackColour)
+                    FPVAL_STR(FontSize)
+                    INTVAL_STR(Bold)
+                    INTVAL_STR(Italic)
+                    INTVAL_STR(Underline)
+                    INTVAL_STR(StrikeOut)
+                    FPVAL_STR(Spacing)
+                    FPVAL_STR(Angle)
+                    INTVAL_STR(BorderStyle)
+                    INTVAL_STR(Alignment)
+                    INTVAL_STR(Justify)
+                    INTVAL_STR(MarginL)
+                    INTVAL_STR(MarginR)
+                    INTVAL_STR(MarginV)
+                    INTVAL_STR(Encoding)
+                    FPVAL_STR(ScaleX)
+                    FPVAL_STR(ScaleY)
+                    FPVAL_STR(Outline)
+                    FPVAL_STR(Shadow)
+                    FPVAL_STR(Blur)
+                PARSE_END_STR
             }
         }
         *eq = '=';
@@ -462,6 +566,13 @@ void ass_process_force_style(ASS_Track *track)
             *dt = '.';
     }
 }
+
+#undef PARSE_START_STR
+#undef PARSE_END_STR
+#undef STRVAL_STR
+#undef COLORVAL_STR
+#undef FPVAL_STR
+#undef INTVAL_STR
 
 /**
  * \brief Parse the Style line
@@ -473,36 +584,30 @@ static int process_style(ASS_Track *track, char *str)
 {
 
     char *token;
-    char *tname;
     char *p = str;
-    char *format;
-    char *q;                    // format scanning pointer
     int sid;
     ASS_Style *style;
     ASS_Style *target;
+    size_t tokenpos;
+    ASS_FormatLine *fmt = &track->parser_priv->style_format;
 
-    if (!track->style_format) {
+    if (!fmt->n_tokens) {
         // no style format header
         // probably an ancient script version
-        if (track->track_type == TRACK_TYPE_SSA)
-            track->style_format = strdup(ssa_style_format);
-        else
-            track->style_format = strdup(ass_style_format);
-        if (!track->style_format)
-            return -1;
+        if (track->track_type == TRACK_TYPE_SSA) {
+            fmt->n_tokens = ssa_style_format_length;
+            memcpy(fmt->tokens, ssa_style_format, sizeof(ssa_style_format));
+        } else {
+            fmt->n_tokens = ass_style_format_length;
+            memcpy(fmt->tokens, ass_style_format, sizeof(ass_style_format));
+        }
     }
-
-    q = format = strdup(track->style_format);
-    if (!q)
-        return -1;
 
     ass_msg(track->library, MSGL_V, "[%p] Style: %s", track, str);
 
     sid = ass_alloc_style(track);
-    if (sid < 0) {
-        free(format);
+    if (sid < 0)
         return -1;
-    }
 
     style = track->styles + sid;
     target = style;
@@ -511,9 +616,8 @@ static int process_style(ASS_Track *track, char *str)
     style->ScaleX = 100.;
     style->ScaleY = 100.;
 
-    while (1) {
-        NEXT(q, tname);
-        NEXT(p, token);
+    for (tokenpos = 0; tokenpos < fmt->n_tokens; ++tokenpos) {
+        NEXT(p, token); //breaks if no more tokens
 
         PARSE_START
             STARREDSTRVAL(Name)
@@ -522,10 +626,6 @@ static int process_style(ASS_Track *track, char *str)
             COLORVAL(SecondaryColour)
             COLORVAL(OutlineColour) // TertiaryColor
             COLORVAL(BackColour)
-            // SSA uses BackColour for both outline and shadow
-            // this will destroy SSA's TertiaryColour, but i'm not going to use it anyway
-            if (track->track_type == TRACK_TYPE_SSA)
-                target->OutlineColour = target->BackColour;
             FPVAL(FontSize)
             INTVAL(Bold)
             INTVAL(Italic)
@@ -535,13 +635,6 @@ static int process_style(ASS_Track *track, char *str)
             FPVAL(Angle)
             INTVAL(BorderStyle)
             INTVAL(Alignment)
-            if (track->track_type == TRACK_TYPE_ASS)
-                target->Alignment = numpad2align(target->Alignment);
-            // VSFilter compatibility
-            else if (target->Alignment == 8)
-                target->Alignment = 3;
-            else if (target->Alignment == 4)
-                target->Alignment = 11;
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
@@ -550,9 +643,34 @@ static int process_style(ASS_Track *track, char *str)
             FPVAL(ScaleY)
             FPVAL(Outline)
             FPVAL(Shadow)
+            default:
+                //Nothing
+                break;
         PARSE_END
     }
-    free(format);
+    if (tokenpos != fmt->n_tokens) {
+        ass_free_style(track, sid);
+        track->n_styles--;
+        return 1;
+    }
+
+    // Compat adjustments
+    if (track->track_type == TRACK_TYPE_SSA) {
+        // SSA uses BackColour for both outline and shadow
+        // this will destroy SSA's TertiaryColour, but i'm not going to use it anyway
+        target->OutlineColour = target->BackColour;
+
+        // VSFilter compat
+        if (target->Alignment == 8)
+            target->Alignment = 3;
+        else if (target->Alignment == 4)
+            target->Alignment = 11;
+    } else {
+        // Convert ASS alignment to SSA
+        target->Alignment = numpad2align(target->Alignment);
+    }
+
+    // Sanitise values
     style->ScaleX = FFMAX(style->ScaleX, 0.) / 100.;
     style->ScaleY = FFMAX(style->ScaleY, 0.) / 100.;
     style->Spacing = FFMAX(style->Spacing, 0.);
@@ -574,37 +692,16 @@ static int process_style(ASS_Track *track, char *str)
     if (strcmp(target->Name, "Default") == 0)
         track->default_style = sid;
     return 0;
-
-}
-
-static bool format_line_compare(const char *fmt1, const char *fmt2)
-{
-    while (true) {
-        const char *tk1_start, *tk2_start;
-        const char *tk1_end, *tk2_end;
-
-        skip_spaces((char**)&fmt1);
-        skip_spaces((char**)&fmt2);
-        if (!*fmt1 || !*fmt2)
-            break;
-
-        advance_token_pos(&fmt1, &tk1_start, &tk1_end);
-        advance_token_pos(&fmt2, &tk2_start, &tk2_end);
-
-        if ((tk1_end-tk1_start) != (tk2_end-tk2_start))
-            return false;
-        if (ass_strncasecmp(tk1_start, tk2_start, tk1_end-tk1_start))
-            return false;
-    }
-    return *fmt1 == *fmt2;
 }
 
 
 /**
  * \brief Set SBAS=1 if not set explicitly in case of custom format line
- * \param track track
- * \param fmt   format line of file
- * \param std   standard format line
+ * \param track   track
+ * \param fmt     format line of file
+ * \param num_fmt number of format token in fmt
+ * \param std     standard format line
+ * \param num_std number of format token in std
  *
  * As of writing libass is the only renderer accepting custom format lines.
  * For years libass defaultet SBAS to yes instead of no.
@@ -612,11 +709,13 @@ static bool format_line_compare(const char *fmt1, const char *fmt2)
  * keep SBAS=1 default for custom format files.
  */
 static void custom_format_line_compatibility(ASS_Track *const track,
-                                             const char *const fmt,
-                                             const char *const std)
+                                             const ASS_FormatToken *fmt,
+                                             size_t num_fmt,
+                                             const ASS_FormatToken *std,
+                                             size_t num_std)
 {
-    if (!(track->parser_priv->header_flags & SINFO_SCALEDBORDER)
-        && !format_line_compare(fmt, std)) {
+    if (!(track->parser_priv->header_flags & SINFO_SCALEDBORDER) &&
+            (num_std != num_fmt || memcmp(fmt, std, num_std * sizeof(*fmt)))) {
         ass_msg(track->library, MSGL_INFO,
                "Track has custom format line(s). "
                 "'ScaledBorderAndShadow' will default to 'yes'.");
@@ -632,14 +731,20 @@ static int process_styles_line(ASS_Track *track, char *str)
         skip_spaces(&p);
         free(track->style_format);
         track->style_format = strdup(p);
-        if (!track->style_format)
+        ass_msg(track->library, MSGL_DBG2, "Style format: %s", p);
+        if (parse_format_line(&track->parser_priv->style_format, p))
             return -1;
-        ass_msg(track->library, MSGL_DBG2, "Style format: %s",
-               track->style_format);
-        if (track->track_type == TRACK_TYPE_ASS)
-            custom_format_line_compatibility(track, p, ass_style_format);
-        else
-            custom_format_line_compatibility(track, p, ssa_style_format);
+        if (track->track_type == TRACK_TYPE_ASS) {
+            custom_format_line_compatibility(track,
+                    track->parser_priv->style_format.tokens,
+                    track->parser_priv->style_format.n_tokens,
+                    ass_style_format, ass_style_format_length);
+        } else {
+            custom_format_line_compatibility(track,
+                    track->parser_priv->style_format.tokens,
+                    track->parser_priv->style_format.n_tokens,
+                    ssa_style_format, ssa_style_format_length);
+        }
     } else if (!strncmp(str, "Style:", 6)) {
         char *p = str + 6;
         skip_spaces(&p);
@@ -699,11 +804,15 @@ static int process_info_line(ASS_Track *track, char *str)
 
 static void event_format_fallback(ASS_Track *track)
 {
-    track->parser_priv->state = PST_EVENTS;
-    if (track->track_type == TRACK_TYPE_SSA)
-        track->event_format = strdup(ssa_event_format);
-    else
-        track->event_format = strdup(ass_event_format);
+    ASS_ParserPriv* const pp = track->parser_priv;
+    pp->state = PST_EVENTS;
+    if (track->track_type == TRACK_TYPE_SSA) {
+        pp->event_format.n_tokens = ssa_event_format_length;
+        memcpy(pp->event_format.tokens, ssa_event_format, sizeof(ssa_event_format));
+    } else {
+        pp->event_format.n_tokens = ass_event_format_length;
+        memcpy(pp->event_format.tokens, ass_event_format, sizeof(ass_event_format));
+    }
     ass_msg(track->library, MSGL_V,
             "No event format found, using fallback");
 }
@@ -772,13 +881,24 @@ static int process_events_line(ASS_Track *track, char *str)
         skip_spaces(&p);
         free(track->event_format);
         track->event_format = strdup(p);
-        if (!track->event_format)
+        ass_msg(track->library, MSGL_DBG2, "Event format: %s", p);
+        if (parse_format_line(&track->parser_priv->event_format, p))
             return -1;
-        ass_msg(track->library, MSGL_DBG2, "Event format: %s", track->event_format);
-        if (track->track_type == TRACK_TYPE_ASS)
-            custom_format_line_compatibility(track, p, ass_event_format);
-        else
-            custom_format_line_compatibility(track, p, ssa_event_format);
+        if (track->parser_priv->event_format.n_tokens > 0 &&
+                track->parser_priv->event_format.tokens[track->parser_priv->event_format.n_tokens-1] != ASS_FMT_Text) {
+            ass_msg(track->library, MSGL_WARN, "Event Format line does not end with Text! Pretend it does.");
+        }
+        if (track->track_type == TRACK_TYPE_ASS) {
+            custom_format_line_compatibility(track,
+                    track->parser_priv->event_format.tokens,
+                    track->parser_priv->event_format.n_tokens,
+                    ass_event_format, ass_event_format_length);
+        } else {
+            custom_format_line_compatibility(track,
+                    track->parser_priv->event_format.tokens,
+                    track->parser_priv->event_format.n_tokens,
+                    ssa_event_format, ssa_event_format_length);
+        }
 
         // Guess if we are dealing with legacy ffmpeg subs and change accordingly
         // If file has no event format it was probably not created by ffmpeg/libav
@@ -795,10 +915,8 @@ static int process_events_line(ASS_Track *track, char *str)
         ASS_Event *event;
 
         // We can't parse events without event_format
-        if (!track->event_format) {
+        if (!track->parser_priv->event_format.n_tokens) {
             event_format_fallback(track);
-            if (!track->event_format)
-                return -1;
         }
 
         str += 9;
@@ -971,8 +1089,26 @@ static int process_line(ASS_Track *track, char *str)
     return 0;
 }
 
+// API users can modify format string in track struct
+static inline int sync_format_lines(const char *track_fmt, ASS_FormatLine *priv_fmt,
+                                    const char *name, ASS_Library *lib)
+{
+    if (track_fmt && priv_fmt->string
+            && strcmp(track_fmt, priv_fmt->string)) {
+        ass_msg(lib, MSGL_V, "%s format string changed via track struct", name);
+        return parse_format_line(priv_fmt, track_fmt);
+    }
+    return 0;
+}
+
 static int process_text(ASS_Track *track, char *str)
 {
+    if (sync_format_lines(track->event_format, &track->parser_priv->event_format,
+                         "Event", track->library)
+            || sync_format_lines(track->style_format, &track->parser_priv->style_format,
+                                 "Style", track->library))
+        return -1;
+
     char *p = str;
     while (1) {
         char *q;
@@ -1034,7 +1170,7 @@ void ass_process_codec_private(ASS_Track *track, char *data, int size)
 
     // probably an mkv produced by ancient mkvtoolnix
     // such files don't have [Events] and Format: headers
-    if (!track->event_format)
+    if (!track->parser_priv->event_format.n_tokens)
         event_format_fallback(track);
 
     ass_process_force_style(track);
@@ -1081,7 +1217,11 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
         }
     }
 
-    if (!track->event_format) {
+    if (sync_format_lines(track->event_format, &track->parser_priv->event_format,
+                          "Event", track->library))
+        return;
+
+    if (!track->parser_priv->event_format.n_tokens) {
         ass_msg(track->library, MSGL_WARN, "Event format header missing");
         goto cleanup;
     }
@@ -1507,6 +1647,11 @@ ASS_Track *ass_new_track(ASS_Library *library)
     track->default_style = def_sid;
     if (!track->styles[def_sid].Name || !track->styles[def_sid].FontName)
         goto fail;
+    track->parser_priv->event_format.max_tokens = ASS_FORMAT_ALLOC;
+    track->parser_priv->style_format.max_tokens = ASS_FORMAT_ALLOC;
+    if (!ASS_REALLOC_ARRAY(track->parser_priv->event_format.tokens, ASS_FORMAT_ALLOC) ||
+            !ASS_REALLOC_ARRAY(track->parser_priv->style_format.tokens, ASS_FORMAT_ALLOC))
+        goto fail;
     track->parser_priv->check_readorder = 1;
     return track;
 
@@ -1514,7 +1659,11 @@ fail:
     if (track) {
         if (def_sid >= 0)
             ass_free_style(track, def_sid);
-        free(track->parser_priv);
+        if (track->parser_priv) {
+            free(track->parser_priv->style_format.tokens);
+            free(track->parser_priv->event_format.tokens);
+            free(track->parser_priv);
+        }
         free(track);
     }
     return NULL;
