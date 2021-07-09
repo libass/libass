@@ -395,16 +395,14 @@ void ass_add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
     }
 }
 
-void ass_sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
-                       uint8_t *src, intptr_t src_stride,
-                       intptr_t width, intptr_t height)
+void ass_imul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                        uint8_t *src, intptr_t src_stride,
+                        intptr_t width, intptr_t height)
 {
-    short out;
     uint8_t* end = dst + dst_stride * height;
     while (dst < end) {
         for (unsigned j = 0; j < width; ++j) {
-            out = dst[j] - src[j];
-            dst[j] = FFMAX(out, 0);
+            dst[j] = (dst[j] * (255 - src[j]) + 255) >> 8;
         }
         dst += dst_stride;
         src += src_stride;
