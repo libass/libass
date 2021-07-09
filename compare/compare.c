@@ -24,6 +24,7 @@
 #include <string.h>
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
+#include <direct.h>
 #define mkdir(path, mode) _mkdir(path)
 #endif
 
