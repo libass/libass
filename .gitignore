@@ -37,3 +37,7 @@ Makefile.in
 /ltmain.sh
 /missing
 /m4
+
+# Meson
+/subprojects
+/build
