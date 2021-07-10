@@ -39,6 +39,10 @@
 #include "ass_shaper.h"
 #include "ass_string.h"
 
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#include <windows.h>
+#endif
+
 #define ass_atof(STR) (ass_strtod((STR),NULL))
 
 static const char *const ass_style_format =
@@ -1222,9 +1226,36 @@ out:
 }
 #endif                          // ICONV
 
+#if defined(_WIN32) && !defined(__CYGWIN__)
+/**
+ * Use win32 API to open file. It will first use UTF-8 encoding to open file otherwise ANSI.
+ * \param path File name (encoding in UTF-8 or ANSI)
+ * \return poointer to FILE.
+*/
+FILE *win32_open_file(char *path) {
+    wchar_t *wpath;
+    int wlen;
+    FILE *f;
+
+    wlen = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
+    if (!wlen) {
+        return NULL;
+    }
+    wpath = (wchar_t*)malloc(sizeof(wchar_t) * wlen);
+    if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, wlen)) {
+        free(wpath);
+        return NULL;
+    }
+    f = _wfopen(wpath, L"rb");
+    free(wpath);
+    if (f != NULL) return f;
+    return fopen(path, "rb");
+}
+#endif
+
 /**
  * \brief read file contents into newly allocated buffer
- * \param fname file name
+ * \param fname file name (UTF-8 or ANSI encoding on WIN32 Platform, UTF-8 is preferred.)
  * \param bufsize out: file size
  * \return pointer to file contents. Caller is responsible for its deallocation.
  */
@@ -1235,7 +1266,11 @@ char *read_file(ASS_Library *library, char *fname, size_t *bufsize)
     long bytes_read;
     char *buf;
 
+#if defined(_WIN32) && !defined(__CYGWIN__)
+    FILE *fp = win32_open_file(fname);
+#else
     FILE *fp = fopen(fname, "rb");
+#endif
     if (!fp) {
         ass_msg(library, MSGL_WARN,
                 "ass_read_file(%s): fopen failed", fname);

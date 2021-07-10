@@ -260,7 +260,7 @@ void ass_library_done(ASS_Library *priv);
  * NOTE: A valid font directory is not needed to support embedded fonts.
  *
  * \param priv library handle
- * \param fonts_dir directory with additional fonts
+ * \param fonts_dir directory with additional fonts (UTF-8/OEM/ANSI encoding on WIN32 Platform, priority: UTF-8 > OEM > ANSI.)
  */
 void ass_set_fonts_dir(ASS_Library *priv, const char *fonts_dir);
 
@@ -661,7 +661,7 @@ void ass_flush_events(ASS_Track *track);
 /**
  * \brief Read subtitles from file.
  * \param library library handle
- * \param fname file name
+ * \param fname file name (UTF-8 or ANSI encoding on WIN32 Platform, UTF-8 is preferred.)
  * \param codepage encoding (iconv format)
  * \return newly allocated track or NULL on failure
 */
@@ -680,7 +680,7 @@ ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
                            size_t bufsize, char *codepage);
 /**
  * \brief Read styles from file into already initialized track.
- * \param fname file name
+ * \param fname file name (UTF-8 or ANSI encoding on WIN32 Platform, UTF-8 is preferred.)
  * \param codepage encoding (iconv format)
  * \return 0 on success
  */
