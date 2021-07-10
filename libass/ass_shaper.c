@@ -792,6 +792,28 @@ void ass_shaper_set_kerning(ASS_Shaper *shaper, bool kern)
 }
 
 /**
+  * \param symbol codepoint
+  * \return true if codepoint is default-ignorable, else false
+  */
+static bool is_default_ignorable(uint_least32_t symbol)
+{
+    // TODO: this list is incomplete. maybe match harfbuzz list, or Unicode at:
+    //       https://ftp.unicode.org/Public/UNIDATA/DerivedCoreProperties.txt
+    // TODO: maybe cascade tests (e.g. first symbol>>12) to improve performance.
+    return (symbol <= 0x202e && symbol >= 0x202a) // directional control
+            || (symbol <= 0x200f && symbol >= 0x200b) // zero width, directional
+            || (symbol <= 0x206f && symbol >= 0x2060) // WJ, Invisible ops, deprecated
+            || (symbol <= 0xfe0f && symbol >= 0xfe00) // variantion selectors
+            || (symbol <= 0xe01ef && symbol >= 0xe0100) // variantion selectors
+            || (symbol <= 0x180f && symbol >= 0x180b) // variant selectors, vowel separator
+            || symbol == 0x061c // arabic letter mark
+            || symbol == 0xfeff // Arabic zero width
+            || symbol == 0x00ad // soft hyphen
+            || symbol == 0x034f // Combining Grapheme Joiner
+            ;
+}
+
+/**
  * \brief Find shape runs according to the event's selected fonts
  */
 void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
@@ -800,26 +822,63 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
     int i;
     int shape_run = 0;
 
+    GlyphInfo *run_comparable = NULL; // comparable face_index at the current run
+    GlyphInfo *run_first_uncomparable = NULL;
+
     ass_shaper_determine_script(shaper, glyphs, len);
 
     // find appropriate fonts for the shape runs
     for (i = 0; i < len; i++) {
         GlyphInfo *info = glyphs + i;
+        info->skip = is_default_ignorable(info->symbol);
+        bool comparable = true;  // refers to info->face_index
         if (!info->drawing_text.str) {
-            // set size and get glyph index
-            ass_font_get_index(render_priv->fontselect, info->font,
-                    info->symbol, &info->face_index, &info->glyph_index);
+            // resolve glyph/face only if not default-ignorable (DI). DI's are
+            // are ignored by the simple shaper, and the complex shaper will
+            // try to fetch a glyph later only if needed (usually not needed).
+            if (info->skip) {
+                info->face_index = 0;
+                info->glyph_index = 0;
+                comparable = false;
+            } else {
+                // set size and get glyph index
+                ass_font_get_index(render_priv->fontselect, info->font,
+                        info->symbol, &info->face_index, &info->glyph_index);
+                // TODO: maybe do comparable=false if a glyph was not resolved?
+            }
         }
         if (i > 0) {
             GlyphInfo *last = glyphs + i - 1;
+            // a run is broken on different face_index only if the face is
+            // comparable and we have a prior comparable face at the run.
             if ((last->font != info->font ||
-                    last->face_index != info->face_index ||
+                    (comparable && run_comparable &&
+                        run_comparable->face_index != info->face_index) ||
                     last->script != info->script ||
                     info->starts_new_run ||
                     last->flags != info->flags))
+            {
                 shape_run++;
+                run_comparable = NULL;
+                run_first_uncomparable = NULL;
+            }
         }
         info->shape_run_id = shape_run;
+
+        if (comparable)
+            run_comparable = info;
+        else if (!run_first_uncomparable)
+            run_first_uncomparable = info;
+
+        if (run_first_uncomparable && run_comparable) {
+            // uncomparables face_index were not resolved - set it/them to
+            // a resolved face so that the whole run has the same face_index.
+            // only the first-in-the-run face_index matters later, but for
+            // completeness we set it for all uncomparables faces.
+            for ( ; run_first_uncomparable <= info; run_first_uncomparable++)
+                run_first_uncomparable->face_index = run_comparable->face_index;
+            run_first_uncomparable = NULL;
+        }
     }
 }
 
@@ -863,33 +922,6 @@ void ass_shaper_set_bidi_brackets(ASS_Shaper *shaper, bool match_brackets)
     shaper->bidi_brackets = match_brackets;
 }
 #endif
-
-/**
-  * \brief Remove all zero-width invisible characters from the text.
-  * \param text_info text
-  */
-static void ass_shaper_skip_characters(TextInfo *text_info)
-{
-    int i;
-    GlyphInfo *glyphs = text_info->glyphs;
-
-    for (i = 0; i < text_info->length; i++) {
-        // Skip direction override control characters
-        if ((glyphs[i].symbol <= 0x202e && glyphs[i].symbol >= 0x202a)
-                || (glyphs[i].symbol <= 0x200f && glyphs[i].symbol >= 0x200b)
-                || (glyphs[i].symbol <= 0x206f && glyphs[i].symbol >= 0x2060)
-                || (glyphs[i].symbol <= 0xfe0f && glyphs[i].symbol >= 0xfe00)
-                || (glyphs[i].symbol <= 0xe01ef && glyphs[i].symbol >= 0xe0100)
-                || (glyphs[i].symbol <= 0x180f && glyphs[i].symbol >= 0x180b)
-                || glyphs[i].symbol == 0x061c
-                || glyphs[i].symbol == 0xfeff
-                || glyphs[i].symbol == 0x00ad
-                || glyphs[i].symbol == 0x034f) {
-            glyphs[i].symbol = 0;
-            glyphs[i].skip = true;
-        }
-    }
-}
 
 /**
  * \brief Shape an event's text. Calculates directional runs and shapes them.
@@ -938,7 +970,6 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     switch (shaper->shaping_level) {
     case ASS_SHAPING_SIMPLE:
         shape_fribidi(shaper, glyphs, text_info->length);
-        ass_shaper_skip_characters(text_info);
         return true;
     case ASS_SHAPING_COMPLEX:
     default:
