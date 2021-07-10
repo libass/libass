@@ -188,8 +188,10 @@ FT_Face ass_face_stream(ASS_Library *lib, FT_Library ftlib, const char *name,
     *fs = *stream;
 
     FT_Stream ftstream = calloc(1, sizeof(FT_StreamRec));
-    if (!ftstream)
+    if (!ftstream) {
+        free(fs);
         return NULL;
+    }
     ftstream->size  = stream->func(stream->priv, NULL, 0, 0);
     ftstream->read  = read_stream_font;
     ftstream->close = close_stream_font;
