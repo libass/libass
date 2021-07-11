@@ -99,7 +99,7 @@ const CacheDesc bitmap_cache_desc = {
 
 
 // composite cache
-static uint32_t composite_hash(void *key, uint32_t hval)
+static uint64_t composite_hash(void *key, uint64_t hval)
 {
     CompositeHashKey *k = key;
     hval = filter_hash(&k->filter, hval);
@@ -166,7 +166,7 @@ const CacheDesc composite_cache_desc = {
 
 
 // outline cache
-static uint32_t outline_hash(void *key, uint32_t hval)
+static uint64_t outline_hash(void *key, uint64_t hval)
 {
     OutlineHashKey *k = key;
     switch (k->type) {
@@ -342,7 +342,7 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
 {
     const CacheDesc *desc = cache->desc;
     size_t key_offs = CACHE_ITEM_SIZE + align_cache(desc->value_size);
-    unsigned bucket = desc->hash_func(key, FNV1_32A_INIT) % cache->buckets;
+    unsigned bucket = desc->hash_func(key, ASS_HASH_INIT) % cache->buckets;
     CacheItem *item = cache->map[bucket];
     while (item) {
         if (desc->compare_func(key, (char *) item + key_offs)) {
