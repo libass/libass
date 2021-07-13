@@ -2135,12 +2135,12 @@ static void apply_baseline_shear(ASS_Renderer *render_priv)
     TextInfo *text_info = &render_priv->text_info;
     FriBidiStrIndex *cmap = ass_shaper_get_reorder_map(render_priv->shaper);
     int32_t shear = 0;
-    double last_fay = 0;
     for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + cmap[i];
-        if (text_info->glyphs[i].linebreak || last_fay != info->fay)
+        if (text_info->glyphs[i].linebreak ||
+            (!render_priv->track->parser_priv->whole_text &&
+                text_info->glyphs[i].starts_new_run))
             shear = 0;
-        last_fay = info->fay;
         if (!info->scale_x || !info->scale_y)
             info->skip = true;
         if (info->skip)
@@ -2889,6 +2889,8 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     ass_shaper_set_bidi_brackets(render_priv->shaper,
             track->parser_priv->bidi_brackets);
 #endif
+    ass_shaper_set_whole_text(render_priv->shaper,
+            track->parser_priv->whole_text);
 
     // PAR correction
     double par = render_priv->settings.par;

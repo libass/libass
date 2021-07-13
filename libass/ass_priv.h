@@ -64,6 +64,7 @@ struct parser_priv {
 #ifdef USE_FRIBIDI_EX_API
     bool bidi_brackets;
 #endif
+    bool whole_text;
 };
 
 #endif /* LIBASS_PRIV_H */
