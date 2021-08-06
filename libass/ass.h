@@ -715,6 +715,9 @@ void ass_clear_fonts(ASS_Library *library);
  */
 long long ass_step_sub(ASS_Track *track, long long now, int movement);
 
+#undef ASS_DEPRECATED
+#undef ASS_DEPRECATED_ENUM
+
 #ifdef __cplusplus
 }
 #endif
