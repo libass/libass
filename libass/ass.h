@@ -609,6 +609,7 @@ ASS_Track *ass_new_track(ASS_Library *);
  * headers. (ass_process_chunk() will not change any of the flags.)
  * Additions to ASS_Feature are backward compatible to old libass releases (ABI
  * compatibility).
+ * After calling ass_render_frame, changing features is no longer allowed.
  * \param track track
  * \param feature the specific feature to enable or disable
  * \param enable 0 for disable, any non-0 value for enable
