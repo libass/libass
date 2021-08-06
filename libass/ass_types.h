@@ -22,6 +22,53 @@
 
 #include <stdint.h>
 
+/**
+ * GENERAL NOTE regarding the definitions exposed by this header
+ *
+ * The main use case for this is _reading_ the track fields, especially
+ * track->YCbCrMatrix, to correctly display the rendering results.
+ *
+ * Furthermore, the exposed definitions also open up the possibility to _modify_
+ * the exposed structs, working closer to library internals and bypassing
+ * e.g. creation of intermediate ASS-text buffers when creating dynamic events.
+ * This is an advanced use case and should only be done when well-versed in ASS
+ * and aware of the effects and legal values of _all_ fields of the structs.
+ * The burden of sanitising and correctly initialising fields is then also
+ * placed on the API user.
+ * By nature of direct struct modifications working closer to library internals,
+ * workflows that make use of this possibility are also more likely to be
+ * affected by future API breaks than those which do not.
+ *
+ * To avoid desynchronisation with internal states, there are some restrictions
+ * on when and how direct struct modification can be performed.
+ * Ignoring them may lead to undefined behaviour. See the following listing:
+ *
+ *  - Manual struct edits and track-modifying (including modification to the
+ *    event and style elements of the track) API calls cannot be freely mixed:
+ *    - Before manual changes are performed, it is allowed to call any such API,
+ *      unless the documentation of the funtion says otherwise.
+ *    - After manual changes have been performed, no track-modifying API may be
+ *      invoked, except for ass_track_set_feature and ass_flush_events.
+ *  - After the first call to ass_render_frame, existing array members
+ *    (e.g. members of events) and non-array track fields (e.g. PlayResX
+ *    or event_format) must not be modified. Adding new members to arrays
+ *    and updating the corresponding counter remains allowed.
+ *  - Adding and removing members to array fields, like events or styles,
+ *    must be done through the corresponding API function, e.g. ass_alloc_event.
+ *    See the documentation of these functions.
+ *  - The memory pointed to by string fields (char *) must be
+ *    free'able by the implementation of free used by libass.
+ *
+ * A non-exhaustive list of examples of track-modifying API functions:
+ *   ass_process_data, ass_process_codec_private,
+ *   ass_process_chunk, ass_read_styles, ...
+ *
+ * Direct struct modification can be done safely, but it is also easy to
+ * miss an initialisation or violate these restrictions, thus introducing bugs
+ * that may not manifest immediately. It should be carefully considered
+ * whether this is worthwhile for the desired use-case.
+ */
+
 #define VALIGN_SUB 0
 #define VALIGN_CENTER 8
 #define VALIGN_TOP 4
