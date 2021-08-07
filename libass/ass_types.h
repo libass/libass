@@ -52,32 +52,32 @@ typedef struct ass_library ASS_Library;
 
 /* ASS Style: line */
 typedef struct ass_style {
-    char *Name;
-    char *FontName;
+    char *Name;     //must be a valid non-NULL string pointer; may be an empty string
+    char *FontName; //must be a valid non-NULL string pointer; may be an empty string
     double FontSize;
     uint32_t PrimaryColour;
     uint32_t SecondaryColour;
     uint32_t OutlineColour;
     uint32_t BackColour;
-    int Bold;
-    int Italic;
-    int Underline;
-    int StrikeOut;
-    double ScaleX;
-    double ScaleY;
+    int Bold;      // 0 or 1 (boolean)
+    int Italic;    // 0 or 1 (boolean)
+    int Underline; // 0 or 1 (boolean)
+    int StrikeOut; // 0 or 1 (boolean)
+    double ScaleX; // positive with 1.0 representing 100%
+    double ScaleY; // positive with 1.0 representing 100%
     double Spacing;
     double Angle;
     int BorderStyle;
     double Outline;
     double Shadow;
-    int Alignment;
+    int Alignment; // use `VALIGN_* | HALIGN_*` as value
     int MarginL;
     int MarginR;
     int MarginV;
     int Encoding;
-    int treat_fontname_as_pattern;
-    double Blur;
-    int Justify;
+    int treat_fontname_as_pattern; // does nothing (left in place for ABI-compatibility)
+    double Blur; // sets a default \blur for the event; same values as \blur
+    int Justify; // sets text justification independent of event alignment; use ASS_JUSTIFY_*
 } ASS_Style;
 
 
@@ -196,9 +196,9 @@ typedef struct ass_track {
     int PlayResY;
     double Timer;
     int WrapStyle;
-    int ScaledBorderAndShadow;
-    int Kerning;
-    char *Language;
+    int ScaledBorderAndShadow; // 0 or 1 (boolean)
+    int Kerning; // 0 or 1 (boolean)
+    char *Language; // zero-terminated ISO-639-1 code
     ASS_YCbCrMatrix YCbCrMatrix;
 
     int default_style;      // index of default style
