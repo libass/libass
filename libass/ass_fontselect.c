@@ -180,7 +180,9 @@ static void load_fonts_from_dir(ASS_Library *library, const char *dir)
             break;
         if (entry->d_name[0] == '.')
             continue;
-        size_t namelen = dirlen + strlen(entry->d_name) + 2;
+        size_t namelen = dirlen + strlen(entry->d_name) + 2u;
+        if (namelen < 2 || namelen - 2 < dirlen)
+            continue;
         if (namelen > namemax) {
             size_t newlen = FFMAX(2048, namelen + 256);
             if (ASS_REALLOC_ARRAY(namebuf, newlen))
