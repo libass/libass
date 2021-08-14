@@ -184,7 +184,7 @@ static void load_fonts_from_dir(ASS_Library *library, const char *dir)
         if (namelen < 2 || namelen - 2 < dirlen)
             continue;
         if (namelen > namemax) {
-            size_t newlen = FFMAX(2048, namelen + 256);
+            size_t newlen = FFMAX(2048, namelen + FFMIN(256, SIZE_MAX - namelen));
             if (ASS_REALLOC_ARRAY(namebuf, newlen))
                 namemax = newlen;
             else
