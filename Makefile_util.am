@@ -21,3 +21,11 @@ compare_compare_SOURCES = compare/image.h  compare/image.c  compare/compare.c
 compare_compare_CPPFLAGS = -I$(top_srcdir)/libass
 compare_compare_LDADD = libass/libass.la
 compare_compare_LDFLAGS = $(AM_LDFLAGS) $(LIBPNG_LIBS) -static
+
+if ENABLE_FUZZ
+noinst_PROGRAMS += fuzz/fuzz
+endif
+fuzz_fuzz_SOURCES = fuzz/fuzz.c
+fuzz_fuzz_CPPFLAGS = -I$(top_srcdir)/libass $(FUZZ_CPPFLAGS)
+fuzz_fuzz_LDADD = libass/libass.la
+fuzz_fuzz_LDFLAGS = $(AM_LDFLAGS) $(FUZZ_LDFLAGS) -static

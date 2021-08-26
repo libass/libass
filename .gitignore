@@ -21,6 +21,7 @@ Makefile.in
 /test/test
 /compare/compare
 /profile/profile
+/fuzz/fuzz
 
 # pkgconfig
 /libass.pc
