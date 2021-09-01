@@ -486,13 +486,6 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
         return 0;
     }
 
-    // try with the requested face
-    if (*face_index < font->n_faces) {
-        face = font->faces[*face_index];
-        index = FT_Get_Char_Index(face, ass_font_index_magic(face, symbol));
-    }
-
-    // not found in requested face, try all others
     for (i = 0; i < font->n_faces && index == 0; ++i) {
         face = font->faces[i];
         index = FT_Get_Char_Index(face, ass_font_index_magic(face, symbol));
