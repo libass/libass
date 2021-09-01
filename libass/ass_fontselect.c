@@ -954,8 +954,8 @@ char *ass_font_select(ASS_FontSelector *priv,
                 italic, res, *index, *postscript_name ? *postscript_name : "(none)");
     else
         ass_msg(priv->library, MSGL_WARN,
-                "fontselect: failed to find any fallback for font: "
-                "(%s, %d, %d)", family, bold, italic);
+                "fontselect: failed to find any fallback with glyph 0x%X for font: "
+                "(%s, %d, %d)", code, family, bold, italic);
 
     return res;
 }
