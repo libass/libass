@@ -842,19 +842,22 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
     // find appropriate fonts for the shape runs
     for (i = 0; i < len; i++) {
         GlyphInfo *info = glyphs + i;
-        if (!info->drawing_text.str) {
-            // set size and get glyph index
+        if (!info->drawing_text.str && !info->skip) {
+            // get font face and glyph index
             ass_font_get_index(render_priv->fontselect, info->font,
                     info->symbol, &info->face_index, &info->glyph_index);
         }
         if (i > 0) {
             GlyphInfo *last = glyphs + i - 1;
             if ((last->font != info->font ||
-                    last->face_index != info->face_index ||
+                    (!info->skip &&
+                        last->face_index != info->face_index) ||
                     last->script != info->script ||
                     info->starts_new_run ||
                     last->flags != info->flags))
                 shape_run++;
+            else if (info->skip)
+                info->face_index = last->face_index;
         }
         info->shape_run_id = shape_run;
     }
