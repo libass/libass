@@ -1,3 +1,15 @@
+libass (0.15.2)
+ * Fix some known 0.15.x regressions:
+    * Fix Core Text font fallback failing on some fonts with multiple names
+    * Fix DirectWrite failing to look up any but
+      the first loaded variant of system fonts
+ * Fix some format string bugs, which could lead to
+   garbled log messages or on some platforms crashes
+ * Fix ass_set_fonts_dir failing to load long paths
+ * Better handling of control characters that have no associated font glyphs
+ * DirectWrite: font lookup is now closer to VSFilter
+ * DirectWrite: this font provider can now be built for UWP
+
 libass (0.15.1)
  * Fix currently known 0.15.0 regressions:
     * Fix crashing on some ASS files with embedded fonts

@@ -4,7 +4,7 @@ AM_CFLAGS = -std=gnu99 -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter \
             -D_GNU_SOURCE
 
 LIBASS_LT_CURRENT = 10
-LIBASS_LT_REVISION = 2
+LIBASS_LT_REVISION = 3
 LIBASS_LT_AGE = 1
 
 nasm_verbose = $(nasm_verbose_$(V))
