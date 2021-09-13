@@ -20,6 +20,7 @@
 #include "ass_compat.h"
 
 #include "ass_string.h"
+#include "ass_utils.h"
 
 static const unsigned char lowertab[] = {
     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
@@ -65,6 +66,9 @@ int ass_strncasecmp(const char *s1, const char *s2, size_t n)
     unsigned char a, b;
     const char *last = s1 + n;
 
+    if (n == 0)
+        return 0;
+
     do {
         a = lowertab[(unsigned char)*s1++];
         b = lowertab[(unsigned char)*s2++];
@@ -73,3 +77,17 @@ int ass_strncasecmp(const char *s1, const char *s2, size_t n)
     return a - b;
 }
 
+bool ass_sv_iequal_cstr(ASS_StringView s1, const char *s2)
+{
+    unsigned char a, b;
+
+    do {
+        if (s1.len--)
+            a = lowertab[(unsigned char)*s1.str++];
+        else
+            a = 0;
+        b = lowertab[(unsigned char)*s2++];
+    } while (a && a == b);
+
+    return a - b;
+}

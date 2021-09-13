@@ -30,6 +30,7 @@
 #include <math.h>
 
 #include "ass.h"
+#include "ass_string.h"
 
 #ifndef SIZE_MAX
 #define SIZE_MAX ((size_t)-1)
@@ -54,26 +55,6 @@ int has_avx(void);
 int has_avx2(void);
 #endif
 
-typedef struct {
-    const char *str;
-    size_t len;
-} ASS_StringView;
-
-static inline char *ass_copy_string(ASS_StringView src)
-{
-    char *buf = malloc(src.len + 1);
-    if (buf) {
-        memcpy(buf, src.str, src.len);
-        buf[src.len] = '\0';
-    }
-    return buf;
-}
-
-static inline bool ass_string_equal(ASS_StringView str1, ASS_StringView str2)
-{
-    return str1.len == str2.len && !memcmp(str1.str, str2.str, str1.len);
-}
-
 void *ass_aligned_alloc(size_t alignment, size_t size, bool zero);
 void ass_aligned_free(void *ptr);
 
@@ -93,28 +74,31 @@ void *ass_try_realloc_array(void *ptr, size_t nmemb, size_t size);
 #define ASS_REALLOC_ARRAY(ptr, count) \
     (errno = 0, (ptr) = ass_try_realloc_array(ptr, count, sizeof(*ptr)), !errno)
 
-void skip_spaces(char **str);
-void rskip_spaces(char **str, char *limit);
-int32_t parse_alpha_tag(char *str);
-uint32_t parse_color_tag(char *str);
-uint32_t parse_color_header(char *str);
-char parse_bool(char *str);
-int parse_ycbcr_matrix(char *str);
+void skip_spaces(const char **str);
+void rskip_spaces(const char **str, const char *limit);
+void vskip_spaces(ASS_StringView *str);
+void vrskip_spaces(ASS_StringView *str);
+int32_t parse_alpha_tag(const char *str);
+uint32_t parse_color_tag(const char *str);
+int32_t parse_int_header(ASS_StringView str);
+uint32_t parse_color_header(ASS_StringView str);
+char parse_bool(ASS_StringView str);
+int parse_ycbcr_matrix(ASS_StringView str);
 int numpad2align(int val);
-unsigned ass_utf8_get_char(char **str);
+unsigned ass_utf8_get_char(const char **str);
 unsigned ass_utf8_put_char(char *dest, uint32_t ch);
-void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_size);
+void ass_utf16be_to_utf8(char *dst, size_t dst_size, const uint8_t *src, size_t src_size);
 #if defined(__MINGW32__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 4))
     __attribute__ ((format (gnu_printf, 3, 4)))
 #elif defined(__GNUC__)
     __attribute__ ((format (printf, 3, 4)))
 #endif
 void ass_msg(ASS_Library *priv, int lvl, const char *fmt, ...);
-int lookup_style(ASS_Track *track, char *name);
-ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len);
+int lookup_style(ASS_Track *track, ASS_StringView name);
+ASS_Style *lookup_style_strict(ASS_Track *track, const char *name, size_t len);
 
 /* defined in ass_strtod.c */
-double ass_strtod(const char *string, char **endPtr);
+double ass_strtod(const char *string, const char **endPtr);
 
 static inline size_t ass_align(size_t alignment, size_t s)
 {
@@ -204,33 +188,33 @@ static inline uint32_t fnv_32a_buf(const void *buf, size_t len, uint32_t hval)
     return hval;
 }
 
-static inline int mystrtoi(char **p, int *res)
+static inline int mystrtoi(const char** p, int *res)
 {
-    char *start = *p;
+    const char *start = *p;
     double temp_res = ass_strtod(*p, p);
     *res = (int) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
     return *p != start;
 }
 
-static inline int mystrtoll(char **p, long long *res)
+static inline int mystrtoll(const char** p, long long *res)
 {
-    char *start = *p;
+    const char *start = *p;
     double temp_res = ass_strtod(*p, p);
     *res = (long long) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
     return *p != start;
 }
 
-static inline int mystrtod(char **p, double *res)
+static inline int mystrtod(const char ** p, double *res)
 {
-    char *start = *p;
+    const char *start = *p;
     *res = ass_strtod(*p, p);
     return *p != start;
 }
 
-static inline int mystrtoi32(char **p, int base, int32_t *res)
+static inline int mystrtoi32(const char** p, int base, int32_t *res)
 {
-    char *start = *p;
-    long long temp_res = strtoll(*p, p, base);
+    const char *start = *p;
+    long long temp_res = strtoll(*p, (char**)p, base);
     *res = FFMINMAX(temp_res, INT32_MIN, INT32_MAX);
     return *p != start;
 }

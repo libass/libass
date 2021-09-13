@@ -51,7 +51,7 @@ static bool token_check_values(ASS_DrawingToken *token, int i, int type)
  */
 static ASS_DrawingToken *drawing_tokenize(const char *str)
 {
-    char *p = (char *) str;
+    const char *p = str;
     int type = -1, is_set = 0;
     double val;
     ASS_Vector point = {0, 0};
