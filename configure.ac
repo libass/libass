@@ -333,7 +333,7 @@ AM_COND_IF([ENABLE_LARGE_TILES], [
 ])
 
 ## Make a guess about the source code version
-AS_IF([test -d "${srcdir}/.git"], [
+AS_IF([test -e "${srcdir}/.git"], [
     AC_PATH_PROG([git_bin], [git])
     AS_IF([test -n "$git_bin"], [
         srcversion_string="commit: $("$git_bin" -C "$srcdir" describe --tags --long --always --dirty --broken --abbrev=40)"
