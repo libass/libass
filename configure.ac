@@ -126,6 +126,7 @@ AS_IF([test "x$enable_coretext" != xno], [
             [[CTFontDescriptorCopyAttribute(NULL, kCTFontURLAttribute);]]
         )
     ], [
+        pkg_libs="$pkg_libs -framework ApplicationServices -framework CoreFoundation"
         LIBS="$LIBS -framework ApplicationServices -framework CoreFoundation"
         AC_DEFINE(CONFIG_CORETEXT, 1, [found CoreText in ApplicationServices framework])
         coretext=true
@@ -137,6 +138,7 @@ AS_IF([test "x$enable_coretext" != xno], [
                 [[CTFontDescriptorCopyAttribute(NULL, kCTFontURLAttribute);]]
             )
         ], [
+            pkg_libs="$pkg_libs -framework CoreText -framework CoreFoundation"
             LIBS="$LIBS -framework CoreText -framework CoreFoundation"
             AC_DEFINE(CONFIG_CORETEXT, 1, [found CoreText framework])
             coretext=true
@@ -171,12 +173,14 @@ AS_IF([test "x$enable_directwrite" != xno], [
         ], [
             # WinRT/UWP/app build: GDI and LoadLibrary are
             # unavailable, but DirectWrite is always present
+            pkg_libs="$pkg_libs -ldwrite"
             LIBS="$LIBS -ldwrite"
             AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite (WinRT/UWP)])
             AC_MSG_RESULT([no])
         ], [
             # Win32/desktop build: GDI is always present;
             # DirectWrite is optional but can be loaded via LoadLibrary
+            pkg_libs="$pkg_libs -lgdi32"
             LIBS="$LIBS -lgdi32"
             AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite and GDI (Win32)])
             AC_MSG_RESULT([yes])
