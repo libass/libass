@@ -216,7 +216,6 @@ AS_IF([test "x$enable_asm" != xno], [
         [i?86-*], [
             INTEL=true
             AS=nasm
-            X86=true
             BITS=32
             BITTYPE=32
             ASFLAGS="$ASFLAGS -DARCH_X86_64=0"
@@ -308,7 +307,6 @@ AC_SUBST([PKG_REQUIRES_PRIVATE], [${pkg_requires}])
 ## Setup conditionals for use in Makefiles
 AM_CONDITIONAL([ASM], [test "x$can_asm" = xtrue])
 AM_CONDITIONAL([INTEL], [test "x$INTEL" = xtrue])
-AM_CONDITIONAL([X86], [test "x$X86" = xtrue])
 AM_CONDITIONAL([X64], [test "x$X64" = xtrue])
 
 AM_CONDITIONAL([ENABLE_LARGE_TILES], [test "x$enable_large_tiles" = xyes])
