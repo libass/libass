@@ -14,8 +14,8 @@ nasm_verbose_0 = @echo "  NASM    " $@;
 .asm.lo:
 	$(nasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(top_srcdir)/ltnasm.sh $(AS) $(ASFLAGS) -I$(srcdir)/ -Dprivate_prefix=ass -o $@ $<
 
-SRC_INTEL = x86/rasterizer.asm x86/blend_bitmaps.asm x86/be_blur.asm x86/blur.asm x86/cpuid.asm \
-            x86/cpuid.h
+SRC_X86 = x86/rasterizer.asm x86/blend_bitmaps.asm x86/be_blur.asm x86/blur.asm x86/cpuid.asm \
+          x86/cpuid.h
 
 SRC_FONTCONFIG = ass_fontconfig.c ass_fontconfig.h
 SRC_DIRECTWRITE = ass_directwrite.c ass_directwrite.h ass_directwrite_info_template.h dwrite_c.h
@@ -48,8 +48,8 @@ libass_la_SOURCES += $(SRC_CORETEXT)
 endif
 
 if ASM
-if INTEL
-libass_la_SOURCES += $(SRC_INTEL)
+if X86
+libass_la_SOURCES += $(SRC_X86)
 endif
 endif
 

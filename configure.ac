@@ -214,34 +214,34 @@ can_asm=false
 AS_IF([test "x$enable_asm" != xno], [
     AS_CASE([$host],
         [i?86-*], [
-            INTEL=true
             AS=nasm
+            X86=true
             BITS=32
             BITTYPE=32
             ASFLAGS="$ASFLAGS -DARCH_X86_64=0"
         ],
         [x86_64-*-gnux32|amd64-*-gnux32], [
             AS=nasm
-            INTEL=true
-            X64=true
+            X86=true
+            X86_64=true
             BITS=64
             BITTYPE=x32
             ASFLAGS="$ASFLAGS -DARCH_X86_64=1"
         ],
         [x86_64-*|amd64-*], [
             AS=nasm
-            INTEL=true
-            X64=true
+            X86=true
+            X86_64=true
             BITS=64
             BITTYPE=64
             ASFLAGS="$ASFLAGS -DARCH_X86_64=1"
         ],
         [ # default
-            INTEL=false
+            X86=false
             AC_MSG_NOTICE([Assembly optimizations are not yet supported on this architecture; disabling.])
         ]
     )
-    AS_IF([test "x$INTEL" = xtrue], [
+    AS_IF([test "x$X86" = xtrue], [
         AC_CHECK_PROG([nasm_check], [$AS], [yes])
         AS_IF([test "x$nasm_check" != xyes], [
             AC_MSG_WARN(nasm was not found; ASM functions are disabled.)
@@ -306,8 +306,8 @@ AC_SUBST([PKG_REQUIRES_PRIVATE], [${pkg_requires}])
 
 ## Setup conditionals for use in Makefiles
 AM_CONDITIONAL([ASM], [test "x$can_asm" = xtrue])
-AM_CONDITIONAL([INTEL], [test "x$INTEL" = xtrue])
-AM_CONDITIONAL([X64], [test "x$X64" = xtrue])
+AM_CONDITIONAL([X86], [test "x$X86" = xtrue])
+AM_CONDITIONAL([X86_64], [test "x$X86_64" = xtrue])
 
 AM_CONDITIONAL([ENABLE_LARGE_TILES], [test "x$enable_large_tiles" = xyes])
 

@@ -16,8 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef INTEL_CPUID_H
-#define INTEL_CPUID_H
+#ifndef LIBASS_X86_CPUID_H
+#define LIBASS_X86_CPUID_H
 
 #include <stdint.h>
 
