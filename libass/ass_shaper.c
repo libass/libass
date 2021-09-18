@@ -501,6 +501,15 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
 }
 
 /**
+ * \brief Determine whether this Unicode codepoint affects shaping
+ * of neighbors even if they are in separate shape runs due to bidi,
+ * script or font splitting, using VSFilter as the reference.
+ */
+static inline bool is_shaping_control(unsigned symbol) {
+    return symbol == 0x200C /* ZWNJ */ || symbol == 0x200D /* ZWJ */;
+}
+
+/**
  * \brief Map script to default language.
  *
  * This maps a script to a language, if a script has a representative
@@ -682,9 +691,19 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
                 level == shaper->emblevels[i + 1])
             i++;
 
+        int lead_context = 0, trail_context = 0;
+        if (offset > 0 && !glyphs[offset].starts_new_run &&
+                is_shaping_control(glyphs[offset - 1].symbol))
+            lead_context = 1;
+        if (i < (len - 1) && !glyphs[i + 1].starts_new_run &&
+                is_shaping_control(glyphs[i + 1].symbol))
+            trail_context = 1;
+
         hb_buffer_pre_allocate(buf, i - offset + 1);
-        hb_buffer_add_utf32(buf, shaper->event_text + offset, i - offset + 1,
-                0, i - offset + 1);
+        hb_buffer_add_utf32(buf,
+                shaper->event_text + offset - lead_context,
+                i - offset + 1 + lead_context + trail_context,
+                lead_context, i - offset + 1);
 
         props.direction = FRIBIDI_LEVEL_IS_RTL(level) ?
             HB_DIRECTION_RTL : HB_DIRECTION_LTR;
@@ -695,7 +714,7 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         set_run_features(shaper, glyphs + offset);
         hb_shape(font, buf, shaper->features, shaper->n_features);
 
-        shape_harfbuzz_process_run(glyphs, buf, offset);
+        shape_harfbuzz_process_run(glyphs, buf, offset - lead_context);
         hb_buffer_reset(buf);
     }
 
