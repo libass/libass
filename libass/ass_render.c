@@ -1173,6 +1173,10 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
                 if (!outline_convert(&v->outline[0], src))
                     return 1;
                 v->advance = d16_to_d6(glyph->advance.x);
+                ass_strike_outline_glyph(k->font, k->face_index,
+                                         glyph, &v->outline[0],
+                                         k->flags & DECO_UNDERLINE,
+                                         k->flags & DECO_STRIKETHROUGH);
                 FT_Done_Glyph(glyph);
                 ass_font_get_asc_desc(k->font, k->face_index,
                                       &v->asc, &v->desc);

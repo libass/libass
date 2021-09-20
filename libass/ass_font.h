@@ -30,6 +30,7 @@ typedef struct ass_font ASS_Font;
 #include "ass_types.h"
 #include "ass_fontselect.h"
 #include "ass_cache.h"
+#include "ass_outline.h"
 
 #define VERTICAL_LOWER_BOUND 0x02f1
 
@@ -62,6 +63,10 @@ uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol);
 FT_Glyph ass_font_get_glyph(ASS_Font *font, int face_index, int index,
                             ASS_Hinting hinting, int deco);
 void ass_font_clear(ASS_Font *font);
+
+int ass_strike_outline_glyph(ASS_Font *font, int face_index,
+                             FT_Glyph glyph, ASS_Outline *ol,
+                             int under, int through);
 
 FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
                       const char *postscript_name, int index);
