@@ -202,8 +202,7 @@ bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
             if (started) {
                 if (!outline_add_segment(outline, OUTLINE_LINE_SEGMENT))
                     goto error;
-                if (!outline_close_contour(outline))
-                    goto error;
+                outline_close_contour(outline);
                 started = false;
             }
             token = token->next;
@@ -251,8 +250,7 @@ bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
     if (started) {
         if (!outline_add_segment(outline, OUTLINE_LINE_SEGMENT))
             goto error;
-        if (!outline_close_contour(outline))
-            goto error;
+        outline_close_contour(outline);
     }
 
     if (lib)
