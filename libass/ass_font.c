@@ -133,9 +133,6 @@ static void set_font_metrics(FT_Face face)
 FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
                       const char *postscript_name, int index)
 {
-    if (index < 0 && !postscript_name)
-        return NULL;
-
     FT_Face face;
     int error = FT_New_Face(ftlib, path, index, &face);
     if (error) {
@@ -154,6 +151,17 @@ FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
             error = FT_New_Face(ftlib, path, i, &face);
             if (error) {
                 ass_msg(lib, MSGL_WARN, "Error opening font: '%s', %d", path, i);
+                return NULL;
+            }
+
+            // If there is only one face, don't bother checking the name.
+            // The font might not even *have* a valid PostScript name.
+            if (!i && face->num_faces == 1)
+                return face;
+
+            // Otherwise, we really need a name to search for.
+            if (!postscript_name) {
+                FT_Done_Face(face);
                 return NULL;
             }
 
