@@ -39,7 +39,7 @@ bool outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_segments)
     return true;
 }
 
-static void outline_clear(ASS_Outline *outline)
+void outline_clear(ASS_Outline *outline)
 {
     outline->points = NULL;
     outline->segments = NULL;
@@ -55,14 +55,6 @@ static bool valid_point(const FT_Vector *pt)
 
 bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
 {
-    if (!source || !source->n_points) {
-        outline_clear(outline);
-        return true;
-    }
-
-    if (!outline_alloc(outline, 2 * source->n_points, source->n_points))
-        return false;
-
     enum Status {
         S_ON, S_Q, S_C1, S_C2
     };
@@ -74,7 +66,7 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
 
         int last = source->contours[i];
         if (j > last || last >= source->n_points)
-            goto fail;
+            return false;
 
         // skip degenerate 2-point contours from broken fonts
         if (last - j < 2) {
@@ -83,7 +75,7 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
         }
 
         if (!valid_point(source->points + j))
-            goto fail;
+            return false;
         switch (FT_CURVE_TAG(source->tags[j])) {
         case FT_CURVE_TAG_ON:
             st = S_ON;
@@ -91,7 +83,7 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
 
         case FT_CURVE_TAG_CONIC:
             if (!valid_point(source->points + last))
-                goto fail;
+                return false;
             pt.x =  source->points[last].x;
             pt.y = -source->points[last].y;
             switch (FT_CURVE_TAG(source->tags[last])) {
@@ -105,14 +97,14 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
                 break;
 
             default:
-                goto fail;
+                return false;
             }
             outline->points[outline->n_points++] = pt;
             st = S_Q;
             break;
 
         default:
-            goto fail;
+            return false;
         }
         pt.x =  source->points[j].x;
         pt.y = -source->points[j].y;
@@ -120,7 +112,7 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
 
         for (j++; j <= last; j++) {
             if (!valid_point(source->points + j))
-                goto fail;
+                return false;
             switch (FT_CURVE_TAG(source->tags[j])) {
             case FT_CURVE_TAG_ON:
                 switch (st) {
@@ -137,7 +129,7 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
                     break;
 
                 default:
-                    goto fail;
+                    return false;
                 }
                 st = S_ON;
                 break;
@@ -156,7 +148,7 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
                     break;
 
                 default:
-                    goto fail;
+                    return false;
                 }
                 break;
 
@@ -171,12 +163,12 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
                     break;
 
                 default:
-                    goto fail;
+                    return false;
                 }
                 break;
 
             default:
-                goto fail;
+                return false;
             }
             pt.x =  source->points[j].x;
             pt.y = -source->points[j].y;
@@ -201,15 +193,50 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
             break;
 
         default:
-            goto fail;
+            return false;
         }
         outline->segments[outline->n_segments - 1] |= OUTLINE_CONTOUR_END;
     }
     return true;
+}
 
-fail:
-    outline_free(outline);
-    return false;
+bool outline_rotate_90(ASS_Outline *outline, ASS_Vector offs)
+{
+    assert(abs(offs.x) <= INT32_MAX - OUTLINE_MAX);
+    assert(abs(offs.y) <= INT32_MAX - OUTLINE_MAX);
+    for (size_t i = 0; i < outline->n_points; i++) {
+        ASS_Vector pt = { offs.x + outline->points[i].y,
+                          offs.y - outline->points[i].x };
+        if (abs(pt.x) > OUTLINE_MAX || abs(pt.y) > OUTLINE_MAX)
+            return false;
+        outline->points[i] = pt;
+    }
+    return true;
+}
+
+void outline_add_rect(ASS_Outline *outline,
+                      int32_t x0, int32_t y0, int32_t x1, int32_t y1)
+{
+    assert(outline->n_points + 4 <= outline->max_points);
+    assert(outline->n_segments + 4 <= outline->max_segments);
+    assert(abs(x0) <= OUTLINE_MAX && abs(y0) <= OUTLINE_MAX);
+    assert(abs(x1) <= OUTLINE_MAX && abs(y1) <= OUTLINE_MAX);
+    assert(!outline->n_segments ||
+        (outline->segments[outline->n_segments - 1] & OUTLINE_CONTOUR_END));
+
+    size_t pos = outline->n_points;
+    outline->points[pos + 0].x = outline->points[pos + 3].x = x0;
+    outline->points[pos + 1].x = outline->points[pos + 2].x = x1;
+    outline->points[pos + 0].y = outline->points[pos + 1].y = y0;
+    outline->points[pos + 2].y = outline->points[pos + 3].y = y1;
+    outline->n_points = pos + 4;
+
+    pos = outline->n_segments;
+    outline->segments[pos + 0] = OUTLINE_LINE_SEGMENT;
+    outline->segments[pos + 1] = OUTLINE_LINE_SEGMENT;
+    outline->segments[pos + 2] = OUTLINE_LINE_SEGMENT;
+    outline->segments[pos + 3] = OUTLINE_LINE_SEGMENT | OUTLINE_CONTOUR_END;
+    outline->n_segments = pos + 4;
 }
 
 bool outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,

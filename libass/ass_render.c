@@ -1166,16 +1166,12 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
             ass_face_set_size(k->font->faces[k->face_index], k->size);
             FT_Glyph glyph =
                 ass_font_get_glyph(k->font, k->face_index, k->glyph_index,
-                                   render_priv->settings.hinting, k->flags);
+                                   render_priv->settings.hinting);
             if (glyph != NULL) {
-                FT_Outline *src = &((FT_OutlineGlyph) glyph)->outline;
-                if (!outline_convert(&v->outline[0], src))
+                if (!ass_get_glyph_outline(&v->outline[0], &v->advance,
+                                           k->font->faces[k->face_index],
+                                           glyph, k->flags))
                     return 1;
-                v->advance = d16_to_d6(glyph->advance.x);
-                ass_strike_outline_glyph(k->font, k->face_index,
-                                         glyph, &v->outline[0],
-                                         k->flags & DECO_UNDERLINE,
-                                         k->flags & DECO_STRIKETHROUGH);
                 FT_Done_Glyph(glyph);
                 ass_font_get_asc_desc(k->font, k->face_index,
                                       &v->asc, &v->desc);

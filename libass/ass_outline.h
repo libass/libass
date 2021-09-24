@@ -88,7 +88,13 @@ typedef struct {
 // cubic spline splitting requires 8 * OUTLINE_MAX + 4 <= INT32_MAX
 
 bool outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_segments);
+void outline_clear(ASS_Outline *outline);
+
 bool outline_convert(ASS_Outline *outline, const FT_Outline *source);
+bool outline_rotate_90(ASS_Outline *outline, ASS_Vector offs);
+void outline_add_rect(ASS_Outline *outline,
+                      int32_t x0, int32_t y0, int32_t x1, int32_t y1);
+
 bool outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
                         int scale_ord_x, int scale_ord_y);
 bool outline_transform_2d(ASS_Outline *outline, const ASS_Outline *source,
