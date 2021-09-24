@@ -336,6 +336,8 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     info->width  = 100;     // FIXME, should probably query the OS/2 table
 
     info->postscript_name = (char *)FT_Get_Postscript_Name(face);
+    if (!info->postscript_name)
+        info->postscript_name = "";
 
     if (num_family) {
         info->families = calloc(sizeof(char *), num_family);
