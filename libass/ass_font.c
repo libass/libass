@@ -133,6 +133,9 @@ static void set_font_metrics(FT_Face face)
 FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
                       const char *postscript_name, int index)
 {
+    if (index < 0 && !postscript_name)
+        return NULL;
+
     FT_Face face;
     int error = FT_New_Face(ftlib, path, index, &face);
     if (error) {
@@ -140,7 +143,9 @@ FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
         return NULL;
     }
 
-    if (postscript_name && index < 0 && face->num_faces > 0) {
+    if (index >= 0) {
+        return face;
+    } else {
         // The font provider gave us a postscript name and is not sure
         // about the face index.. so use the postscript name to find the
         // correct face_index in the collection!
@@ -155,11 +160,14 @@ FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
             const char *face_psname = FT_Get_Postscript_Name(face);
             if (face_psname != NULL &&
                 strcmp(face_psname, postscript_name) == 0)
-                break;
+                return face;
         }
-    }
 
-    return face;
+        FT_Done_Face(face);
+        ass_msg(lib, MSGL_WARN, "Failed to find font '%s' in file: '%s'",
+                postscript_name, path);
+        return NULL;
+    }
 }
 
 static unsigned long
