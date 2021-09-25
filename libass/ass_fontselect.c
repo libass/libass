@@ -856,6 +856,7 @@ static char *select_font(ASS_FontSelector *priv,
     }
 
     if (!meta.n_fullname) {
+        free(meta.fullnames);
         meta = default_meta;
     }
 
