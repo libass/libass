@@ -1535,17 +1535,33 @@ fail:
 
 int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable)
 {
+    if (feature >= sizeof(track->parser_priv->feature_flags) * CHAR_BIT || feature < 0)
+        return -1;
+
+    // all supported non-meta features
+    static const uint32_t supported =
+#ifdef USE_FRIBIDI_EX_API
+        FEATURE_MASK(ASS_FEATURE_BIDI_BRACKETS) |
+#endif
+        0;
+    uint32_t requested = 0;
+
     switch (feature) {
     case ASS_FEATURE_INCOMPATIBLE_EXTENSIONS:
-        //-fallthrough
-#ifdef USE_FRIBIDI_EX_API
-    case ASS_FEATURE_BIDI_BRACKETS:
-        track->parser_priv->bidi_brackets = !!enable;
-#endif
-        return 0;
+        requested = supported;
+        break;
     default:
-        return -1;
+        if (!(FEATURE_MASK(feature) & supported))
+            return -1;
+        requested = FEATURE_MASK(feature);
     }
+
+    if (enable)
+        track->parser_priv->feature_flags |= requested;
+    else
+        track->parser_priv->feature_flags &= ~requested;
+
+    return 0;
 }
 
 /**
