@@ -461,15 +461,10 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
  * \brief Get a glyph
  * \param ch character code
  **/
-FT_Glyph ass_font_get_glyph(ASS_Font *font, int face_index, int index,
-                            ASS_Hinting hinting)
+bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
+                        ASS_Hinting hinting)
 {
-    int error;
-    FT_Glyph glyph;
-    FT_Face face = font->faces[face_index];
-    int flags = 0;
-
-    flags = FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
+    FT_Int32 flags = FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
             | FT_LOAD_IGNORE_TRANSFORM;
     switch (hinting) {
     case ASS_HINTING_NONE:
@@ -485,28 +480,18 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, int face_index, int index,
         break;
     }
 
-    error = FT_Load_Glyph(face, index, flags);
+    FT_Face face = font->faces[face_index];
+    FT_Error error = FT_Load_Glyph(face, index, flags);
     if (error) {
         ass_msg(font->library, MSGL_WARN, "Error loading glyph, index %d",
                 index);
-        return 0;
+        return false;
     }
-    if (!(face->style_flags & FT_STYLE_FLAG_ITALIC) &&
-        (font->desc.italic > 55)) {
+    if (!(face->style_flags & FT_STYLE_FLAG_ITALIC) && (font->desc.italic > 55))
         FT_GlyphSlot_Oblique(face->glyph);
-    }
-
-    if (font->desc.bold > ass_face_get_weight(face) + 150) {
+    if (font->desc.bold > ass_face_get_weight(face) + 150)
         ass_glyph_embolden(face->glyph);
-    }
-    error = FT_Get_Glyph(face->glyph, &glyph);
-    if (error) {
-        ass_msg(font->library, MSGL_WARN, "Error loading glyph, index %d",
-                index);
-        return 0;
-    }
-
-    return glyph;
+    return true;
 }
 
 /**
@@ -528,11 +513,13 @@ void ass_font_clear(ASS_Font *font)
  * \brief Convert glyph into ASS_Outline according to decoration flags
  **/
 bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
-                           FT_Face face, FT_Glyph glyph, unsigned flags)
+                           FT_Face face, unsigned flags)
 {
     int32_t y_scale = face->size->metrics.y_scale;
-    int32_t adv = flags & DECO_ROTATE ? face->glyph->linearVertAdvance : glyph->advance.x;
-    *advance = adv = d16_to_d6(adv);
+    int32_t adv = face->glyph->advance.x;
+    if (flags & DECO_ROTATE)
+        adv = d16_to_d6(face->glyph->linearVertAdvance);
+    *advance = adv;
 
     int n_lines = 0;
     int32_t line_y[2][2];
@@ -563,8 +550,8 @@ bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
         }
     }
 
-    assert(glyph->format == FT_GLYPH_FORMAT_OUTLINE);
-    FT_Outline *source = &((FT_OutlineGlyph) glyph)->outline;
+    assert(face->glyph->format == FT_GLYPH_FORMAT_OUTLINE);
+    FT_Outline *source = &face->glyph->outline;
     if (!source->n_points && !n_lines) {
         outline_clear(outline);
         return true;

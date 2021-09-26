@@ -1164,18 +1164,15 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
         {
             GlyphHashKey *k = &outline_key->u.glyph;
             ass_face_set_size(k->font->faces[k->face_index], k->size);
-            FT_Glyph glyph =
-                ass_font_get_glyph(k->font, k->face_index, k->glyph_index,
-                                   render_priv->settings.hinting);
-            if (glyph != NULL) {
-                if (!ass_get_glyph_outline(&v->outline[0], &v->advance,
-                                           k->font->faces[k->face_index],
-                                           glyph, k->flags))
-                    return 1;
-                FT_Done_Glyph(glyph);
-                ass_font_get_asc_desc(k->font, k->face_index,
-                                      &v->asc, &v->desc);
-            }
+            if (!ass_font_get_glyph(k->font, k->face_index, k->glyph_index,
+                                    render_priv->settings.hinting))
+                return 1;
+            if (!ass_get_glyph_outline(&v->outline[0], &v->advance,
+                                       k->font->faces[k->face_index],
+                                       k->flags))
+                return 1;
+            ass_font_get_asc_desc(k->font, k->face_index,
+                                  &v->asc, &v->desc);
             break;
         }
     case OUTLINE_DRAWING:

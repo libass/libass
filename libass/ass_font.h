@@ -21,7 +21,7 @@
 
 #include <stdint.h>
 #include <ft2build.h>
-#include FT_GLYPH_H
+#include FT_FREETYPE_H
 
 typedef struct ass_font ASS_Font;
 
@@ -59,12 +59,12 @@ void ass_font_get_asc_desc(ASS_Font *font, int face_index,
 int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
                        uint32_t symbol, int *face_index, int *glyph_index);
 uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol);
-FT_Glyph ass_font_get_glyph(ASS_Font *font, int face_index, int index,
-                            ASS_Hinting hinting);
+bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
+                        ASS_Hinting hinting);
 void ass_font_clear(ASS_Font *font);
 
 bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
-                           FT_Face face, FT_Glyph glyph, unsigned flags);
+                           FT_Face face, unsigned flags);
 
 FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
                       const char *postscript_name, int index);
