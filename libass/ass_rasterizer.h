@@ -56,7 +56,7 @@ typedef struct {
     uint8_t *tile;
 } RasterizerData;
 
-bool rasterizer_init(RasterizerData *rst, int tile_order, int outline_error);
+bool rasterizer_init(const BitmapEngine *engine, RasterizerData *rst, int outline_error);
 void rasterizer_done(RasterizerData *rst);
 
 /**

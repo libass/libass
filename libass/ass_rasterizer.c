@@ -51,7 +51,7 @@ static inline int ilog2(uint32_t n)
 }
 
 
-bool rasterizer_init(RasterizerData *rst, int tile_order, int outline_error)
+bool rasterizer_init(const BitmapEngine *engine, RasterizerData *rst, int outline_error)
 {
     rst->outline_error = outline_error;
     rst->linebuf[0] = rst->linebuf[1] = NULL;
@@ -59,7 +59,9 @@ bool rasterizer_init(RasterizerData *rst, int tile_order, int outline_error)
     rst->size[1] = rst->capacity[1] = 0;
     rst->n_first = 0;
 
-    rst->tile = ass_aligned_alloc(32, 1 << (2 * tile_order), false);
+    unsigned align = 1 << engine->align_order;
+    unsigned size = 1 << (2 * engine->tile_order);
+    rst->tile = ass_aligned_alloc(align, size, false);
     return rst->tile;
 }
 

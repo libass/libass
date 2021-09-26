@@ -85,8 +85,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->engine = &ass_bitmap_engine_c;
 #endif
 
-    if (!rasterizer_init(&priv->rasterizer, priv->engine->tile_order,
-                         RASTERIZER_PRECISION))
+    if (!rasterizer_init(priv->engine, &priv->rasterizer, RASTERIZER_PRECISION))
         goto fail;
 
     priv->cache.font_cache = ass_font_cache_create();
