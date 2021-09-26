@@ -377,3 +377,24 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
         buf += stride;
     }
 }
+
+
+void ass_merge_tile16_c(uint8_t *buf, ptrdiff_t stride, const uint8_t *tile)
+{
+    for (int y = 0; y < 16; y++) {
+        for (int x = 0; x < 16; x++)
+            buf[x] = FFMAX(buf[x], tile[x]);
+        buf += stride;
+        tile += 16;
+    }
+}
+
+void ass_merge_tile32_c(uint8_t *buf, ptrdiff_t stride, const uint8_t *tile)
+{
+    for (int y = 0; y < 32; y++) {
+        for (int x = 0; x < 32; x++)
+            buf[x] = FFMAX(buf[x], tile[x]);
+        buf += stride;
+        tile += 32;
+    }
+}

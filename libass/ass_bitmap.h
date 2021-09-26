@@ -34,6 +34,7 @@ typedef void (*FillHalfplaneTileFunc)(uint8_t *buf, ptrdiff_t stride,
 typedef void (*FillGenericTileFunc)(uint8_t *buf, ptrdiff_t stride,
                                     const struct segment *line, size_t n_lines,
                                     int winding);
+typedef void (*MergeTileFunc)(uint8_t *buf, ptrdiff_t stride, const uint8_t *tile);
 
 typedef void (*BitmapBlendFunc)(uint8_t *dst, intptr_t dst_stride,
                                 uint8_t *src, intptr_t src_stride,
@@ -67,6 +68,7 @@ typedef struct {
     FillSolidTileFunc fill_solid;
     FillHalfplaneTileFunc fill_halfplane;
     FillGenericTileFunc fill_generic;
+    MergeTileFunc merge_tile;
 
     // blend functions
     BitmapBlendFunc add_bitmaps, imul_bitmaps;

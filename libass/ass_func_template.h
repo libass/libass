@@ -30,6 +30,8 @@ void DECORATE(fill_generic_tile16)(uint8_t *buf, ptrdiff_t stride,
 void DECORATE(fill_generic_tile32)(uint8_t *buf, ptrdiff_t stride,
                                    const struct segment *line, size_t n_lines,
                                    int winding);
+void DECORATE(merge_tile16)(uint8_t *buf, ptrdiff_t stride, const uint8_t *tile);
+void DECORATE(merge_tile32)(uint8_t *buf, ptrdiff_t stride, const uint8_t *tile);
 
 void DECORATE(add_bitmaps)(uint8_t *dst, intptr_t dst_stride,
                            uint8_t *src, intptr_t src_stride,
@@ -97,11 +99,13 @@ const BitmapEngine DECORATE(bitmap_engine) = {
     .fill_solid = DECORATE(fill_solid_tile32),
     .fill_halfplane = DECORATE(fill_halfplane_tile32),
     .fill_generic = DECORATE(fill_generic_tile32),
+    .merge_tile = DECORATE(merge_tile32),
 #else
     .tile_order = 4,
     .fill_solid = DECORATE(fill_solid_tile16),
     .fill_halfplane = DECORATE(fill_halfplane_tile16),
     .fill_generic = DECORATE(fill_generic_tile16),
+    .merge_tile = DECORATE(merge_tile16),
 #endif
 
     .add_bitmaps = DECORATE(add_bitmaps),

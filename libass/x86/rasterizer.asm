@@ -847,3 +847,49 @@ FILL_GENERIC_TILE 5,32
 INIT_YMM avx2
 FILL_GENERIC_TILE 4,16
 FILL_GENERIC_TILE 5,32
+
+;------------------------------------------------------------------------------
+; MERGE_LINE 1:dst, 2:src, 3:m_tmp, 4:size
+;------------------------------------------------------------------------------
+
+%macro MERGE_LINE 4
+%if ((%4) & (mmsize - 1)) == 0
+%assign %%i 0
+%rep (%4) / mmsize
+    mova m%3, [%1 + %%i]
+    pmaxub m%3, [%2 + %%i]
+    mova [%1 + %%i], m%3
+%assign %%i %%i + mmsize
+%endrep
+%elif (%4) == 16
+    mova xm%3, [%1]
+    pmaxub xm%3, [%2]
+    mova [%1], xm%3
+%else
+    %error "invalid line size"
+%endif
+%endmacro
+
+;------------------------------------------------------------------------------
+; MERGE_TILE 1:tile_order, 2:suffix
+; void merge_tile%2(uint8_t *buf, ptrdiff_t stride, const uint8_t *tile);
+;------------------------------------------------------------------------------
+
+%macro MERGE_TILE 2
+cglobal merge_tile%2, 3,3,1
+%assign %%offs 0
+%rep (1 << %1) - 1
+    MERGE_LINE r0, r2 + %%offs, 0, 1 << %1
+    add r0, r1
+%assign %%offs %%offs + (1 << %1)
+%endrep
+    MERGE_LINE r0, r2 + %%offs, 0, 1 << %1
+    RET
+%endmacro
+
+INIT_XMM sse2
+MERGE_TILE 4,16
+MERGE_TILE 5,32
+INIT_YMM avx2
+MERGE_TILE 4,16
+MERGE_TILE 5,32
