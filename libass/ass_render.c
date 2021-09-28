@@ -2008,6 +2008,11 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         info->border_y = render_priv->state.border_y;
         info->hspacing = render_priv->state.hspacing;
         info->bold = render_priv->state.bold;
+        double dar = ((double) render_priv->orig_width) / render_priv->orig_height;
+        double sar = ((double) render_priv->track->PlayResX) / render_priv->track->PlayResY;
+        double par = dar / sar;
+        //only if render_priv->state.scale_x != 1 && render_priv->state.scale_y != 1 then scale it, otherwise square text will be stretched.
+        info->scale_x = render_priv->state.scale_x * ( render_priv->state.scale_x != 1. && render_priv->state.scale_y != 1. ? par : 1.); 
         info->italic = render_priv->state.italic;
         info->flags = render_priv->state.flags;
         if (info->font->desc.vertical && code >= VERTICAL_LOWER_BOUND)
