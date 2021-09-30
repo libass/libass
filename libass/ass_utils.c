@@ -30,48 +30,6 @@
 #include "ass_utils.h"
 #include "ass_string.h"
 
-#if CONFIG_ASM && ARCH_X86
-
-#include "x86/cpuid.h"
-
-void ass_cpu_capabilities(bool *sse2, bool *avx2)
-{
-    *sse2 = false;
-    *avx2 = false;
-
-    if (!ass_has_cpuid())
-        return;
-
-    uint32_t eax = 0, ebx, ecx, edx;
-    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    uint32_t max_leaf = eax;
-    bool avx = false;
-
-    if (max_leaf >= 1) {
-        eax = 1;
-        ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-        if (edx & (1 << 26))  // SSE2
-            *sse2 = true;
-
-        if (ecx & (1 << 27) &&  // OSXSAVE
-            ecx & (1 << 28)) {  // AVX
-            uint32_t xcr0l, xcr0h;
-            ass_get_xgetbv(0, &xcr0l, &xcr0h);
-            if (xcr0l & (1 << 1) &&  // XSAVE for XMM
-                xcr0l & (1 << 2))    // XSAVE for YMM
-                    avx = true;
-        }
-    }
-
-    if (max_leaf >= 7) {
-        eax = 7;
-        ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-        if (avx && ebx & (1 << 5))  // AVX2
-            *avx2 = true;
-    }
-}
-#endif // ASM
-
 // Fallbacks
 #ifndef HAVE_STRDUP
 char *ass_strdup_fallback(const char *str)

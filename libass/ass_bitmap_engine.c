@@ -19,7 +19,11 @@
 #include "config.h"
 #include "ass_compat.h"
 
+#include <stdbool.h>
+
 #include "ass_bitmap_engine.h"
+#include "x86/cpuid.h"
+
 
 #define RASTERIZER_PROTOTYPES(tile_size, suffix) \
     FillSolidTileFunc     ass_fill_solid_tile     ## tile_size ## _ ## suffix; \
@@ -99,3 +103,60 @@ BITMAP_ENGINE(5, 4, 16, avx2)
 #endif
 
 #endif
+
+
+unsigned ass_get_cpu_flags(unsigned mask)
+{
+    unsigned flags = ASS_CPU_FLAG_NONE;
+
+#if CONFIG_ASM && ARCH_X86
+
+    if (!ass_has_cpuid())
+        return flags & mask;
+
+    uint32_t eax = 0, ebx, ecx, edx;
+    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+    uint32_t max_leaf = eax;
+
+    bool avx = false;
+    if (max_leaf >= 1) {
+        eax = 1;
+        ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+        if (edx & (1 << 26))  // SSE2
+            flags |= ASS_CPU_FLAG_X86_SSE2;
+
+        if (ecx & (1 << 27) &&  // OSXSAVE
+            ecx & (1 << 28)) {  // AVX
+            uint32_t xcr0l, xcr0h;
+            ass_get_xgetbv(0, &xcr0l, &xcr0h);
+            if (xcr0l & (1 << 1) &&  // XSAVE for XMM
+                xcr0l & (1 << 2))    // XSAVE for YMM
+                    avx = true;
+        }
+    }
+
+    if (max_leaf >= 7) {
+        eax = 7;
+        ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+        if (avx && ebx & (1 << 5))  // AVX2
+            flags |= ASS_CPU_FLAG_X86_AVX2;
+    }
+
+#endif
+
+    return flags & mask;
+}
+
+const BitmapEngine *ass_bitmap_engine_init(unsigned mask)
+{
+#if CONFIG_ASM
+    unsigned flags = ass_get_cpu_flags(mask);
+#if ARCH_X86
+    if (flags & ASS_CPU_FLAG_X86_AVX2)
+        return &ass_bitmap_engine_avx2;
+    if (flags & ASS_CPU_FLAG_X86_SSE2)
+        return &ass_bitmap_engine_sse2;
+#endif
+#endif
+    return &ass_bitmap_engine_c;
+}

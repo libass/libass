@@ -80,8 +80,17 @@ typedef struct {
     ParamFilterFunc *blur_horz[5], *blur_vert[5];
 } BitmapEngine;
 
-extern const BitmapEngine ass_bitmap_engine_c;
-extern const BitmapEngine ass_bitmap_engine_sse2;
-extern const BitmapEngine ass_bitmap_engine_avx2;
+enum {
+    ASS_CPU_FLAG_NONE          = 0x0000,
+#if ARCH_X86
+    ASS_CPU_FLAG_X86_SSE2      = 0x0001,
+    ASS_CPU_FLAG_X86_AVX2      = 0x0002,
+#endif
+    ASS_CPU_FLAG_ALL           = 0x0FFF,
+};
+
+unsigned ass_get_cpu_flags(unsigned mask);
+
+const BitmapEngine *ass_bitmap_engine_init(unsigned mask);
 
 #endif /* LIBASS_BITMAP_ENGINE_H */

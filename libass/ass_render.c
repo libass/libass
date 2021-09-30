@@ -106,18 +106,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->ftlibrary = ft;
     // images_root and related stuff is zero-filled in calloc
 
-#if CONFIG_ASM && ARCH_X86
-    bool sse2, avx2;
-    ass_cpu_capabilities(&sse2, &avx2);
-    if (avx2)
-        priv->engine = &ass_bitmap_engine_avx2;
-    else if (sse2)
-        priv->engine = &ass_bitmap_engine_sse2;
-    else
-        priv->engine = &ass_bitmap_engine_c;
-#else
-    priv->engine = &ass_bitmap_engine_c;
-#endif
+    priv->engine = ass_bitmap_engine_init(ASS_CPU_FLAG_ALL);
 
     if (!ass_rasterizer_init(priv->engine, &priv->state.rasterizer, RASTERIZER_PRECISION))
         goto fail;

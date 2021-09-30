@@ -51,10 +51,6 @@
 
 #define FEATURE_MASK(feat) (((uint32_t) 1) << (feat))
 
-#if CONFIG_ASM && ARCH_X86
-void ass_cpu_capabilities(bool *sse2, bool *avx2);
-#endif
-
 typedef struct {
     const char *str;
     size_t len;
