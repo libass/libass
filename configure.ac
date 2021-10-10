@@ -1,5 +1,4 @@
-m4_define([LIBASS_VERSION], [0.15.2])
-AC_INIT(libass, LIBASS_VERSION)
+AC_INIT(libass, 0.15.2)
 AM_INIT_AUTOMAKE([foreign])
 AC_CONFIG_MACRO_DIR([m4])
 # Disable Fortran checks
@@ -342,11 +341,11 @@ AS_IF([test -e "${srcdir}/.git"], [
     AS_IF([test -n "$git_bin"], [
         srcversion_string="commit: $("$git_bin" -C "$srcdir" describe --tags --long --always --dirty --broken --abbrev=40)"
     ], [
-        srcversion_string="custom after: LIBASS_VERSION"
+        srcversion_string="custom after: AC_PACKAGE_VERSION"
     ])
 ], [
     dnl# Hope no one creates custom tarballs without adjusting the version
-    srcversion_string="tarball: LIBASS_VERSION"
+    srcversion_string="tarball: AC_PACKAGE_VERSION"
 ])
 AC_DEFINE_UNQUOTED([CONFIG_SOURCEVERSION], ["$srcversion_string"],
                    [string containing info about the used source])
