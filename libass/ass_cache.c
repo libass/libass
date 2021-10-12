@@ -30,6 +30,28 @@
 #include "ass_outline.h"
 #include "ass_cache.h"
 
+#define FNV1_32A_INIT 0x811c9dc5U
+#define FNV1_32A_PRIME 16777619U
+
+static inline uint32_t fnv_32a_buf(const void *buf, size_t len, uint32_t hval)
+{
+    if (!len)
+        return hval;
+
+    const uint8_t *bp = buf;
+    size_t n = (len + 3) / 4;
+
+    switch (len % 4) {
+    case 0: do { hval ^= *bp++; hval *= FNV1_32A_PRIME; //-fallthrough
+    case 3:      hval ^= *bp++; hval *= FNV1_32A_PRIME; //-fallthrough
+    case 2:      hval ^= *bp++; hval *= FNV1_32A_PRIME; //-fallthrough
+    case 1:      hval ^= *bp++; hval *= FNV1_32A_PRIME;
+               } while (--n > 0);
+    }
+
+    return hval;
+}
+
 // type-specific functions
 // create hash/compare functions for bitmap, outline and composite cache
 #define CREATE_HASH_FUNCTIONS
