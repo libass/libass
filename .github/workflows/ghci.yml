@@ -26,6 +26,10 @@ jobs:
           - os: ubuntu-18.04
             cc: clang
             do_coverity: yes
+          # Add a tcc build
+          - os: ubuntu-18.04
+            cc: tcc
+            ld: tcc
           # Build in an Alpine Docker image
           - os: ubuntu-latest
             cc: gcc
@@ -115,6 +119,7 @@ jobs:
         env:
           CC: "${{ matrix.cc }}\
             ${{ matrix.extra_cflags && ' ' }}${{ matrix.extra_cflags }}"
+          LD: "${{ matrix.ld }}"
         run: ./autogen.sh && ./configure
 
       - name: compile
