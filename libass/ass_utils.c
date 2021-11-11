@@ -511,3 +511,34 @@ ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len)
     return NULL;
 }
 
+#if defined(_WIN32) && !defined(__CYGWIN__)
+wchar_t *ass_convert_to_utf16le(const char *str, UINT in_code_page, size_t *out_strlen)
+{
+    int wlen = MultiByteToWideChar(in_code_page, MB_ERR_INVALID_CHARS, str, -1, NULL, 0);
+    if (!wlen)
+        return NULL;
+    wchar_t *wstr = malloc(sizeof(wchar_t) * wlen);
+    if (!MultiByteToWideChar(in_code_page, MB_ERR_INVALID_CHARS, str, -1, wstr, wlen)) {
+        free(wstr);
+        return NULL;
+    }
+    if (out_strlen)
+        *out_strlen = wlen - 1;
+    return wstr;
+}
+
+char *ass_convert_from_utf16le(const wchar_t *wstr, UINT out_code_page, size_t *out_wstrlen)
+{
+    int len = WideCharToMultiByte(out_code_page, 0, wstr, -1, NULL, 0, NULL, NULL);
+    if (!len)
+        return NULL;
+    char *str = malloc(len);
+    if (!WideCharToMultiByte(out_code_page, 0, wstr, -1, str, len, NULL, NULL)) {
+        free(str);
+        return NULL;
+    }
+    if (out_wstrlen)
+        *out_wstrlen = len - 1;
+    return str;
+}
+#endif

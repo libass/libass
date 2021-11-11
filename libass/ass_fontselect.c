@@ -31,7 +31,11 @@
 #include <limits.h>
 #include <ft2build.h>
 #include <sys/types.h>
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#include <windows.h>
+#else
 #include <dirent.h>
+#endif
 #include FT_FREETYPE_H
 #include FT_SFNT_NAMES_H
 #include FT_TRUETYPE_IDS_H
@@ -166,6 +170,113 @@ static ASS_FontProviderFuncs ft_funcs = {
     .destroy_font      = destroy_font_ft,
 };
 
+#if defined(_WIN32) && !defined(__CYGWIN__)
+/*
+ * Output parameters are only valid if the call was sucessful, ignore them otherwise.
+ * \param path          input; path of the dir to open, may be UTF-8 or the codepage used by fopen
+ * \param file_context  output
+ * \param find_handle   output; needs to be closed
+ * \param out_length    output
+ * \return wide-version of path or NULL on failure; needs to be freed if non-NULL
+ */
+static wchar_t *win32_open_dir(const char *path, WIN32_FIND_DATAW *file_context, HANDLE *find_handle, size_t *out_length)
+{
+    size_t tmp;
+
+    if (!path || !(tmp = strlen(path)) || tmp > SIZE_MAX - 3)
+        return NULL;
+
+    char* valid_search_dir = malloc(tmp + 3);
+    if (!valid_search_dir)
+        return NULL;
+    memcpy(valid_search_dir, path, tmp);
+    switch (valid_search_dir[tmp - 1]) {
+    case '\\':
+    case '/':
+        break;
+    default:
+        valid_search_dir[tmp++] = '\\';
+    }
+    valid_search_dir[tmp++] = '*';
+    valid_search_dir[tmp] = '\0';
+
+    UINT cur_cp = CP_UTF8;
+    size_t wlen;
+    wchar_t *wpath = ass_convert_to_utf16le(valid_search_dir, cur_cp, &wlen);
+    if (!wpath || (*find_handle = FindFirstFileExW(wpath, 0, file_context, 0, NULL, 0)) == INVALID_HANDLE_VALUE) {
+        free(wpath);
+        cur_cp = CP_ACP;
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+        if (!AreFileApisANSI()) cur_cp = CP_OEMCP;
+#endif
+        wpath = ass_convert_to_utf16le(valid_search_dir, cur_cp, &wlen);
+        if (wpath) {
+            *find_handle = FindFirstFileExW(wpath, 0, file_context, 0, NULL, 0);
+            if (*find_handle == INVALID_HANDLE_VALUE) {
+                free(wpath);
+                wpath = NULL;
+                goto clean;
+            }
+        } else
+            goto clean;
+    }
+
+    // path_utf8 ends with "\*" or "/*"
+    wlen -= 2;
+    wpath[wlen] = '\0';
+    if (out_length)
+        *out_length = wlen;
+
+clean:
+    free(valid_search_dir);
+    return wpath;
+}
+
+static void load_fonts_from_dir(ASS_Library *library, const char *dir)
+{
+    WIN32_FIND_DATAW find_file_context;
+    HANDLE find_file_handle;
+    size_t wdirlen;
+
+    wchar_t *wdir = win32_open_dir(dir, &find_file_context, &find_file_handle, &wdirlen);
+    if (!wdir)
+        return;
+
+    char *dir_utf8 = ass_convert_from_utf16le(wdir, CP_UTF8, NULL);
+
+    size_t namemax = 0;
+    wchar_t *wnamebuf = NULL;
+    do {
+        if (find_file_context.cFileName[0] == L'.')
+            continue;
+        size_t namelen = wdirlen + wcslen(find_file_context.cFileName) + 2u;
+        if (namelen < 2 || namelen - 2 < wdirlen)
+            continue;
+        if (namelen > namemax) {
+            size_t newlen = FFMAX(2048, namelen + FFMIN(256, SIZE_MAX - namelen));
+            if (ASS_REALLOC_ARRAY(wnamebuf, newlen))
+                namemax = newlen;
+            else
+                continue;
+        }
+        swprintf(wnamebuf, namemax, L"%ls\\%ls", wdir, find_file_context.cFileName);
+        char *file_name_utf8 = ass_convert_from_utf16le(find_file_context.cFileName, CP_UTF8, NULL);
+        ass_msg(library, MSGL_INFO, "Loading font file '%s\\%s'",
+                dir_utf8 ? dir_utf8 : "(conversion failed)",
+                file_name_utf8 ? file_name_utf8 : "(conversion failed)");
+        size_t bufsize = 0;
+        void *data = read_wide_named_file(library, wnamebuf, &bufsize);
+        if (data) {
+            ass_add_font(library, file_name_utf8, data, bufsize);
+            free(data);
+        }
+        free(file_name_utf8);
+    } while (FindNextFileW(find_file_handle, &find_file_context));
+    free(dir_utf8);
+    free(wnamebuf);
+    FindClose(find_file_handle);
+}
+#else
 static void load_fonts_from_dir(ASS_Library *library, const char *dir)
 {
     DIR *d = opendir(dir);
@@ -202,6 +313,7 @@ static void load_fonts_from_dir(ASS_Library *library, const char *dir)
     free(namebuf);
     closedir(d);
 }
+#endif
 
 /**
  * \brief Create a bare font provider.

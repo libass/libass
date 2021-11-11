@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01502000
+#define LIBASS_VERSION 0x01502001
 
 #ifdef __cplusplus
 extern "C" {
@@ -258,6 +258,10 @@ void ass_library_done(ASS_Library *priv);
  * Optional directory that will be scanned for fonts recursively.  The fonts
  * found are used for font lookup.
  * NOTE: A valid font directory is not needed to support embedded fonts.
+ * On Microsoft Windows, when using WIN32-APIs,
+ * fonts_dir must either be in UTF-8 or the encoding accpeted by fopen
+ * with UTF-8 taking precedence if both versions are valid and exist.
+ * On all other systems there is no need for special considerations like that.
  *
  * \param priv library handle
  * \param fonts_dir directory with additional fonts
@@ -474,7 +478,7 @@ void ass_get_available_font_providers(ASS_Library *priv,
  * If the requested fontprovider does not exist or fails to initialize, the
  * behavior is the same as when ASS_FONTPROVIDER_NONE was passed.
  * \param config path to fontconfig configuration file, or NULL.  Only relevant
- * if fontconfig is used.
+ * if fontconfig is used. The encoding must match the one accepted by fontconfig.
  * \param update whether fontconfig cache should be built/updated now.  Only
  * relevant if fontconfig is used.
  *
@@ -664,6 +668,10 @@ void ass_flush_events(ASS_Track *track);
  * \param fname file name
  * \param codepage encoding (iconv format)
  * \return newly allocated track or NULL on failure
+ * NOTE: On Microsoft Windows, when using WIN32-APIs,
+ * fname must either be in UTF-8 or the encoding accpeted by fopen
+ * with UTF-8 taking precedence if both versions are valid and exist.
+ * On all other systems there is no need for special considerations like that.
 */
 ASS_Track *ass_read_file(ASS_Library *library, char *fname,
                          char *codepage);
@@ -683,6 +691,10 @@ ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
  * \param fname file name
  * \param codepage encoding (iconv format)
  * \return 0 on success
+ * NOTE: On Microsoft Windows, when using WIN32-APIs,
+ * fname must either be in UTF-8 or the encoding accpeted by fopen
+ * with UTF-8 taking precedence if both versions are valid and exist.
+ * On all other systems there is no need for special considerations like that.
  */
 int ass_read_styles(ASS_Track *track, char *fname, char *codepage);
 

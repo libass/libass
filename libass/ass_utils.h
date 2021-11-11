@@ -213,4 +213,10 @@ static inline int mystrtoi32(char **p, int base, int32_t *res)
     return *p != start;
 }
 
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#include <windows.h>
+wchar_t *ass_convert_to_utf16le(const char *str, UINT in_code_page, size_t *out_strlen);
+char *ass_convert_from_utf16le(const wchar_t *wstr, UINT out_code_page, size_t *out_wstrlen);
+#endif
+
 #endif                          /* LIBASS_UTILS_H */

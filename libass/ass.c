@@ -1235,20 +1235,27 @@ out:
 }
 #endif                          // ICONV
 
-/**
- * \brief read file contents into newly allocated buffer
- * \param fname file name
- * \param bufsize out: file size
- * \return pointer to file contents. Caller is responsible for its deallocation.
- */
-char *read_file(ASS_Library *library, char *fname, size_t *bufsize)
+FILE *ass_open_file(const char *path)
+{
+#if defined(_WIN32) && !defined(__CYGWIN__)
+    wchar_t *wpath = ass_convert_to_utf16le(path, CP_UTF8, NULL);
+    if (wpath) {
+        FILE *f = _wfopen(wpath, L"rb");
+        free(wpath);
+        if (f)
+            return f;
+    }
+#endif
+    return fopen(path, "rb");
+}
+
+static char *read_opened_file(ASS_Library *library, const char *fname, FILE *fp, size_t *bufsize)
 {
     int res;
     long sz;
     long bytes_read;
     char *buf;
 
-    FILE *fp = fopen(fname, "rb");
     if (!fp) {
         ass_msg(library, MSGL_WARN,
                 "ass_read_file(%s): fopen failed", fname);
@@ -1292,6 +1299,28 @@ char *read_file(ASS_Library *library, char *fname, size_t *bufsize)
         *bufsize = sz;
     return buf;
 }
+
+/**
+ * \brief read file contents into newly allocated buffer
+ * \param fname file name
+ * \param bufsize out: file size
+ * \return pointer to file contents. Caller is responsible for its deallocation.
+ */
+char *read_file(ASS_Library *library, char *fname, size_t *bufsize)
+{
+    FILE* fp = ass_open_file(fname);
+    return read_opened_file(library, fname, fp, bufsize);
+}
+#if defined(_WIN32) && !defined(__CYGWIN__)
+char *read_wide_named_file(ASS_Library *library, wchar_t *wpath, size_t *bufsize)
+{
+    FILE *fp = _wfopen(wpath, L"rb");
+    char *fname = ass_convert_from_utf16le(wpath, CP_UTF8, NULL);
+    char *res = read_opened_file(library, fname ? fname : "(conversion failed)", fp, bufsize);
+    free(fname);
+    return res;
+}
+#endif
 
 /*
  * \param buf pointer to subtitle text in utf-8

@@ -39,5 +39,8 @@ struct ass_library {
 };
 
 char *read_file(struct ass_library *library, char *fname, size_t *bufsize);
+#if defined(_WIN32) && !defined(__CYGWIN__)
+char *read_wide_named_file(struct ass_library *library, wchar_t *wpath, size_t *bufsize);
+#endif
 
 #endif                          /* LIBASS_LIBRARY_H */
