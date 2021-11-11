@@ -31,7 +31,6 @@
 #include <limits.h>
 #include <ft2build.h>
 #include <sys/types.h>
-#include <dirent.h>
 #include FT_FREETYPE_H
 #include FT_SFNT_NAMES_H
 #include FT_TRUETYPE_IDS_H
@@ -40,6 +39,7 @@
 #include "ass_utils.h"
 #include "ass.h"
 #include "ass_library.h"
+#include "ass_filesystem.h"
 #include "ass_fontselect.h"
 #include "ass_fontconfig.h"
 #include "ass_coretext.h"
@@ -168,39 +168,27 @@ static ASS_FontProviderFuncs ft_funcs = {
 
 static void load_fonts_from_dir(ASS_Library *library, const char *dir)
 {
-    DIR *d = opendir(dir);
-    if (!d)
+    ASS_Dir d;
+    if (!ass_open_dir(&d, dir))
         return;
-    size_t dirlen = strlen(dir);
-    size_t namemax = 0;
-    char *namebuf = NULL;
-    while (1) {
-        struct dirent *entry = readdir(d);
-        if (!entry)
+    while (true) {
+        const char *name = ass_read_dir(&d);
+        if (!name)
             break;
-        if (entry->d_name[0] == '.')
+        if (name[0] == '.')
             continue;
-        size_t namelen = dirlen + strlen(entry->d_name) + 2u;
-        if (namelen < 2 || namelen - 2 < dirlen)
+        const char *path = ass_current_file_path(&d);
+        if (!path)
             continue;
-        if (namelen > namemax) {
-            size_t newlen = FFMAX(2048, namelen + FFMIN(256, SIZE_MAX - namelen));
-            if (ASS_REALLOC_ARRAY(namebuf, newlen))
-                namemax = newlen;
-            else
-                continue;
-        }
-        snprintf(namebuf, namemax, "%s/%s", dir, entry->d_name);
-        size_t bufsize = 0;
-        ass_msg(library, MSGL_INFO, "Loading font file '%s'", namebuf);
-        void *data = read_file(library, namebuf, &bufsize);
+        ass_msg(library, MSGL_INFO, "Loading font file '%s'", path);
+        size_t size = 0;
+        void *data = read_file(library, path, FN_DIR_LIST, &size);
         if (data) {
-            ass_add_font(library, entry->d_name, data, bufsize);
+            ass_add_font(library, name, data, size);
             free(data);
         }
     }
-    free(namebuf);
-    closedir(d);
+    ass_close_dir(&d);
 }
 
 /**

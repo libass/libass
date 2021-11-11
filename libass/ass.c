@@ -1238,17 +1238,18 @@ out:
 /**
  * \brief read file contents into newly allocated buffer
  * \param fname file name
+ * \param hint file name origin
  * \param bufsize out: file size
  * \return pointer to file contents. Caller is responsible for its deallocation.
  */
-char *read_file(ASS_Library *library, char *fname, size_t *bufsize)
+char *read_file(ASS_Library *library, const char *fname, FileNameSource hint, size_t *bufsize)
 {
     int res;
     long sz;
     long bytes_read;
     char *buf;
 
-    FILE *fp = fopen(fname, "rb");
+    FILE *fp = ass_open_file(fname, hint);
     if (!fp) {
         ass_msg(library, MSGL_WARN,
                 "ass_read_file(%s): fopen failed", fname);
@@ -1373,7 +1374,7 @@ static char *read_file_recode(ASS_Library *library, char *fname,
     char *buf;
     size_t bufsize;
 
-    buf = read_file(library, fname, &bufsize);
+    buf = read_file(library, fname, FN_EXTERNAL, &bufsize);
     if (!buf)
         return 0;
 #ifdef CONFIG_ICONV
@@ -1429,7 +1430,7 @@ int ass_read_styles(ASS_Track *track, char *fname, char *codepage)
     ParserState old_state;
     size_t sz;
 
-    buf = read_file(track->library, fname, &sz);
+    buf = read_file(track->library, fname, FN_EXTERNAL, &sz);
     if (!buf)
         return 1;
 #ifdef CONFIG_ICONV

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
+ * Copyright (C) 2021 libass contributors
  *
  * This file is part of libass.
  *
@@ -16,30 +16,29 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef LIBASS_LIBRARY_H
-#define LIBASS_LIBRARY_H
+#include <stdio.h>
+#include <stdbool.h>
 
-#include <stdarg.h>
+#ifndef LIBASS_FILESYSTEM_H
+#define LIBASS_FILESYSTEM_H
 
-#include "ass_filesystem.h"
+typedef enum {
+    FN_EXTERNAL,
+    FN_DIR_LIST,
+} FileNameSource;
+
+FILE *ass_open_file(const char *filename, FileNameSource hint);
 
 typedef struct {
-    char *name;
-    char *data;
-    int size;
-} ASS_Fontdata;
+    void *handle;
+    char *path;
+    size_t prefix, max_path;
+    const char *name;
+} ASS_Dir;
 
-struct ass_library {
-    char *fonts_dir;
-    int extract_fonts;
-    char **style_overrides;
+bool ass_open_dir(ASS_Dir *dir, const char *path);
+const char *ass_read_dir(ASS_Dir *dir);
+const char *ass_current_file_path(ASS_Dir *dir);
+void ass_close_dir(ASS_Dir *dir);
 
-    ASS_Fontdata *fontdata;
-    size_t num_fontdata;
-    void (*msg_callback)(int, const char *, va_list, void *);
-    void *msg_callback_data;
-};
-
-char *read_file(struct ass_library *library, const char *fname, FileNameSource hint, size_t *bufsize);
-
-#endif                          /* LIBASS_LIBRARY_H */
+#endif /* LIBASS_FILESYSTEM_H */
