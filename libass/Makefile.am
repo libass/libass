@@ -17,6 +17,8 @@ nasm_verbose_0 = @echo "  NASM    " $@;
 SRC_INTEL = x86/rasterizer.asm x86/blend_bitmaps.asm x86/be_blur.asm x86/blur.asm x86/cpuid.asm \
             x86/cpuid.h x86/init.h
 
+SRC_AARCH64 = aarch64/asm.S aarch64/be_blur.S aarch64/blend_bitmaps.S aarch64/init.h
+
 SRC_FONTCONFIG = ass_fontconfig.c ass_fontconfig.h
 SRC_DIRECTWRITE = ass_directwrite.c ass_directwrite.h ass_directwrite_info_template.h dwrite_c.h
 SRC_CORETEXT = ass_coretext.c ass_coretext.h
@@ -51,6 +53,9 @@ endif
 if ASM
 if INTEL
 libass_la_SOURCES += $(SRC_INTEL)
+endif
+if AARCH64
+libass_la_SOURCES += $(SRC_AARCH64)
 endif
 endif
 

@@ -23,6 +23,9 @@
 #include "config.h"
 
 #if CONFIG_ASM
+#if (defined(__aarch64__))
+#include "aarch64/init.h"
+#endif
 #if (defined(__i386__) || defined(__x86_64__))
 #include "x86/init.h"
 #endif
@@ -75,6 +78,9 @@ void ass_bitmap_engine_init(BitmapEngine* engine, ASS_CPUFlags mask)
 
 #if CONFIG_ASM
     ASS_CPUFlags flags = ass_get_cpu_flags(mask);
+#if (defined(__aarch64__))
+    ass_bitmap_init_aarch64(engine, flags);
+#endif
 #if (defined(__i386__) || defined(__x86_64__))
     ass_bitmap_init_x86(engine, flags);
 #endif
