@@ -243,7 +243,7 @@ AS_IF([test "x$enable_asm" != xno], [
         ],
         [ # default
             INTEL=false
-            AC_MSG_NOTICE([Assembly optimizations are not yet supported on this architecture; disabling.])
+            AC_MSG_NOTICE([Assembly optimizations are not yet supported on $host; disabling.])
         ]
     )
     AS_CASE([$host],
