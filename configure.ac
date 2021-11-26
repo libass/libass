@@ -249,6 +249,7 @@ AS_IF([test "x$enable_asm" != xno], [
     AS_CASE([$host],
         [*darwin*], [
             extern_prefix="_"
+            AC_DEFINE(CONFIG_DARWIN, 1, [Darwin platform])
         ],
         [*cygwin*|*mingw*], [
             AS_IF([test "x$BITS" = x32], [
