@@ -60,6 +60,9 @@ ASS_CPUFlags ass_get_cpu_flags(ASS_CPUFlags mask)
             flags |= ASS_CPU_FLAG_X86_AVX2;
     }
 #endif
+#if defined(__aarch64__)
+    flags = ASS_CPU_FLAG_ARM | ASS_CPU_FLAG_ARM_NEON;
+#endif
 
     return flags & mask;
 }

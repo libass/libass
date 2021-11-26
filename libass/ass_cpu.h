@@ -28,6 +28,10 @@ typedef enum ASS_CPUFlags {
     ASS_CPU_FLAG_X86_AVX2      = 0x08,
     ASS_CPU_FLAG_X86_AVX512ICL = 0x10, // Placeholder for checkasm
 #endif
+#if defined(__aarch64__)
+    ASS_CPU_FLAG_ARM           = 0x01,
+    ASS_CPU_FLAG_ARM_NEON      = 0x02,
+#endif
     ASS_CPU_FLAG_MAX,
     ASS_CPU_FLAG_ALL = ((ASS_CPU_FLAG_MAX & ~1ULL) << 1) - 1,
 } ASS_CPUFlags;
