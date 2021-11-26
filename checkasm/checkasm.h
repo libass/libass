@@ -127,6 +127,9 @@ static inline uint64_t readtime(void) {
 }
 #define readtime readtime
 #endif
+#elif defined(__aarch64__) && defined(__APPLE__)
+#include <mach/mach_time.h>
+#define readtime() mach_absolute_time()
 #elif defined(__aarch64__)
 #ifdef _MSC_VER
 #include <windows.h>
