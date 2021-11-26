@@ -215,6 +215,7 @@ extern_prefix=""
 
 # Locate and configure Assembler appropriately
 can_asm=false
+INTEL=false
 AS_IF([test "x$enable_asm" != xno], [
     AS_CASE([$host],
         [i?86-*], [
@@ -242,7 +243,6 @@ AS_IF([test "x$enable_asm" != xno], [
             ASFLAGS="$ASFLAGS -DARCH_X86_64=1"
         ],
         [ # default
-            INTEL=false
             AC_MSG_NOTICE([Assembly optimizations are not yet supported on $host; disabling.])
         ]
     )
