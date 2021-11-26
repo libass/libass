@@ -12,6 +12,7 @@ AC_CONFIG_HEADERS([config.h])
 # Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O
+AM_PROG_AS
 
 # Checks for header files.
 AC_CHECK_HEADERS_ONCE([iconv.h])
@@ -215,6 +216,7 @@ extern_prefix=""
 
 # Locate and configure Assembler appropriately
 can_asm=false
+AARCH64=false
 INTEL=false
 AS_IF([test "x$enable_asm" != xno], [
     AS_CASE([$host],
@@ -241,6 +243,11 @@ AS_IF([test "x$enable_asm" != xno], [
             BITS=64
             BITTYPE=64
             ASFLAGS="$ASFLAGS -DARCH_X86_64=1"
+        ],
+        [aarch64-*|arm64-*|armv8-*], [
+            AARCH64=true
+            BITS=64
+            BITTYPE=64
         ],
         [ # default
             AC_MSG_NOTICE([Assembly optimizations are not yet supported on $host; disabling.])
@@ -304,6 +311,17 @@ AS_IF([test "x$enable_asm" != xno], [
             rm conftest.asm conftest.o > /dev/null 2>&1
         ])
     ])
+    AS_IF([test "x$AARCH64" = xtrue], [
+        AS_CASE([$host],
+            [*darwin*], [
+                can_asm=true
+            ],
+            [ # default
+                AC_MSG_WARN(Please contact libass upstream to figure out if ASM)
+                AC_MSG_WARN(support for your platform can be added.)
+            ]
+        )
+    ])
 ])
 
 AS_IF([test x"$enable_asm" = xyes && test x"$can_asm" != xtrue], [
@@ -325,6 +343,7 @@ AM_CONDITIONAL([ASM], [test "x$can_asm" = xtrue])
 AM_CONDITIONAL([INTEL], [test "x$INTEL" = xtrue])
 AM_CONDITIONAL([X86], [test "x$X86" = xtrue])
 AM_CONDITIONAL([X64], [test "x$X64" = xtrue])
+AM_CONDITIONAL([AARCH64], [test "x$AARCH64" = xtrue])
 
 AM_CONDITIONAL([ENABLE_LARGE_TILES], [test "x$enable_large_tiles" = xyes])
 
