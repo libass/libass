@@ -87,6 +87,9 @@ static const struct {
     { "SSE2",               "sse2",      ASS_CPU_FLAG_X86_SSE2 },
     { "AVX2",               "avx2",      ASS_CPU_FLAG_X86_AVX2 },
 #endif
+#if defined(__aarch64__)
+    { "NEON",               "neon",      ASS_CPU_FLAG_ARM_NEON },
+#endif
     { 0 }
 };
 
