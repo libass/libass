@@ -21,11 +21,13 @@
 
 typedef enum ASS_CPUFlags {
     ASS_CPU_FLAG_NONE          = 0x00,
+#if (defined(__i386__) || defined(__x86_64__))
     ASS_CPU_FLAG_X86           = 0x01,
     ASS_CPU_FLAG_X86_SSE2      = 0x02,
     ASS_CPU_FLAG_X86_AVX       = 0x04,
     ASS_CPU_FLAG_X86_AVX2      = 0x08,
     ASS_CPU_FLAG_X86_AVX512ICL = 0x10, // Placeholder for checkasm
+#endif
     ASS_CPU_FLAG_MAX,
     ASS_CPU_FLAG_ALL = ((ASS_CPU_FLAG_MAX & ~1ULL) << 1) - 1,
 } ASS_CPUFlags;
