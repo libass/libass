@@ -210,6 +210,8 @@ AS_IF([test "x$enable_require_system_font_provider" != xno  dnl
     ))
 ])
 
+# Set prefix for external symbols
+extern_prefix=""
 
 # Locate and configure Assembler appropriately
 can_asm=false
@@ -244,6 +246,16 @@ AS_IF([test "x$enable_asm" != xno], [
             AC_MSG_NOTICE([Assembly optimizations are not yet supported on this architecture; disabling.])
         ]
     )
+    AS_CASE([$host],
+        [*darwin*], [
+            extern_prefix="_"
+        ],
+        [*cygwin*|*mingw*], [
+            AS_IF([test "x$BITS" = x32], [
+                extern_prefix="_"
+            ])
+        ]
+    )
     AS_IF([test "x$INTEL" = xtrue], [
         AC_CHECK_PROG([nasm_check], [$AS], [yes])
         AS_IF([test "x$nasm_check" != xyes], [
@@ -252,7 +264,7 @@ AS_IF([test "x$enable_asm" != xno], [
         ], [
             AS_CASE([$host],
                 [*darwin*], [
-                    ASFLAGS="$ASFLAGS -f macho$BITTYPE -DPREFIX -DSTACK_ALIGNMENT=16"
+                    ASFLAGS="$ASFLAGS -f macho$BITTYPE -DSTACK_ALIGNMENT=16"
                 ],
                 [*linux*|*solaris*|*haiku*], [
                     ASFLAGS="$ASFLAGS -f elf$BITTYPE -DSTACK_ALIGNMENT=16"
@@ -262,9 +274,6 @@ AS_IF([test "x$enable_asm" != xno], [
                 ],
                 [*cygwin*|*mingw*], [
                     ASFLAGS="$ASFLAGS -f win$BITTYPE"
-                    AS_IF([test "x$BITS" = x32], [
-                        ASFLAGS="$ASFLAGS -DPREFIX"
-                    ])
                 ],
                 [ # default
                     AC_MSG_ERROR(m4_text_wrap(m4_normalize([
@@ -277,6 +286,9 @@ AS_IF([test "x$enable_asm" != xno], [
                     ))
                 ]
             )
+            AS_IF([test "x$extern_prefix" == "x_"], [
+                ASFLAGS="$ASFLAGS -DPREFIX"
+            ])
             AC_MSG_CHECKING([if $AS supports vpmovzxwd])
             echo "vpmovzxwd ymm0, xmm0" > conftest.asm
             AS_IF([$AS conftest.asm $ASFLAGS -o conftest.o >conftest.log 2>&1], [
@@ -338,6 +350,8 @@ AM_COND_IF([ENABLE_LARGE_TILES], [
 ], [
     AC_DEFINE(CONFIG_LARGE_TILES, 0, [use small tiles])
 ])
+
+AC_DEFINE_UNQUOTED(EXTERN_PREFIX, $extern_prefix, [prefix for extern symbols])
 
 ## Make a guess about the source code version
 AS_IF([test -e "${srcdir}/.git"], [
