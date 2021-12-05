@@ -17,78 +17,30 @@
  */
 
 
+FillSolidTileFunc DECORATE(fill_solid_tile16);
+FillHalfplaneTileFunc DECORATE(fill_halfplane_tile16);
+FillGenericTileFunc DECORATE(fill_generic_tile16);
+MergeTileFunc DECORATE(merge_tile16);
 
-void DECORATE(fill_solid_tile16)(uint8_t *buf, ptrdiff_t stride, int set);
-void DECORATE(fill_solid_tile32)(uint8_t *buf, ptrdiff_t stride, int set);
-void DECORATE(fill_halfplane_tile16)(uint8_t *buf, ptrdiff_t stride,
-                                     int32_t a, int32_t b, int64_t c, int32_t scale);
-void DECORATE(fill_halfplane_tile32)(uint8_t *buf, ptrdiff_t stride,
-                                     int32_t a, int32_t b, int64_t c, int32_t scale);
-void DECORATE(fill_generic_tile16)(uint8_t *buf, ptrdiff_t stride,
-                                   const struct segment *line, size_t n_lines,
-                                   int winding);
-void DECORATE(fill_generic_tile32)(uint8_t *buf, ptrdiff_t stride,
-                                   const struct segment *line, size_t n_lines,
-                                   int winding);
-void DECORATE(merge_tile16)(uint8_t *buf, ptrdiff_t stride, const uint8_t *tile);
-void DECORATE(merge_tile32)(uint8_t *buf, ptrdiff_t stride, const uint8_t *tile);
+FillSolidTileFunc DECORATE(fill_solid_tile32);
+FillHalfplaneTileFunc DECORATE(fill_halfplane_tile32);
+FillGenericTileFunc DECORATE(fill_generic_tile32);
+MergeTileFunc DECORATE(merge_tile32);
 
-void DECORATE(add_bitmaps)(uint8_t *dst, intptr_t dst_stride,
-                           uint8_t *src, intptr_t src_stride,
-                           intptr_t width, intptr_t height);
-void DECORATE(imul_bitmaps)(uint8_t *dst, intptr_t dst_stride,
-                            uint8_t *src, intptr_t src_stride,
-                            intptr_t width, intptr_t height);
-void DECORATE(mul_bitmaps)(uint8_t *dst, intptr_t dst_stride,
-                           uint8_t *src1, intptr_t src1_stride,
-                           uint8_t *src2, intptr_t src2_stride,
-                           intptr_t width, intptr_t height);
+BitmapBlendFunc DECORATE(add_bitmaps), DECORATE(imul_bitmaps);
+BitmapMulFunc DECORATE(mul_bitmaps);
 
-void DECORATE(be_blur)(uint8_t *buf, intptr_t stride,
-                       intptr_t width, intptr_t height, uint16_t *tmp);
+BeBlurFunc DECORATE(be_blur);
 
-void DECORATE(stripe_unpack)(int16_t *dst, const uint8_t *src, ptrdiff_t src_stride,
-                             uintptr_t width, uintptr_t height);
-void DECORATE(stripe_pack)(uint8_t *dst, ptrdiff_t dst_stride, const int16_t *src,
-                           uintptr_t width, uintptr_t height);
-void DECORATE(shrink_horz)(int16_t *dst, const int16_t *src,
-                           uintptr_t src_width, uintptr_t src_height);
-void DECORATE(shrink_vert)(int16_t *dst, const int16_t *src,
-                           uintptr_t src_width, uintptr_t src_height);
-void DECORATE(expand_horz)(int16_t *dst, const int16_t *src,
-                           uintptr_t src_width, uintptr_t src_height);
-void DECORATE(expand_vert)(int16_t *dst, const int16_t *src,
-                           uintptr_t src_width, uintptr_t src_height);
-void DECORATE(blur4_horz)(int16_t *dst, const int16_t *src,
-                          uintptr_t src_width, uintptr_t src_height,
-                          const int16_t *param);
-void DECORATE(blur4_vert)(int16_t *dst, const int16_t *src,
-                          uintptr_t src_width, uintptr_t src_height,
-                          const int16_t *param);
-void DECORATE(blur5_horz)(int16_t *dst, const int16_t *src,
-                          uintptr_t src_width, uintptr_t src_height,
-                          const int16_t *param);
-void DECORATE(blur5_vert)(int16_t *dst, const int16_t *src,
-                          uintptr_t src_width, uintptr_t src_height,
-                          const int16_t *param);
-void DECORATE(blur6_horz)(int16_t *dst, const int16_t *src,
-                          uintptr_t src_width, uintptr_t src_height,
-                          const int16_t *param);
-void DECORATE(blur6_vert)(int16_t *dst, const int16_t *src,
-                          uintptr_t src_width, uintptr_t src_height,
-                          const int16_t *param);
-void DECORATE(blur7_horz)(int16_t *dst, const int16_t *src,
-                          uintptr_t src_width, uintptr_t src_height,
-                          const int16_t *param);
-void DECORATE(blur7_vert)(int16_t *dst, const int16_t *src,
-                          uintptr_t src_width, uintptr_t src_height,
-                          const int16_t *param);
-void DECORATE(blur8_horz)(int16_t *dst, const int16_t *src,
-                          uintptr_t src_width, uintptr_t src_height,
-                          const int16_t *param);
-void DECORATE(blur8_vert)(int16_t *dst, const int16_t *src,
-                          uintptr_t src_width, uintptr_t src_height,
-                          const int16_t *param);
+Convert8to16Func DECORATE(stripe_unpack);
+Convert16to8Func DECORATE(stripe_pack);
+FilterFunc DECORATE(shrink_horz), DECORATE(shrink_vert);
+FilterFunc DECORATE(expand_horz), DECORATE(expand_vert);
+ParamFilterFunc DECORATE(blur4_horz), DECORATE(blur4_vert);
+ParamFilterFunc DECORATE(blur5_horz), DECORATE(blur5_vert);
+ParamFilterFunc DECORATE(blur6_horz), DECORATE(blur6_vert);
+ParamFilterFunc DECORATE(blur7_horz), DECORATE(blur7_vert);
+ParamFilterFunc DECORATE(blur8_horz), DECORATE(blur8_vert);
 
 
 const BitmapEngine DECORATE(bitmap_engine) = {
