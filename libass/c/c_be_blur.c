@@ -23,69 +23,51 @@
 #include <stdint.h>
 
 
+static inline uint16_t sliding_sum(uint16_t *prev, uint16_t next)
+{
+    uint16_t sum = *prev + next;
+    *prev = next;
+    return sum;
+}
+
 /**
  * \brief Blur with [[1,2,1], [2,4,2], [1,2,1]] kernel
  * This blur is the same as the one employed by vsfilter.
  * Pure C implementation.
  */
-void ass_be_blur_c(uint8_t *buf, intptr_t stride,
-                   intptr_t width, intptr_t height, uint16_t *tmp)
+void ass_be_blur_c(uint8_t *buf, ptrdiff_t stride,
+                   size_t width, size_t height, uint16_t *tmp)
 {
     uint16_t *col_pix_buf = tmp;
-    uint16_t *col_sum_buf = tmp + width;
-    unsigned x, y, old_pix, old_sum, temp1, temp2;
-    uint8_t *src, *dst;
-    y = 0;
+    uint16_t *col_sum_buf = tmp + stride;
 
     {
-        src=buf+y*stride;
-
-        x = 1;
-        old_pix = src[x-1];
-        old_sum = old_pix;
+        size_t x = 1;
+        uint16_t sum = buf[x - 1];
         for ( ; x < width; x++) {
-            temp1 = src[x];
-            temp2 = old_pix + temp1;
-            old_pix = temp1;
-            temp1 = old_sum + temp2;
-            old_sum = temp2;
-            col_pix_buf[x-1] = temp1;
-            col_sum_buf[x-1] = temp1;
+            uint16_t col_pix = sliding_sum(&sum, buf[x - 1] + buf[x]);
+            col_pix_buf[x - 1] = col_sum_buf[x - 1] = col_pix;
         }
-        temp1 = old_sum + old_pix;
-        col_pix_buf[x-1] = temp1;
-        col_sum_buf[x-1] = temp1;
+        uint16_t col_pix = sum + buf[x - 1];
+        col_pix_buf[x - 1] = col_sum_buf[x - 1] = col_pix;
     }
 
-    for (y++; y < height; y++) {
-        src=buf+y*stride;
-        dst=buf+(y-1)*stride;
+    for (size_t y = 1; y < height; y++) {
+        uint8_t *dst = buf;
+        buf += stride;
 
-        x = 1;
-        old_pix = src[x-1];
-        old_sum = old_pix;
+        size_t x = 1;
+        uint16_t sum = buf[x - 1];
         for ( ; x < width; x++) {
-            temp1 = src[x];
-            temp2 = old_pix + temp1;
-            old_pix = temp1;
-            temp1 = old_sum + temp2;
-            old_sum = temp2;
-
-            temp2 = col_pix_buf[x-1] + temp1;
-            col_pix_buf[x-1] = temp1;
-            dst[x-1] = (col_sum_buf[x-1] + temp2) >> 4;
-            col_sum_buf[x-1] = temp2;
+            uint16_t col_pix = sliding_sum(&sum, buf[x - 1] + buf[x]);
+            uint16_t col_sum = sliding_sum(&col_pix_buf[x - 1], col_pix);
+            dst[x - 1] = sliding_sum(&col_sum_buf[x - 1], col_sum) >> 4;
         }
-        temp1 = old_sum + old_pix;
-        temp2 = col_pix_buf[x-1] + temp1;
-        col_pix_buf[x-1] = temp1;
-        dst[x-1] = (col_sum_buf[x-1] + temp2) >> 4;
-        col_sum_buf[x-1] = temp2;
+        uint16_t col_pix = sum + buf[x - 1];
+        uint16_t col_sum = sliding_sum(&col_pix_buf[x - 1], col_pix);
+        dst[x - 1] = sliding_sum(&col_sum_buf[x - 1], col_sum) >> 4;
     }
 
-    {
-        dst=buf+(y-1)*stride;
-        for (x = 0; x < width; x++)
-            dst[x] = (col_sum_buf[x] + col_pix_buf[x]) >> 4;
-    }
+    for (size_t x = 0; x < width; x++)
+        buf[x] = (col_sum_buf[x] + col_pix_buf[x]) >> 4;
 }

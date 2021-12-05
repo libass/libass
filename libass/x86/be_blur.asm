@@ -24,8 +24,8 @@ SECTION .text
 
 ;------------------------------------------------------------------------------
 ; BE_BLUR
-; void be_blur(uint8_t *buf, intptr_t stride,
-;              intptr_t width, intptr_t height, uint16_t *tmp);
+; void be_blur(uint8_t *buf, ptrdiff_t stride,
+;              size_t width, size_t height, uint16_t *tmp);
 ;------------------------------------------------------------------------------
 
 %macro BE_BLUR 0
