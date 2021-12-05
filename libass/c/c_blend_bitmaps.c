@@ -29,44 +29,43 @@
  * \brief Add two bitmaps together at a given position
  * Uses additive blending, clipped to [0,255]. Pure C implementation.
  */
-void ass_add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
-                       uint8_t *src, intptr_t src_stride,
-                       intptr_t width, intptr_t height)
+void ass_add_bitmaps_c(uint8_t *dst, ptrdiff_t dst_stride,
+                       const uint8_t *src, ptrdiff_t src_stride,
+                       size_t width, size_t height)
 {
-    unsigned out;
-    uint8_t* end = dst + dst_stride * height;
+    uint8_t *end = dst + dst_stride * height;
     while (dst < end) {
-        for (unsigned j = 0; j < width; ++j) {
-            out = dst[j] + src[j];
-            dst[j] = FFMIN(out, 255);
+        for (size_t x = 0; x < width; x++) {
+            unsigned out = dst[x] + src[x];
+            dst[x] = FFMIN(out, 255);
         }
         dst += dst_stride;
         src += src_stride;
     }
 }
 
-void ass_imul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
-                        uint8_t *src, intptr_t src_stride,
-                        intptr_t width, intptr_t height)
+void ass_imul_bitmaps_c(uint8_t *dst, ptrdiff_t dst_stride,
+                        const uint8_t *src, ptrdiff_t src_stride,
+                        size_t width, size_t height)
 {
-    uint8_t* end = dst + dst_stride * height;
+    uint8_t *end = dst + dst_stride * height;
     while (dst < end) {
-        for (unsigned j = 0; j < width; ++j) {
-            dst[j] = (dst[j] * (255 - src[j]) + 255) >> 8;
+        for (size_t x = 0; x < width; x++) {
+            dst[x] = (dst[x] * (255 - src[x]) + 255) >> 8;
         }
         dst += dst_stride;
         src += src_stride;
     }
 }
 
-void ass_mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
-                       uint8_t *src1, intptr_t src1_stride,
-                       uint8_t *src2, intptr_t src2_stride,
-                       intptr_t width, intptr_t height)
+void ass_mul_bitmaps_c(uint8_t *dst, ptrdiff_t dst_stride,
+                       const uint8_t *src1, ptrdiff_t src1_stride,
+                       const uint8_t *src2, ptrdiff_t src2_stride,
+                       size_t width, size_t height)
 {
-    uint8_t* end = src1 + src1_stride * height;
-    while (src1 < end) {
-        for (unsigned x = 0; x < width; ++x) {
+    uint8_t *end = dst + dst_stride * height;
+    while (dst < end) {
+        for (size_t x = 0; x < width; x++) {
             dst[x] = (src1[x] * src2[x] + 255) >> 8;
         }
         dst  += dst_stride;

@@ -61,9 +61,9 @@ SECTION .text
 
 ;------------------------------------------------------------------------------
 ; ADD_BITMAPS
-; void add_bitmaps(uint8_t *dst, intptr_t dst_stride,
-;                  uint8_t *src, intptr_t src_stride,
-;                  intptr_t width, intptr_t height);
+; void add_bitmaps(uint8_t *dst, ptrdiff_t dst_stride,
+;                  const uint8_t *src, ptrdiff_t src_stride,
+;                  size_t width, size_t height);
 ;------------------------------------------------------------------------------
 
 %macro ADD_BITMAPS 0
@@ -114,9 +114,9 @@ ADD_BITMAPS
 
 ;------------------------------------------------------------------------------
 ; IMUL_BITMAPS
-; void imul_bitmaps(uint8_t *dst, intptr_t dst_stride,
-;                   uint8_t *src, intptr_t src_stride,
-;                   intptr_t width, intptr_t height);
+; void imul_bitmaps(uint8_t *dst, ptrdiff_t dst_stride,
+;                   const uint8_t *src, ptrdiff_t src_stride,
+;                   size_t width, size_t height);
 ;------------------------------------------------------------------------------
 
 %macro IMUL_BITMAPS 0
@@ -197,10 +197,10 @@ IMUL_BITMAPS
 
 ;------------------------------------------------------------------------------
 ; MUL_BITMAPS
-; void mul_bitmaps(uint8_t *dst, intptr_t dst_stride,
-;                  uint8_t *src1, intptr_t src1_stride,
-;                  uint8_t *src2, intptr_t src2_stride,
-;                  intptr_t width, intptr_t height);
+; void mul_bitmaps(uint8_t *dst, ptrdiff_t dst_stride,
+;                  const uint8_t *src1, ptrdiff_t src1_stride,
+;                  const uint8_t *src2, ptrdiff_t src2_stride,
+;                  size_t width, size_t height);
 ;------------------------------------------------------------------------------
 
 %macro MUL_BITMAPS 0

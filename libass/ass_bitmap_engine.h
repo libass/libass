@@ -31,13 +31,13 @@ typedef void FillGenericTileFunc(uint8_t *buf, ptrdiff_t stride,
                                  int winding);
 typedef void MergeTileFunc(uint8_t *buf, ptrdiff_t stride, const uint8_t *tile);
 
-typedef void BitmapBlendFunc(uint8_t *dst, intptr_t dst_stride,
-                             uint8_t *src, intptr_t src_stride,
-                             intptr_t width, intptr_t height);
-typedef void BitmapMulFunc(uint8_t *dst, intptr_t dst_stride,
-                           uint8_t *src1, intptr_t src1_stride,
-                           uint8_t *src2, intptr_t src2_stride,
-                           intptr_t width, intptr_t height);
+typedef void BitmapBlendFunc(uint8_t *dst, ptrdiff_t dst_stride,
+                             const uint8_t *src, ptrdiff_t src_stride,
+                             size_t width, size_t height);
+typedef void BitmapMulFunc(uint8_t *dst, ptrdiff_t dst_stride,
+                           const uint8_t *src1, ptrdiff_t src1_stride,
+                           const uint8_t *src2, ptrdiff_t src2_stride,
+                           size_t width, size_t height);
 
 typedef void BeBlurFunc(uint8_t *buf, intptr_t stride,
                         intptr_t width, intptr_t height, uint16_t *tmp);
