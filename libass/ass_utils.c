@@ -52,9 +52,7 @@ int has_avx(void)
     ass_get_xgetbv(0, &eax, &edx);
     if ((eax & 0x6) != 0x6)
         return 0;
-    eax = 0;
-    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    return (ecx & 0x6) == 0x6 ? (misc >> 28) & 0x1 : 0; // check high bits are relevant, then AVX support
+    return (misc >> 28) & 0x1;
 }
 
 int has_avx2(void)
