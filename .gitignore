@@ -18,9 +18,9 @@ Makefile.in
 /stamp-h1
 
 # Test programs
-/test/test*
-/compare/compare*
-/profile/profile*
+/test/test
+/compare/compare
+/profile/profile
 
 # pkgconfig
 /libass.pc
