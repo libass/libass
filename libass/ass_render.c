@@ -1702,6 +1702,20 @@ wrap_lines_naive(ASS_Renderer *render_priv, double max_text_width, char *unibrks
 }
 
 /*
+ * Rewind from a linestart position back to the first non-whitespace (0x20)
+ * character. Trailing ASCII whitespace gets trimmed in rendering.
+ * Assumes both arguments are part of the same array.
+ */
+static inline GlyphInfo *rewind_trailing_spaces(GlyphInfo *start1, GlyphInfo* start2)
+{
+    GlyphInfo *g = start2;
+    do {
+        --g;
+    } while ((g > start1) && (g->symbol == ' '));
+    return g;
+}
+
+/*
  * Shift soft linebreaks to balance out line lengths
  * Does not change the linebreak count
  * FIXME: implement style 0 and 3 correctly
@@ -1726,13 +1740,10 @@ wrap_lines_rebalance(ASS_Renderer *render_priv, double max_text_width, char *uni
                 s3 = cur;
                 if (s1 && (s2->linebreak == 1)) {       // have at least 2 lines, and linebreak is 'soft'
                     double l1, l2, l1_new, l2_new;
-                    GlyphInfo *w = s2;
 
                     // Find last word of line and trim surrounding whitespace before measuring
                     // (whitespace ' ' will also get trimmed in rendering)
-                    do {
-                        --w;
-                    } while ((w > s1) && (w->symbol == ' '));
+                    GlyphInfo *w = rewind_trailing_spaces(s1, s2);
                     while ((w > s1) && (!ALLOWBREAK(w->symbol, w - text_info->glyphs))) {
                         --w;
                     }
