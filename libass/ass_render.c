@@ -1759,6 +1759,7 @@ wrap_lines_rebalance(ASS_Renderer *render_priv, double max_text_width, char *uni
                     if (DIFF(l1_new, l2_new) < DIFF(l1, l2)) {
                         w->linebreak = 1;
                         s2->linebreak = 0;
+                        s2 = w;
                         exit = 0;
                     }
                 }
