@@ -1744,6 +1744,7 @@ wrap_lines_rebalance(ASS_Renderer *render_priv, double max_text_width, char *uni
                     // Find last word of line and trim surrounding whitespace before measuring
                     // (whitespace ' ' will also get trimmed in rendering)
                     GlyphInfo *w = rewind_trailing_spaces(s1, s2);
+                    GlyphInfo *e1_old = w;
                     while ((w > s1) && (!ALLOWBREAK(w->symbol, w - text_info->glyphs))) {
                         --w;
                     }
@@ -1756,15 +1757,19 @@ wrap_lines_rebalance(ASS_Renderer *render_priv, double max_text_width, char *uni
                     if (w == s1)
                         continue; // Merging linebreaks is never beneficial
 
-                    l1 = d6_to_double(((s2 - 1)->bbox.x_max + (s2 - 1)->pos.x) -
+                    GlyphInfo *e2 = rewind_trailing_spaces(s2, s3);
+
+                    l1 = d6_to_double(
+                        (e1_old->bbox.x_max + e1_old->pos.x) -
                         (s1->bbox.x_min + s1->pos.x));
-                    l2 = d6_to_double(((s3 - 1)->bbox.x_max + (s3 - 1)->pos.x) -
+                    l2 = d6_to_double(
+                        (e2->bbox.x_max + e2->pos.x) -
                         (s2->bbox.x_min + s2->pos.x));
                     l1_new = d6_to_double(
                         (e1->bbox.x_max + e1->pos.x) -
                         (s1->bbox.x_min + s1->pos.x));
                     l2_new = d6_to_double(
-                        ((s3 - 1)->bbox.x_max + (s3 - 1)->pos.x) -
+                        (e2->bbox.x_max + e2->pos.x) -
                         (w->bbox.x_min + w->pos.x));
 
                     if (DIFF(l1_new, l2_new) < DIFF(l1, l2)) {
