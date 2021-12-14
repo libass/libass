@@ -12,22 +12,23 @@ jobs:
       ${{ matrix.cc }}${{ matrix.api && ', ' }}${{ matrix.api }})
     strategy:
       matrix:
-        os: [ubuntu-18.04, macos-10.15]
+        os: [ubuntu-latest, macos-10.15]
         cc: [gcc, clang]
+        docker_image: ['']
         exclude:
           - os: macos-10.15
             cc: gcc
         include:
           # Enable distcheck for one build
-          - os: ubuntu-18.04
+          - os: ubuntu-latest
             cc: gcc
             do_distc: yes
           # Run Coverity on a clang build; Coverity's gcc causes issues
-          - os: ubuntu-18.04
+          - os: ubuntu-latest
             cc: clang
             do_coverity: yes
           # Add a tcc build
-          - os: ubuntu-18.04
+          - os: ubuntu-latest
             cc: tcc
             ld: tcc
           # Build in an Alpine Docker image
