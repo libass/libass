@@ -36,6 +36,12 @@ jobs:
             cc: gcc
             docker_image: alpine:latest
             shell: '/usr/bin/docker exec dockerciimage sh -e {0}'
+          # Add docker-build with minimum version of dependencies
+          - os: ubuntu-latest
+            cc: gcc
+            docker_image: oldlibs
+            docker_pullprefix: 'ghcr.io/theoneric/libass-containers/'
+            shell: '/usr/bin/docker exec dockerciimage sh -e {0}'
           # Add a Windows build (MinGW-gcc via MSYS2) with no extras
           - os: windows-2019
             msystem: MINGW32
@@ -64,11 +70,13 @@ jobs:
         if: matrix.docker_image
         shell: bash
         run: |
-          # Note: With this setup everything inside the container will be run as root
-          docker pull "${{ matrix.docker_image }}"
+          # Note: Many containers default to the root user
+          docker pull "${{ matrix.docker_pullprefix }}${{ matrix.docker_image }}"
           docker create --name dockerciimage \
             -v "/home/runner/work:/home/runner/work" --workdir "$PWD"  \
-            --entrypoint "tail" "${{ matrix.docker_image }}" "-f" "/dev/null"
+            --entrypoint "tail" \
+            "${{ matrix.docker_pullprefix }}${{ matrix.docker_image }}" \
+            "-f" "/dev/null"
           docker start dockerciimage
 
       - name: Setup MSys2
@@ -99,6 +107,9 @@ jobs:
               apk add nasm ${{ matrix.cc }} musl-dev \
                       make automake autoconf libtool pkgconf \
                       fontconfig-dev freetype-dev fribidi-dev harfbuzz-dev
+              ;;
+            oldlibs)
+              : # Everything is preinstalled
               ;;
             *)
               sudo apt-get update #&& sudo apt-get upgrade
