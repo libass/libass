@@ -668,8 +668,11 @@ static bool matches_full_or_postscript_name(ASS_FontInfo *f,
 
     if (check_postscript(f))
         return matches_postscript_name;
-    else
-        return matches_fullname;
+
+    if (matches_postscript_name)
+        return matches_postscript_name;
+
+    return matches_fullname;
 }
 
 /**

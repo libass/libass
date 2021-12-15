@@ -22,6 +22,7 @@
 #include <inttypes.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_MULTIPLE_MASTERS_H
 #include FT_SYNTHESIS_H
 #include FT_GLYPH_H
 #include FT_TRUETYPE_TABLES_H
@@ -130,6 +131,18 @@ static void set_font_metrics(FT_Face face)
     }
 }
 
+static bool has_same_postscript_name(FT_Face face, const char *postscript_name)
+{
+    if (!face || !postscript_name)
+        return false;
+
+    const char *face_postscript_name = FT_Get_Postscript_Name(face);
+    if (!face_postscript_name)
+        return false;
+
+    return strcmp(postscript_name, face_postscript_name) == 0;
+}
+
 FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
                       const char *postscript_name, int index)
 {
@@ -154,6 +167,29 @@ FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
                 return NULL;
             }
 
+            // For the Multiple Masters, each named instance has its own
+            // PostScript name, so compare them with given PostScript name.
+            if (FT_HAS_MULTIPLE_MASTERS(face) && postscript_name) {
+                if (has_same_postscript_name(face, postscript_name))
+                    return face;
+
+                FT_MM_Var* mmv = NULL;
+                if ((error = FT_Get_MM_Var(face, &mmv))) {
+                    ass_msg(lib, MSGL_WARN, "Error getting variation "
+                            "descriptor: '%s', %d", path, i);
+                } else {
+                    for (unsigned j = 0; j < mmv->num_namedstyles; j++) {
+                        // `instance_index` should start with value 1.
+                        FT_Set_Named_Instance(face, j + 1);
+                        if (has_same_postscript_name(face, postscript_name)) {
+                            FT_Done_MM_Var(ftlib, mmv);
+                            return face;
+                        }
+                    }
+                }
+                FT_Done_MM_Var(ftlib, mmv);
+            }
+
             // If there is only one face, don't bother checking the name.
             // The font might not even *have* a valid PostScript name.
             if (!i && face->num_faces == 1)
@@ -165,9 +201,7 @@ FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
                 return NULL;
             }
 
-            const char *face_psname = FT_Get_Postscript_Name(face);
-            if (face_psname != NULL &&
-                strcmp(face_psname, postscript_name) == 0)
+            if (has_same_postscript_name(face, postscript_name))
                 return face;
         }
 
