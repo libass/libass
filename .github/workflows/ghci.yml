@@ -31,12 +31,12 @@ jobs:
           - os: ubuntu-latest
             cc: tcc
             ld: tcc
-          # Build in an Alpine Docker image
+          # Add docker-build on Alpine
           - os: ubuntu-latest
             cc: gcc
             docker_image: alpine:latest
             shell: '/usr/bin/docker exec dockerciimage sh -e {0}'
-          # Add an additional Windows build (MinGW-gcc via MSYS2) with no extras
+          # Add a Windows build (MinGW-gcc via MSYS2) with no extras
           - os: windows-2019
             msystem: MINGW32
             cc: gcc
@@ -102,7 +102,8 @@ jobs:
               ;;
             *)
               sudo apt-get update #&& sudo apt-get upgrade
-              sudo apt-get install -y \
+              sudo apt-get install -y --no-install-recommends \
+                   autoconf automake make libtool \
                    libfontconfig1-dev libfreetype6-dev libfribidi-dev \
                    libharfbuzz-dev nasm ${{ matrix.cc }}
               ;;
