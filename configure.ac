@@ -338,8 +338,9 @@ AM_COND_IF([ENABLE_LARGE_TILES], [
 AS_IF([test -e "${srcdir}/.git"], [
     AC_PATH_PROG([git_bin], [git])
     AS_IF([test -n "$git_bin"], [
-        tmp="$("$git_bin" -C "$srcdir" describe --tags --long --always --dirty --broken --abbrev=40 2>/dev/null)"
-        test "$?" -eq 0 || tmp="failed to get commit"
+        tmp="$("$git_bin" -C "$srcdir" describe --tags --long --always --broken --abbrev=40 2>/dev/null)" \
+        || tmp="$("$git_bin" -C "$srcdir" describe --tags --long --always --dirty --abbrev=40 2>/dev/null)" \
+        || tmp="failed to determine (>= AC_PACKAGE_VERSION)"
         srcversion_string="commit: $tmp"
     ], [
         srcversion_string="custom after: AC_PACKAGE_VERSION"
