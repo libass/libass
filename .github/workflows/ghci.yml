@@ -11,6 +11,7 @@ jobs:
     name: build(${{ matrix.msystem || matrix.docker_image || matrix.os }},
       ${{ matrix.cc }}${{ matrix.api && ', ' }}${{ matrix.api }})
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-10.15]
         cc: [gcc, clang]
