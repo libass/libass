@@ -1,3 +1,11 @@
+if STATIC_FRIBIDI
+extra_CPPFLAGS = -DFRIBIDI_LIB_STATIC
+else
+extra_CPPFLAGS =
+endif
+
+AM_CPPFLAGS = $(extra_CPPFLAGS)
+
 AM_CFLAGS = -std=gnu99 -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter \
             -Werror-implicit-function-declaration -Wstrict-prototypes        \
             -Wpointer-arith -Wredundant-decls -Wno-missing-field-initializers\

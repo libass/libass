@@ -77,6 +77,12 @@ PKG_CHECK_MODULES([FRIBIDI], [fribidi >= 0.19.1], [
     CFLAGS="$CFLAGS $FRIBIDI_CFLAGS"
     LIBS="$LIBS $FRIBIDI_LIBS"
     AC_DEFINE(CONFIG_FRIBIDI, 1, [found fribidi via pkg-config])
+    if test "$enable_static" = "no"; then
+        static_fribidi=no
+    else
+        static_fribidi=yes
+    fi
+    AM_CONDITIONAL([STATIC_FRIBIDI], [ test "$static_fribidi" = yes ])
 ])
 
 PKG_CHECK_MODULES([HARFBUZZ], [harfbuzz >= 1.2.3], [
