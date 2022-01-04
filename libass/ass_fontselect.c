@@ -168,6 +168,13 @@ static ASS_FontProviderFuncs ft_funcs = {
 };
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
+/**
+ * \brief Load font from directory in windows
+ * \param library ass library
+ * \param dir directory to load fonts from
+ * \param codePage code page used to decode the font path
+ * \return int 1 for success, 0 for failure
+ */
 static int load_fonts_from_dir_win32(ASS_Library *library, const char *dir, UINT codePage) {
 	// The dir name must ending with \*, D:\temp not work, D:\temp\* works well.
 	size_t dir_len = strlen(dir);
@@ -247,9 +254,19 @@ static void load_fonts_from_dir(ASS_Library *library, const char *dir)
     }
     closedir(d);
 #else
-	if (load_fonts_from_dir_win32(library, dir, CP_UTF8)) return;
-	if (load_fonts_from_dir_win32(library, dir, CP_OEMCP)) return;
-	if (load_fonts_from_dir_win32(library, dir, CP_ACP)) return;
+  // try loading as utf-8 first,
+  if (load_fonts_from_dir_win32(library, dir, CP_UTF8))
+    return;
+  // if failed, try loading as:
+  //  - if winapi and file api is ansi: CP_OEMCP
+  //  - or else: CP_ACP
+  UINT cur_cp = CP_ACP;
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+  if (!AreFileApisANSI())
+    cur_cp = CP_OEMCP;
+#endif
+  if (load_fonts_from_dir_win32(library, dir, cur_cp))
+    return;
 #endif
 }
 
