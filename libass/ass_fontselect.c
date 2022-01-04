@@ -176,57 +176,57 @@ static ASS_FontProviderFuncs ft_funcs = {
  * \return int 1 for success, 0 for failure
  */
 static int load_fonts_from_dir_win32(ASS_Library *library, const char *dir, UINT codePage) {
-	// The dir name must ending with \*, D:\temp not work, D:\temp\* works well.
-	size_t dir_len = strlen(dir);
-	char* tdir = malloc(dir_len + 3);
-	strcpy(tdir, dir);
-	strcat(tdir, "\\*");
-	WIN32_FIND_DATAW wfdata;
-	HANDLE whFind;
-	wchar_t *wdir;
-	int wlen;
+    // The dir name must ending with \*, D:\temp not work, D:\temp\* works well.
+    size_t dir_len = strlen(dir);
+    char* tdir = malloc(dir_len + 3);
+    strcpy(tdir, dir);
+    strcat(tdir, "\\*");
+    WIN32_FIND_DATAW wfdata;
+    HANDLE whFind;
+    wchar_t *wdir;
+    int wlen;
 
-	wlen = MultiByteToWideChar(codePage, 0, tdir, -1, NULL, 0);
-	if (wlen > 0) {
-		wdir = (wchar_t*)malloc(sizeof(wchar_t) * wlen);
-		if (MultiByteToWideChar(codePage, 0, tdir, -1, wdir, wlen)) {
-			whFind = FindFirstFileW(wdir, &wfdata);
-			if (whFind != INVALID_HANDLE_VALUE) {
-				do {
-					char *filename;
-					int fn_len;
-					fn_len = WideCharToMultiByte(CP_UTF8, 0, wfdata.cFileName, -1, NULL, 0, NULL, FALSE);
-					if (fn_len > 0) {
-						filename = (char*)malloc(fn_len);
-						if (WideCharToMultiByte(CP_UTF8, 0, wfdata.cFileName, -1, filename, fn_len, NULL, FALSE)) {
-							if (filename && filename[0] == '.') {
-								free(filename);
-								continue;
-							}
-							size_t buffsize = strlen(filename) + strlen(tdir) + 2;
-							char *fullname = (char*)malloc(buffsize);
-							snprintf(fullname, buffsize, "%s/%s", dir, filename);
-							size_t bufsize = 0;
-							ass_msg(library, MSGL_INFO, "Loading font file '%s'", fullname);
-							void *data = read_file(library, fullname, &bufsize);
-							if (data) {
-								ass_add_font(library, filename, data, bufsize);
-								free(data);
-							}
-							free(fullname);
-						}
-						free(filename);
-					}
-				} while (FindNextFileW(whFind, &wfdata) != 0);
-				FindClose(whFind);
-				free(tdir);
-				free(wdir);
-				return 1;
-			}
-		}
-		free(wdir);
-	}
-	return 0;
+    wlen = MultiByteToWideChar(codePage, 0, tdir, -1, NULL, 0);
+    if (wlen > 0) {
+        wdir = (wchar_t*)malloc(sizeof(wchar_t) * wlen);
+        if (MultiByteToWideChar(codePage, 0, tdir, -1, wdir, wlen)) {
+            whFind = FindFirstFileW(wdir, &wfdata);
+            if (whFind != INVALID_HANDLE_VALUE) {
+                do {
+                    char *filename;
+                    int fn_len;
+                    fn_len = WideCharToMultiByte(CP_UTF8, 0, wfdata.cFileName, -1, NULL, 0, NULL, FALSE);
+                    if (fn_len > 0) {
+                        filename = (char*)malloc(fn_len);
+                        if (WideCharToMultiByte(CP_UTF8, 0, wfdata.cFileName, -1, filename, fn_len, NULL, FALSE)) {
+                            if (filename && filename[0] == '.') {
+                                free(filename);
+                                continue;
+                            }
+                            size_t buffsize = strlen(filename) + strlen(tdir) + 2;
+                            char *fullname = (char*)malloc(buffsize);
+                            snprintf(fullname, buffsize, "%s/%s", dir, filename);
+                            size_t bufsize = 0;
+                            ass_msg(library, MSGL_INFO, "Loading font file '%s'", fullname);
+                            void *data = read_file(library, fullname, &bufsize);
+                            if (data) {
+                                ass_add_font(library, filename, data, bufsize);
+                                free(data);
+                            }
+                            free(fullname);
+                        }
+                        free(filename);
+                    }
+                } while (FindNextFileW(whFind, &wfdata) != 0);
+                FindClose(whFind);
+                free(tdir);
+                free(wdir);
+                return 1;
+            }
+        }
+        free(wdir);
+    }
+    return 0;
 }
 #endif
 
