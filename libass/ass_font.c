@@ -26,6 +26,7 @@
 #include FT_GLYPH_H
 #include FT_TRUETYPE_TABLES_H
 #include FT_OUTLINE_H
+#include FT_TRUETYPE_IDS_H
 #include <limits.h>
 
 #include "ass.h"
@@ -34,6 +35,156 @@
 #include "ass_fontselect.h"
 #include "ass_utils.h"
 #include "ass_shaper.h"
+
+/**
+ *  Get the mbcs codepoint from the output bytes of iconv/WideCharToMultiByte,
+ *  by treating the bytes as a prefix-zero-byte-omitted big-endian integer.
+ */
+static inline uint32_t pack_mbcs_bytes(const char *bytes, size_t length)
+{
+    uint32_t ret = 0;
+    for (size_t i = 0; i < length; ++i) {
+        ret <<= 8;
+        ret |= (uint8_t) bytes[i];
+    }
+    return ret;
+}
+
+/**
+ * Convert a UCS-4 code unit to a packed uint32_t in given multibyte encoding.
+ *
+ * We don't exclude Cygwin for Windows since we use WideCharToMultiByte only,
+ * this shall not violate any Cygwin restrictions on Windows APIs.
+ */
+#if defined(_WIN32)
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+static uint32_t convert_unicode_to_mb(FT_Encoding encoding, uint32_t codepoint)
+{
+    // map freetype encoding to windows codepage
+    UINT codepage;
+    switch (encoding) {
+    case FT_ENCODING_MS_SJIS:
+        codepage = 932;
+        break;
+    case FT_ENCODING_MS_GB2312:
+        codepage = 936;
+        break;
+    case FT_ENCODING_MS_BIG5:
+        codepage = 950;
+        break;
+    case FT_ENCODING_MS_WANSUNG:
+        codepage = 949;
+        break;
+    case FT_ENCODING_MS_JOHAB:
+        codepage = 1361;
+        break;
+    default:
+        return codepoint;
+    }
+
+    WCHAR input_buffer[2];
+    size_t inbuf_size;
+
+    // encode surrogate pair, assuming codepoint > 0 && codepoint <= 10FFFF
+    if (codepoint >= 0x10000) {
+        // surrogate pair required
+        inbuf_size = 2;
+        input_buffer[0] = 0xD7C0 + (codepoint >> 10);
+        input_buffer[1] = 0xDC00 + (codepoint & 0x3FF);
+    } else {
+        inbuf_size = 1;
+        input_buffer[0] = codepoint;
+    }
+
+    // do convert
+    char output_buffer[2];
+    BOOL conversion_fail;
+    int output_length = WideCharToMultiByte(codepage, WC_NO_BEST_FIT_CHARS, input_buffer, inbuf_size,
+                                          output_buffer, sizeof(output_buffer), NULL, &conversion_fail);
+    if (output_length == 0 || conversion_fail)
+        return codepoint;
+
+    return pack_mbcs_bytes(output_buffer, output_length);
+}
+#elif defined(CONFIG_ICONV)
+
+#include <iconv.h>
+
+static uint32_t convert_unicode_to_mb(FT_Encoding encoding, uint32_t codepoint)
+{
+    typedef struct { const char *names[5]; } EncodingList;
+
+    EncodingList encoding_list;
+
+    // map freetype encoding to iconv encoding
+    switch (encoding) {
+    case FT_ENCODING_MS_SJIS:
+        encoding_list = (EncodingList) {{"CP932", "SHIFT_JIS", NULL}};
+        break;
+    case FT_ENCODING_MS_GB2312:
+        encoding_list = (EncodingList) {{"CP936", "GBK", "GB18030", "GB2312", NULL}};
+        break;
+    case FT_ENCODING_MS_BIG5:
+        encoding_list = (EncodingList) {{"CP950", "BIG5", NULL}};
+        break;
+    case FT_ENCODING_MS_WANSUNG:
+        encoding_list = (EncodingList) {{"CP949", "EUC-KR", NULL}};
+        break;
+    case FT_ENCODING_MS_JOHAB:
+        encoding_list = (EncodingList) {{"CP1361", "JOHAB", NULL}};
+        break;
+    default:
+        return codepoint;
+    }
+
+    // open iconv context
+    const char **encoding_str = encoding_list.names;
+    iconv_t cd = (iconv_t) -1;
+    while (*encoding_str) {
+        cd = iconv_open(*encoding_str, "UTF-32LE");
+        if (cd != (iconv_t) -1) break;
+        ++encoding_str;
+    }
+    if (cd == (iconv_t) -1)
+        return codepoint;
+
+    char input_buffer[4];
+    char output_buffer[2]; // MS-flavour encodings only need 2 bytes
+    uint32_t result = codepoint;
+
+    // convert input codepoint to little endian uint32_t bytearray
+    for (int i = 0; i < 4; ++i) {
+        input_buffer[i] = result & 0xFF;
+        result >>= 8;
+    }
+    result = codepoint;
+
+    // do actual convert, only reversible converts are valid, since we are converting unicode to something else
+    size_t inbuf_size = sizeof(input_buffer);
+    size_t outbuf_size = sizeof(output_buffer);
+    char *inbuf = input_buffer;
+    char *outbuf = output_buffer;
+    if (iconv(cd, &inbuf, &inbuf_size, &outbuf, &outbuf_size))
+        goto clean;
+
+    // now we have multibyte string in output_buffer
+    // assemble those bytes into uint32_t
+    size_t output_length = sizeof(output_buffer) - outbuf_size;
+    result = pack_mbcs_bytes(output_buffer, output_length);
+
+clean:
+    iconv_close(cd);
+    return result;
+}
+#else
+static uint32_t convert_unicode_to_mb(FT_Encoding encoding, uint32_t codepoint) {
+    // just a stub
+    return codepoint;
+}
+#endif
 
 /**
  * Select a good charmap, prefer Microsoft Unicode charmaps.
@@ -79,7 +230,7 @@ void charmap_magic(ASS_Library *library, FT_Face face)
 
 /**
  * Adjust char index if the charmap is weird
- * (currently just MS Symbol)
+ * (currently all non-Unicode Microsoft cmap)
  */
 
 uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol)
@@ -87,12 +238,22 @@ uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol)
     if (!face->charmap)
         return symbol;
 
-    switch (face->charmap->encoding) {
-    case FT_ENCODING_MS_SYMBOL:
-        return 0xF000 | symbol;
-    default:
-        return symbol;
+    if (face->charmap->platform_id == TT_PLATFORM_MICROSOFT) {
+        switch (face->charmap->encoding) {
+        case FT_ENCODING_MS_SYMBOL:
+            return 0xF000 | symbol;
+        case FT_ENCODING_MS_SJIS:
+        case FT_ENCODING_MS_GB2312:
+        case FT_ENCODING_MS_BIG5:
+        case FT_ENCODING_MS_WANSUNG:
+        case FT_ENCODING_MS_JOHAB:
+            return convert_unicode_to_mb(face->charmap->encoding, symbol);
+        default:
+            return symbol;
+        }
     }
+
+    return symbol;
 }
 
 static void set_font_metrics(FT_Face face)
