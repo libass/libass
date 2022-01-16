@@ -82,7 +82,7 @@ static uint32_t convert_unicode_to_mb(FT_Encoding encoding, uint32_t codepoint)
         codepage = 1361;
         break;
     default:
-        return codepoint;
+        return 0;
     }
 
     WCHAR input_buffer[2];
@@ -105,7 +105,7 @@ static uint32_t convert_unicode_to_mb(FT_Encoding encoding, uint32_t codepoint)
     int output_length = WideCharToMultiByte(codepage, WC_NO_BEST_FIT_CHARS, input_buffer, inbuf_size,
                                           output_buffer, sizeof(output_buffer), NULL, &conversion_fail);
     if (output_length == 0 || conversion_fail)
-        return codepoint;
+        return 0;
 
     return pack_mbcs_bytes(output_buffer, output_length);
 }
@@ -137,7 +137,7 @@ static uint32_t convert_unicode_to_mb(FT_Encoding encoding, uint32_t codepoint)
         encoding_list = (EncodingList) {{"CP1361", "JOHAB", NULL}};
         break;
     default:
-        return codepoint;
+        return 0;
     }
 
     // open iconv context
@@ -149,18 +149,18 @@ static uint32_t convert_unicode_to_mb(FT_Encoding encoding, uint32_t codepoint)
         ++encoding_str;
     }
     if (cd == (iconv_t) -1)
-        return codepoint;
+        return 0;
 
     char input_buffer[4];
     char output_buffer[2]; // MS-flavour encodings only need 2 bytes
     uint32_t result = codepoint;
 
-    // convert input codepoint to little endian uint32_t bytearray
+    // convert input codepoint to little endian uint32_t bytearray,
+    // result becomes 0 after the loop finishes
     for (int i = 0; i < 4; ++i) {
         input_buffer[i] = result & 0xFF;
         result >>= 8;
     }
-    result = codepoint;
 
     // do actual convert, only reversible converts are valid, since we are converting unicode to something else
     size_t inbuf_size = sizeof(input_buffer);
@@ -182,7 +182,8 @@ clean:
 #else
 static uint32_t convert_unicode_to_mb(FT_Encoding encoding, uint32_t codepoint) {
     // just a stub
-    return codepoint;
+    // we can't handle this cmap, fallback
+    return 0;
 }
 #endif
 
@@ -578,7 +579,9 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
 
     for (i = 0; i < font->n_faces && index == 0; ++i) {
         face = font->faces[i];
-        index = FT_Get_Char_Index(face, ass_font_index_magic(face, symbol));
+        index = ass_font_index_magic(face, symbol);
+        if (index)
+            index = FT_Get_Char_Index(face, index);
         if (index)
             *face_index = i;
     }
@@ -592,14 +595,19 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
         face_idx = *face_index = add_face(fontsel, font, symbol);
         if (face_idx >= 0) {
             face = font->faces[face_idx];
-            index = FT_Get_Char_Index(face, ass_font_index_magic(face, symbol));
+            index = ass_font_index_magic(face, symbol);
+            if (index)
+                index = FT_Get_Char_Index(face, index);
             if (index == 0 && face->num_charmaps > 0) {
                 int i;
                 ass_msg(font->library, MSGL_WARN,
                     "Glyph 0x%X not found, broken font? Trying all charmaps", symbol);
                 for (i = 0; i < face->num_charmaps; i++) {
                     FT_Set_Charmap(face, face->charmaps[i]);
-                    if ((index = FT_Get_Char_Index(face, ass_font_index_magic(face, symbol))) != 0) break;
+                    index = ass_font_index_magic(face, symbol);
+                    if (index)
+                        index = FT_Get_Char_Index(face, index);
+                    if (index) break;
                 }
             }
             if (index == 0) {
