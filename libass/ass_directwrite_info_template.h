@@ -40,7 +40,7 @@ static bool NAME(FONT_TYPE)(FONT_TYPE *font,
 
     if (exists) {
         meta->n_fullname = IDWriteLocalizedStrings_GetCount(fontNames);
-        meta->fullnames = (char **) calloc(meta->n_fullname, sizeof(char *));
+        meta->fullnames = calloc(meta->n_fullname, sizeof(char *));
         if (!meta->fullnames) {
             IDWriteLocalizedStrings_Release(fontNames);
             return false;
@@ -69,7 +69,7 @@ static bool NAME(FONT_TYPE)(FONT_TYPE *font,
         return false;
 
     meta->n_family = IDWriteLocalizedStrings_GetCount(familyNames);
-    meta->families = (char **) calloc(meta->n_family, sizeof(char *));
+    meta->families = calloc(meta->n_family, sizeof(char *));
     if (!meta->families) {
         IDWriteLocalizedStrings_Release(familyNames);
         return false;

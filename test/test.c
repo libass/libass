@@ -77,7 +77,7 @@ static void write_png(char *fname, image_t *img)
 
     png_set_bgr(png_ptr);
 
-    row_pointers = (png_byte **) malloc(img->height * sizeof(png_byte *));
+    row_pointers = malloc(img->height * sizeof(png_byte *));
     for (k = 0; k < img->height; k++)
         row_pointers[k] = img->buffer + img->stride * k;
 
@@ -118,7 +118,7 @@ static image_t *gen_image(int width, int height)
     img->width = width;
     img->height = height;
     img->stride = width * 3;
-    img->buffer = (unsigned char *) calloc(1, height * width * 3);
+    img->buffer = calloc(1, height * width * 3);
     memset(img->buffer, 63, img->stride * img->height);
     //for (int i = 0; i < height * width * 3; ++i)
     // img->buffer[i] = (i/3/50) % 100;

@@ -482,7 +482,7 @@ static char *get_utf8_name(IDWriteLocalizedStrings *names, int k)
     if (length >= (UINT32) -1 || length + (size_t) 1 > SIZE_MAX / sizeof(wchar_t))
         goto cleanup;
 
-    temp_name = (wchar_t *) malloc((length + 1) * sizeof(wchar_t));
+    temp_name = malloc((length + 1) * sizeof(wchar_t));
     if (!temp_name)
         goto cleanup;
 
@@ -495,7 +495,7 @@ static char *get_utf8_name(IDWriteLocalizedStrings *names, int k)
     if (!size_needed)
         goto cleanup;
 
-    mbName = (char *) malloc(size_needed);
+    mbName = malloc(size_needed);
     if (!mbName)
         goto cleanup;
 
@@ -616,7 +616,7 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
             goto cleanup;
     }
 
-    FontPrivate *font_priv = (FontPrivate *) calloc(1, sizeof(*font_priv));
+    FontPrivate *font_priv = calloc(1, sizeof(*font_priv));
     if (!font_priv)
         goto cleanup;
 
@@ -815,7 +815,7 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
     if (!get_font_info_IDWriteFont(font, fontFamily, &meta))
         goto cleanup;
 
-    FontPrivate *font_priv = (FontPrivate *) calloc(1, sizeof(*font_priv));
+    FontPrivate *font_priv = calloc(1, sizeof(*font_priv));
     if (!font_priv)
         goto cleanup;
     font_priv->font = font;
@@ -1086,7 +1086,7 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
         goto cleanup;
     }
 
-    priv = (ProviderPrivate *)calloc(sizeof(*priv), 1);
+    priv = calloc(sizeof(*priv), 1);
     if (!priv)
         goto cleanup;
 
