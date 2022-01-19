@@ -21,7 +21,6 @@
 #include "ass_compat.h"
 
 #include <initguid.h>
-#include <wchar.h>
 
 #include "dwrite_c.h"
 
@@ -739,7 +738,23 @@ static int CALLBACK font_enum_proc(const ENUMLOGFONTW *lpelf,
     WCHAR selected_name[LF_FACESIZE];
     if (!GetTextFaceW(hdc, LF_FACESIZE, selected_name))
         goto cleanup;
-    if (wcsncmp(selected_name, lpelf->elfLogFont.lfFaceName, LF_FACESIZE)) {
+
+#ifdef ASS_WINAPI_DESKTOP
+    // CompareStringOrdinal is only available since Vista,
+    // meaning we can't just link to it directly on non UWP
+    HMODULE kernel_lib = NULL;
+    GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, "kernel32", &kernel_lib);
+    if (!kernel_lib)
+        goto cleanup;
+    typedef int (*CompareStringOrdinalFn)(LPCWCH, int, LPCWCH, int, BOOL);
+    CompareStringOrdinalFn CompareStringOrdinal =
+            (CompareStringOrdinalFn) GetProcAddress(kernel_lib, "CompareStringOrdinal");
+    if (!CompareStringOrdinal)
+        goto cleanup;
+#endif
+
+    if (CompareStringOrdinal(selected_name, -1, lpelf->elfLogFont.lfFaceName, -1, FALSE)
+            != CSTR_EQUAL) {
         // A different font was selected. This can happen if the requested
         // name is subject to charset-specific font substitution while
         // EnumFont... enumerates additional charsets contained in the font.
