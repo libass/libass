@@ -28,7 +28,7 @@
 #include "ass_directwrite.h"
 #include "ass_utils.h"
 
-#define FALLBACK_DEFAULT_FONT L"Arial"
+#define FALLBACK_DEFAULT_FONT u"Arial"
 
 static const ASS_FontMapping font_substitutions[] = {
     {"sans-serif", "Arial"},
@@ -457,7 +457,7 @@ static void destroy_font(void *data)
     free(priv);
 }
 
-static int encode_utf16(wchar_t *chars, uint32_t codepoint)
+static int encode_utf16(WCHAR *chars, uint32_t codepoint)
 {
     if (codepoint < 0x10000) {
         chars[0] = codepoint;
@@ -471,7 +471,7 @@ static int encode_utf16(wchar_t *chars, uint32_t codepoint)
 
 static char *get_utf8_name(IDWriteLocalizedStrings *names, int k)
 {
-    wchar_t *temp_name = NULL;
+    WCHAR *temp_name = NULL;
     char *mbName = NULL;
 
     UINT32 length;
@@ -479,10 +479,10 @@ static char *get_utf8_name(IDWriteLocalizedStrings *names, int k)
     if (FAILED(hr))
         goto cleanup;
 
-    if (length >= (UINT32) -1 || length + (size_t) 1 > SIZE_MAX / sizeof(wchar_t))
+    if (length >= (UINT32) -1 || length + (size_t) 1 > SIZE_MAX / sizeof(WCHAR))
         goto cleanup;
 
-    temp_name = malloc((length + 1) * sizeof(wchar_t));
+    temp_name = malloc((length + 1) * sizeof(WCHAR));
     if (!temp_name)
         goto cleanup;
 
@@ -520,13 +520,13 @@ static char *get_fallback(void *priv, ASS_Library *lib,
 
     hr = IDWriteFactory_CreateTextFormat(dw_factory, FALLBACK_DEFAULT_FONT, NULL,
             DWRITE_FONT_WEIGHT_MEDIUM, DWRITE_FONT_STYLE_NORMAL,
-            DWRITE_FONT_STRETCH_NORMAL, 1.0f, L"", &text_format);
+            DWRITE_FONT_STRETCH_NORMAL, 1.0f, u"", &text_format);
     if (FAILED(hr)) {
         return NULL;
     }
 
     // Encode codepoint as UTF-16
-    wchar_t char_string[2];
+    WCHAR char_string[2];
     int char_len = encode_utf16(char_string, codepoint);
 
     // Create a text_layout, a high-level text rendering facility, using
@@ -736,7 +736,7 @@ static int CALLBACK font_enum_proc(const ENUMLOGFONTW *lpelf,
     if (!SelectObject(hdc, hFont))
         goto cleanup;
 
-    wchar_t selected_name[LF_FACESIZE];
+    WCHAR selected_name[LF_FACESIZE];
     if (!GetTextFaceW(hdc, LF_FACESIZE, selected_name))
         goto cleanup;
     if (wcsncmp(selected_name, lpelf->elfLogFont.lfFaceName, LF_FACESIZE)) {
@@ -935,7 +935,7 @@ static void match_fonts(void *priv, ASS_Library *lib,
             DWRITE_FONT_PROPERTY property = {
                 property_ids[i],
                 lf.lfFaceName,
-                L"",
+                u"",
             };
 
             IDWriteFontSet *filteredSet;
