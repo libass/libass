@@ -100,8 +100,8 @@ jobs:
             windows-*)
               pre="${{ matrix.package_prefix }}"
               pacman --noconfirm -S \
-                      automake autoconf nasm make \
-                      $pre-libtool $pre-pkg-config $pre-gcc \
+                      automake autoconf libtool nasm make \
+                      $pre-pkg-config $pre-gcc \
                       $pre-fribidi $pre-freetype $pre-harfbuzz $pre-fontconfig
               ;;
             alpine:*)
