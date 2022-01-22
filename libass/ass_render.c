@@ -1685,11 +1685,18 @@ wrap_lines_naive(ASS_Renderer *render_priv, double max_text_width, char *unibrks
             // marking break_at+1 as start of a new line
             int lead = break_at + 1;    // the first symbol of the new line
             if (text_info->n_lines >= text_info->max_lines) {
-                // Raise maximum number of lines
-                text_info->max_lines *= 2;
-                text_info->lines = realloc(text_info->lines,
-                                           sizeof(LineInfo) *
-                                           text_info->max_lines);
+                // Try to raise the maximum number of lines
+                bool success = false;
+                if (text_info->max_lines <= INT_MAX / 2) {
+                    text_info->max_lines *= 2;
+                    success = ASS_REALLOC_ARRAY(text_info->lines, text_info->max_lines);
+                }
+                // If realloc fails it's screwed and due to error-info not propagating (FIXME),
+                // the best we can do is to avoid UB by discarding the previous break
+                if (!success) {
+                    s1->linebreak = 0;
+                    text_info->n_lines--;
+                }
             }
             if (lead < text_info->length) {
                 text_info->glyphs[lead].linebreak = break_type;
