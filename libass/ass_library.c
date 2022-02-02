@@ -95,24 +95,24 @@ void ass_set_style_overrides(ASS_Library *priv, char **list)
         *q = strdup(*p);
 }
 
-void ass_add_font(ASS_Library *priv, const char *name, const char *data, int size)
+void ass_add_font(ASS_Library *library, const char *name, const char *data, int data_size)
 {
     size_t idx = priv->num_fontdata;
-    if (!name || !data || !size)
+    if (!name || !data || !data_size)
         return;
     if (!(idx & (idx - 32)) && // power of two >= 32, or zero --> time for realloc
             !ASS_REALLOC_ARRAY(priv->fontdata, FFMAX(2 * idx, 32)))
         return;
 
     priv->fontdata[idx].name = strdup(name);
-    priv->fontdata[idx].data = malloc(size);
+    priv->fontdata[idx].data = malloc(data_size);
 
     if (!priv->fontdata[idx].name || !priv->fontdata[idx].data)
         goto error;
 
-    memcpy(priv->fontdata[idx].data, data, size);
+    memcpy(priv->fontdata[idx].data, data, data_size);
 
-    priv->fontdata[idx].size = size;
+    priv->fontdata[idx].size = data_size;
 
     priv->num_fontdata++;
     return;
