@@ -2582,10 +2582,10 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
 
 static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
 {
-    double size_x = render_priv->state.shadow_x > 0 ?
-                    render_priv->state.shadow_x * render_priv->border_scale : 0;
-    double size_y = render_priv->state.shadow_y > 0 ?
-                    render_priv->state.shadow_y * render_priv->border_scale : 0;
+    int size_x = render_priv->state.shadow_x > 0 ?
+        lround(render_priv->state.shadow_x * render_priv->border_scale) : 0;
+    int size_y = render_priv->state.shadow_y > 0 ?
+        lround(render_priv->state.shadow_y * render_priv->border_scale) : 0;
     int left    = event_images->left - size_x;
     int top     = event_images->top  - size_y;
     int right   = event_images->left + event_images->width  + size_x;
