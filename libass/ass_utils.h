@@ -50,7 +50,7 @@
 
 #define FEATURE_MASK(feat) (((uint32_t) 1) << (feat))
 
-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+#if CONFIG_ASM && ARCH_X86
 int has_sse2(void);
 int has_avx(void);
 int has_avx2(void);

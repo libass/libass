@@ -322,6 +322,9 @@ AM_CONDITIONAL([DIRECTWRITE], [test "x$directwrite" = xtrue])
 ## Define C Macros not relating to libraries
 AM_COND_IF([ASM], [
     AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])
+    AM_COND_IF([X86], [
+        AC_DEFINE(ARCH_X86, 1, [targeting a 32- or 64-bit x86 host architecture])
+    ])
 ], [
     AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])
 ])

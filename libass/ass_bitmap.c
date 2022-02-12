@@ -42,7 +42,7 @@
 #undef ALIGN
 #undef DECORATE
 
-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+#if CONFIG_ASM && ARCH_X86
 
 #define ALIGN           4
 #define DECORATE(func)  ass_##func##_sse2
