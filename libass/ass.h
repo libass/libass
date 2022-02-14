@@ -330,6 +330,11 @@ void ass_set_message_cb(ASS_Library *priv, void (*msg_cb)
  * \brief Initialize the renderer.
  * \param priv library handle
  * \return renderer handle or NULL if failed
+ *
+ * NOTE: before rendering starts the renderer should also be
+ *       configured with at least ass_set_storage_size(),
+ *       ass_set_frame_size() and ass_set_fonts();
+ *       see respective docs.
  */
 ASS_Renderer *ass_renderer_init(ASS_Library *);
 
@@ -350,6 +355,8 @@ void ass_renderer_done(ASS_Renderer *priv);
  * \param priv renderer handle
  * \param w width
  * \param h height
+ *
+ * NOTE: frame size must be configured before an ASS_Renderer can be used.
  */
 void ass_set_frame_size(ASS_Renderer *priv, int w, int h);
 
@@ -359,10 +366,15 @@ void ass_set_frame_size(ASS_Renderer *priv, int w, int h);
  * The source image size can be reset to default by setting w and h to 0.
  * The value set with this function can influence the pixel aspect ratio used
  * for rendering.
+ * The values must be the actual storage size of the video stream,
+ * without any anamorphic de-squeeze applied.
  * @see ass_set_pixel_aspect()
  * \param priv renderer handle
  * \param w width
  * \param h height
+ *
+ * NOTE: storage size must be configured to get correct results,
+ *       otherwise libass is forced to make a fallible guess.
  */
 void ass_set_storage_size(ASS_Renderer *priv, int w, int h);
 
