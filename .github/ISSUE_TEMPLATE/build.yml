@@ -1,0 +1,109 @@
+name: Build problem
+description: Report an issue building libass
+title: 'build: '
+labels: build
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Thanks for filing an issue!
+        To help us determine what's causing your issue, please take your time to read
+        and fill out everything with as much detail as you can.
+
+        If you're encountering the issue with an old version of libass,
+        please retest with current git master or the latest release if possible.
+
+  - type: input
+    id: libass-version
+    validations:
+      required: true
+    attributes:
+      label: libass version
+      description: >
+        What version of libass are you encountering this issue on?
+        Ideally the full git commit hash is referenced or the
+        exact release number if building from a release tarball.
+
+  - type: input
+    id: libass-regression
+    attributes:
+      label: Is it a regression?
+      description: >
+        If known: Did previous libass versions also have the same issue?
+        Or is this a recent change (since when)?
+
+  - type: input
+    id: config-cmd
+    validations:
+      required: true
+    attributes:
+      label: How did you invoke configure?
+      description: >
+        Please show the full invocation with all
+        arguments and set environment variables.
+
+  - type: textarea
+    id: system
+    validations:
+      required: true
+    attributes:
+      label: System Information
+      description: >
+        Tell us what system you were building on and
+        what system you were building for if different.
+        Include the CPU architecture, OS version, update level if applicable
+        and other relevant information.
+      placeholder: |
+        examples:
+         - building on and for MacOS 10.5 with a 64bit PowerPC CPU
+         - cross-building on Debian 10 Buster with a big-endian 32bit MIPS CPU
+           for 32bit x86 MS Windows XP SP3 using mingw-w64
+         - ...
+
+  - type: textarea
+    id: toolchain
+    validations:
+      required: true
+    attributes:
+      label: Toolchain
+      description: >
+        What compiler and linker did you use?
+        Which versions of those *(run e.g. `gcc --version` and `ld -V`)*?        
+
+  - type: textarea
+    id: error-log
+    validations:
+      required: true
+    attributes:
+      label: Log of the error
+      description: >
+        Copy the log of the error messages you encountered and make sure to
+        include also plenty of the surrounding log lines.
+        Also tell us what exact command resulted in the error.
+      placeholder: |
+        ```
+        <log here>
+        ```
+
+  # Uploads are only possible in textareas not inputs
+  - type: textarea
+    id: config-log
+    attributes:
+      label: Configuration log
+      description: >
+        Sometimes the above information may not be enough to determine what went wrong
+        and we may ask you to upload the `config.log` file which was generated after `configure`
+        was run. It contains verbose information about the configuration process and determined
+        system information. You can also already upload this file now to save some time later.
+
+        Do **not** copy paste the contents into the below field!
+        Instead rename `config.log` to `config.log.txt` and upload the renamed file.
+
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional info
+      description: >
+        Feel free to add anything else that may be useful.
