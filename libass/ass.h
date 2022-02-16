@@ -450,7 +450,8 @@ void ass_set_pixel_aspect(ASS_Renderer *priv, double par);
  * \param dar display aspect ratio (DAR), prescaled for output PAR
  * \param sar storage aspect ratio (SAR)
  */
-ASS_DEPRECATED("use 'ass_set_pixel_aspect' instead") void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar);
+ASS_DEPRECATED("use 'ass_set_pixel_aspect' instead")
+void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar);
 
 /**
  * \brief Set a fixed font scaling factor.
@@ -549,7 +550,8 @@ void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style);
  * \param priv renderer handle
  * \return success
  */
-ASS_DEPRECATED("it does nothing") int ass_fonts_update(ASS_Renderer *priv);
+ASS_DEPRECATED("it does nothing")
+int ass_fonts_update(ASS_Renderer *priv);
 
 /**
  * \brief Set hard cache limits.  Do not set, or set to zero, for reasonable
