@@ -677,10 +677,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
         return;
     }
     Bitmap *clip_bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, render_priv);
-    if (!clip_bm || !clip_bm->buffer) {
-        ass_cache_dec_ref(clip_bm);
+    if (!clip_bm)
         return;
-    }
 
     // Iterate through bitmaps and blend/clip them
     for (ASS_Image *cur = head; cur; cur = cur->next) {
