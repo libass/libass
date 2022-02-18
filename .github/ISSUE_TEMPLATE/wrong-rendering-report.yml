@@ -13,7 +13,7 @@ body:
         and fill out everything with as much detail as you can.
 
         If you're encountering the problem with an old version of libass,
-        please retest with current git-master or the latest release if possible.
+        please retest with current git master or the latest release if possible.
         Also, if you have the chance to:
 
         **Compare to VSFilter**
@@ -51,7 +51,7 @@ body:
       description: >
         What version of libass are you encountering this issue on?
         If you aren't sure how to find this out, give precise information
-        on your player, its version and where you got the player-binary from.
+        on your player, its version and where you got the player binary from.
 
         If you uploaded a correct screenshot for comparison and haven't told us already,
         please also specify what renderer and which version of it gave you the correct result.
@@ -79,7 +79,7 @@ body:
         try to upload a short cut from the video file that we can play to see the problem.
         You can use tools such as MKVToolNix to make a smaller cut from a large file.
       placeholder: |
-        If it isn't too long paste the ASS-excerpt enclosed in triple-backticks as below, or upload a sample file
+        If it isn't too long paste the ASS excerpt enclosed in triple backticks as below, or upload a sample file
 
         ```
         [Script Info]
