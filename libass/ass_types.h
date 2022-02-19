@@ -207,6 +207,9 @@ typedef struct ass_track {
     ASS_Library *library;
     ASS_ParserPriv *parser_priv;
 
+    int LayoutResX;
+    int LayoutResY;
+
     // New fields can be added here in new ABI-compatible library releases.
 } ASS_Track;
 

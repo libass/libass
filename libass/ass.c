@@ -406,6 +406,10 @@ void ass_process_force_style(ASS_Track *track)
             track->PlayResX = atoi(token);
         else if (!ass_strcasecmp(*fs, "PlayResY"))
             track->PlayResY = atoi(token);
+        else if (!ass_strcasecmp(*fs, "LayoutResX"))
+            track->LayoutResX = atoi(token);
+        else if (!ass_strcasecmp(*fs, "LayoutResY"))
+            track->LayoutResY = atoi(token);
         else if (!ass_strcasecmp(*fs, "Timer"))
             track->Timer = ass_atof(token);
         else if (!ass_strcasecmp(*fs, "WrapStyle"))
@@ -681,6 +685,12 @@ static int process_info_line(ASS_Track *track, char *str)
     } else if (!strncmp(str, "PlayResY:", 9)) {
         check_duplicate_info_line(track, SINFO_PLAYRESY, "PlayResY");
         track->PlayResY = atoi(str + 9);
+    } else if (!strncmp(str, "LayoutResX:", 11)) {
+        check_duplicate_info_line(track, SINFO_LAYOUTRESX, "LayoutResX");
+        track->LayoutResX = atoi(str + 11);
+    } else if (!strncmp(str, "LayoutResY:", 11)) {
+        check_duplicate_info_line(track, SINFO_LAYOUTRESY, "LayoutResY");
+        track->LayoutResY = atoi(str + 11);
     } else if (!strncmp(str, "Timer:", 6)) {
         check_duplicate_info_line(track, SINFO_TIMER, "Timer");
         track->Timer = ass_atof(str + 6);
@@ -1573,10 +1583,15 @@ void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track)
     if (track->PlayResX > 0 && track->PlayResY > 0)
         return;
     if (track->PlayResX <= 0 && track->PlayResY <= 0) {
-        ass_msg(lib, MSGL_WARN,
-               "Neither PlayResX nor PlayResY defined. Assuming 384x288");
-        track->PlayResX = 384;
-        track->PlayResY = 288;
+        if (track->LayoutResX > 0 && track->LayoutResY > 0) {
+            track->PlayResX = track->LayoutResX;
+            track->PlayResY = track->LayoutResY;
+        } else {
+            ass_msg(lib, MSGL_WARN,
+                   "Neither PlayResX nor PlayResY defined. Assuming 384x288");
+            track->PlayResX = 384;
+            track->PlayResY = 288;
+        }
     } else {
         if (track->PlayResY <= 0 && track->PlayResX == 1280) {
             track->PlayResY = 1024;

@@ -959,6 +959,19 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     return new;
 }
 
+static inline ASS_Vector get_layout_res(ASS_Renderer *render_priv)
+{
+    ASS_Track *track = render_priv->track;
+    if (track->LayoutResX > 0 && track->LayoutResY > 0)
+        return (ASS_Vector) { track->LayoutResX, track->LayoutResY };
+
+    ASS_Settings *settings = &render_priv->settings;
+    if (settings->storage_width > 0 && settings->storage_height > 0)
+        return (ASS_Vector) { settings->storage_width, settings->storage_height };
+
+    return (ASS_Vector) { track->PlayResX, track->PlayResY };
+}
+
 static void init_font_scale(ASS_Renderer *render_priv)
 {
     ASS_Settings *settings_priv = &render_priv->settings;
@@ -968,10 +981,7 @@ static void init_font_scale(ASS_Renderer *render_priv)
         font_scr_h = render_priv->fit_height;
 
     render_priv->font_scale = font_scr_h / render_priv->track->PlayResY;
-    if (settings_priv->storage_height)
-        render_priv->blur_scale = font_scr_h / settings_priv->storage_height;
-    else
-        render_priv->blur_scale = font_scr_h / render_priv->track->PlayResY;
+    render_priv->blur_scale = font_scr_h / get_layout_res(render_priv).y;
     if (render_priv->track->ScaledBorderAndShadow)
         render_priv->border_scale =
             font_scr_h / render_priv->track->PlayResY;
@@ -2852,8 +2862,6 @@ static bool
 ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
                 long long now)
 {
-    ASS_Settings *settings_priv = &render_priv->settings;
-
     if (!render_priv->settings.frame_width
         && !render_priv->settings.frame_height)
         return false;               // library not initialized
@@ -2890,13 +2898,12 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
 
     // PAR correction
     double par = render_priv->settings.par;
-    if (par == 0.) {
-        if (render_priv->orig_width && render_priv->orig_height &&
-            settings_priv->storage_width && settings_priv->storage_height) {
+    if (par == 0 || (track->LayoutResX > 0 && track->LayoutResY > 0)) {
+        if (render_priv->orig_width && render_priv->orig_height) {
             double dar = ((double) render_priv->orig_width) /
                          render_priv->orig_height;
-            double sar = ((double) settings_priv->storage_width) /
-                         settings_priv->storage_height;
+            ASS_Vector layout_res = get_layout_res(render_priv);
+            double sar = (double) layout_res.x / layout_res.y;
             par = dar / sar;
         } else
             par = 1.0;
