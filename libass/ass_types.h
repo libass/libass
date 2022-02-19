@@ -283,6 +283,9 @@ typedef struct ass_track {
     ASS_Library *library;
     ASS_ParserPriv *parser_priv;
 
+    int LayoutResX;  // overrides values from ass_set_storage_size and
+    int LayoutResY;  // also takes precendence over ass_set_pixel_aspect
+
     // New fields can be added here in new ABI-compatible library releases.
 } ASS_Track;
 

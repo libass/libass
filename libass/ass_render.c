@@ -1002,11 +1002,14 @@ static ASS_Style *handle_selective_style_overrides(RenderContext *state,
 
 ASS_Vector ass_layout_res(ASS_Renderer *render_priv)
 {
+    ASS_Track *track = render_priv->track;
+    if (track->LayoutResX > 0 && track->LayoutResY > 0)
+        return (ASS_Vector) { track->LayoutResX, track->LayoutResY };
+
     ASS_Settings *settings = &render_priv->settings;
     if (settings->storage_width > 0 && settings->storage_height > 0)
         return (ASS_Vector) { settings->storage_width, settings->storage_height };
 
-    ASS_Track *track = render_priv->track;
     if (settings->par <= 0 || settings->par == 1 ||
             !render_priv->frame_content_width || !render_priv->frame_content_height)
         return (ASS_Vector) { track->PlayResX, track->PlayResY };
@@ -3109,9 +3112,10 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
 
     // PAR correction
     double par = render_priv->settings.par;
-    if (par == 0.) {
-        if (render_priv->frame_content_width && render_priv->frame_content_height &&
-                render_priv->settings.storage_width && render_priv->settings.storage_height) {
+    bool lr_track = track->LayoutResX > 0 && track->LayoutResY > 0;
+    if (par == 0. || lr_track) {
+        if (render_priv->frame_content_width && render_priv->frame_content_height && (lr_track ||
+                (render_priv->settings.storage_width && render_priv->settings.storage_height))) {
             double dar = ((double) render_priv->frame_content_width) /
                          render_priv->frame_content_height;
             ASS_Vector layout_res = ass_layout_res(render_priv);

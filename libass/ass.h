@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01600010
+#define LIBASS_VERSION 0x01600020
 
 #ifdef __cplusplus
 extern "C" {
@@ -392,6 +392,7 @@ void ass_set_frame_size(ASS_Renderer *priv, int w, int h);
  * \brief Set the source image size in pixels.
  * This affects some ASS tags like e.g. 3D transforms and
  * is used to calculate the source aspect ratio and blur scale.
+ * If subtitles specify valid LayoutRes* headers, those will take precedence.
  * The source image size can be reset to default by setting w and h to 0.
  * The value set with this function can influence the pixel aspect ratio used
  * for rendering.
@@ -461,6 +462,11 @@ void ass_set_use_margins(ASS_Renderer *priv, int use);
  * that this default assumes the frame size after compensating for margins
  * corresponds to an isotropically scaled version of the video display size.
  * If the storage size has not been set, a pixel aspect ratio of 1 is assumed.
+ *
+ * If subtitles specify valid LayoutRes* headers, the API-configured
+ * pixel aspect value is discarded in favour of one calculated out of the
+ * headers and values set with ass_set_frame_size().
+ *
  * \param priv renderer handle
  * \param par pixel aspect ratio (1.0 means square pixels, 0 means default)
  */

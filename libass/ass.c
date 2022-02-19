@@ -543,6 +543,10 @@ void ass_process_force_style(ASS_Track *track)
             track->PlayResX = parse_int_header(token);
         else if (!ass_strcasecmp(*fs, "PlayResY"))
             track->PlayResY = parse_int_header(token);
+        else if (!ass_strcasecmp(*fs, "LayoutResX"))
+            track->LayoutResX = parse_int_header(token);
+        else if (!ass_strcasecmp(*fs, "LayoutResY"))
+            track->LayoutResY = parse_int_header(token);
         else if (!ass_strcasecmp(*fs, "Timer"))
             track->Timer = ass_atof(token);
         else if (!ass_strcasecmp(*fs, "WrapStyle"))
@@ -848,6 +852,12 @@ static int process_info_line(ASS_Track *track, char *str)
     } else if (!strncmp(str, "PlayResY:", 9)) {
         check_duplicate_info_line(track, SINFO_PLAYRESY, "PlayResY");
         track->PlayResY = parse_int_header(str + 9);
+    } else if (!strncmp(str, "LayoutResX:", 11)) {
+        check_duplicate_info_line(track, SINFO_LAYOUTRESX, "LayoutResX");
+        track->LayoutResX = parse_int_header(str + 11);
+    } else if (!strncmp(str, "LayoutResY:", 11)) {
+        check_duplicate_info_line(track, SINFO_LAYOUTRESY, "LayoutResY");
+        track->LayoutResY = parse_int_header(str + 11);
     } else if (!strncmp(str, "Timer:", 6)) {
         check_duplicate_info_line(track, SINFO_TIMER, "Timer");
         track->Timer = ass_atof(str + 6);

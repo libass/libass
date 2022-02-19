@@ -42,6 +42,8 @@ typedef enum {
     SINFO_COLOURMATRIX = 1 << 6,
     SINFO_KERNING      = 1 << 7,
     SINFO_SCRIPTTYPE   = 1 << 8,
+    SINFO_LAYOUTRESX   = 1 << 9,
+    SINFO_LAYOUTRESY   = 1 << 10,
     // for legacy detection
     GENBY_FFMPEG       = 1 << 14
     // max 32 enumerators
