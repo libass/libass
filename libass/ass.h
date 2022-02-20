@@ -207,6 +207,7 @@ int ass_library_version(void);
  * NONE don't use any default font provider for font lookup
  * AUTODETECT use the first available font provider
  * CORETEXT force a CoreText based font provider (OS X only)
+ * DIRECTWRITE force a DirectWrite based font provider (Microsoft Win32 only)
  * FONTCONFIG force a Fontconfig based font provider
  *
  * libass uses the best shaper available by default.
@@ -279,7 +280,7 @@ void ass_library_done(ASS_Library *priv);
 
 /**
  * \brief Set additional fonts directory.
- * Optional directory that will be scanned for fonts recursively.  The fonts
+ * Optional directory that will be scanned for fonts.  The fonts
  * found are used for font lookup.
  * NOTE: A valid font directory is not needed to support embedded fonts.
  *
@@ -366,7 +367,8 @@ void ass_set_frame_size(ASS_Renderer *priv, int w, int h);
 
 /**
  * \brief Set the source image size in pixels.
- * This is used to calculate the source aspect ratio and the blur scale.
+ * This affects some ASS tags like e.g. 3D transforms and
+ * is used to calculate the source aspect ratio and blur scale.
  * The source image size can be reset to default by setting w and h to 0.
  * The value set with this function can influence the pixel aspect ratio used
  * for rendering.
@@ -430,7 +432,7 @@ void ass_set_use_margins(ASS_Renderer *priv, int use);
  * \brief Set pixel aspect ratio correction.
  * This is the ratio of pixel width to pixel height.
  *
- * Generally, this is (s_w / s_h) / (d_w / d_h), where s_w and s_h is the
+ * Generally, this is (d_w / d_h) / (s_w / s_h), where s_w and s_h is the
  * video storage size, and d_w and d_h is the video display size. (Display
  * and storage size can be different for anamorphic video, such as DVDs.)
  *
@@ -502,8 +504,8 @@ void ass_get_available_font_providers(ASS_Library *priv,
 /**
  * \brief Set font lookup defaults.
  * \param default_font path to default font to use. Must be supplied if
- * fontconfig is disabled or unavailable.
- * \param default_family fallback font family for fontconfig, or NULL
+ * all system fontproviders are disabled or unavailable.
+ * \param default_family fallback font family, or NULL
  * \param dfp which font provider to use (one of ASS_DefaultFontProvider). In
  * older libass version, this could be 0 or 1, where 1 enabled fontconfig.
  * Newer relases also accept 0 (ASS_FONTPROVIDER_NONE) and 1
@@ -574,7 +576,7 @@ void ass_set_cache_limits(ASS_Renderer *priv, int glyph_max,
  * \param track subtitle track
  * \param now video timestamp in milliseconds
  * \param detect_change compare to the previous call and set to 1
- * if positions changed, or set to 2 if content changed.
+ * if positions may have changed, or set to 2 if content may have changed.
  */
 ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
                             long long now, int *detect_change);
