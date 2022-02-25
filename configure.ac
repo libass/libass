@@ -66,7 +66,7 @@ pkg_libs="$LIBS"
 
 ## Check for libraries via pkg-config and add to pkg_requires as needed
 PKG_CHECK_MODULES([FREETYPE], [freetype2 >= 9.17.3], [
-    pkg_requires="freetype2 >= 9.10.3"
+    pkg_requires="freetype2 >= 9.17.3"
     CFLAGS="$CFLAGS $FREETYPE_CFLAGS"
     LIBS="$LIBS $FREETYPE_LIBS"
     AC_DEFINE(CONFIG_FREETYPE, 1, [found freetype2 via pkg-config])
