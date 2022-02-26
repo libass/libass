@@ -88,14 +88,14 @@ static void be_blur_post(uint8_t *buf, intptr_t stride, intptr_t width, intptr_t
 }
 
 void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
-                    int be, double blur_r2)
+                    int be, double blur_r2x, double blur_r2y)
 {
     if (!bm->buffer)
         return;
 
     // Apply gaussian blur
-    if (blur_r2 > 0.001)
-        ass_gaussian_blur(engine, bm, blur_r2);
+    if (blur_r2x > 0.001 || blur_r2y > 0.001)
+        ass_gaussian_blur(engine, bm, blur_r2x, blur_r2y);
 
     if (!be)
         return;

@@ -529,17 +529,22 @@ static void find_best_method(BlurMethod *blur, double r2)
 
 /**
  * \brief Perform approximate gaussian blur
- * \param r2 in: desired standard deviation squared
+ * \param r2x in: desired standard deviation along X axis squared
+ * \param r2y in: desired standard deviation along Y axis squared
  */
-bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2)
+bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2x, double r2y)
 {
-    BlurMethod blur;
-    find_best_method(&blur, r2);
+    BlurMethod blur_x, blur_y;
+    find_best_method(&blur_x, r2x);
+    if (r2y == r2x)
+        memcpy(&blur_y, &blur_x, sizeof(blur_y));
+    else find_best_method(&blur_y, r2y);
 
     uint32_t w = bm->w, h = bm->h;
-    int offset = ((2 * blur.radius + 9) << blur.level) - 5;
-    uint32_t end_w = ((w + offset) & ~((1 << blur.level) - 1)) - 4;
-    uint32_t end_h = ((h + offset) & ~((1 << blur.level) - 1)) - 4;
+    int offset_x = ((2 * blur_x.radius + 9) << blur_x.level) - 5;
+    int offset_y = ((2 * blur_y.radius + 9) << blur_y.level) - 5;
+    uint32_t end_w = ((w + offset_x) & ~((1 << blur_x.level) - 1)) - 4;
+    uint32_t end_h = ((h + offset_y) & ~((1 << blur_y.level) - 1)) - 4;
 
     const int stripe_width = 1 << (engine->align_order - 1);
     uint64_t size = (((uint64_t) end_w + stripe_width - 1) & ~(stripe_width - 1)) * end_h;
@@ -554,29 +559,30 @@ bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2)
     int16_t *buf[2] = {tmp, tmp + size};
     int index = 0;
 
-    for (int i = 0; i < blur.level; i++) {
+    for (int i = 0; i < blur_y.level; i++) {
         engine->shrink_vert(buf[index ^ 1], buf[index], w, h);
         h = (h + 5) >> 1;
         index ^= 1;
     }
-    for (int i = 0; i < blur.level; i++) {
+    for (int i = 0; i < blur_x.level; i++) {
         engine->shrink_horz(buf[index ^ 1], buf[index], w, h);
         w = (w + 5) >> 1;
         index ^= 1;
     }
-    assert(blur.radius >= 4 && blur.radius <= 8);
-    engine->blur_horz[blur.radius - 4](buf[index ^ 1], buf[index], w, h, blur.coeff);
-    w += 2 * blur.radius;
+    assert(blur_x.radius >= 4 && blur_x.radius <= 8);
+    engine->blur_horz[blur_x.radius - 4](buf[index ^ 1], buf[index], w, h, blur_x.coeff);
+    w += 2 * blur_x.radius;
     index ^= 1;
-    engine->blur_vert[blur.radius - 4](buf[index ^ 1], buf[index], w, h, blur.coeff);
-    h += 2 * blur.radius;
+    assert(blur_y.radius >= 4 && blur_y.radius <= 8);
+    engine->blur_vert[blur_y.radius - 4](buf[index ^ 1], buf[index], w, h, blur_y.coeff);
+    h += 2 * blur_y.radius;
     index ^= 1;
-    for (int i = 0; i < blur.level; i++) {
+    for (int i = 0; i < blur_x.level; i++) {
         engine->expand_horz(buf[index ^ 1], buf[index], w, h);
         w = 2 * w + 4;
         index ^= 1;
     }
-    for (int i = 0; i < blur.level; i++) {
+    for (int i = 0; i < blur_y.level; i++) {
         engine->expand_vert(buf[index ^ 1], buf[index], w, h);
         h = 2 * h + 4;
         index ^= 1;
@@ -587,9 +593,8 @@ bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2)
         ass_aligned_free(tmp);
         return false;
     }
-    offset = ((blur.radius + 4) << blur.level) - 4;
-    bm->left -= offset;
-    bm->top  -= offset;
+    bm->left -= ((blur_x.radius + 4) << blur_x.level) - 4;
+    bm->top  -= ((blur_y.radius + 4) << blur_y.level) - 4;
 
     engine->stripe_pack(bm->buffer, bm->stride, buf[index], w, h);
     ass_aligned_free(tmp);

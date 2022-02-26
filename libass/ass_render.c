@@ -2538,14 +2538,16 @@ static void render_and_combine_glyphs(RenderContext *state,
                 filter->flags = flags;
                 filter->be = info->be;
 
-                int32_t shadow_mask;
+                int32_t shadow_mask_x, shadow_mask_y;
                 double blur_scale = state->blur_scale * (2 / sqrt(log(256)));
-                filter->blur = quantize_blur(info->blur * blur_scale, &shadow_mask);
+                // XXX: correct anamorphic blur radii
+                filter->blur_x = quantize_blur(info->blur * blur_scale, &shadow_mask_x);
+                filter->blur_y = quantize_blur(info->blur * blur_scale, &shadow_mask_y);
                 if (flags & FILTER_NONZERO_SHADOW) {
                     int32_t x = double_to_d6(info->shadow_x * state->border_scale_x);
                     int32_t y = double_to_d6(info->shadow_y * state->border_scale_y);
-                    filter->shadow.x = (x + (shadow_mask >> 1)) & ~shadow_mask;
-                    filter->shadow.y = (y + (shadow_mask >> 1)) & ~shadow_mask;
+                    filter->shadow.x = (x + (shadow_mask_x >> 1)) & ~shadow_mask_x;
+                    filter->shadow.y = (y + (shadow_mask_y >> 1)) & ~shadow_mask_y;
                 } else
                     filter->shadow.x = filter->shadow.y = 0;
 
@@ -2752,10 +2754,11 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     }
 
     int flags = k->filter.flags;
-    double r2 = restore_blur(k->filter.blur);
+    double r2x = restore_blur(k->filter.blur_x);
+    double r2y = restore_blur(k->filter.blur_y);
     if (!(flags & FILTER_NONZERO_BORDER) || (flags & FILTER_BORDER_STYLE_3))
-        ass_synth_blur(render_priv->engine, &v->bm, k->filter.be, r2);
-    ass_synth_blur(render_priv->engine, &v->bm_o, k->filter.be, r2);
+        ass_synth_blur(render_priv->engine, &v->bm, k->filter.be, r2x, r2y);
+    ass_synth_blur(render_priv->engine, &v->bm_o, k->filter.be, r2x, r2y);
 
     if (!(flags & FILTER_FILL_IN_BORDER) && !(flags & FILTER_FILL_IN_SHADOW))
         ass_fix_outline(&v->bm, &v->bm_o);
