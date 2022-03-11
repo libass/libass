@@ -57,7 +57,11 @@ int has_avx(void)
 
 int has_avx2(void)
 {
-    uint32_t eax = 7, ebx, ecx, edx;
+    uint32_t eax = 0, ebx, ecx, edx;
+    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+    if (eax < 7) // check highest function parameter
+        return 0;
+    eax = 7;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
     return (ebx >> 5) & has_avx();
 }
