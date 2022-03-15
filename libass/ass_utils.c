@@ -40,6 +40,9 @@ void ass_cpu_capabilities(bool *sse2, bool *avx2)
     *sse2 = false;
     *avx2 = false;
 
+    if (!ass_has_cpuid())
+        return;
+
     uint32_t eax = 0, ebx, ecx, edx;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
     uint32_t max_leaf = eax;

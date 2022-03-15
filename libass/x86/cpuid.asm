@@ -23,6 +23,30 @@
 SECTION .text
 
 ;------------------------------------------------------------------------------
+; uint32_t has_cpuid( void );
+;------------------------------------------------------------------------------
+
+INIT_XMM
+cglobal has_cpuid, 0, 0, 0
+%if ARCH_X86_64
+    mov eax, 1
+%else
+    pushfd
+    pop ecx
+    mov eax, ecx
+    xor eax, 0x00200000
+    push eax
+    popfd
+    pushfd
+    pop eax
+    xor eax, ecx
+    and eax, 0x00200000 ; non-zero if bit is writable
+    push ecx            ; Restore original EFLAGS
+    popfd
+%endif
+    RET
+
+;------------------------------------------------------------------------------
 ; void get_cpuid( uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx);
 ;------------------------------------------------------------------------------
 
