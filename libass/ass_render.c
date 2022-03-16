@@ -75,9 +75,11 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     // images_root and related stuff is zero-filled in calloc
 
 #if CONFIG_ASM && ARCH_X86
-    if (has_avx2())
+    bool sse2, avx2;
+    ass_cpu_capabilities(&sse2, &avx2);
+    if (avx2)
         priv->engine = &ass_bitmap_engine_avx2;
-    else if (has_sse2())
+    else if (sse2)
         priv->engine = &ass_bitmap_engine_sse2;
     else
         priv->engine = &ass_bitmap_engine_c;

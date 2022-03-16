@@ -35,33 +35,39 @@
 
 #include "x86/cpuid.h"
 
-int has_sse2(void)
+void ass_cpu_capabilities(bool *sse2, bool *avx2)
 {
-    uint32_t eax = 1, ebx, ecx, edx;
-    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    return (edx >> 26) & 0x1;
-}
+    *sse2 = false;
+    *avx2 = false;
 
-int has_avx(void)
-{
-    uint32_t eax = 1, ebx, ecx, edx;
+    uint32_t eax = 0, ebx, ecx, edx;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    if (!(ecx & (1 << 27))) // not OSXSAVE
-        return 0;
-    uint32_t misc = ecx;
-    ass_get_xgetbv(0, &eax, &edx);
-    if ((eax & 0x6) != 0x6)
-        return 0;
-    return (misc >> 28) & 0x1;
-}
+    uint32_t max_leaf = eax;
+    bool avx = false;
 
-int has_avx2(void)
-{
-    uint32_t eax = 7, ebx, ecx, edx;
-    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    return (ebx >> 5) & has_avx();
-}
+    if (max_leaf >= 1) {
+        eax = 1;
+        ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+        if (edx & (1 << 26))  // SSE2
+            *sse2 = true;
 
+        if (ecx & (1 << 27) &&  // OSXSAVE
+            ecx & (1 << 28)) {  // AVX
+            uint32_t xcr0l, xcr0h;
+            ass_get_xgetbv(0, &xcr0l, &xcr0h);
+            if (xcr0l & (1 << 1) &&  // XSAVE for XMM
+                xcr0l & (1 << 2))    // XSAVE for YMM
+                    avx = true;
+        }
+    }
+
+    if (max_leaf >= 7) {
+        eax = 7;
+        ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+        if (avx && ebx & (1 << 5))  // AVX2
+            *avx2 = true;
+    }
+}
 #endif // ASM
 
 // Fallbacks

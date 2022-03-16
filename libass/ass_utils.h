@@ -51,9 +51,7 @@
 #define FEATURE_MASK(feat) (((uint32_t) 1) << (feat))
 
 #if CONFIG_ASM && ARCH_X86
-int has_sse2(void);
-int has_avx(void);
-int has_avx2(void);
+void ass_cpu_capabilities(bool *sse2, bool *avx2);
 #endif
 
 typedef struct {
