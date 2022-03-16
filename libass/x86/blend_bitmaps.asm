@@ -1,5 +1,5 @@
 ;******************************************************************************
-;* add_bitmaps.asm: SSE2 and x86 add_bitmaps
+;* blend_bitmaps.asm: SSE2 and AVX2 bitmap blending
 ;******************************************************************************
 ;* Copyright (C) 2013 rcombs <rcombs@rcombs.me>
 ;*

@@ -1,5 +1,5 @@
 ;******************************************************************************
-;* add_bitmaps.asm: SSE2 and x86 add_bitmaps
+;* cpuid.asm: check for cpu capabilities
 ;******************************************************************************
 ;* Copyright (C) 2013 rcombs <rcombs@rcombs.me>
 ;*
