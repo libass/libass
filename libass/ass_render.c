@@ -112,7 +112,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 #endif
     priv->engine = ass_bitmap_engine_init(flags);
 
-    if (!ass_rasterizer_init(priv->engine, &priv->state.rasterizer, RASTERIZER_PRECISION))
+    if (!ass_rasterizer_init(&priv->engine, &priv->state.rasterizer, RASTERIZER_PRECISION))
         goto fail;
 
     priv->cache.font_cache = ass_font_cache_create();
@@ -748,7 +748,7 @@ static void blend_vector_clip(RenderContext *state, ASS_Image *head)
         bleft = left - bx;
         btop = top - by;
 
-        unsigned align = 1 << render_priv->engine->align_order;
+        unsigned align = 1 << render_priv->engine.align_order;
         if (state->clip_drawing_mode) {
             // Inverse clip
             if (ax + aw < bx || ay + ah < by || ax > bx + bw ||
@@ -763,9 +763,9 @@ static void blend_vector_clip(RenderContext *state, ASS_Image *head)
 
             // Blend together
             memcpy(nbuffer, abuffer, ((ah - 1) * as) + aw);
-            render_priv->engine->imul_bitmaps(nbuffer + atop * as + aleft, as,
-                                              bbuffer + btop * bs + bleft, bs,
-                                              w, h);
+            render_priv->engine.imul_bitmaps(nbuffer + atop * as + aleft, as,
+                                             bbuffer + btop * bs + bleft, bs,
+                                             w, h);
         } else {
             // Regular clip
             if (ax + aw < bx || ay + ah < by || ax > bx + bw ||
@@ -781,10 +781,10 @@ static void blend_vector_clip(RenderContext *state, ASS_Image *head)
                 break;
 
             // Blend together
-            render_priv->engine->mul_bitmaps(nbuffer, ns,
-                                             abuffer + atop * as + aleft, as,
-                                             bbuffer + btop * bs + bleft, bs,
-                                             w, h);
+            render_priv->engine.mul_bitmaps(nbuffer, ns,
+                                            abuffer + atop * as + aleft, as,
+                                            bbuffer + btop * bs + bleft, bs,
+                                            w, h);
             cur->dst_x += aleft;
             cur->dst_y += atop;
             cur->w = w;
@@ -2702,10 +2702,10 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
 
     int bord = ass_be_padding(k->filter.be);
     if (!bord && n_bm == 1) {
-        ass_copy_bitmap(render_priv->engine, &v->bm, last->bm);
+        ass_copy_bitmap(&render_priv->engine, &v->bm, last->bm);
         v->bm.left += last->pos.x;
         v->bm.top  += last->pos.y;
-    } else if (n_bm && ass_alloc_bitmap(render_priv->engine, &v->bm,
+    } else if (n_bm && ass_alloc_bitmap(&render_priv->engine, &v->bm,
                                         rect.x_max - rect.x_min + 2 * bord,
                                         rect.y_max - rect.y_min + 2 * bord,
                                         true)) {
@@ -2721,16 +2721,16 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
             assert(x >= 0 && x + src->w <= dst->w);
             assert(y >= 0 && y + src->h <= dst->h);
             unsigned char *buf = dst->buffer + y * dst->stride + x;
-            render_priv->engine->add_bitmaps(buf, dst->stride,
-                                             src->buffer, src->stride,
-                                             src->w, src->h);
+            render_priv->engine.add_bitmaps(buf, dst->stride,
+                                            src->buffer, src->stride,
+                                            src->w, src->h);
         }
     }
     if (!bord && n_bm_o == 1) {
-        ass_copy_bitmap(render_priv->engine, &v->bm_o, last_o->bm_o);
+        ass_copy_bitmap(&render_priv->engine, &v->bm_o, last_o->bm_o);
         v->bm_o.left += last_o->pos_o.x;
         v->bm_o.top  += last_o->pos_o.y;
-    } else if (n_bm_o && ass_alloc_bitmap(render_priv->engine, &v->bm_o,
+    } else if (n_bm_o && ass_alloc_bitmap(&render_priv->engine, &v->bm_o,
                                           rect_o.x_max - rect_o.x_min + 2 * bord,
                                           rect_o.y_max - rect_o.y_min + 2 * bord,
                                           true)) {
@@ -2746,9 +2746,9 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
             assert(x >= 0 && x + src->w <= dst->w);
             assert(y >= 0 && y + src->h <= dst->h);
             unsigned char *buf = dst->buffer + y * dst->stride + x;
-            render_priv->engine->add_bitmaps(buf, dst->stride,
-                                             src->buffer, src->stride,
-                                             src->w, src->h);
+            render_priv->engine.add_bitmaps(buf, dst->stride,
+                                            src->buffer, src->stride,
+                                            src->w, src->h);
         }
     }
 
@@ -2756,22 +2756,22 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     double r2x = restore_blur(k->filter.blur_x);
     double r2y = restore_blur(k->filter.blur_y);
     if (!(flags & FILTER_NONZERO_BORDER) || (flags & FILTER_BORDER_STYLE_3))
-        ass_synth_blur(render_priv->engine, &v->bm, k->filter.be, r2x, r2y);
-    ass_synth_blur(render_priv->engine, &v->bm_o, k->filter.be, r2x, r2y);
+        ass_synth_blur(&render_priv->engine, &v->bm, k->filter.be, r2x, r2y);
+    ass_synth_blur(&render_priv->engine, &v->bm_o, k->filter.be, r2x, r2y);
 
     if (!(flags & FILTER_FILL_IN_BORDER) && !(flags & FILTER_FILL_IN_SHADOW))
         ass_fix_outline(&v->bm, &v->bm_o);
 
     if (flags & FILTER_NONZERO_SHADOW) {
         if (flags & FILTER_NONZERO_BORDER) {
-            ass_copy_bitmap(render_priv->engine, &v->bm_s, &v->bm_o);
+            ass_copy_bitmap(&render_priv->engine, &v->bm_s, &v->bm_o);
             if ((flags & FILTER_FILL_IN_BORDER) && !(flags & FILTER_FILL_IN_SHADOW))
                 ass_fix_outline(&v->bm, &v->bm_s);
         } else if (flags & FILTER_BORDER_STYLE_3) {
             v->bm_s = v->bm_o;
             memset(&v->bm_o, 0, sizeof(v->bm_o));
         } else {
-            ass_copy_bitmap(render_priv->engine, &v->bm_s, &v->bm);
+            ass_copy_bitmap(&render_priv->engine, &v->bm_s, &v->bm);
         }
 
         // Works right even for negative offsets

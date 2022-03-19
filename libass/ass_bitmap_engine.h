@@ -61,7 +61,7 @@ typedef struct {
     FillSolidTileFunc *fill_solid;
     FillHalfplaneTileFunc *fill_halfplane;
     FillGenericTileFunc *fill_generic;
-    MergeTileFunc *merge_tile;
+    MergeTileFunc *merge;
 
     // blend functions
     BitmapBlendFunc *add_bitmaps, *imul_bitmaps;
@@ -91,6 +91,6 @@ enum {
 
 unsigned ass_get_cpu_flags(unsigned mask);
 
-const BitmapEngine *ass_bitmap_engine_init(unsigned mask);
+BitmapEngine ass_bitmap_engine_init(unsigned mask);
 
 #endif /* LIBASS_BITMAP_ENGINE_H */

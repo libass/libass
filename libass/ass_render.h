@@ -337,7 +337,7 @@ struct ass_renderer {
     TextInfo text_info;
     CacheStore cache;
 
-    const BitmapEngine *engine;
+    BitmapEngine engine;
 
     ASS_Style user_override_style;
 };

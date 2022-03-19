@@ -170,7 +170,7 @@ bool ass_outline_to_bitmap(RenderContext *state, Bitmap *bm,
     int32_t w = x_max - x_min;
     int32_t h = y_max - y_min;
 
-    int mask = (1 << render_priv->engine->tile_order) - 1;
+    int mask = (1 << render_priv->engine.tile_order) - 1;
 
     // XXX: is that possible to trigger at all?
     if (w < 0 || h < 0 || w > INT_MAX - mask || h > INT_MAX - mask) {
@@ -181,12 +181,12 @@ bool ass_outline_to_bitmap(RenderContext *state, Bitmap *bm,
 
     int32_t tile_w = (w + mask) & ~mask;
     int32_t tile_h = (h + mask) & ~mask;
-    if (!ass_alloc_bitmap(render_priv->engine, bm, tile_w, tile_h, false))
+    if (!ass_alloc_bitmap(&render_priv->engine, bm, tile_w, tile_h, false))
         return false;
     bm->left = x_min;
     bm->top  = y_min;
 
-    if (!ass_rasterizer_fill(render_priv->engine, rst, bm->buffer,
+    if (!ass_rasterizer_fill(&render_priv->engine, rst, bm->buffer,
                              x_min, y_min, bm->stride, tile_h, bm->stride)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph!\n");
         ass_free_bitmap(bm);
