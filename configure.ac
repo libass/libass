@@ -301,8 +301,19 @@ AC_SUBST([ASFLAGS], ["$ASFLAGS"])
 AC_SUBST([AS], ["$AS"])
 
 ## Relay package configuration to libass.pc.in
-AC_SUBST([PKG_LIBS_PRIVATE], [${pkg_libs}])
-AC_SUBST([PKG_REQUIRES_PRIVATE], [${pkg_requires}])
+AS_IF([test "x$enable_shared" != xno], [
+    AC_SUBST([PKG_LIBS_PUBLIC], [])
+    AC_SUBST([PKG_REQUIRES_PUBLIC], [])
+    AC_SUBST([PKG_LIBS_PRIVATE], [${pkg_libs}])
+    AC_SUBST([PKG_REQUIRES_PRIVATE], [${pkg_requires}])
+], [
+    # Not mentioned by the pkg-config specification, but
+    # a common workaround for poor support for mixed builds
+    AC_SUBST([PKG_LIBS_PUBLIC], [${pkg_libs}])
+    AC_SUBST([PKG_REQUIRES_PUBLIC], [${pkg_requires}])
+    AC_SUBST([PKG_LIBS_PRIVATE], [])
+    AC_SUBST([PKG_REQUIRES_PRIVATE], [])
+])
 
 ## Setup conditionals for use in Makefiles
 AM_CONDITIONAL([ASM], [test "x$can_asm" = xtrue])
