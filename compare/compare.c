@@ -295,7 +295,7 @@ static ASS_Track *load_track(ASS_Library *lib,
     return track;
 }
 
-static bool out_of_memory()
+static bool out_of_memory(void)
 {
     printf("Not enough memory!\n");
     return false;
