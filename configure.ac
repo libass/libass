@@ -1,5 +1,5 @@
 AC_INIT(libass, 0.16.0)
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 AC_CONFIG_MACRO_DIR([m4])
 # Disable Fortran checks
 define([AC_LIBTOOL_LANG_F77_CONFIG], [:])
@@ -367,5 +367,5 @@ AC_DEFINE_UNQUOTED([CONFIG_SOURCEVERSION], ["$srcversion_string"],
 ## Setup output beautifier.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile compare/Makefile profile/Makefile libass.pc])
+AC_CONFIG_FILES([Makefile libass.pc])
 AC_OUTPUT

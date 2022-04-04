@@ -1,0 +1,23 @@
+if ENABLE_TEST
+noinst_PROGRAMS += test/test
+endif
+test_test_SOURCES = test/test.c
+test_test_CPPFLAGS = -I$(top_srcdir)/libass
+test_test_LDADD = libass/libass.la
+test_test_LDFLAGS = $(AM_LDFLAGS) $(LIBPNG_LIBS) -static
+
+if ENABLE_PROFILE
+noinst_PROGRAMS += profile/profile
+endif
+profile_profile_SOURCES = profile/profile.c
+profile_profile_CPPFLAGS = -I$(top_srcdir)/libass
+profile_profile_LDADD = libass/libass.la
+profile_profile_LDFLAGS = $(AM_LDFLAGS) -static
+
+if ENABLE_COMPARE
+noinst_PROGRAMS += compare/compare
+endif
+compare_compare_SOURCES = compare/image.h  compare/image.c  compare/compare.c
+compare_compare_CPPFLAGS = -I$(top_srcdir)/libass
+compare_compare_LDADD = libass/libass.la
+compare_compare_LDFLAGS = $(AM_LDFLAGS) $(LIBPNG_LIBS) -static
