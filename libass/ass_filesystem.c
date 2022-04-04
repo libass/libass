@@ -159,7 +159,7 @@ static WCHAR *convert_wtf8to16(WCHAR *dst, ASS_StringView src)
     const char *str = src.str;
     for (const char *end = str + src.len; str < end; str++) {
         uint8_t ch = *str;
-        switch(wtf8_len_table[ch]) {
+        switch (wtf8_len_table[ch]) {
         case 1:  // 1 -> 1w
             *dst++ = ch;
             continue;
