@@ -250,8 +250,7 @@ cleanup:
 static char *get_fallback(void *priv, ASS_Library *lib,
                           const char *family, uint32_t codepoint)
 {
-    CFStringRef name = CFStringCreateWithBytes(
-        0, (UInt8 *)family, strlen(family), kCFStringEncodingUTF8, false);
+    CFStringRef name = CFStringCreateWithCString(NULL, family, kCFStringEncodingUTF8);
     if (!name)
         return NULL;
 
