@@ -314,7 +314,7 @@ bool rasterizer_set_outline(RasterizerData *rst,
             return false;
         }
     }
-    assert(start == cur && cur == path->points + path->n_points);
+    assert(start == cur && (!cur || cur == path->points + path->n_points));
 
     for (size_t k = rst->n_first; k < rst->size[0]; k++) {
         struct segment *line = &rst->linebuf[0][k];
