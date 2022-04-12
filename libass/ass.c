@@ -932,6 +932,8 @@ static int process_fonts_line(ASS_Track *track, char *str)
             goto mem_fail;
         track->parser_priv->fontdata_size = new_size;
     }
+    if (!track->parser_priv->fontdata)
+        return 0;
     memcpy(track->parser_priv->fontdata + track->parser_priv->fontdata_used,
            str, len);
     track->parser_priv->fontdata_used += len;
