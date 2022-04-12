@@ -26,6 +26,12 @@
 #define inline __inline
 #endif
 
+// Work around build failures on Windows with static FriBidi.
+// Possible because we only use FriBidi functions, not objects.
+#if defined(_WIN32) && !defined(FRIBIDI_LIB_STATIC)
+#define FRIBIDI_LIB_STATIC
+#endif
+
 #ifndef HAVE_STRDUP
 char *ass_strdup_fallback(const char *s); // definition in ass_utils.c
 #define strdup ass_strdup_fallback
