@@ -768,10 +768,10 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
         } else if (tag("be")) {
             double dval;
             if (nargs) {
-                int val;
+                int32_t val;
                 dval = argtod(*args);
                 // VSFilter always adds +0.5, even if the value is negative
-                val = (int) (render_priv->state.be * (1 - pwr) + dval * pwr + 0.5);
+                val = dtoi32(render_priv->state.be * (1 - pwr) + dval * pwr + 0.5);
                 // Clamp to a safe upper limit, since high values need excessive CPU
                 val = (val < 0) ? 0 : val;
                 val = (val > MAX_BE) ? MAX_BE : val;
@@ -816,7 +816,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             if (render_priv->state.effect_timing)
                 render_priv->state.effect_skip_timing +=
                     render_priv->state.effect_timing;
-            render_priv->state.effect_timing = val * 10;
+            render_priv->state.effect_timing = dtoi32(val * 10);
         } else if (tag("shad")) {
             double val, xval, yval;
             if (nargs) {
