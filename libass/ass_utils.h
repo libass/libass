@@ -182,6 +182,12 @@ static inline int double_to_d22(double x)
     return lrint(x * 0x400000);
 }
 
+static inline int32_t lshiftwrapi(int32_t i, int32_t shift)
+{
+    // '0u +' to avoid automatic integer promotion causing UB
+    return (0u + (uint32_t)i) << (shift & 31);
+}
+
 static inline int mystrtod(char **p, double *res)
 {
     char *start = *p;
