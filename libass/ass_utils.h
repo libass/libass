@@ -190,14 +190,6 @@ static inline int mystrtoi(char **p, int *res)
     return *p != start;
 }
 
-static inline int mystrtoll(char **p, long long *res)
-{
-    char *start = *p;
-    double temp_res = ass_strtod(*p, p);
-    *res = (long long) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
-    return *p != start;
-}
-
 static inline int mystrtod(char **p, double *res)
 {
     char *start = *p;
