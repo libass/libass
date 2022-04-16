@@ -182,14 +182,6 @@ static inline int double_to_d22(double x)
     return lrint(x * 0x400000);
 }
 
-static inline int mystrtoi(char **p, int *res)
-{
-    char *start = *p;
-    double temp_res = ass_strtod(*p, p);
-    *res = (int) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
-    return *p != start;
-}
-
 static inline int mystrtod(char **p, double *res)
 {
     char *start = *p;

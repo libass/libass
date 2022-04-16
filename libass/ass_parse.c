@@ -36,13 +36,6 @@ struct arg {
     char *start, *end;
 };
 
-static inline int argtoi(struct arg arg)
-{
-    int value;
-    mystrtoi(&arg.start, &value);
-    return value;
-}
-
 static inline int32_t argtoi32(struct arg arg)
 {
     int32_t value;
@@ -230,7 +223,7 @@ static bool parse_vector_clip(ASS_Renderer *render_priv,
 
     int scale = 1;
     if (nargs == 2)
-        scale = argtoi(args[0]);
+        scale = argtoi32(args[0]);
 
     struct arg text = args[nargs - 1];
     render_priv->state.clip_drawing_text.str = text.start;
@@ -367,11 +360,11 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 render_priv->state.fay = 0.;
         } else if (complex_tag("iclip")) {
             if (nargs == 4) {
-                int x0, y0, x1, y1;
-                x0 = argtoi(args[0]);
-                y0 = argtoi(args[1]);
-                x1 = argtoi(args[2]);
-                y1 = argtoi(args[3]);
+                int32_t x0, y0, x1, y1;
+                x0 = argtoi32(args[0]);
+                y0 = argtoi32(args[1]);
+                x1 = argtoi32(args[2]);
+                y1 = argtoi32(args[3]);
                 render_priv->state.clip_x0 =
                     render_priv->state.clip_x0 * (1 - pwr) + x0 * pwr;
                 render_priv->state.clip_x1 =
@@ -545,7 +538,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             }
             // FIXME: simplify
         } else if (tag("an")) {
-            int val = argtoi(*args);
+            int32_t val = argtoi32(*args);
             if ((render_priv->state.parsed_tags & PARSED_A) == 0) {
                 if (val >= 1 && val <= 9)
                     render_priv->state.alignment = numpad2align(val);
@@ -555,7 +548,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 render_priv->state.parsed_tags |= PARSED_A;
             }
         } else if (tag("a")) {
-            int val = argtoi(*args);
+            int32_t val = argtoi32(*args);
             if ((render_priv->state.parsed_tags & PARSED_A) == 0) {
                 if (val >= 1 && val <= 11)
                     // take care of a vsfilter quirk:
@@ -583,7 +576,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 render_priv->state.pos_y = v2;
             }
         } else if (complex_tag("fade") || complex_tag("fad")) {
-            int a1, a2, a3;
+            int32_t a1, a2, a3;
             int32_t t1, t2, t3, t4;
             if (nargs == 2) {
                 // 2-argument version (\fad, according to specs)
@@ -596,9 +589,9 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 t4 = -1;
             } else if (nargs == 7) {
                 // 7-argument version (\fade)
-                a1 = argtoi(args[0]);
-                a2 = argtoi(args[1]);
-                a3 = argtoi(args[2]);
+                a1 = argtoi32(args[0]);
+                a2 = argtoi32(args[1]);
+                a3 = argtoi32(args[2]);
                 t1 = argtoi32(args[3]);
                 t2 = argtoi32(args[4]);
                 t3 = argtoi32(args[5]);
@@ -691,11 +684,11 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             }
         } else if (complex_tag("clip")) {
             if (nargs == 4) {
-                int x0, y0, x1, y1;
-                x0 = argtoi(args[0]);
-                y0 = argtoi(args[1]);
-                x1 = argtoi(args[2]);
-                y1 = argtoi(args[3]);
+                int32_t x0, y0, x1, y1;
+                x0 = argtoi32(args[0]);
+                y0 = argtoi32(args[1]);
+                x1 = argtoi32(args[2]);
+                y1 = argtoi32(args[3]);
                 render_priv->state.clip_x0 =
                     render_priv->state.clip_x0 * (1 - pwr) + x0 * pwr;
                 render_priv->state.clip_x1 =
@@ -786,13 +779,13 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             } else
                 render_priv->state.be = 0;
         } else if (tag("b")) {
-            int val = argtoi(*args);
+            int32_t val = argtoi32(*args);
             if (!nargs || !(val == 0 || val == 1 || val >= 100))
                 val = render_priv->state.style->Bold;
             render_priv->state.bold = val;
             update_font(render_priv);
         } else if (tag("i")) {
-            int val = argtoi(*args);
+            int32_t val = argtoi32(*args);
             if (!nargs || !(val == 0 || val == 1))
                 val = render_priv->state.style->Italic;
             render_priv->state.italic = val;
@@ -838,7 +831,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             render_priv->state.shadow_x = xval;
             render_priv->state.shadow_y = yval;
         } else if (tag("s")) {
-            int val = argtoi(*args);
+            int32_t val = argtoi32(*args);
             if (!nargs || !(val == 0 || val == 1))
                 val = render_priv->state.style->StrikeOut;
             if (val)
@@ -846,7 +839,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             else
                 render_priv->state.flags &= ~DECO_STRIKETHROUGH;
         } else if (tag("u")) {
-            int val = argtoi(*args);
+            int32_t val = argtoi32(*args);
             if (!nargs || !(val == 0 || val == 1))
                 val = render_priv->state.style->Underline;
             if (val)
@@ -857,18 +850,18 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             double val = argtod(*args);
             render_priv->state.pbo = val;
         } else if (tag("p")) {
-            int val = argtoi(*args);
+            int32_t val = argtoi32(*args);
             val = (val < 0) ? 0 : val;
             render_priv->state.drawing_scale = val;
         } else if (tag("q")) {
-            int val = argtoi(*args);
+            int32_t val = argtoi32(*args);
             if (!nargs || !(val >= 0 && val <= 3))
                 val = render_priv->track->WrapStyle;
             render_priv->state.wrap_style = val;
         } else if (tag("fe")) {
-            int val;
+            int32_t val;
             if (nargs)
-                val = argtoi(*args);
+                val = argtoi32(*args);
             else
                 val = render_priv->state.style->Encoding;
             render_priv->state.font_encoding = val;
