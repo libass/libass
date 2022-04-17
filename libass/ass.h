@@ -66,6 +66,9 @@ typedef struct ass_image {
                                 // Note: the last row may not be padded to
                                 // bitmap stride!
     uint32_t color;             // Bitmap color and alpha, RGBA
+                                // For full VSFilter compatibility, the value
+                                // must be transformed as described in
+                                // ass_types.h for ASS_YCbCrMatrix
     int dst_x, dst_y;           // Bitmap placement inside the video frame
 
     struct ass_image *next;   // Next image, or NULL
