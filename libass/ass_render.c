@@ -1991,7 +1991,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         info->effect_timing = render_priv->state.effect_timing;
         info->effect_skip_timing = render_priv->state.effect_skip_timing;
         info->font_size =
-            render_priv->state.font_size * render_priv->font_scale;
+            fabs(render_priv->state.font_size * render_priv->font_scale);
         info->be = render_priv->state.be;
         info->blur = render_priv->state.blur;
         info->shadow_x = render_priv->state.shadow_x;
