@@ -107,6 +107,7 @@ static void init(int frame_w, int frame_h)
         exit(1);
     }
 
+    ass_set_storage_size(ass_renderer, frame_w, frame_h);
     ass_set_frame_size(ass_renderer, frame_w, frame_h);
     ass_set_fonts(ass_renderer, NULL, "sans-serif",
                   ASS_FONTPROVIDER_AUTODETECT, NULL, 1);
@@ -192,16 +193,26 @@ static void print_font_providers(ASS_Library *ass_library)
 
 int main(int argc, char *argv[])
 {
-    const int frame_w = 1280;
-    const int frame_h = 720;
+    int frame_w = 1280;
+    int frame_h = 720;
 
-    if (argc < 4) {
-        printf("usage: %s <image file> <subtitle file> <time>\n", argv[0]);
+    if (argc != 4 && argc != 6) {
+        printf("usage: %s <image file> <subtitle file> <time> "
+               "[<storage width> <storage height>]\n",
+                argv[0]);
         exit(1);
     }
     char *imgfile = argv[1];
     char *subfile = argv[2];
     double tm = strtod(argv[3], 0);
+    if (argc == 6) {
+        frame_w = atoi(argv[4]);
+        frame_h = atoi(argv[5]);
+        if (frame_w <= 0 || frame_h <= 0) {
+            printf("storage size must be non-zero and positive!\n");
+            exit(1);
+        }
+    }
 
     print_font_providers(ass_library);
 
