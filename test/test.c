@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
     if (argc != 4 && argc != 6) {
         printf("usage: %s <image file> <subtitle file> <time> "
                "[<storage width> <storage height>]\n",
-                argv[0]);
+                argv[0] ? argv[0] : "test");
         exit(1);
     }
     char *imgfile = argv[1];

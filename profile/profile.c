@@ -68,7 +68,8 @@ int main(int argc, char *argv[])
     const int frame_h = 720;
 
     if (argc < 5) {
-        printf("usage: %s <subtitle file> <start time> <fps> <end time>\n", argv[0]);
+        printf("usage: %s <subtitle file> <start time> <fps> <end time>\n",
+               argv[0] ? argv[0] : "profile");
         exit(1);
     }
     char *subfile = argv[1];
