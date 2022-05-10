@@ -1,0 +1,12 @@
+Release signing OpenPGP key fingerprints
+========================================
+
+Full keys can be obtained from GitHub (linked)
+or key servers such as https://keyserver.ubuntu.com/
+
+Oleg Oshmyan (Chortos-2)  5458 C310 0671 F252 B0F4 C770 8079 D18C 21AA AAFF  https://github.com/astiob.gpg
+Oneric                    DDAF C19E 46B2 AD2D 6B26 F843 97A0 8E0C FFD7 0951  https://github.com/TheOneric.gpg
+rcombs                    E0D5 E95A 944C F3AA F8FC 1CFB E674 C942 0777 67EB  https://github.com/rcombs.gpg
+
+Changes to this list will be signed (e.g. by signing
+the Git commit) with one of the pre-existing keys.

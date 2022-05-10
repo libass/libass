@@ -1,5 +1,5 @@
 ACLOCAL_AMFLAGS = -I m4
-EXTRA_DIST = libass.pc.in Changelog ltnasm.sh
+EXTRA_DIST = libass.pc.in Changelog MAINTAINERS ltnasm.sh
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libass.pc
