@@ -1,3 +1,55 @@
+libass (0.16.0)
+ * Fix missing `-framework` options in libass.pc on macOS
+ * Fix missing GDI or DirectWrite options in libass.pc on Win32
+ * Fix crashes with fonts missing Postscript names and without one
+   being synthesised by the font provider
+ * Fix crashes on negative fontsizes and some overflows
+ * Fix a rare memory leak introduced in 0.13.0
+ * Fix minimum dependency versions in configure and our pc-file
+ * Fix our public headers for use with GCC versions between 3.1.0 and 4.5.0
+   (was a regression introduced in 0.15.0)
+ * x86: Fix potential buffer over-read by 16 bytes with AVX2 assembly
+     when large tiles are not enabled (the default)
+ * x86: Fix PIC flags not being interpreted by the assembler, breaking the
+     asm-enabled build setup on NetBSD and OpenBSD. On 32-bit x86, if the toolchain
+     requires PIC objects and relies on compiler defaults to get PIC implicitly,
+     you need to pass `--with-pic` to configure to ensure NASM always produces
+     PIC objects
+ * x86: Fix AVX support not being detected on non-Intel CPUs and some VMs
+ * x86: Fix CPUID being used on CPUs not supporting the instruction (<= i486)
+     and the way it is used for CPUs with less than 7 CPUID-leafs
+     which could lead to crashes due to illegal instructions
+ * MS Windows-only issue: Fix crashes with FreeType >= 2.11.1 on Win32
+     when rendering strikethrough or underline
+
+ * Improve `\iclip` quality
+ * Improve quality of very small outlines
+ * Switch to wyhash for much better cache performance
+ * Propagate ZWJ/ZWNJ effects across glyph run boundaries
+ * Do not depend on compiler-specific defines to actually use built assembly
+ * Expand documentation and fix mistakes in it
+ * configure now errors out if an explicitly requested feature is unavailable
+ * MS Windows-only issue: ease linking against static/shared GNU FriBidi
+
+ * Add ASS_FEATURE_WHOLE_TEXT_LAYOUT to apply bidi, shaping and \fay
+     to the entire unsplit event text. The non-portable `Encoding=-1` mode
+     always behaves as if the feature were enabled
+ * MS Windows-only issue: add support for arbitrary Unicode paths;
+     see documentation of related functions for details
+
+ * Improve VSFilter compatibility
+    * Do not treat format lines using `Actor` in place of `Name`
+      as custom format lines. The former is used by VSFilter itself,
+      the latter by Aegisub
+    * Run bidi and shaping on each glyph run separately by default
+    * Match VSFilter's \fsp effects on bidi and shaping
+    * Match VSFilter's \fay behaviour
+    * Support non-Unicode font cmaps when Win32 API or iconv
+      is available and can convert to the relevant encoding
+    * Treat empty clip outlines as if everything was outside the clip
+      not inside (was a 0.14.0 regression)
+    * Parse integer parameters of override tags more like VSFilter
+
 libass (0.15.2)
  * Fix some known 0.15.x regressions:
     * Fix Core Text font fallback failing on some fonts with multiple names
