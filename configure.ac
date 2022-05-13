@@ -37,6 +37,8 @@ AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
 AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
     [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
 
+AC_ARG_VAR([ART_SAMPLES],
+    [Path to the root of libass' regression testing sample repository. If set, it is used in make check.])
 AC_ARG_VAR([FUZZ_LDFLAGS],
     [Optional special linking flags only used for the fuzzer binary.])
 AC_ARG_VAR([FUZZ_CPPFLAGS],

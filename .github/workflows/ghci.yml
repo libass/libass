@@ -37,12 +37,15 @@ jobs:
             cc: gcc
             docker_image: alpine:latest
             shell: '/usr/bin/docker exec dockerciimage sh -e {0}'
+            art_reg_skip: 'font_nonunicode'
           # Add docker-build with minimum version of dependencies
           - os: ubuntu-latest
             cc: gcc
             docker_image: oldlibs
             docker_pullprefix: 'ghcr.io/theoneric/libass-containers/'
             shell: '/usr/bin/docker exec dockerciimage sh -e {0}'
+            # various regression test fail, supposedly due to older deps
+            skip_tests: yes
           # Add a Windows build (MinGW-gcc via MSYS2) with no extras
           - os: windows-2019
             msystem: MINGW32
@@ -63,9 +66,18 @@ jobs:
       run:
         shell: ${{ matrix.shell || 'bash' }}
 
+    env:
+      ART_SAMPLES: ext_art-samples
+
     steps:
       - name: checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+
+      - name: download test samples
+        uses: actions/checkout@v3
+        with:
+          repository: libass/libass-tests
+          path: ${{ env.ART_SAMPLES }}
 
       - name: Start Docker
         if: matrix.docker_image
@@ -102,12 +114,14 @@ jobs:
               pacman --noconfirm -S \
                       automake autoconf libtool nasm make \
                       $pre-pkg-config $pre-gcc \
-                      $pre-fribidi $pre-freetype $pre-harfbuzz $pre-fontconfig
+                      $pre-fribidi $pre-freetype $pre-harfbuzz $pre-fontconfig \
+                      $pre-libpng
               ;;
             alpine:*)
               apk add nasm ${{ matrix.cc }} musl-dev \
                       make automake autoconf libtool pkgconf \
-                      fontconfig-dev freetype-dev fribidi-dev harfbuzz-dev
+                      fontconfig-dev freetype-dev fribidi-dev harfbuzz-dev \
+                      libpng-dev
               ;;
             oldlibs)
               : # Everything is preinstalled
@@ -117,7 +131,8 @@ jobs:
               sudo apt-get install -y --no-install-recommends \
                    autoconf automake make libtool \
                    libfontconfig1-dev libfreetype6-dev libfribidi-dev \
-                   libharfbuzz-dev nasm ${{ matrix.cc }}
+                   libharfbuzz-dev nasm ${{ matrix.cc }} \
+                   libpng-dev
               ;;
           esac
 
@@ -134,17 +149,23 @@ jobs:
           export CC="${{ matrix.cc }}\
             ${{ matrix.extra_cflags && ' ' }}${{ matrix.extra_cflags }}"
           export LD="${{ matrix.ld }}"
+          export ART_SAMPLES="${{ env.ART_SAMPLES }}"
 
           ./autogen.sh
-          ./configure
-
-      - name: compile
-        if: matrix.do_distc != 'yes'
-        run: make -j 2
+          ./configure --enable-compare --enable-fuzz
 
       - name: distcheck
         if: matrix.do_distc == 'yes'
         run: make -j 2 distcheck
+
+      - name: compile
+        run: make -j 2
+
+      - name: run tests
+        if: matrix.skip_tests != 'yes'
+        run: |
+          ART_REG_SKIP="${{ matrix.art_reg_skip }}" make -j 1 check
+
 
       - name: Coverity scan
         if: >
