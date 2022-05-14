@@ -29,3 +29,14 @@ fuzz_fuzz_SOURCES = fuzz/fuzz.c
 fuzz_fuzz_CPPFLAGS = -I$(top_srcdir)/libass $(FUZZ_CPPFLAGS)
 fuzz_fuzz_LDADD = libass/libass.la
 fuzz_fuzz_LDFLAGS = $(AM_LDFLAGS) $(FUZZ_LDFLAGS) -static
+
+if ENABLE_FUZZ
+fuzz/fuzz_ossfuzz: fuzz/fuzz-fuzz.o libass/libass.la $(srcdir)/libass.pc
+	$$CXX $$CXXFLAGS -std=c++11 \
+		-o $@ \
+		fuzz/fuzz-fuzz.o \
+		$$LIB_FUZZING_ENGINE libass/.libs/libass.a \
+		-Wl,-Bstatic \
+		$$(pkg-config --static --libs $(srcdir)/libass.pc | sed -e 's/-lm //g' -e 's/-lass //g') \
+		-Wl,-Bdynamic
+endif
