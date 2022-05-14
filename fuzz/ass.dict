@@ -1,0 +1,191 @@
+# SPDX-License-Identifier: CC0-1.0
+#
+# Keywords for dictionary-assisted ASS fuzzing
+# For use with AFL++'s -x and libfuzzer's -dict option
+#
+# Syntax:
+#   Lines starting with # are ignored.
+#   Keywords are listed as name="keyword", with the alphanumeric
+#   identifier name follooed by = being optional.
+#   Inside the quotes " and \ must be escaped by \" and \\ respectively
+#   and non-printable characters must be escaped as \x<hex>.
+
+# Some common font names
+"Arial"
+"DejaVu Sans"
+
+# Various common terminals
+"yes"
+"no"
+"0x"
+"&H"
+";"
+","
+"\x0a"
+"\x0d\x0a"
+"+"
+"-"
+":"
+
+# Sections
+"[Script Info]"
+"[Fonts]"
+"[V4 Styles]"
+"[V4+ Styles]"
+"[V4++ Styles]"
+"[Events]"
+
+# Script Info Headers
+"ScriptType"
+"PlayResX"
+"PlayResY"
+"Timer"
+"WrapStyle"
+"ScaledBorderAndShadow"
+"YCbCr Matrix"
+"Kerning"
+"Language"
+## Interesting Script Info Header Values
+"v4.00"
+"v4.00+"
+"v4.00++"
+"none"
+"tv.601"
+"pc.601"
+"tv.709"
+"pc.709"
+"tv.240m"
+"pc.240m"
+"tv.fcc"
+"pc.fcc"
+
+# Fonts Section
+"fontname:"
+
+# Styles Section
+"Style"
+"Format: "
+"Name"
+"FontName"
+"FontSize"
+"PrimaryColour"
+"SecondaryColour"
+"OutlineColour"
+"BackColour"
+"Bold"
+"Italic"
+"Underline"
+"StrikeOut"
+"ScaleX"
+"ScaleY"
+"Spacing"
+"Angle"
+"BorderStyle"
+"Outline"
+"Shadow"
+"Alignment"
+"MarginL"
+"MarginR"
+"MarginV"
+"MarginT"
+"MarginB"
+"Encoding"
+"RelativeTo"
+"TertiaryColour"
+"AlphaLevel"
+
+# Events Section
+## Format Items (only those not already present in the Styles list)
+"Layer"
+"Marked"
+"Text"
+"Start"
+"End"
+"Actor"
+"Effect"
+## Events
+"Comment:"
+"Dialogue:"
+## Effects
+"Karaoke;"
+"Scroll up;"
+"Scroll down;"
+"Banner;"
+
+# Event Text
+## In-Text Escapes (with libass extensions"
+"\\h"
+"\\N"
+"\\n"
+"\\{"
+"\\}"
+
+## Override Commands
+"{"
+"}"
+"("
+")"
+### Non-Animateable Commands
+"\\fsc"
+"\\fn"
+"\\r"
+"\\b"
+"\\i"
+"\\kf"
+"\\K"
+"\\ko"
+"\\kt"
+"\\k"
+"\\s"
+"\\u"
+"\\fe"
+"\\an"
+"\\a"
+"\\pbo"
+"\\p"
+"\\move"
+"\\pos"
+"\\fad"
+"\\fade"
+"\\org"
+"\\t"
+### Animateable Commands
+"\\bord"
+"\\xbord"
+"\\ybord"
+"\\shad"
+"\\xshad"
+"\\yshad"
+"\\be"
+"\\blur"
+"\\fscx"
+"\\fscy"
+"\\frx"
+"\\fry"
+"\\frz"
+"\\fr"
+"\\fax"
+"\\fay"
+"\\fs"
+"\\fsp"
+"\\c"
+"\\1c"
+"\\2c"
+"\\3c"
+"\\4c"
+"\\alpha"
+"\\1a"
+"\\2a"
+"\\3a"
+"\\4a"
+"\\iclip"
+"\\clip"
+
+## Drawing Commands
+"m "
+"n "
+"l "
+"b "
+"s "
+"p "
+"c"
