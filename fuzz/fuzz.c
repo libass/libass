@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,10 +34,28 @@
     #define ASS_FUZZMODE FUZZMODE_STANDALONE
 #endif
 
+// MSAN: will trigger MSAN if any pixel in bitmap not written to (costly)
+#ifndef ASSFUZZ_HASH_WHOLEBITMAP
+    #define ASSFUZZ_HASH_WHOLEBITMAP 0
+#endif
+
 ASS_Library *ass_library = NULL;
 ASS_Renderer *ass_renderer = NULL;
 
 uint8_t hval = 0;
+
+#if ASSFUZZ_HASH_WHOLEBITMAP
+static inline void hash(const void *buf, size_t len)
+{
+    const uint8_t *ptr = buf;
+    const uint8_t *end = ptr + len;
+    while (ptr < end)
+        hval ^= *ptr++;
+    // MSAN doesn't trigger on the XORs, but will on conditional branches
+    if (hval)
+        hval ^= 57;
+}
+#endif
 
 void msg_callback(int level, const char *fmt, va_list va, void *data)
 {
@@ -97,9 +116,17 @@ static inline void process_image(ASS_Image* imgs)
                imgs->dst_x + imgs->w <= RWIDTH &&
                imgs->dst_y + imgs->h <= RHEIGHT &&
                imgs->stride >= imgs->w);
+#if !ASSFUZZ_HASH_WHOLEBITMAP
         // Check last pixel to probe for out-of-bounds errors
         if (imgs->w && imgs->h)
             hval ^= *(imgs->bitmap + imgs->stride * (imgs->h - 1) + imgs->w - 1);
+#else
+        unsigned char *src = imgs->bitmap;
+        for (int y = 0; y < imgs->h; ++y) {
+            hash(src, imgs->w);
+            src += imgs->stride;
+        }
+#endif
     }
 }
 
