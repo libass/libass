@@ -16,6 +16,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <assert.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -35,6 +36,8 @@
 ASS_Library *ass_library = NULL;
 ASS_Renderer *ass_renderer = NULL;
 
+uint8_t hval = 0;
+
 void msg_callback(int level, const char *fmt, va_list va, void *data)
 {
 #if ASS_FUZZMODE == FUZZMODE_STANDALONE
@@ -44,6 +47,9 @@ void msg_callback(int level, const char *fmt, va_list va, void *data)
     printf("\n");
 #endif
 }
+
+static const int RWIDTH  = 854;
+static const int RHEIGHT = 480;
 
 static bool init_renderer(void)
 {
@@ -56,8 +62,8 @@ static bool init_renderer(void)
 
     ass_set_fonts(ass_renderer, NULL, "sans-serif",
                   ASS_FONTPROVIDER_AUTODETECT, NULL, 1);
-    ass_set_frame_size(ass_renderer, 854, 480);
-    ass_set_storage_size(ass_renderer, 854, 480);
+    ass_set_frame_size(ass_renderer, RWIDTH, RHEIGHT);
+    ass_set_storage_size(ass_renderer, RWIDTH, RHEIGHT);
 
     return true;
 }
@@ -82,15 +88,30 @@ static bool init(void)
     return true;
 }
 
+
+static inline void process_image(ASS_Image* imgs)
+{
+    for (; imgs; imgs = imgs->next) {
+        assert(imgs->w >= 0 && imgs->h >= 0 &&
+               imgs->dst_x >= 0 && imgs->dst_y >= 0 &&
+               imgs->dst_x + imgs->w <= RWIDTH &&
+               imgs->dst_y + imgs->h <= RHEIGHT &&
+               imgs->stride >= imgs->w);
+        // Check last pixel to probe for out-of-bounds errors
+        if (imgs->w && imgs->h)
+            hval ^= *(imgs->bitmap + imgs->stride * (imgs->h - 1) + imgs->w - 1);
+    }
+}
+
 static void consume_track(ASS_Renderer *renderer, ASS_Track *track)
 {
     for (int n = 0; n < track->n_events; ++n) {
         int change;
         ASS_Event event = track->events[n];
-        ass_render_frame(ass_renderer, track, event.Start, &change);
+        process_image(ass_render_frame(ass_renderer, track, event.Start, &change));
         if (event.Duration > 1) {
-            ass_render_frame(ass_renderer, track, event.Start + event.Duration/2, &change);
-            ass_render_frame(ass_renderer, track, event.Start + event.Duration-1, &change);
+            process_image(ass_render_frame(ass_renderer, track, event.Start + event.Duration/2, &change));
+            process_image(ass_render_frame(ass_renderer, track, event.Start + event.Duration-1, &change));
         }
     }
 }
