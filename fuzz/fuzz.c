@@ -64,6 +64,14 @@ void msg_callback(int level, const char *fmt, va_list va, void *data)
     printf("libass: ");
     vprintf(fmt, va);
     printf("\n");
+#else
+    // still check for type-mismatches even when not printing
+    // (seems to be cheap enough from some simple perormance tests)
+    char msg[2048];
+    int l = vsnprintf(msg, sizeof(msg), fmt, va) - 1;
+    l = l >= sizeof(msg) ? sizeof(msg) - 1 : l;
+    l = l < 0 ? 0 : l;
+    hval ^= *(msg + l);
 #endif
 }
 
