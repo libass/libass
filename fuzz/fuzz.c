@@ -298,6 +298,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
     ass_renderer_done(ass_renderer);
     ass_library_done(ass_library);
+    ass_renderer = NULL;
+    ass_library = NULL;
 
     return 0;
 }
