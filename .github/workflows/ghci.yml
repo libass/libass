@@ -130,11 +130,13 @@ jobs:
           > /tmp/windowsapp.specs
 
       - name: configure
-        env:
-          CC: "${{ matrix.cc }}\
+        run: |
+          export CC="${{ matrix.cc }}\
             ${{ matrix.extra_cflags && ' ' }}${{ matrix.extra_cflags }}"
-          LD: "${{ matrix.ld }}"
-        run: ./autogen.sh && ./configure
+          export LD="${{ matrix.ld }}"
+
+          ./autogen.sh
+          ./configure
 
       - name: compile
         if: matrix.do_distc != 'yes'
