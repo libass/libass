@@ -1855,6 +1855,10 @@ fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
         // to freetype. Normalize scale_y to 1.0.
         ft_size = glyph->scale_y * glyph->font_size;
     }
+
+    if (!ft_size || !glyph->font_size)
+        return;
+
     double mul = glyph->font_size / ft_size;
     glyph->scale_fix = 1 / mul;
     glyph->scale_x *= mul;
