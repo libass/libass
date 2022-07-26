@@ -2785,6 +2785,7 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
         ass_fix_outline(&v->bm, &v->bm_o);
 
     return sizeof(CompositeHashKey) + sizeof(CompositeHashValue) +
+        k->bitmap_count * sizeof(BitmapRef) +
         bitmap_size(&v->bm) + bitmap_size(&v->bm_o) + bitmap_size(&v->bm_s);
 }
 
