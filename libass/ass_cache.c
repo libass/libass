@@ -408,7 +408,7 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
     item->queue_next = NULL;
     item->ref_count = 2;
 
-    cache->cache_size += item->size;
+    cache->cache_size += item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
     cache->items++;
     return value;
 }
@@ -452,7 +452,7 @@ void ass_cache_dec_ref(void *value)
         *item->prev = item->next;
 
         cache->items--;
-        cache->cache_size -= item->size;
+        cache->cache_size -= item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
     }
     destroy_item(item->desc, item);
 }
@@ -479,7 +479,7 @@ void ass_cache_cut(Cache *cache, size_t max_size)
         *item->prev = item->next;
 
         cache->items--;
-        cache->cache_size -= item->size;
+        cache->cache_size -= item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
         destroy_item(cache->desc, item);
     } while (cache->cache_size > max_size);
     if (cache->queue_first)
