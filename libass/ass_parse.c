@@ -212,7 +212,7 @@ interpolate_alpha(long long now, int32_t t1, int32_t t2, int32_t t3,
  * Parse a vector clip into an outline, using the proper scaling
  * parameters.  Translate it to correct for screen borders, if needed.
  */
-static bool parse_vector_clip(ASS_Renderer *render_priv,
+static bool parse_vector_clip(RenderContext *state,
                               struct arg *args, int nargs)
 {
     if (nargs != 1 && nargs != 2)
@@ -223,9 +223,9 @@ static bool parse_vector_clip(ASS_Renderer *render_priv,
         scale = argtoi32(args[0]);
 
     struct arg text = args[nargs - 1];
-    render_priv->state.clip_drawing_text.str = text.start;
-    render_priv->state.clip_drawing_text.len = text.end - text.start;
-    render_priv->state.clip_drawing_scale = scale;
+    state->clip_drawing_text.str = text.start;
+    state->clip_drawing_text.len = text.end - text.start;
+    state->clip_drawing_scale = scale;
     return true;
 }
 
@@ -417,7 +417,7 @@ char *ass_parse_tags(RenderContext *state, char *p, char *end, double pwr,
                     state->clip_y1 * (1 - pwr) + y1 * pwr;
                 state->clip_mode = 1;
             } else if (!state->clip_drawing_text.str) {
-                if (parse_vector_clip(render_priv, args, nargs))
+                if (parse_vector_clip(state, args, nargs))
                     state->clip_drawing_mode = 1;
             }
         } else if (tag("blur")) {
@@ -741,7 +741,7 @@ char *ass_parse_tags(RenderContext *state, char *p, char *end, double pwr,
                     state->clip_y1 * (1 - pwr) + y1 * pwr;
                 state->clip_mode = 0;
             } else if (!state->clip_drawing_text.str) {
-                if (parse_vector_clip(render_priv, args, nargs))
+                if (parse_vector_clip(state, args, nargs))
                     state->clip_drawing_mode = 0;
             }
         } else if (tag("c") || tag("1c")) {
