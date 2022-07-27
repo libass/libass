@@ -20,6 +20,8 @@
 #ifndef LIBASS_RENDER_H
 #define LIBASS_RENDER_H
 
+#include "ass_compat.h"
+
 #include <inttypes.h>
 #include <stdbool.h>
 #include <fribidi.h>
@@ -39,6 +41,7 @@
 #include "ass_drawing.h"
 #include "ass_bitmap.h"
 #include "ass_rasterizer.h"
+#include "ass_threading.h"
 
 #define GLYPH_CACHE_MAX 10000
 #define MEGABYTE (1024 * 1024)
@@ -77,6 +80,8 @@ typedef struct {
 
     char *default_font;
     char *default_family;
+
+    int threads;
 } ASS_Settings;
 
 // a rendered event
@@ -339,6 +344,21 @@ struct ass_renderer {
     BitmapEngine engine;
 
     ASS_Style user_override_style;
+
+#if ENABLE_THREADS
+    pthread_mutex_t mutex;
+    int mutex_inited;
+    pthread_cond_t main_cond, pool_cond;
+    int main_cond_inited, pool_cond_inited;
+
+    unsigned n_threads, started_threads;
+    pthread_t *threads;
+
+    int thread_start_failed;
+
+    int shutting_down;
+    int processing_eimgs, sent_eimgs, next_eimg, got_eimgs;
+#endif
 };
 
 typedef struct render_priv {
