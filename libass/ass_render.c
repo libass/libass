@@ -287,12 +287,13 @@ static double y2scr_sub(RenderContext *state, double y)
  * In an additional pass, the rectangles need to be split up left/right for
  * karaoke effects.  This can result in a lot of bitmaps (6 to be exact).
  */
-static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
+static ASS_Image **render_glyph_i(RenderContext *state,
                                   Bitmap *bm, int dst_x, int dst_y,
                                   uint32_t color, uint32_t color2, int brk,
                                   ASS_Image **tail, unsigned type,
                                   CompositeHashValue *source)
 {
+    ASS_Renderer *render_priv = state->renderer;
     int i, j, x0, y0, x1, y1, cx0, cy0, cx1, cy1, sx, sy, zx, zy;
     Rect r[4];
     ASS_Image *img;
@@ -311,10 +312,10 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
     y0 = 0;
     x1 = bm->w;
     y1 = bm->h;
-    cx0 = render_priv->state.clip_x0 - dst_x;
-    cy0 = render_priv->state.clip_y0 - dst_y;
-    cx1 = render_priv->state.clip_x1 - dst_x;
-    cy1 = render_priv->state.clip_y1 - dst_y;
+    cx0 = state->clip_x0 - dst_x;
+    cy0 = state->clip_y0 - dst_y;
+    cx1 = state->clip_x1 - dst_x;
+    cy1 = state->clip_y1 - dst_y;
 
     // calculate rectangles and discard invalid ones while we're at it.
     i = 0;
@@ -392,13 +393,13 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
  * Performs clipping. Uses my_draw_bitmap for actual bitmap convertion.
  */
 static ASS_Image **
-render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
+render_glyph(RenderContext *state, Bitmap *bm, int dst_x, int dst_y,
              uint32_t color, uint32_t color2, int brk, ASS_Image **tail,
              unsigned type, CompositeHashValue *source)
 {
     // Inverse clipping in use?
-    if (render_priv->state.clip_mode)
-        return render_glyph_i(render_priv, bm, dst_x, dst_y, color, color2,
+    if (state->clip_mode)
+        return render_glyph_i(state, bm, dst_x, dst_y, color, color2,
                               brk, tail, type, source);
 
     // brk is absolute
@@ -408,16 +409,17 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
     int clip_x0, clip_y0, clip_x1, clip_y1;
     int tmp;
     ASS_Image *img;
+    ASS_Renderer *render_priv = state->renderer;
 
     dst_x += bm->left;
     dst_y += bm->top;
     brk -= dst_x;
 
     // clipping
-    clip_x0 = FFMINMAX(render_priv->state.clip_x0, 0, render_priv->width);
-    clip_y0 = FFMINMAX(render_priv->state.clip_y0, 0, render_priv->height);
-    clip_x1 = FFMINMAX(render_priv->state.clip_x1, 0, render_priv->width);
-    clip_y1 = FFMINMAX(render_priv->state.clip_y1, 0, render_priv->height);
+    clip_x0 = FFMINMAX(state->clip_x0, 0, render_priv->width);
+    clip_y0 = FFMINMAX(state->clip_y0, 0, render_priv->height);
+    clip_x1 = FFMINMAX(state->clip_x1, 0, render_priv->width);
+    clip_y1 = FFMINMAX(state->clip_y1, 0, render_priv->height);
     b_x0 = 0;
     b_y0 = 0;
     b_x1 = bm->w;
@@ -666,20 +668,22 @@ static inline size_t bitmap_size(const Bitmap *bm)
  * applicable. The blended bitmaps are added to a free list which is freed
  * at the start of a new frame.
  */
-static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
+static void blend_vector_clip(RenderContext *state, ASS_Image *head)
 {
-    if (!render_priv->state.clip_drawing_text.str)
+    if (!state->clip_drawing_text.str)
         return;
+
+    ASS_Renderer *render_priv = state->renderer;
 
     OutlineHashKey ol_key;
     ol_key.type = OUTLINE_DRAWING;
-    ol_key.u.drawing.text = render_priv->state.clip_drawing_text;
+    ol_key.u.drawing.text = state->clip_drawing_text;
 
     double m[3][3] = {{0}};
-    int32_t scale_base = lshiftwrapi(1, render_priv->state.clip_drawing_scale - 1);
+    int32_t scale_base = lshiftwrapi(1, state->clip_drawing_scale - 1);
     double w = scale_base > 0 ? (1.0 / scale_base) : 0;
-    m[0][0] = render_priv->state.screen_scale_x * w;
-    m[1][1] = render_priv->state.screen_scale_y * w;
+    m[0][0] = state->screen_scale_x * w;
+    m[1][1] = state->screen_scale_y * w;
     m[2][2] = 1;
 
     m[0][2] = int_to_d6(render_priv->settings.left_margin);
@@ -731,7 +735,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
         btop = top - by;
 
         unsigned align = 1 << render_priv->engine->align_order;
-        if (render_priv->state.clip_drawing_mode) {
+        if (state->clip_drawing_mode) {
             // Inverse clip
             if (ax + aw < bx || ay + ah < by || ax > bx + bw ||
                 ay > by + bh || !h || !w) {
@@ -787,20 +791,20 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
  * \brief Convert TextInfo struct to ASS_Image list
  * Splits glyphs in halves when needed (for \kf karaoke).
  */
-static ASS_Image *render_text(ASS_Renderer *render_priv)
+static ASS_Image *render_text(RenderContext *state)
 {
     ASS_Image *head;
     ASS_Image **tail = &head;
-    unsigned n_bitmaps = render_priv->text_info.n_bitmaps;
-    CombinedBitmapInfo *bitmaps = render_priv->text_info.combined_bitmaps;
+    unsigned n_bitmaps = state->text_info->n_bitmaps;
+    CombinedBitmapInfo *bitmaps = state->text_info->combined_bitmaps;
 
     for (unsigned i = 0; i < n_bitmaps; i++) {
         CombinedBitmapInfo *info = &bitmaps[i];
-        if (!info->bm_s || render_priv->state.border_style == 4)
+        if (!info->bm_s || state->border_style == 4)
             continue;
 
         tail =
-            render_glyph(render_priv, info->bm_s, info->x, info->y, info->c[3], 0,
+            render_glyph(state, info->bm_s, info->x, info->y, info->c[3], 0,
                          1000000, tail, IMAGE_TYPE_SHADOW, info->image);
     }
 
@@ -814,7 +818,7 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
             // do nothing
         } else {
             tail =
-                render_glyph(render_priv, info->bm_o, info->x, info->y, info->c[2],
+                render_glyph(state, info->bm_o, info->x, info->y, info->c[2],
                              0, 1000000, tail, IMAGE_TYPE_OUTLINE, info->image);
         }
     }
@@ -828,22 +832,22 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
                 || (info->effect_type == EF_KARAOKE_KO)) {
             if (info->effect_timing > 0)
                 tail =
-                    render_glyph(render_priv, info->bm, info->x, info->y,
+                    render_glyph(state, info->bm, info->x, info->y,
                                  info->c[0], 0, 1000000, tail,
                                  IMAGE_TYPE_CHARACTER, info->image);
             else
                 tail =
-                    render_glyph(render_priv, info->bm, info->x, info->y,
+                    render_glyph(state, info->bm, info->x, info->y,
                                  info->c[1], 0, 1000000, tail,
                                  IMAGE_TYPE_CHARACTER, info->image);
         } else if (info->effect_type == EF_KARAOKE_KF) {
             tail =
-                render_glyph(render_priv, info->bm, info->x, info->y, info->c[0],
+                render_glyph(state, info->bm, info->x, info->y, info->c[0],
                              info->c[1], info->effect_timing, tail,
                              IMAGE_TYPE_CHARACTER, info->image);
         } else
             tail =
-                render_glyph(render_priv, info->bm, info->x, info->y, info->c[0],
+                render_glyph(state, info->bm, info->x, info->y, info->c[0],
                              0, 1000000, tail, IMAGE_TYPE_CHARACTER, info->image);
     }
 
@@ -851,7 +855,7 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
         ass_cache_dec_ref(bitmaps[i].image);
 
     *tail = 0;
-    blend_vector_clip(render_priv, head);
+    blend_vector_clip(state, head);
 
     return head;
 }
@@ -2993,7 +2997,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->detect_collisions = state->detect_collisions;
     event_images->shift_direction = (valign == VALIGN_SUB) ? -1 : 1;
     event_images->event = event;
-    event_images->imgs = render_text(render_priv);
+    event_images->imgs = render_text(state);
 
     if (state->border_style == 4)
         add_background(render_priv, event_images);
