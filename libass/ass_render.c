@@ -996,36 +996,37 @@ ASS_Vector ass_layout_res(ASS_Renderer *render_priv)
         };
 }
 
-static void init_font_scale(ASS_Renderer *render_priv)
+static void init_font_scale(RenderContext *state)
 {
+    ASS_Renderer *render_priv = state->renderer;
     ASS_Settings *settings_priv = &render_priv->settings;
 
     double font_scr_w = render_priv->frame_content_width;
     double font_scr_h = render_priv->frame_content_height;
-    if (!render_priv->state.explicit && render_priv->settings.use_margins) {
+    if (!state->explicit && render_priv->settings.use_margins) {
         font_scr_w = render_priv->fit_width;
         font_scr_h = render_priv->fit_height;
     }
 
-    render_priv->state.screen_scale_x = font_scr_w / render_priv->track->PlayResX;
-    render_priv->state.screen_scale_y = font_scr_h / render_priv->track->PlayResY;
+    state->screen_scale_x = font_scr_w / render_priv->track->PlayResX;
+    state->screen_scale_y = font_scr_h / render_priv->track->PlayResY;
 
     ASS_Vector layout_res = ass_layout_res(render_priv);
-    render_priv->state.blur_scale = font_scr_h / layout_res.y;
+    state->blur_scale = font_scr_h / layout_res.y;
     if (render_priv->track->ScaledBorderAndShadow) {
-        render_priv->state.border_scale_x = render_priv->state.screen_scale_x;
-        render_priv->state.border_scale_y = render_priv->state.screen_scale_y;
+        state->border_scale_x = state->screen_scale_x;
+        state->border_scale_y = state->screen_scale_y;
     } else {
-        render_priv->state.border_scale_x = font_scr_w / layout_res.x;
-        render_priv->state.border_scale_y = render_priv->state.blur_scale;
+        state->border_scale_x = font_scr_w / layout_res.x;
+        state->border_scale_y = state->blur_scale;
     }
 
-    if (render_priv->state.apply_font_scale) {
-        render_priv->state.screen_scale_x *= settings_priv->font_size_coeff;
-        render_priv->state.screen_scale_y *= settings_priv->font_size_coeff;
-        render_priv->state.border_scale_x *= settings_priv->font_size_coeff;
-        render_priv->state.border_scale_y *= settings_priv->font_size_coeff;
-        render_priv->state.blur_scale *= settings_priv->font_size_coeff;
+    if (state->apply_font_scale) {
+        state->screen_scale_x *= settings_priv->font_size_coeff;
+        state->screen_scale_y *= settings_priv->font_size_coeff;
+        state->border_scale_x *= settings_priv->font_size_coeff;
+        state->border_scale_y *= settings_priv->font_size_coeff;
+        state->blur_scale *= settings_priv->font_size_coeff;
     }
 }
 
@@ -1037,7 +1038,7 @@ void ass_reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
 {
     style = handle_selective_style_overrides(&render_priv->state, style);
 
-    init_font_scale(render_priv);
+    init_font_scale(&render_priv->state);
 
     render_priv->state.c[0] = style->PrimaryColour;
     render_priv->state.c[1] = style->SecondaryColour;
