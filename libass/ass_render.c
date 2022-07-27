@@ -1548,21 +1548,22 @@ size_t ass_bitmap_construct(void *key, void *value, void *priv)
     return sizeof(BitmapHashKey) + sizeof(Bitmap) + bitmap_size(bm);
 }
 
-static void measure_text_on_eol(ASS_Renderer *render_priv, double scale, int cur_line,
+static void measure_text_on_eol(RenderContext *state, double scale, int cur_line,
                                 int max_asc, int max_desc,
                                 double max_border_x, double max_border_y)
 {
-    render_priv->text_info.lines[cur_line].asc  = scale * max_asc;
-    render_priv->text_info.lines[cur_line].desc = scale * max_desc;
-    render_priv->text_info.height += scale * max_asc + scale * max_desc;
+    TextInfo *text_info = state->text_info;
+    text_info->lines[cur_line].asc  = scale * max_asc;
+    text_info->lines[cur_line].desc = scale * max_desc;
+    text_info->height += scale * max_asc + scale * max_desc;
     // For *VSFilter compatibility do biased rounding on max_border*
     // https://github.com/Cyberbeing/xy-VSFilter/blob/xy_sub_filter_rc4@%7B2020-05-17%7D/src/subtitles/RTS.cpp#L1465
-    render_priv->text_info.border_bottom = (int) (render_priv->state.border_scale_y * max_border_y + 0.5);
+    text_info->border_bottom = (int) (state->border_scale_y * max_border_y + 0.5);
     if (cur_line == 0)
-        render_priv->text_info.border_top = render_priv->text_info.border_bottom;
+        text_info->border_top = text_info->border_bottom;
     // VSFilter takes max \bordx into account for collision, even if far from edge
-    render_priv->text_info.border_x = FFMAX(render_priv->text_info.border_x,
-            (int) (render_priv->state.border_scale_x * max_border_x + 0.5));
+    text_info->border_x = FFMAX(text_info->border_x,
+            (int) (state->border_scale_x * max_border_x + 0.5));
 }
 
 
@@ -1576,9 +1577,10 @@ static void measure_text_on_eol(ASS_Renderer *render_priv, double scale, int cur
  *   lines[].asc
  *   lines[].desc
  */
-static void measure_text(ASS_Renderer *render_priv)
+static void measure_text(RenderContext *state)
 {
-    TextInfo *text_info = &render_priv->text_info;
+    ASS_Renderer *render_priv = state->renderer;
+    TextInfo *text_info = state->text_info;
     text_info->height = 0;
     text_info->border_x = 0;
 
@@ -1589,7 +1591,7 @@ static void measure_text(ASS_Renderer *render_priv)
     bool empty_trimmed_line = true;
     for (int i = 0; i < text_info->length; i++) {
         if (text_info->glyphs[i].linebreak) {
-            measure_text_on_eol(render_priv, scale, cur_line,
+            measure_text_on_eol(state, scale, cur_line,
                     max_asc, max_desc, max_border_x, max_border_y);
             empty_trimmed_line = true;
             max_asc = max_desc = 0;
@@ -1617,7 +1619,7 @@ static void measure_text(ASS_Renderer *render_priv)
             scale = 1.0 / 64;
     }
     assert(cur_line == text_info->n_lines - 1);
-    measure_text_on_eol(render_priv, scale, cur_line,
+    measure_text_on_eol(state, scale, cur_line,
             max_asc, max_desc, max_border_x, max_border_y);
     text_info->height += cur_line * render_priv->settings.line_spacing;
 }
@@ -1627,11 +1629,11 @@ static void measure_text(ASS_Renderer *render_priv)
  */
 #define IS_WHITESPACE(x) ((x->symbol == ' ' || x->symbol == '\n') \
                           && !x->linebreak)
-static void trim_whitespace(ASS_Renderer *render_priv)
+static void trim_whitespace(RenderContext *state)
 {
     int i, j;
     GlyphInfo *cur;
-    TextInfo *ti = &render_priv->text_info;
+    TextInfo *ti = state->text_info;
 
     // Mark trailing spaces
     i = ti->length - 1;
@@ -1699,9 +1701,10 @@ static void trim_whitespace(ASS_Renderer *render_priv)
  * Starts a new line on the first breakable character after overflow
  */
 static void
-wrap_lines_naive(ASS_Renderer *render_priv, double max_text_width, char *unibrks)
+wrap_lines_naive(RenderContext *state, double max_text_width, char *unibrks)
 {
-    TextInfo *text_info = &render_priv->text_info;
+    ASS_Renderer *render_priv = state->renderer;
+    TextInfo *text_info = state->text_info;
     GlyphInfo *s1  = text_info->glyphs; // current line start
     int last_breakable = -1;
     int break_type = 0;
@@ -1720,7 +1723,7 @@ wrap_lines_naive(ASS_Renderer *render_priv, double max_text_width, char *unibrks
                     "forced line break at %d", break_at);
         } else if (len >= max_text_width &&
                    cur->symbol != ' ' /* get trimmed */ &&
-                   (render_priv->state.wrap_style != 2)) {
+                   (state->wrap_style != 2)) {
             break_type = 1;
             break_at = last_breakable;
             if (break_at >= 0)
@@ -1779,13 +1782,13 @@ static inline GlyphInfo *rewind_trailing_spaces(GlyphInfo *start1, GlyphInfo* st
  * FIXME: implement style 0 and 3 correctly
  */
 static void
-wrap_lines_rebalance(ASS_Renderer *render_priv, double max_text_width, char *unibrks)
+wrap_lines_rebalance(RenderContext *state, double max_text_width, char *unibrks)
 {
-    TextInfo *text_info = &render_priv->text_info;
+    TextInfo *text_info = state->text_info;
     int exit = 0;
 
 #define DIFF(x,y) (((x) < (y)) ? (y - x) : (x - y))
-    while (!exit && render_priv->state.wrap_style != 1) {
+    while (!exit && state->wrap_style != 1) {
         exit = 1;
         GlyphInfo  *s1, *s2, *s3;
         s3 = text_info->glyphs;
@@ -1848,9 +1851,9 @@ wrap_lines_rebalance(ASS_Renderer *render_priv, double max_text_width, char *uni
 }
 
 static void
-wrap_lines_measure(ASS_Renderer *render_priv, char *unibrks)
+wrap_lines_measure(RenderContext *state, char *unibrks)
 {
-    TextInfo *text_info = &render_priv->text_info;
+    TextInfo *text_info = state->text_info;
     int cur_line = 1;
     int i = 0;
 
@@ -1872,7 +1875,7 @@ wrap_lines_measure(ASS_Renderer *render_priv, char *unibrks)
             text_info->lines[cur_line].offset = i;
             cur_line++;
             pen_shift_x = d6_to_double(-cur->pos.x);
-            pen_shift_y += height + render_priv->settings.line_spacing;
+            pen_shift_y += height + state->renderer->settings.line_spacing;
         }
         cur->pos.x += double_to_d6(pen_shift_x);
         cur->pos.y += double_to_d6(pen_shift_y);
@@ -1896,23 +1899,25 @@ wrap_lines_measure(ASS_Renderer *render_priv, char *unibrks)
  * FIXME: implement style 0 and 3 correctly
  */
 static void
-wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
+wrap_lines_smart(RenderContext *state, double max_text_width)
 {
     char *unibrks = NULL;
 
 #ifdef CONFIG_UNIBREAK
+    ASS_Renderer *render_priv = state->renderer;
+    TextInfo *text_info = state->text_info;
     if (render_priv->track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_WRAP_UNICODE)) {
-        unibrks = render_priv->text_info.breaks;
+        unibrks = text_info->breaks;
         set_linebreaks_utf32(
-            render_priv->text_info.event_text, render_priv->text_info.length,
+            text_info->event_text, text_info->length,
             render_priv->track->Language, unibrks);
 #if UNIBREAK_VERSION < 0x0500UL
         // Prior to 5.0 libunibreaks always ended text with LINE_BREAKMUSTBREAK, matching
         // Unicode spec, but messing with our text-overflow detection.
         // Thus reevaluate the last char in a different context.
         // (Later versions set either MUSTBREAK or the newly added INDETERMINATE)
-        unibrks[render_priv->text_info.length - 1] = is_line_breakable(
-            render_priv->text_info.event_text[render_priv->text_info.length - 1],
+        unibrks[text_info->length - 1] = is_line_breakable(
+            text_info->event_text[text_info->length - 1],
             ' ',
             render_priv->track->Language
         );
@@ -1920,12 +1925,12 @@ wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
     }
 #endif
 
-    wrap_lines_naive(render_priv, max_text_width, unibrks);
-    wrap_lines_rebalance(render_priv, max_text_width, unibrks);
+    wrap_lines_naive(state, max_text_width, unibrks);
+    wrap_lines_rebalance(state, max_text_width, unibrks);
 
-    trim_whitespace(render_priv);
-    measure_text(render_priv);
-    wrap_lines_measure(render_priv, unibrks);
+    trim_whitespace(state);
+    measure_text(state);
+    wrap_lines_measure(state, unibrks);
 }
 
 /**
@@ -2851,7 +2856,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         x2scr_left(state, MarginL);
 
     // wrap lines
-    wrap_lines_smart(render_priv, max_text_width);
+    wrap_lines_smart(state, max_text_width);
 
     // depends on glyph x coordinates being monotonous within runs, so it should be done before reorder
     ass_process_karaoke_effects(state);
