@@ -24,15 +24,15 @@ typedef struct ass_shaper ASS_Shaper;
 #include <fribidi.h>
 #include <stdbool.h>
 #include "ass_render.h"
+#include "ass_cache.h"
 
 #if FRIBIDI_MAJOR_VERSION >= 1
 #define USE_FRIBIDI_EX_API
 #endif
 
 void ass_shaper_info(ASS_Library *lib);
-ASS_Shaper *ass_shaper_new(void);
+ASS_Shaper *ass_shaper_new(Cache *metrics_cache);
 void ass_shaper_free(ASS_Shaper *shaper);
-void ass_shaper_empty_cache(ASS_Shaper *shaper);
 void ass_shaper_set_kerning(ASS_Shaper *shaper, bool kern);
 void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
                           GlyphInfo *glyphs, size_t len);
