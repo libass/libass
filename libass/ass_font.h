@@ -48,6 +48,10 @@ struct ass_font {
     ASS_ShaperFontData *shaper_priv;
     _Atomic int n_faces;
     double size;
+
+#if ENABLE_THREADS
+    pthread_mutex_t mutex;
+#endif
 };
 
 void ass_charmap_magic(ASS_Library *library, FT_Face face);
@@ -62,6 +66,9 @@ uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol);
 bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
                         ASS_Hinting hinting);
 void ass_font_clear(ASS_Font *font);
+
+void ass_font_lock(ASS_Font *font);
+void ass_font_unlock(ASS_Font *font);
 
 bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
                            FT_Face face, unsigned flags);
