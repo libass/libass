@@ -13,10 +13,10 @@ AM_PROG_CC_C_O
 AM_PROG_AS
 
 # Checks for header files.
-AC_CHECK_HEADERS_ONCE([iconv.h])
+AC_CHECK_HEADERS_ONCE([iconv.h sched.h stdatomic.h unistd.h windows.h])
 
 # Checks for library functions.
-AC_CHECK_FUNCS([strdup strndup])
+AC_CHECK_FUNCS([sched_getaffinity strdup strndup])
 
 # Query configuration parameters and set their description
 AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
@@ -39,6 +39,10 @@ AC_ARG_ENABLE([require-system-font-provider], AS_HELP_STRING([--disable-require-
     [allow compilation even if no system font provider was found @<:@default=enabled:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
+AC_ARG_ENABLE([pthreads], AS_HELP_STRING([--disable-pthreads],
+    [disable threading support via pthreads @<:@default=check@:>@]))
+AC_ARG_ENABLE([w32threads], AS_HELP_STRING([--disable-w32threads],
+    [disable threading support via win32 threads @<:@default=check@:>@]))
 AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
     [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
 
@@ -90,6 +94,42 @@ AC_SEARCH_LIBS([lrint], [m], [
     AC_MSG_ERROR([Unable to locate math functions!])
 ])
 pkg_libs="$LIBS"
+
+AS_IF([test "x$enable_pthreads" = xyes && test "x$enable_w32threads" = xyes], [
+    AC_MSG_ERROR([both pthreads and w32threads were requested.])
+])
+
+AS_IF([test "x$enable_pthreads" = xyes && test "x$ac_cv_header_stdatomic_h" != xyes], [
+    AC_MSG_ERROR([pthread support was requested, but <stdatomic.h> was not found.])
+])
+
+thread_api="none"
+
+AS_IF([test "x$enable_w32threads" != xno], [
+    AS_IF([test "x$ac_cv_header_windows_h" = xyes], [
+        AC_DEFINE(CONFIG_W32THREAD, 1, [Have Win32 threads])
+        thread_api=w32threads
+    ], [test "x$enable_w32threads" = xyes], [
+        AC_MSG_ERROR([win32 threading support was requested, but was not found.])
+    ])
+])
+
+AS_IF([test $thread_api == none && test "x$enable_pthreads" != xno && test "x$ac_cv_header_stdatomic_h" = xyes], [
+    AX_PTHREAD([
+        pkg_libs="$pkg_libs $PTHREAD_LIBS"
+        CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+        LIBS="$LIBS $PTHREAD_LIBS"
+        CC="$PTHREAD_CC"
+        AC_DEFINE(CONFIG_PTHREAD, 1, [Have POSIX threads])
+        thread_api=pthreads
+    ], [
+        AS_IF([test "x$enable_pthreads" = xyes], [
+            AC_MSG_ERROR([pthread support was requested, but was not found.])
+        ])
+    ])
+])
+
+AC_MSG_NOTICE([Chosen threading model: $thread_api])
 
 ## Check for libraries via pkg-config and add to pkg_requires as needed
 PKG_CHECK_MODULES([FREETYPE], [freetype2 >= 9.17.3], [
@@ -196,9 +236,7 @@ AS_IF([test "x$enable_coretext" != xno], [
 AS_IF([test "x$enable_directwrite" != xno], [
     # Linking to DirectWrite directly only works from Windows
     AC_MSG_CHECKING([for DirectWrite])
-    AC_COMPILE_IFELSE([
-        AC_LANG_PROGRAM([[#include <windows.h>]], [[;]])
-    ], [
+    AS_IF([test "x$ac_cv_header_windows_h" = xyes], [
         directwrite=true
         AC_MSG_RESULT([yes])
         AC_MSG_CHECKING([for Win32 desktop APIs])

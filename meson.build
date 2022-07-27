@@ -60,15 +60,20 @@ add_project_arguments(
 
 # Configuration
 
-str_check_functions = ['strdup', 'strndup']
+check_functions = {
+  'string.h': ['strdup', 'strndup'],
+  'sched.h': ['sched_getaffinity'],
+}
 
-foreach name : str_check_functions
-    if (
-        cc.has_function(name)
-        and cc.has_header_symbol('string.h', name, args: cc_features)
-    )
-        conf.set('HAVE_@0@'.format(name.to_upper()), 1)
-    endif
+foreach header, functions : check_functions
+    foreach func : functions
+        if (
+            cc.has_function(func)
+            and cc.has_header_symbol(header, func, args: cc_features)
+        )
+            conf.set('HAVE_@0@'.format(func.to_upper()), 1)
+        endif
+    endforeach
 endforeach
 
 if (
@@ -81,6 +86,17 @@ if (
     )
 )
     conf.set('HAVE_FSTAT', 1)
+endif
+
+have_stdatomic = cc.check_header('stdatomic.h')
+if have_stdatomic
+    conf.set('HAVE_STDATOMIC_H', 1)
+endif
+if cc.check_header('unistd.h')
+    conf.set('HAVE_UNISTD_H', 1)
+endif
+if cc.check_header('sched.h')
+    conf.set('HAVE_SCHED_H', 1)
 endif
 
 # Dependencies
@@ -149,6 +165,40 @@ if fontconfig
     deps += fontconfig_dep
     conf.set('CONFIG_FONTCONFIG', 1)
     font_providers += ['Fontconfig']
+endif
+
+enable_threads = false
+threads_opt = get_option('threads')
+if not threads_opt.disabled()
+    if host_system in ['windows', 'cygwin']
+        conf.set('CONFIG_W32THREAD', 1)
+        enable_threads = true
+    elif host_system in ['darwin', 'linux', 'sunos', 'haiku', 'gnu', 'dragonfly'] or host_system.endswith('bsd')
+        if have_stdatomic
+            thread_dep = dependency('threads')
+            if thread_dep.found()
+                conf.set('CONFIG_PTHREAD', 1)
+                deps += thread_dep
+                enable_threads = true
+            elif threads_opt.enabled()
+                error(
+                    'threading support was requested, but it was not found.',
+                )
+            endif
+        elif threads_opt.enabled()
+            error(
+                'threading support was requested, but atomic support was not found.',
+            )
+        endif
+    elif threads_opt.enabled()
+        error(
+            'threading support was requested, but the threading API for this platform is unknown.',
+        )
+    else
+        warning(
+            'the threading API for this platform is unknown.',
+        )
+    endif
 endif
 
 # Core Text
@@ -419,3 +469,4 @@ endif
 
 summary('Font providers', font_providers)
 summary('ASM optimizations', enable_asm, bool_yn: true)
+summary('Threading', enable_threads, bool_yn: true)
