@@ -1247,16 +1247,22 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
     case OUTLINE_GLYPH:
         {
             GlyphHashKey *k = &outline_key->u.glyph;
+            ass_font_lock(k->font);
             ass_face_set_size(k->font->faces[k->face_index], k->size);
             if (!ass_font_get_glyph(k->font, k->face_index, k->glyph_index,
-                                    render_priv->settings.hinting))
+                                    render_priv->settings.hinting)) {
+                ass_font_unlock(k->font);
                 return 1;
+            }
             if (!ass_get_glyph_outline(&v->outline[0], &v->advance,
                                        k->font->faces[k->face_index],
-                                       k->flags))
+                                       k->flags)) {
+                ass_font_unlock(k->font);
                 return 1;
+            }
             ass_font_get_asc_desc(k->font, k->face_index,
                                   &v->asc, &v->desc);
+            ass_font_unlock(k->font);
             break;
         }
     case OUTLINE_DRAWING:
