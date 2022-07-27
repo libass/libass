@@ -68,6 +68,9 @@ bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
                         ASS_Hinting hinting);
 void ass_font_clear(ASS_Font *font);
 
+void ass_font_lock(ASS_Font *font);
+void ass_font_unlock(ASS_Font *font);
+
 bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
                            FT_Face face, unsigned flags);
 
