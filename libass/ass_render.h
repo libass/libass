@@ -283,6 +283,12 @@ typedef struct {
     int apply_font_scale;
     // whether this is assumed to be explicitly positioned
     int explicit;
+
+    double screen_scale_x;
+    double screen_scale_y;
+    double border_scale_x;
+    double border_scale_y;
+    double blur_scale;
 } RenderContext;
 
 typedef struct {
@@ -320,12 +326,7 @@ struct ass_renderer {
     double fit_width;           // content frame width without zoom & pan (fit to screen & letterboxed)
     ASS_Track *track;
     long long time;             // frame's timestamp, ms
-    double screen_scale_x;
-    double screen_scale_y;
-    double par_scale_x;         // x scale applied to e.g. glyphs to preserve text aspect ratio
-    double border_scale_x;
-    double border_scale_y;
-    double blur_scale;
+    double par_scale_x;        // x scale applied to all glyphs to preserve text aspect ratio
 
     RenderContext state;
     TextInfo text_info;
