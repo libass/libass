@@ -2213,11 +2213,11 @@ static void retrieve_glyphs(ASS_Renderer *render_priv)
 }
 
 // Preliminary layout (for line wrapping)
-static void preliminary_layout(ASS_Renderer *render_priv)
+static void preliminary_layout(RenderContext *state)
 {
     ASS_Vector pen = { 0, 0 };
-    for (int i = 0; i < render_priv->text_info.length; i++) {
-        GlyphInfo *info = render_priv->text_info.glyphs + i;
+    for (int i = 0; i < state->text_info->length; i++) {
+        GlyphInfo *info = state->text_info->glyphs + i;
         ASS_Vector cluster_pen = pen;
         do {
             info->pos.x = cluster_pen.x;
@@ -2228,7 +2228,7 @@ static void preliminary_layout(ASS_Renderer *render_priv)
 
             info = info->next;
         } while (info);
-        info = render_priv->text_info.glyphs + i;
+        info = state->text_info->glyphs + i;
         pen.x += info->cluster_advance.x;
         pen.y += info->cluster_advance.y;
     }
@@ -2839,7 +2839,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     retrieve_glyphs(render_priv);
 
-    preliminary_layout(render_priv);
+    preliminary_layout(state);
 
     int valign = state->alignment & 12;
 
