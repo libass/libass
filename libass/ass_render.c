@@ -1077,6 +1077,7 @@ static void
 init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
 {
     render_priv->state.renderer = render_priv;
+    render_priv->state.text_info = &render_priv->text_info;
     render_priv->state.event = event;
     render_priv->state.parsed_tags = 0;
     render_priv->state.evt_type = EVENT_NORMAL;
