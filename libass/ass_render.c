@@ -1085,43 +1085,45 @@ void ass_reset_render_context(RenderContext *state, ASS_Style *style)
 }
 
 /**
- * \brief Start new event. Reset render_priv->state.
+ * \brief Start new event. Reset state.
  */
 static void
-init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
+init_render_context(RenderContext *state, ASS_Event *event)
 {
-    render_priv->state.event = event;
-    render_priv->state.parsed_tags = 0;
-    render_priv->state.evt_type = EVENT_NORMAL;
+    ASS_Renderer *render_priv = state->renderer;
 
-    render_priv->state.wrap_style = render_priv->track->WrapStyle;
+    state->event = event;
+    state->parsed_tags = 0;
+    state->evt_type = EVENT_NORMAL;
 
-    render_priv->state.pos_x = 0;
-    render_priv->state.pos_y = 0;
-    render_priv->state.org_x = 0;
-    render_priv->state.org_y = 0;
-    render_priv->state.have_origin = 0;
-    render_priv->state.clip_x0 = 0;
-    render_priv->state.clip_y0 = 0;
-    render_priv->state.clip_x1 = render_priv->track->PlayResX;
-    render_priv->state.clip_y1 = render_priv->track->PlayResY;
-    render_priv->state.clip_mode = 0;
-    render_priv->state.detect_collisions = 1;
-    render_priv->state.fade = 0;
-    render_priv->state.drawing_scale = 0;
-    render_priv->state.pbo = 0;
-    render_priv->state.effect_type = EF_NONE;
-    render_priv->state.effect_timing = 0;
-    render_priv->state.effect_skip_timing = 0;
-    render_priv->state.reset_effect = false;
+    state->wrap_style = render_priv->track->WrapStyle;
 
-    ass_apply_transition_effects(&render_priv->state);
-    render_priv->state.explicit = render_priv->state.evt_type != EVENT_NORMAL ||
-                                  ass_event_has_hard_overrides(event->Text);
+    state->pos_x = 0;
+    state->pos_y = 0;
+    state->org_x = 0;
+    state->org_y = 0;
+    state->have_origin = 0;
+    state->clip_x0 = 0;
+    state->clip_y0 = 0;
+    state->clip_x1 = render_priv->track->PlayResX;
+    state->clip_y1 = render_priv->track->PlayResY;
+    state->clip_mode = 0;
+    state->detect_collisions = 1;
+    state->fade = 0;
+    state->drawing_scale = 0;
+    state->pbo = 0;
+    state->effect_type = EF_NONE;
+    state->effect_timing = 0;
+    state->effect_skip_timing = 0;
+    state->reset_effect = false;
 
-    ass_reset_render_context(&render_priv->state, NULL);
-    render_priv->state.alignment = render_priv->state.style->Alignment;
-    render_priv->state.justify = render_priv->state.style->Justify;
+    ass_apply_transition_effects(state);
+    state->explicit = state->evt_type != EVENT_NORMAL ||
+                      ass_event_has_hard_overrides(event->Text);
+
+    ass_reset_render_context(state, NULL);
+    state->alignment = state->style->Alignment;
+    state->justify = state->style->Justify;
 }
 
 static void free_render_context(RenderContext *state)
@@ -2815,7 +2817,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     RenderContext *state = &render_priv->state;
     free_render_context(state);
-    init_render_context(render_priv, event);
+    init_render_context(state, event);
 
     if (!parse_events(state, event))
         return false;
