@@ -1,6 +1,8 @@
 option('test', type: 'boolean', value: false, description: 'enable test program (requires libpng)')
 option('profile', type: 'boolean', value: false, description: 'enable profiling program')
 
+option('threads', type: 'feature', description: 'multithreading support')
+
 option('fontconfig', type: 'feature', description: 'fontconfig support')
 option('directwrite', type: 'feature', description: 'DirectWrite support (win32 only)')
 option('coretext', type: 'feature', description: 'CoreText support (OSX only)')
