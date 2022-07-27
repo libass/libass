@@ -1145,8 +1145,9 @@ static void free_render_context(RenderContext *state)
  * and add them to cache.
  */
 static void
-get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
+get_outline_glyph(RenderContext *state, GlyphInfo *info)
 {
+    ASS_Renderer *priv = state->renderer;
     OutlineHashValue *val;
     ASS_DVector scale, offset = {0};
 
@@ -1163,8 +1164,8 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 
         int32_t scale_base = lshiftwrapi(1, info->drawing_scale - 1);
         double w = scale_base > 0 ? (1.0 / scale_base) : 0;
-        scale.x = info->scale_x * w * priv->state.screen_scale_x / priv->par_scale_x;
-        scale.y = info->scale_y * w * priv->state.screen_scale_y;
+        scale.x = info->scale_x * w * state->screen_scale_x / priv->par_scale_x;
+        scale.y = info->scale_y * w * state->screen_scale_y;
         desc = 64 * info->drawing_pbo;
         asc = val->asc - desc;
 
@@ -2183,15 +2184,15 @@ fail:
 }
 
 // Process render_priv->text_info and load glyph outlines.
-static void retrieve_glyphs(ASS_Renderer *render_priv)
+static void retrieve_glyphs(RenderContext *state)
 {
-    GlyphInfo *glyphs = render_priv->text_info.glyphs;
+    GlyphInfo *glyphs = state->text_info->glyphs;
     int i;
 
-    for (i = 0; i < render_priv->text_info.length; i++) {
+    for (i = 0; i < state->text_info->length; i++) {
         GlyphInfo *info = glyphs + i;
         do {
-            get_outline_glyph(render_priv, info);
+            get_outline_glyph(state, info);
             info = info->next;
         } while (info);
         info = glyphs + i;
@@ -2837,7 +2838,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         return false;
     }
 
-    retrieve_glyphs(render_priv);
+    retrieve_glyphs(state);
 
     preliminary_layout(state);
 
