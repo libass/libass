@@ -65,6 +65,22 @@ void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
     }
 }
 
+unsigned ass_set_threads(ASS_Renderer *priv, unsigned threads)
+{
+#if ENABLE_THREADS
+    priv->library->thread_safe_cb = 1;
+
+    if (threads == 0)
+        threads = default_threads();
+
+    priv->settings.threads = threads;
+
+    return threads;
+#else
+    return 0;
+#endif
+}
+
 void ass_set_storage_size(ASS_Renderer *priv, int w, int h)
 {
     if (w <= 0 || h <= 0 || w > FFMIN(INT_MAX, SIZE_MAX) / h)
