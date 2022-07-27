@@ -1092,10 +1092,16 @@ ass_fontselect_init(ASS_Library *library, FT_Library ftlibrary, size_t *num_emfo
     priv->path_default = path ? strdup(path) : NULL;
     priv->index_default = 0;
 
+    if (family && !priv->family_default)
+        goto fail;
+    if (path && !priv->path_default)
+        goto fail;
+
     priv->embedded_provider = ass_embedded_fonts_add_provider(priv, num_emfonts);
 
     if (priv->embedded_provider == NULL) {
         ass_msg(library, MSGL_WARN, "failed to create embedded font provider");
+        goto fail;
     }
 
     if (dfp >= ASS_FONTPROVIDER_AUTODETECT) {
@@ -1118,6 +1124,19 @@ ass_fontselect_init(ASS_Library *library, FT_Library ftlibrary, size_t *num_emfo
     }
 
     return priv;
+
+fail:
+    if (priv->default_provider)
+        ass_font_provider_free(priv->default_provider);
+    if (priv->embedded_provider)
+        ass_font_provider_free(priv->embedded_provider);
+
+    free(priv->family_default);
+    free(priv->path_default);
+
+    free(priv);
+
+    return NULL;
 }
 
 void ass_get_available_font_providers(ASS_Library *priv,
