@@ -1305,9 +1305,11 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
 /**
  * \brief Calculate outline transformation matrix
  */
-static void calc_transform_matrix(ASS_Renderer *render_priv,
+static void calc_transform_matrix(RenderContext *state,
                                   GlyphInfo *info, double m[3][3])
 {
+    ASS_Renderer *render_priv = state->renderer;
+
     double frx = ASS_PI / 180 * info->frx;
     double fry = ASS_PI / 180 * info->fry;
     double frz = ASS_PI / 180 * info->frz;
@@ -1339,7 +1341,7 @@ static void calc_transform_matrix(ASS_Renderer *render_priv,
         z4[i] = x2[i] * sy + z3[i] * cy;
     }
 
-    double dist = 20000 * render_priv->state.blur_scale;
+    double dist = 20000 * state->blur_scale;
     z4[2] += dist;
 
     double scale_x = dist * render_priv->par_scale_x;
@@ -1361,11 +1363,13 @@ static void calc_transform_matrix(ASS_Renderer *render_priv,
  * They are returned in info->bm (glyph), info->bm_o (outline).
  */
 static void
-get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
+get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
                  int32_t *leftmost_x,
                  ASS_Vector *pos, ASS_Vector *pos_o,
                  ASS_DVector *offset, bool first, int flags)
 {
+    ASS_Renderer *render_priv = state->renderer;
+
     if (!info->outline || info->symbol == '\n' || info->symbol == 0 || info->skip) {
         ass_cache_dec_ref(info->outline);
         return;
@@ -1373,7 +1377,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
 
     double m1[3][3], m2[3][3], m[3][3];
     const ASS_Transform *tr = &info->transform;
-    calc_transform_matrix(render_priv, info, m1);
+    calc_transform_matrix(state, info, m1);
     for (int i = 0; i < 3; i++) {
         m2[i][0] = m1[i][0] * tr->scale.x;
         m2[i][1] = m1[i][1] * tr->scale.y;
@@ -1405,9 +1409,9 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
         ol_key.type = OUTLINE_BOX;
 
         ASS_DVector bord = {
-            64 * info->border_x * render_priv->state.border_scale_x /
+            64 * info->border_x * state->border_scale_x /
                 render_priv->par_scale_x,
-            64 * info->border_y * render_priv->state.border_scale_y,
+            64 * info->border_y * state->border_scale_y,
         };
         double width = info->hspacing_scaled + info->advance.x;
         double height = info->asc + info->desc;
@@ -1446,10 +1450,10 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
         k->outline = info->outline;
 
         double bord_x =
-            64 * render_priv->state.border_scale_x * info->border_x / tr->scale.x /
+            64 * state->border_scale_x * info->border_x / tr->scale.x /
                 render_priv->par_scale_x;
         double bord_y =
-            64 * render_priv->state.border_scale_y * info->border_y / tr->scale.y;
+            64 * state->border_scale_y * info->border_y / tr->scale.y;
 
         const ASS_Rect *bbox = &info->outline->cbox;
         // Estimate bounding box half size after stroking
@@ -2453,10 +2457,11 @@ static double restore_blur(int qblur)
 }
 
 // Convert glyphs to bitmaps, combine them, apply blur, generate shadows.
-static void render_and_combine_glyphs(ASS_Renderer *render_priv,
+static void render_and_combine_glyphs(RenderContext *state,
                                       double device_x, double device_y)
 {
-    TextInfo *text_info = &render_priv->text_info;
+    ASS_Renderer *render_priv = state->renderer;
+    TextInfo *text_info = state->text_info;
     int left = render_priv->settings.left_margin;
     device_x = (device_x - left) * render_priv->par_scale_x + left;
     unsigned nb_bitmaps = 0;
@@ -2518,11 +2523,11 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 filter->be = info->be;
 
                 int32_t shadow_mask;
-                double blur_scale = render_priv->state.blur_scale * (2 / sqrt(log(256)));
+                double blur_scale = state->blur_scale * (2 / sqrt(log(256)));
                 filter->blur = quantize_blur(info->blur * blur_scale, &shadow_mask);
                 if (flags & FILTER_NONZERO_SHADOW) {
-                    int32_t x = double_to_d6(info->shadow_x * render_priv->state.border_scale_x);
-                    int32_t y = double_to_d6(info->shadow_y * render_priv->state.border_scale_y);
+                    int32_t x = double_to_d6(info->shadow_x * state->border_scale_x);
+                    int32_t y = double_to_d6(info->shadow_y * state->border_scale_y);
                     filter->shadow.x = (x + (shadow_mask >> 1)) & ~shadow_mask;
                     filter->shadow.y = (y + (shadow_mask >> 1)) & ~shadow_mask;
                 } else
@@ -2548,7 +2553,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             ASS_Vector pos, pos_o;
             info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->par_scale_x);
             info->pos.y = double_to_d6(device_y) + info->pos.y;
-            get_bitmap_glyph(render_priv, info, &current_info->leftmost_x, &pos, &pos_o,
+            get_bitmap_glyph(state, info, &current_info->leftmost_x, &pos, &pos_o,
                              &offset, !current_info->bitmap_count, flags);
 
             if (!info->bm && !info->bm_o) {
@@ -2995,7 +3000,7 @@ ass_render_event(RenderContext *state, ASS_Event *event,
 
     calculate_rotation_params(state, &bbox, device_x, device_y);
 
-    render_and_combine_glyphs(render_priv, device_x, device_y);
+    render_and_combine_glyphs(state, device_x, device_y);
 
     memset(event_images, 0, sizeof(*event_images));
     // VSFilter does *not* shift lines with a border > margin to be within the
