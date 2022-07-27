@@ -2292,18 +2292,18 @@ static void apply_baseline_shear(RenderContext *state)
     }
 }
 
-static void align_lines(ASS_Renderer *render_priv, double max_text_width)
+static void align_lines(RenderContext *state, double max_text_width)
 {
-    TextInfo *text_info = &render_priv->text_info;
+    TextInfo *text_info = state->text_info;
     GlyphInfo *glyphs = text_info->glyphs;
     int i, j;
     double width = 0;
     int last_break = -1;
-    int halign = render_priv->state.alignment & 3;
-    int justify = render_priv->state.justify;
+    int halign = state->alignment & 3;
+    int justify = state->justify;
     double max_width = 0;
 
-    if (render_priv->state.evt_type & EVENT_HSCROLL) {
+    if (state->evt_type & EVENT_HSCROLL) {
         justify = halign;
         halign = HALIGN_LEFT;
     }
@@ -2857,7 +2857,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     reorder_text(render_priv);
 
-    align_lines(render_priv, max_text_width);
+    align_lines(state, max_text_width);
 
     // determing text bounding box
     ASS_DRect bbox;
