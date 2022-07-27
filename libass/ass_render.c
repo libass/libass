@@ -2803,9 +2803,10 @@ static void add_background(RenderContext *state, EventImages *event_images)
  * Process event, appending resulting ASS_Image's to images_root.
  */
 static bool
-ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
+ass_render_event(RenderContext *state, ASS_Event *event,
                  EventImages *event_images)
 {
+    ASS_Renderer *render_priv = state->renderer;
     if (event->Style >= render_priv->track->n_styles) {
         ass_msg(render_priv->library, MSGL_WARN, "No style found");
         return false;
@@ -2815,7 +2816,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         return false;
     }
 
-    RenderContext *state = &render_priv->state;
     free_render_context(state);
     init_render_context(state, event);
 
@@ -3369,7 +3369,7 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
                     realloc(priv->eimg,
                             priv->eimg_size * sizeof(EventImages));
             }
-            if (ass_render_event(priv, event, priv->eimg + cnt))
+            if (ass_render_event(&priv->state, event, priv->eimg + cnt))
                 cnt++;
         }
     }
