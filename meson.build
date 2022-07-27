@@ -75,6 +75,11 @@ if (
     conf.set('HAVE_FSTAT', 1)
 endif
 
+have_stdatomic = cc.check_header('stdatomic.h')
+if have_stdatomic
+    conf.set('HAVE_STDATOMIC_H', 1)
+endif
+
 # Dependencies
 
 deps += cc.find_library('m', required: false)
@@ -141,6 +146,37 @@ if fontconfig
     deps += fontconfig_dep
     conf.set('CONFIG_FONTCONFIG', 1)
     font_providers += ['Fontconfig']
+endif
+
+threads_opt = get_option('threads')
+if not threads_opt.disabled()
+    thread_dep = dependency('threads')
+    if thread_dep.found()
+        if host_system in ['windows', 'cygwin']
+            conf.set('CONFIG_W32THREAD', 1)
+        elif host_system in ['darwin', 'linux', 'sunos', 'haiku', 'gnu', 'dragonfly'] or host_system.endswith('bsd')
+            if have_stdatomic
+                conf.set('CONFIG_PTHREAD', 1)
+            elif threads_opt.enabled()
+                error(
+                    'threading support was requested, but atomic support was not found.',
+                )
+            endif
+        elif threads_opt.enabled()
+            error(
+                'threading support was requested, but the threading API for this platform is unknown.',
+            )
+        else
+            warning(
+                'the threading API for this platform is unknown.',
+            )
+        endif
+        deps += thread_dep
+    elif threads_opt.enabled()
+        error(
+            'threading support was requested, but it was not found.',
+        )
+    endif
 endif
 
 # Core Text
