@@ -28,6 +28,11 @@
 #include <linebreak.h>
 #endif
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 #include "ass.h"
 #include "ass_outline.h"
 #include "ass_render.h"
@@ -168,6 +173,35 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     ass_shaper_info(library);
     priv->settings.shaper = ASS_SHAPING_COMPLEX;
 
+#if ENABLE_THREADS
+    priv->settings.threads = default_threads();
+
+    if (pthread_mutex_init(&priv->mutex, NULL) != 0)
+        goto thread_fail;
+
+    priv->mutex_inited = true;
+
+    if (pthread_cond_init(&priv->main_cond, NULL) != 0)
+        goto thread_fail;
+
+    priv->main_cond_inited = true;
+
+    if (pthread_cond_init(&priv->pool_cond, NULL) != 0)
+        goto thread_fail;
+
+    priv->pool_cond_inited = true;
+
+    atomic_init(&priv->processing_eimgs, 0);
+    atomic_init(&priv->sent_eimgs, 0);
+    atomic_init(&priv->next_eimg, 0);
+
+thread_fail:
+    if (!priv->pool_cond_inited) {
+        ass_msg(library, MSGL_WARN, "Failed to initialize threading functionality; disabling");
+        priv->thread_start_failed = 1;
+    }
+#endif
+
     ass_msg(library, MSGL_V, "Initialized");
 
     return priv;
@@ -179,10 +213,41 @@ fail:
     return NULL;
 }
 
+#if ENABLE_THREADS
+static void join_threads(ASS_Renderer *render_priv)
+{
+    if (render_priv->threads) {
+        pthread_mutex_lock(&render_priv->mutex);
+        render_priv->shutting_down = 1;
+        pthread_mutex_unlock(&render_priv->mutex);
+        pthread_cond_broadcast(&render_priv->pool_cond);
+
+        for (unsigned i = 0; i < render_priv->n_threads; i++)
+            pthread_join(render_priv->threads[i], NULL);
+
+        free(render_priv->threads);
+
+        render_priv->threads = NULL;
+        render_priv->n_threads = 0;
+    }
+}
+#endif
+
 void ass_renderer_done(ASS_Renderer *render_priv)
 {
     if (!render_priv)
         return;
+
+#if ENABLE_THREADS
+    join_threads(render_priv);
+
+    if (render_priv->mutex_inited)
+        pthread_mutex_destroy(&render_priv->mutex);
+    if (render_priv->main_cond_inited)
+        pthread_cond_destroy(&render_priv->main_cond);
+    if (render_priv->pool_cond_inited)
+        pthread_cond_destroy(&render_priv->pool_cond);
+#endif
 
     ass_frame_unref(render_priv->images_root);
     ass_frame_unref(render_priv->prev_images_root);
@@ -2826,6 +2891,21 @@ static void add_background(RenderContext *state, EventImages *event_images)
     }
 }
 
+static void setup_shaper(ASS_Shaper *shaper, ASS_Renderer *render_priv)
+{
+    ASS_Track *track = render_priv->track;
+
+    ass_shaper_set_kerning(shaper, track->Kerning);
+    ass_shaper_set_language(shaper, track->Language);
+    ass_shaper_set_level(shaper, render_priv->settings.shaper);
+#ifdef USE_FRIBIDI_EX_API
+    ass_shaper_set_bidi_brackets(shaper,
+            track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_BIDI_BRACKETS));
+#endif
+    ass_shaper_set_whole_text_layout(shaper,
+            track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_WHOLE_TEXT_LAYOUT));
+}
+
 /**
  * \brief Main ass rendering function, glues everything together
  * \param event event to render
@@ -2833,9 +2913,10 @@ static void add_background(RenderContext *state, EventImages *event_images)
  * Process event, appending resulting ASS_Image's to images_root.
  */
 static bool
-ass_render_event(RenderContext *state, ASS_Event *event,
-                 EventImages *event_images)
+ass_render_event(RenderContext *state, EventImages *event_images)
 {
+    ASS_Event *event = event_images->event;
+
     ASS_Renderer *render_priv = state->renderer;
     if (event->Style >= render_priv->track->n_styles) {
         ass_msg(render_priv->library, MSGL_WARN, "No style found");
@@ -2845,6 +2926,8 @@ ass_render_event(RenderContext *state, ASS_Event *event,
         ass_msg(render_priv->library, MSGL_WARN, "Empty event");
         return false;
     }
+
+    setup_shaper(state->shaper, render_priv);
 
     free_render_context(state);
     init_render_context(state, event);
@@ -3027,7 +3110,6 @@ ass_render_event(RenderContext *state, ASS_Event *event,
 
     render_and_combine_glyphs(state, device_x, device_y);
 
-    memset(event_images, 0, sizeof(*event_images));
     // VSFilter does *not* shift lines with a border > margin to be within the
     // frame, so negative values for top and left may occur
     event_images->top = device_y - text_info->lines[0].asc - text_info->border_top;
@@ -3040,7 +3122,6 @@ ass_render_event(RenderContext *state, ASS_Event *event,
         + 2 * text_info->border_x + 0.5;
     event_images->detect_collisions = state->detect_collisions;
     event_images->shift_direction = (valign == VALIGN_SUB) ? -1 : 1;
-    event_images->event = event;
     event_images->imgs = render_text(state);
 
     if (state->border_style == 4)
@@ -3052,6 +3133,67 @@ ass_render_event(RenderContext *state, ASS_Event *event,
     return true;
 }
 
+#if ENABLE_THREADS
+static void *run_thread(void *ptr)
+{
+    ASS_Renderer *priv = ptr;
+
+    RenderContext state = {0};
+
+    thread_set_name("libass/render");
+
+    bool success = render_context_init(&state, priv);
+
+    pthread_mutex_lock(&priv->mutex);
+
+    if (!success) {
+        ass_msg(priv->library, MSGL_WARN, "Thread setup failed; disabling");
+        priv->thread_start_failed = 1;
+        goto fail;
+    }
+
+    priv->started_threads++;
+
+    pthread_cond_broadcast(&priv->main_cond);
+
+    for (;;) {
+        while (!priv->shutting_down && atomic_load_explicit(&priv->next_eimg, memory_order_relaxed) >= atomic_load_explicit(&priv->sent_eimgs, memory_order_relaxed))
+            pthread_cond_wait(&priv->pool_cond, &priv->mutex);
+
+        if (priv->shutting_down)
+            break;
+
+        priv->active_threads++;
+
+        pthread_mutex_unlock(&priv->mutex);
+
+        uintptr_t got_eimg;
+        while ((got_eimg = atomic_fetch_add_explicit(&priv->next_eimg, 1, memory_order_relaxed)) < atomic_load_explicit(&priv->sent_eimgs, memory_order_relaxed)) {
+            EventImages *imgs = priv->eimg + got_eimg;
+
+            ass_render_event(&state, imgs);
+
+            if (atomic_fetch_sub_explicit(&priv->processing_eimgs, 1, memory_order_acq_rel) - 1 == 0)
+                break;
+        }
+
+        pthread_mutex_lock(&priv->mutex);
+
+        priv->active_threads--;
+
+        pthread_cond_signal(&priv->main_cond);
+    }
+
+fail:
+
+    pthread_mutex_unlock(&priv->mutex);
+
+    render_context_done(&state);
+
+    return NULL;
+}
+#endif
+
 /**
  * \brief Check cache limits and reset cache if they are exceeded
  */
@@ -3060,21 +3202,6 @@ static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
     ass_cache_cut(cache->composite_cache, cache->composite_max_size);
     ass_cache_cut(cache->bitmap_cache, cache->bitmap_max_size);
     ass_cache_cut(cache->outline_cache, cache->glyph_max);
-}
-
-static void setup_shaper(ASS_Shaper *shaper, ASS_Renderer *render_priv)
-{
-    ASS_Track *track = render_priv->track;
-
-    ass_shaper_set_kerning(shaper, track->Kerning);
-    ass_shaper_set_language(shaper, track->Language);
-    ass_shaper_set_level(shaper, render_priv->settings.shaper);
-#ifdef USE_FRIBIDI_EX_API
-    ass_shaper_set_bidi_brackets(shaper,
-            track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_BIDI_BRACKETS));
-#endif
-    ass_shaper_set_whole_text_layout(shaper,
-            track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_WHOLE_TEXT_LAYOUT));
 }
 
 /**
@@ -3108,8 +3235,6 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
             render_priv->fontselect, render_priv->num_emfonts);
     }
 
-    setup_shaper(render_priv->state.shaper, render_priv);
-
     // PAR correction
     double par = render_priv->settings.par;
     bool lr_track = track->LayoutResX > 0 && track->LayoutResY > 0;
@@ -3139,6 +3264,12 @@ static int cmp_event_layer(const void *p1, const void *p2)
 {
     ASS_Event *e1 = ((EventImages *) p1)->event;
     ASS_Event *e2 = ((EventImages *) p2)->event;
+    if (!e1 && !e2)
+        return 0;
+    if (e1 && !e2)
+        return -1;
+    if (!e1 && e2)
+        return 1;
     if (e1->Layer < e2->Layer)
         return -1;
     if (e1->Layer > e2->Layer)
@@ -3377,6 +3508,42 @@ static int ass_detect_change(ASS_Renderer *priv)
     return diff;
 }
 
+#if ENABLE_THREADS
+static bool start_threads(ASS_Renderer *priv)
+{
+    if (priv->n_threads != priv->settings.threads && !priv->thread_start_failed) {
+        join_threads(priv);
+
+        priv->shutting_down = 0;
+
+        if (priv->settings.threads <= 1)
+            return true;
+
+        if (!(priv->threads = calloc(priv->settings.threads, sizeof(pthread_t)))) {
+            ass_msg(priv->library, MSGL_ERR, "Allocation failure");
+            return false;
+        }
+
+        for (priv->n_threads = 0; priv->n_threads < priv->settings.threads; priv->n_threads++) {
+            if (pthread_create(&priv->threads[priv->n_threads], NULL, run_thread, priv) != 0) {
+                pthread_mutex_lock(&priv->mutex);
+                ass_msg(priv->library, MSGL_WARN, "Thread startup failure");
+                priv->thread_start_failed = 1;
+                pthread_mutex_unlock(&priv->mutex);
+                return true;
+            }
+        }
+
+        pthread_mutex_lock(&priv->mutex);
+        while (priv->started_threads < priv->n_threads && !priv->thread_start_failed)
+            pthread_cond_wait(&priv->main_cond, &priv->mutex);
+        pthread_mutex_unlock(&priv->mutex);
+    }
+
+    return true;
+}
+#endif
+
 /**
  * \brief render a frame
  * \param priv library handle
@@ -3408,8 +3575,37 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
                     realloc(priv->eimg,
                             priv->eimg_size * sizeof(EventImages));
             }
-            if (ass_render_event(&priv->state, event, priv->eimg + cnt))
-                cnt++;
+            priv->eimg[cnt++] = (EventImages){
+                .event = event,
+            };
+        }
+    }
+
+#if ENABLE_THREADS
+    if (!start_threads(priv))
+        return NULL;
+
+    if (priv->n_threads > 0 && !priv->thread_start_failed && cnt > 1) {
+        pthread_mutex_lock(&priv->mutex);
+
+        while (priv->active_threads)
+            pthread_cond_wait(&priv->main_cond, &priv->mutex);
+
+        atomic_store_explicit(&priv->processing_eimgs, cnt, memory_order_release);
+        atomic_store_explicit(&priv->sent_eimgs, cnt, memory_order_release);
+        atomic_store_explicit(&priv->next_eimg, 0, memory_order_release);
+
+        pthread_cond_broadcast(&priv->pool_cond);
+
+        while (atomic_load_explicit(&priv->processing_eimgs, memory_order_acquire))
+            pthread_cond_wait(&priv->main_cond, &priv->mutex);
+
+        pthread_mutex_unlock(&priv->mutex);
+    } else
+#endif
+    {
+        for (int i = 0; i < cnt; i++) {
+            ass_render_event(&priv->state, priv->eimg + i);
         }
     }
 
