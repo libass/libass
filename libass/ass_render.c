@@ -2362,29 +2362,30 @@ static void align_lines(ASS_Renderer *render_priv, double max_text_width)
     }
 }
 
-static void calculate_rotation_params(ASS_Renderer *render_priv, ASS_DRect *bbox,
+static void calculate_rotation_params(RenderContext *state, ASS_DRect *bbox,
                                       double device_x, double device_y)
 {
+    ASS_Renderer *render_priv = state->renderer;
     ASS_DVector center;
-    if (render_priv->state.have_origin) {
-        center.x = x2scr_pos(render_priv, render_priv->state.org_x);
-        center.y = y2scr_pos(render_priv, render_priv->state.org_y);
+    if (state->have_origin) {
+        center.x = x2scr_pos(render_priv, state->org_x);
+        center.y = y2scr_pos(render_priv, state->org_y);
     } else {
         double bx = 0., by = 0.;
-        get_base_point(bbox, render_priv->state.alignment, &bx, &by);
+        get_base_point(bbox, state->alignment, &bx, &by);
         center.x = device_x + bx;
         center.y = device_y + by;
     }
 
-    TextInfo *text_info = &render_priv->text_info;
+    TextInfo *text_info = state->text_info;
     for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + i;
         while (info) {
             info->shift.x = info->pos.x + double_to_d6(device_x - center.x +
-                    info->shadow_x * render_priv->state.border_scale_x /
+                    info->shadow_x * state->border_scale_x /
                     render_priv->par_scale_x);
             info->shift.y = info->pos.y + double_to_d6(device_y - center.y +
-                    info->shadow_y * render_priv->state.border_scale_y);
+                    info->shadow_y * state->border_scale_y);
             info = info->next;
         }
     }
@@ -2980,7 +2981,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         state->clip_y1 = FFMIN(state->clip_y1, y1);
     }
 
-    calculate_rotation_params(render_priv, &bbox, device_x, device_y);
+    calculate_rotation_params(state, &bbox, device_x, device_y);
 
     render_and_combine_glyphs(render_priv, device_x, device_y);
 
