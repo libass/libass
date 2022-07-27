@@ -67,6 +67,15 @@ static bool text_info_init(TextInfo* text_info)
     return true;
 }
 
+static void text_info_done(TextInfo* text_info)
+{
+    free(text_info->glyphs);
+    free(text_info->event_text);
+    free(text_info->breaks);
+    free(text_info->lines);
+    free(text_info->combined_bitmaps);
+}
+
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
 {
     int error;
@@ -173,12 +182,8 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     if (render_priv->ftlibrary)
         FT_Done_FreeType(render_priv->ftlibrary);
     free(render_priv->eimg);
-    free(render_priv->text_info.glyphs);
-    free(render_priv->text_info.event_text);
-    free(render_priv->text_info.breaks);
-    free(render_priv->text_info.lines);
 
-    free(render_priv->text_info.combined_bitmaps);
+    text_info_done(&render_priv->text_info);
 
     free(render_priv->settings.default_font);
     free(render_priv->settings.default_family);
