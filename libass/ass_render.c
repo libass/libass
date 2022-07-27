@@ -2822,7 +2822,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     if (!parse_events(state, event))
         return false;
 
-    TextInfo *text_info = &render_priv->text_info;
+    TextInfo *text_info = state->text_info;
     if (text_info->length == 0) {
         // no valid symbols in the event; this can be smth like {comment}
         free_render_context(state);
