@@ -246,7 +246,7 @@ ass_fontselect_init(ASS_Library *library, FT_Library ftlibrary, size_t *num_emfo
                     const char *family, const char *path, const char *config,
                     ASS_DefaultFontProvider dfp);
 char *ass_font_select(ASS_FontSelector *priv,
-                      ASS_Font *font, int *index, char **postscript_name,
+                      const ASS_Font *font, int *index, char **postscript_name,
                       int *uid, ASS_FontStream *data, uint32_t code);
 void ass_fontselect_free(ASS_FontSelector *priv);
 

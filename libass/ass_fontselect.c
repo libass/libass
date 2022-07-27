@@ -891,7 +891,7 @@ static char *select_font(ASS_FontSelector *priv,
  * \return font file path
 */
 char *ass_font_select(ASS_FontSelector *priv,
-                      ASS_Font *font, int *index, char **postscript_name,
+                      const ASS_Font *font, int *index, char **postscript_name,
                       int *uid, ASS_FontStream *data, uint32_t code)
 {
     char *res = 0;
