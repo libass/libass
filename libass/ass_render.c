@@ -2268,9 +2268,10 @@ static void reorder_text(ASS_Renderer *render_priv)
     }
 }
 
-static void apply_baseline_shear(ASS_Renderer *render_priv)
+static void apply_baseline_shear(RenderContext *state)
 {
-    TextInfo *text_info = &render_priv->text_info;
+    ASS_Renderer *render_priv = state->renderer;
+    TextInfo *text_info = state->text_info;
     FriBidiStrIndex *cmap = ass_shaper_get_reorder_map(render_priv->shaper);
     int32_t shear = 0;
     bool whole_text_layout =
@@ -2862,7 +2863,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     ASS_DRect bbox;
     compute_string_bbox(text_info, &bbox);
 
-    apply_baseline_shear(render_priv);
+    apply_baseline_shear(state);
 
     // determine device coordinates for text
     double device_x = 0;
