@@ -214,16 +214,18 @@ static double x2scr_pos(ASS_Renderer *render_priv, double x)
     return x * render_priv->frame_content_width / render_priv->par_scale_x / render_priv->track->PlayResX +
         render_priv->settings.left_margin;
 }
-static double x2scr_left(ASS_Renderer *render_priv, double x)
+static double x2scr_left(RenderContext *state, double x)
 {
-    if (render_priv->state.explicit || !render_priv->settings.use_margins)
+    ASS_Renderer *render_priv = state->renderer;
+    if (state->explicit || !render_priv->settings.use_margins)
         return x2scr_pos(render_priv, x);
     return x * render_priv->fit_width / render_priv->par_scale_x /
         render_priv->track->PlayResX;
 }
-static double x2scr_right(ASS_Renderer *render_priv, double x)
+static double x2scr_right(RenderContext *state, double x)
 {
-    if (render_priv->state.explicit || !render_priv->settings.use_margins)
+    ASS_Renderer *render_priv = state->renderer;
+    if (state->explicit || !render_priv->settings.use_margins)
         return x2scr_pos(render_priv, x);
     return x * render_priv->fit_width / render_priv->par_scale_x /
         render_priv->track->PlayResX +
@@ -242,9 +244,10 @@ static double y2scr_pos(ASS_Renderer *render_priv, double y)
     return y * render_priv->frame_content_height / render_priv->track->PlayResY +
         render_priv->settings.top_margin;
 }
-static double y2scr(ASS_Renderer *render_priv, double y)
+static double y2scr(RenderContext *state, double y)
 {
-    if (render_priv->state.explicit || !render_priv->settings.use_margins)
+    ASS_Renderer *render_priv = state->renderer;
+    if (state->explicit || !render_priv->settings.use_margins)
         return y2scr_pos(render_priv, y);
     return y * render_priv->fit_height /
         render_priv->track->PlayResY +
@@ -252,17 +255,19 @@ static double y2scr(ASS_Renderer *render_priv, double y)
 }
 
 // the same for toptitles
-static double y2scr_top(ASS_Renderer *render_priv, double y)
+static double y2scr_top(RenderContext *state, double y)
 {
-    if (render_priv->state.explicit || !render_priv->settings.use_margins)
+    ASS_Renderer *render_priv = state->renderer;
+    if (state->explicit || !render_priv->settings.use_margins)
         return y2scr_pos(render_priv, y);
     return y * render_priv->fit_height /
         render_priv->track->PlayResY;
 }
 // the same for subtitles
-static double y2scr_sub(ASS_Renderer *render_priv, double y)
+static double y2scr_sub(RenderContext *state, double y)
 {
-    if (render_priv->state.explicit || !render_priv->settings.use_margins)
+    ASS_Renderer *render_priv = state->renderer;
+    if (state->explicit || !render_priv->settings.use_margins)
         return y2scr_pos(render_priv, y);
     return y * render_priv->fit_height /
         render_priv->track->PlayResY +
@@ -2834,8 +2839,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     // calculate max length of a line
     double max_text_width =
-        x2scr_right(render_priv, render_priv->track->PlayResX - MarginR) -
-        x2scr_left(render_priv, MarginL);
+        x2scr_right(state, render_priv->track->PlayResX - MarginR) -
+        x2scr_left(state, MarginL);
 
     // wrap lines
     wrap_lines_smart(render_priv, max_text_width);
@@ -2881,31 +2886,31 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 x2scr_pos(render_priv, state->scroll_shift) -
                 (bbox.x_max - bbox.x_min);
     } else if (!(state->evt_type & EVENT_POSITIONED)) {
-        device_x = x2scr_left(render_priv, MarginL);
+        device_x = x2scr_left(state, MarginL);
     }
 
     // y coordinate
     if (state->evt_type & EVENT_VSCROLL) {
         if (state->scroll_direction == SCROLL_TB)
             device_y =
-                y2scr(render_priv,
+                y2scr(state,
                       state->scroll_y0 +
                       state->scroll_shift) -
                 bbox.y_max;
         else if (state->scroll_direction == SCROLL_BT)
             device_y =
-                y2scr(render_priv,
+                y2scr(state,
                       state->scroll_y1 -
                       state->scroll_shift) -
                 bbox.y_min;
     } else if (!(state->evt_type & EVENT_POSITIONED)) {
         if (valign == VALIGN_TOP) {     // toptitle
             device_y =
-                y2scr_top(render_priv,
+                y2scr_top(state,
                           MarginV) + text_info->lines[0].asc;
         } else if (valign == VALIGN_CENTER) {   // midtitle
             double scr_y =
-                y2scr(render_priv, render_priv->track->PlayResY / 2.0);
+                y2scr(state, render_priv->track->PlayResY / 2.0);
             device_y = scr_y - (bbox.y_max + bbox.y_min) / 2.0;
         } else {                // subtitle
             double line_pos = state->explicit ?
@@ -2915,9 +2920,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 ass_msg(render_priv->library, MSGL_V,
                        "Invalid valign, assuming 0 (subtitle)");
             scr_bottom =
-                y2scr_sub(render_priv,
+                y2scr_sub(state,
                           render_priv->track->PlayResY - MarginV);
-            scr_top = y2scr_top(render_priv, 0); //xxx not always 0?
+            scr_top = y2scr_top(state, 0); //xxx not always 0?
             device_y = scr_bottom + (scr_top - scr_bottom) * line_pos / 100.0;
             device_y -= text_info->height;
             device_y += text_info->lines[0].asc;
