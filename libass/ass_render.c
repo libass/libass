@@ -2752,12 +2752,13 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
         bitmap_size(&v->bm) + bitmap_size(&v->bm_o) + bitmap_size(&v->bm_s);
 }
 
-static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
+static void add_background(RenderContext *state, EventImages *event_images)
 {
-    int size_x = render_priv->state.shadow_x > 0 ?
-        lround(render_priv->state.shadow_x * render_priv->state.border_scale_x) : 0;
-    int size_y = render_priv->state.shadow_y > 0 ?
-        lround(render_priv->state.shadow_y * render_priv->state.border_scale_y) : 0;
+    ASS_Renderer *render_priv = state->renderer;
+    int size_x = state->shadow_x > 0 ?
+        lround(state->shadow_x * state->border_scale_x) : 0;
+    int size_y = state->shadow_y > 0 ?
+        lround(state->shadow_y * state->border_scale_y) : 0;
     int left    = event_images->left - size_x;
     int top     = event_images->top  - size_y;
     int right   = event_images->left + event_images->width  + size_x;
@@ -2775,7 +2776,7 @@ static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
         return;
     memset(nbuffer, 0xFF, w * h);
     ASS_Image *img = my_draw_bitmap(nbuffer, w, h, w, left, top,
-                                    render_priv->state.c[3], NULL);
+                                    state->c[3], NULL);
     if (img) {
         img->next = event_images->imgs;
         event_images->imgs = img;
@@ -3000,7 +3001,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->imgs = render_text(state);
 
     if (state->border_style == 4)
-        add_background(render_priv, event_images);
+        add_background(state, event_images);
 
     ass_shaper_cleanup(render_priv->shaper, text_info);
     free_render_context(state);
