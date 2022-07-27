@@ -2792,7 +2792,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         return false;
     }
 
-    free_render_context(&render_priv->state);
+    RenderContext *state = &render_priv->state;
+    free_render_context(state);
     init_render_context(render_priv, event);
 
     if (!parse_events(render_priv, event))
@@ -2840,7 +2841,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     wrap_lines_smart(render_priv, max_text_width);
 
     // depends on glyph x coordinates being monotonous within runs, so it should be done before reorder
-    ass_process_karaoke_effects(render_priv);
+    ass_process_karaoke_effects(state);
 
     reorder_text(render_priv);
 

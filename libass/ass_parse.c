@@ -1020,19 +1020,20 @@ void ass_apply_transition_effects(RenderContext *state)
  * 2. sets effect_timing for all glyphs to x coordinate of the border line between the left and right karaoke parts
  * (left part is filled with PrimaryColour, right one - with SecondaryColour).
  */
-void ass_process_karaoke_effects(ASS_Renderer *render_priv)
+void ass_process_karaoke_effects(RenderContext *state)
 {
-    long long tm_current = render_priv->time - render_priv->state.event->Start;
+    TextInfo *text_info = state->text_info;
+    long long tm_current = state->renderer->time - state->event->Start;
 
     int32_t timing = 0, skip_timing = 0;
     Effect effect_type = EF_NONE;
     GlyphInfo *last_boundary = NULL;
     bool has_reset = false;
-    for (int i = 0; i <= render_priv->text_info.length; i++) {
-        if (i < render_priv->text_info.length &&
-            !render_priv->text_info.glyphs[i].starts_new_run) {
+    for (int i = 0; i <= text_info->length; i++) {
+        if (i < text_info->length &&
+            !text_info->glyphs[i].starts_new_run) {
 
-            if (render_priv->text_info.glyphs[i].reset_effect) {
+            if (text_info->glyphs[i].reset_effect) {
                 has_reset = true;
                 skip_timing = 0;
             }
@@ -1041,12 +1042,12 @@ void ass_process_karaoke_effects(ASS_Renderer *render_priv)
             // break, subsequent text is still part of the same karaoke word,
             // the current word's starting and ending time stay unchanged,
             // but the starting time of the next karaoke word is advanced.
-            skip_timing += (uint32_t) render_priv->text_info.glyphs[i].effect_skip_timing;
+            skip_timing += (uint32_t) text_info->glyphs[i].effect_skip_timing;
             continue;
         }
 
         GlyphInfo *start = last_boundary;
-        GlyphInfo *end = render_priv->text_info.glyphs + i;
+        GlyphInfo *end = text_info->glyphs + i;
         last_boundary = end;
         if (!start)
             continue;
