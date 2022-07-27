@@ -1112,17 +1112,18 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.justify = render_priv->state.style->Justify;
 }
 
-static void free_render_context(ASS_Renderer *render_priv)
+static void free_render_context(RenderContext *state)
 {
-    ass_cache_dec_ref(render_priv->state.font);
+    ass_cache_dec_ref(state->font);
 
-    render_priv->state.font = NULL;
-    render_priv->state.family.str = NULL;
-    render_priv->state.family.len = 0;
-    render_priv->state.clip_drawing_text.str = NULL;
-    render_priv->state.clip_drawing_text.len = 0;
+    state->font = NULL;
+    state->family.str = NULL;
+    state->family.len = 0;
+    state->clip_drawing_text.str = NULL;
+    state->clip_drawing_text.len = 0;
 
-    render_priv->text_info.length = 0;
+    if (state->text_info)
+        state->text_info->length = 0;
 }
 
 /**
@@ -2161,7 +2162,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
     return true;
 
 fail:
-    free_render_context(render_priv);
+    free_render_context(state);
     return false;
 }
 
@@ -2225,7 +2226,7 @@ static void reorder_text(ASS_Renderer *render_priv)
     if (!cmap) {
         ass_msg(render_priv->library, MSGL_ERR, "Failed to reorder text");
         ass_shaper_cleanup(render_priv->shaper, text_info);
-        free_render_context(render_priv);
+        free_render_context(&render_priv->state);
         return;
     }
 
@@ -2789,7 +2790,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         return false;
     }
 
-    free_render_context(render_priv);
+    free_render_context(&render_priv->state);
     init_render_context(render_priv, event);
 
     if (!parse_events(render_priv, event))
@@ -2798,7 +2799,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     TextInfo *text_info = &render_priv->text_info;
     if (text_info->length == 0) {
         // no valid symbols in the event; this can be smth like {comment}
-        free_render_context(render_priv);
+        free_render_context(&render_priv->state);
         return false;
     }
 
@@ -2811,7 +2812,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             text_info->length);
     if (!ass_shaper_shape(render_priv->shaper, text_info)) {
         ass_msg(render_priv->library, MSGL_ERR, "Failed to shape text");
-        free_render_context(render_priv);
+        free_render_context(&render_priv->state);
         return false;
     }
 
@@ -2990,7 +2991,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         add_background(render_priv, event_images);
 
     ass_shaper_cleanup(render_priv->shaper, text_info);
-    free_render_context(render_priv);
+    free_render_context(&render_priv->state);
 
     return true;
 }
