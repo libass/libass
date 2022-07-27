@@ -137,6 +137,8 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     if (!text_info_init(&priv->text_info))
         goto fail;
 
+    priv->user_override_style.Name = "OverrideStyle"; // name insignificant
+
     priv->state.renderer = priv;
     priv->state.text_info = &priv->text_info;
 
@@ -912,8 +914,6 @@ static ASS_Style *handle_selective_style_overrides(RenderContext *state,
     int explicit = state->explicit;
     int requested = render_priv->settings.selective_style_overrides;
     double scale;
-
-    user->Name = "OverrideStyle"; // name insignificant
 
     // Either the event's style, or the style forced with a \r tag.
     if (!rstyle)
