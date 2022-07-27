@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01702000
+#define LIBASS_VERSION 0x01702010
 
 #ifdef __cplusplus
 extern "C" {
@@ -387,6 +387,20 @@ void ass_renderer_done(ASS_Renderer *priv);
  * NOTE: frame size must be configured before an ASS_Renderer can be used.
  */
 void ass_set_frame_size(ASS_Renderer *priv, int w, int h);
+
+/**
+ * \brief Set the number of threads to use during rendering. Default is 0,
+ * meaning the number of available logical cores if known, otherwise 1.
+ * \param priv renderer handle
+ * \param threads number of threads
+ *
+ * \return number of threads that will be used (if 0 is passed, the autodetected
+ * count will be returned), or 0 if libass was built without threading support.
+ *
+ * Calling this function requires the log callback of the associated ASS_Library
+ * to be thread-safe, and opts out of internal locking around log calls.
+ */
+unsigned ass_set_threads(ASS_Renderer *priv, unsigned threads);
 
 /**
  * \brief Set the source image size in pixels.

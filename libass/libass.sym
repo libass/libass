@@ -8,6 +8,7 @@ ass_renderer_init
 ass_renderer_done
 ass_set_frame_size
 ass_set_storage_size
+ass_set_threads
 ass_set_margins
 ass_set_use_margins
 ass_set_aspect_ratio
