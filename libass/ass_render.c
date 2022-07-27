@@ -871,16 +871,17 @@ static void compute_string_bbox(TextInfo *text, ASS_DRect *bbox)
         bbox->x_min = bbox->x_max = bbox->y_min = bbox->y_max = 0;
 }
 
-static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
+static ASS_Style *handle_selective_style_overrides(RenderContext *state,
                                                    ASS_Style *rstyle)
 {
     // The script style is the one the event was declared with.
+    ASS_Renderer *render_priv = state->renderer;
     ASS_Style *script = render_priv->track->styles +
-                        render_priv->state.event->Style;
+                        state->event->Style;
     // The user style was set with ass_set_selective_style_override().
     ASS_Style *user = &render_priv->user_override_style;
-    ASS_Style *new = &render_priv->state.override_style_temp_storage;
-    int explicit = render_priv->state.explicit;
+    ASS_Style *new = &state->override_style_temp_storage;
+    int explicit = state->explicit;
     int requested = render_priv->settings.selective_style_overrides;
     double scale;
 
@@ -895,7 +896,7 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     // script's style that are deemed necessary.
     *new = *rstyle;
 
-    render_priv->state.apply_font_scale =
+    state->apply_font_scale =
         !explicit || !(requested & ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE);
 
     // On positioned events, do not apply most overrides.
@@ -965,8 +966,8 @@ static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
     if (!new->FontName)
         new->FontName = rstyle->FontName;
 
-    render_priv->state.style = new;
-    render_priv->state.overrides = requested;
+    state->style = new;
+    state->overrides = requested;
 
     return new;
 }
@@ -1034,7 +1035,7 @@ static void init_font_scale(ASS_Renderer *render_priv)
  */
 void ass_reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
 {
-    style = handle_selective_style_overrides(render_priv, style);
+    style = handle_selective_style_overrides(&render_priv->state, style);
 
     init_font_scale(render_priv);
 
