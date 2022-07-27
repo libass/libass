@@ -207,6 +207,8 @@ typedef struct {
 // Renderer state.
 // Values like current font face, color, screen position, clipping and so on are stored here.
 typedef struct {
+    ASS_Renderer *renderer;
+
     ASS_Event *event;
     ASS_Style *style;
 
