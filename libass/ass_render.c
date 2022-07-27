@@ -119,7 +119,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->engine = &ass_bitmap_engine_c;
 #endif
 
-    if (!ass_rasterizer_init(priv->engine, &priv->rasterizer, RASTERIZER_PRECISION))
+    if (!ass_rasterizer_init(priv->engine, &priv->state.rasterizer, RASTERIZER_PRECISION))
         goto fail;
 
     priv->cache.font_cache = ass_font_cache_create();
@@ -175,7 +175,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     ass_shaper_free(render_priv->state.shaper);
     ass_cache_done(render_priv->cache.font_cache);
 
-    ass_rasterizer_done(&render_priv->rasterizer);
+    ass_rasterizer_done(&render_priv->state.rasterizer);
 
     if (render_priv->fontselect)
         ass_fontselect_free(render_priv->fontselect);
@@ -716,7 +716,7 @@ static void blend_vector_clip(RenderContext *state, ASS_Image *head)
         ass_cache_dec_ref(key.outline);
         return;
     }
-    Bitmap *clip_bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, render_priv);
+    Bitmap *clip_bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
     if (!clip_bm)
         return;
 
@@ -1410,7 +1410,7 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
         ass_cache_dec_ref(info->outline);
         return;
     }
-    info->bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, render_priv);
+    info->bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
     if (!info->bm || !info->bm->buffer) {
         ass_cache_dec_ref(info->bm);
         info->bm = NULL;
@@ -1537,7 +1537,7 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
         ass_cache_dec_ref(key.outline);
         return;
     }
-    info->bm_o = ass_cache_get(render_priv->cache.bitmap_cache, &key, render_priv);
+    info->bm_o = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
     if (!info->bm_o || !info->bm_o->buffer) {
         ass_cache_dec_ref(info->bm_o);
         info->bm_o = NULL;
@@ -1548,7 +1548,7 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
 
 size_t ass_bitmap_construct(void *key, void *value, void *priv)
 {
-    ASS_Renderer *render_priv = priv;
+    RenderContext *state = priv;
     BitmapHashKey *k = key;
     Bitmap *bm = value;
 
@@ -1564,7 +1564,7 @@ size_t ass_bitmap_construct(void *key, void *value, void *priv)
         ass_outline_transform_2d(&outline[1], &k->outline->outline[1], m);
     }
 
-    if (!ass_outline_to_bitmap(render_priv, bm, &outline[0], &outline[1]))
+    if (!ass_outline_to_bitmap(state, bm, &outline[0], &outline[1]))
         memset(bm, 0, sizeof(*bm));
     ass_outline_free(&outline[0]);
     ass_outline_free(&outline[1]);

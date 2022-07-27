@@ -102,7 +102,9 @@ bool ass_realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32
 bool ass_copy_bitmap(const BitmapEngine *engine, Bitmap *dst, const Bitmap *src);
 void ass_free_bitmap(Bitmap *bm);
 
-bool ass_outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
+struct render_context;
+
+bool ass_outline_to_bitmap(struct render_context *state, Bitmap *bm,
                            ASS_Outline *outline1, ASS_Outline *outline2);
 
 void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
