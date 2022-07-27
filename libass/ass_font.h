@@ -30,6 +30,7 @@ typedef struct ass_font ASS_Font;
 #include "ass_fontselect.h"
 #include "ass_cache.h"
 #include "ass_outline.h"
+#include "ass_threading.h"
 
 #define VERTICAL_LOWER_BOUND 0x02f1
 
@@ -45,7 +46,7 @@ struct ass_font {
     int faces_uid[ASS_FONT_MAX_FACES];
     FT_Face faces[ASS_FONT_MAX_FACES];
     struct hb_font_t *hb_fonts[ASS_FONT_MAX_FACES];
-    int n_faces;
+    _Atomic uintptr_t n_faces;
 };
 
 void ass_charmap_magic(ASS_Library *library, FT_Face face);
