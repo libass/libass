@@ -2802,7 +2802,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     TextInfo *text_info = &render_priv->text_info;
     if (text_info->length == 0) {
         // no valid symbols in the event; this can be smth like {comment}
-        free_render_context(&render_priv->state);
+        free_render_context(state);
         return false;
     }
 
@@ -2810,12 +2810,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     // Find shape runs and shape text
     ass_shaper_set_base_direction(render_priv->shaper,
-            ass_resolve_base_direction(render_priv->state.font_encoding));
+            ass_resolve_base_direction(state->font_encoding));
     ass_shaper_find_runs(render_priv->shaper, render_priv, text_info->glyphs,
             text_info->length);
     if (!ass_shaper_shape(render_priv->shaper, text_info)) {
         ass_msg(render_priv->library, MSGL_ERR, "Failed to shape text");
-        free_render_context(&render_priv->state);
+        free_render_context(state);
         return false;
     }
 
@@ -2823,14 +2823,14 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     preliminary_layout(render_priv);
 
-    int valign = render_priv->state.alignment & 12;
+    int valign = state->alignment & 12;
 
     int MarginL =
-        (event->MarginL) ? event->MarginL : render_priv->state.style->MarginL;
+        (event->MarginL) ? event->MarginL : state->style->MarginL;
     int MarginR =
-        (event->MarginR) ? event->MarginR : render_priv->state.style->MarginR;
+        (event->MarginR) ? event->MarginR : state->style->MarginR;
     int MarginV =
-        (event->MarginV) ? event->MarginV : render_priv->state.style->MarginV;
+        (event->MarginV) ? event->MarginV : state->style->MarginV;
 
     // calculate max length of a line
     double max_text_width =
@@ -2859,46 +2859,46 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     // handle positioned events first: an event can be both positioned and
     // scrolling, and the scrolling effect overrides the position on one axis
-    if (render_priv->state.evt_type & EVENT_POSITIONED) {
+    if (state->evt_type & EVENT_POSITIONED) {
         double base_x = 0;
         double base_y = 0;
-        get_base_point(&bbox, render_priv->state.alignment, &base_x, &base_y);
+        get_base_point(&bbox, state->alignment, &base_x, &base_y);
         device_x =
-            x2scr_pos(render_priv, render_priv->state.pos_x) - base_x;
+            x2scr_pos(render_priv, state->pos_x) - base_x;
         device_y =
-            y2scr_pos(render_priv, render_priv->state.pos_y) - base_y;
+            y2scr_pos(render_priv, state->pos_y) - base_y;
     }
 
     // x coordinate
-    if (render_priv->state.evt_type & EVENT_HSCROLL) {
-        if (render_priv->state.scroll_direction == SCROLL_RL)
+    if (state->evt_type & EVENT_HSCROLL) {
+        if (state->scroll_direction == SCROLL_RL)
             device_x =
                 x2scr_pos(render_priv,
                       render_priv->track->PlayResX -
-                      render_priv->state.scroll_shift);
-        else if (render_priv->state.scroll_direction == SCROLL_LR)
+                      state->scroll_shift);
+        else if (state->scroll_direction == SCROLL_LR)
             device_x =
-                x2scr_pos(render_priv, render_priv->state.scroll_shift) -
+                x2scr_pos(render_priv, state->scroll_shift) -
                 (bbox.x_max - bbox.x_min);
-    } else if (!(render_priv->state.evt_type & EVENT_POSITIONED)) {
+    } else if (!(state->evt_type & EVENT_POSITIONED)) {
         device_x = x2scr_left(render_priv, MarginL);
     }
 
     // y coordinate
-    if (render_priv->state.evt_type & EVENT_VSCROLL) {
-        if (render_priv->state.scroll_direction == SCROLL_TB)
+    if (state->evt_type & EVENT_VSCROLL) {
+        if (state->scroll_direction == SCROLL_TB)
             device_y =
                 y2scr(render_priv,
-                      render_priv->state.scroll_y0 +
-                      render_priv->state.scroll_shift) -
+                      state->scroll_y0 +
+                      state->scroll_shift) -
                 bbox.y_max;
-        else if (render_priv->state.scroll_direction == SCROLL_BT)
+        else if (state->scroll_direction == SCROLL_BT)
             device_y =
                 y2scr(render_priv,
-                      render_priv->state.scroll_y1 -
-                      render_priv->state.scroll_shift) -
+                      state->scroll_y1 -
+                      state->scroll_shift) -
                 bbox.y_min;
-    } else if (!(render_priv->state.evt_type & EVENT_POSITIONED)) {
+    } else if (!(state->evt_type & EVENT_POSITIONED)) {
         if (valign == VALIGN_TOP) {     // toptitle
             device_y =
                 y2scr_top(render_priv,
@@ -2908,7 +2908,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 y2scr(render_priv, render_priv->track->PlayResY / 2.0);
             device_y = scr_y - (bbox.y_max + bbox.y_min) / 2.0;
         } else {                // subtitle
-            double line_pos = render_priv->state.explicit ?
+            double line_pos = state->explicit ?
                 0 : render_priv->settings.line_position;
             double scr_top, scr_bottom, scr_y0;
             if (valign != VALIGN_SUB)
@@ -2932,42 +2932,42 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     }
 
     // fix clip coordinates
-    if (render_priv->state.explicit || !render_priv->settings.use_margins) {
-        render_priv->state.clip_x0 =
-            x2scr_pos_scaled(render_priv, render_priv->state.clip_x0);
-        render_priv->state.clip_x1 =
-            x2scr_pos_scaled(render_priv, render_priv->state.clip_x1);
-        render_priv->state.clip_y0 =
-            y2scr_pos(render_priv, render_priv->state.clip_y0);
-        render_priv->state.clip_y1 =
-            y2scr_pos(render_priv, render_priv->state.clip_y1);
+    if (state->explicit || !render_priv->settings.use_margins) {
+        state->clip_x0 =
+            x2scr_pos_scaled(render_priv, state->clip_x0);
+        state->clip_x1 =
+            x2scr_pos_scaled(render_priv, state->clip_x1);
+        state->clip_y0 =
+            y2scr_pos(render_priv, state->clip_y0);
+        state->clip_y1 =
+            y2scr_pos(render_priv, state->clip_y1);
 
-        if (render_priv->state.explicit) {
+        if (state->explicit) {
             // we still need to clip against screen boundaries
             double zx = x2scr_pos_scaled(render_priv, 0);
             double zy = y2scr_pos(render_priv, 0);
             double sx = x2scr_pos_scaled(render_priv, render_priv->track->PlayResX);
             double sy = y2scr_pos(render_priv, render_priv->track->PlayResY);
 
-            render_priv->state.clip_x0 = FFMAX(render_priv->state.clip_x0, zx);
-            render_priv->state.clip_y0 = FFMAX(render_priv->state.clip_y0, zy);
-            render_priv->state.clip_x1 = FFMIN(render_priv->state.clip_x1, sx);
-            render_priv->state.clip_y1 = FFMIN(render_priv->state.clip_y1, sy);
+            state->clip_x0 = FFMAX(state->clip_x0, zx);
+            state->clip_y0 = FFMAX(state->clip_y0, zy);
+            state->clip_x1 = FFMIN(state->clip_x1, sx);
+            state->clip_y1 = FFMIN(state->clip_y1, sy);
         }
     } else {
         // no \clip (explicit==0) and use_margins => only clip to screen with margins
-        render_priv->state.clip_x0 = 0;
-        render_priv->state.clip_y0 = 0;
-        render_priv->state.clip_x1 = render_priv->settings.frame_width;
-        render_priv->state.clip_y1 = render_priv->settings.frame_height;
+        state->clip_x0 = 0;
+        state->clip_y0 = 0;
+        state->clip_x1 = render_priv->settings.frame_width;
+        state->clip_y1 = render_priv->settings.frame_height;
     }
 
-    if (render_priv->state.evt_type & EVENT_VSCROLL) {
-        double y0 = y2scr_pos(render_priv, render_priv->state.scroll_y0);
-        double y1 = y2scr_pos(render_priv, render_priv->state.scroll_y1);
+    if (state->evt_type & EVENT_VSCROLL) {
+        double y0 = y2scr_pos(render_priv, state->scroll_y0);
+        double y1 = y2scr_pos(render_priv, state->scroll_y1);
 
-        render_priv->state.clip_y0 = FFMAX(render_priv->state.clip_y0, y0);
-        render_priv->state.clip_y1 = FFMIN(render_priv->state.clip_y1, y1);
+        state->clip_y0 = FFMAX(state->clip_y0, y0);
+        state->clip_y1 = FFMIN(state->clip_y1, y1);
     }
 
     calculate_rotation_params(render_priv, &bbox, device_x, device_y);
@@ -2985,16 +2985,16 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->width =
         (bbox.x_max - bbox.x_min) * render_priv->par_scale_x
         + 2 * text_info->border_x + 0.5;
-    event_images->detect_collisions = render_priv->state.detect_collisions;
+    event_images->detect_collisions = state->detect_collisions;
     event_images->shift_direction = (valign == VALIGN_SUB) ? -1 : 1;
     event_images->event = event;
     event_images->imgs = render_text(render_priv);
 
-    if (render_priv->state.border_style == 4)
+    if (state->border_style == 4)
         add_background(render_priv, event_images);
 
     ass_shaper_cleanup(render_priv->shaper, text_info);
-    free_render_context(&render_priv->state);
+    free_render_context(state);
 
     return true;
 }
