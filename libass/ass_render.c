@@ -2004,13 +2004,14 @@ fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
 }
 
 // Initial run splitting based purely on the characters' styles
-static void split_style_runs(ASS_Renderer *render_priv)
+static void split_style_runs(RenderContext *state)
 {
-    Effect last_effect_type = render_priv->text_info.glyphs[0].effect_type;
-    render_priv->text_info.glyphs[0].starts_new_run = true;
-    for (int i = 1; i < render_priv->text_info.length; i++) {
-        GlyphInfo *info = render_priv->text_info.glyphs + i;
-        GlyphInfo *last = render_priv->text_info.glyphs + (i - 1);
+    TextInfo *text_info = state->text_info;
+    Effect last_effect_type = text_info->glyphs[0].effect_type;
+    text_info->glyphs[0].starts_new_run = true;
+    for (int i = 1; i < text_info->length; i++) {
+        GlyphInfo *info = text_info->glyphs + i;
+        GlyphInfo *last = text_info->glyphs + (i - 1);
         Effect effect_type = info->effect_type;
         info->starts_new_run =
             info->effect_timing ||  // but ignore effect_skip_timing
@@ -2825,7 +2826,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         return false;
     }
 
-    split_style_runs(render_priv);
+    split_style_runs(state);
 
     // Find shape runs and shape text
     ass_shaper_set_base_direction(render_priv->shaper,
