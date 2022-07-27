@@ -2050,10 +2050,10 @@ static void split_style_runs(RenderContext *state)
 
 // Parse event text.
 // Fill render_priv->text_info.
-static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
+static bool parse_events(RenderContext *state, ASS_Event *event)
 {
-    TextInfo *text_info = &render_priv->text_info;
-    RenderContext *state = &render_priv->state;
+    TextInfo *text_info = state->text_info;
+    ASS_Renderer *render_priv = state->renderer;
 
     char *p = event->Text, *q;
 
@@ -2816,7 +2816,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     free_render_context(state);
     init_render_context(render_priv, event);
 
-    if (!parse_events(render_priv, event))
+    if (!parse_events(state, event))
         return false;
 
     TextInfo *text_info = &render_priv->text_info;
