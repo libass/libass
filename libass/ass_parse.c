@@ -918,10 +918,12 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
     return p;
 }
 
-void ass_apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
+void ass_apply_transition_effects(RenderContext *state)
 {
+    ASS_Renderer *render_priv = state->renderer;
     int v[4];
     int cnt;
+    ASS_Event *event = state->event;
     char *p = event->Effect;
 
     if (!p || !*p)
@@ -941,9 +943,9 @@ void ass_apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
             return;
         }
         if (cnt >= 2 && v[1])   // left-to-right
-            render_priv->state.scroll_direction = SCROLL_LR;
+            state->scroll_direction = SCROLL_LR;
         else                    // right-to-left
-            render_priv->state.scroll_direction = SCROLL_RL;
+            state->scroll_direction = SCROLL_RL;
 
         delay = v[0];
         // VSF works in storage coordinates, but scales delay to PlayRes canvas
@@ -960,18 +962,18 @@ void ass_apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
         // maxuimum there, before converting back.
         double scale_x = ((double) layout_res.x) / render_priv->track->PlayResX;
         delay = ((int) FFMAX(delay / scale_x, 1)) * scale_x;
-        render_priv->state.scroll_shift =
-            (render_priv->time - render_priv->state.event->Start) / delay;
-        render_priv->state.evt_type |= EVENT_HSCROLL;
-        render_priv->state.detect_collisions = 0;
-        render_priv->state.wrap_style = 2;
+        state->scroll_shift =
+            (render_priv->time - event->Start) / delay;
+        state->evt_type |= EVENT_HSCROLL;
+        state->detect_collisions = 0;
+        state->wrap_style = 2;
         return;
     }
 
     if (strncmp(event->Effect, "Scroll up;", 10) == 0) {
-        render_priv->state.scroll_direction = SCROLL_BT;
+        state->scroll_direction = SCROLL_BT;
     } else if (strncmp(event->Effect, "Scroll down;", 12) == 0) {
-        render_priv->state.scroll_direction = SCROLL_TB;
+        state->scroll_direction = SCROLL_TB;
     } else {
         ass_msg(render_priv->library, MSGL_DBG2,
                 "Unknown transition effect: '%s'", event->Effect);
@@ -990,8 +992,8 @@ void ass_apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
         // See explanation for Banner
         double scale_y = ((double) layout_res.y) / render_priv->track->PlayResY;
         delay = ((int) FFMAX(delay / scale_y, 1)) * scale_y;
-        render_priv->state.scroll_shift =
-            (render_priv->time - render_priv->state.event->Start) / delay;
+        state->scroll_shift =
+            (render_priv->time - event->Start) / delay;
         if (v[0] < v[1]) {
             y0 = v[0];
             y1 = v[1];
@@ -999,10 +1001,10 @@ void ass_apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
             y0 = v[1];
             y1 = v[0];
         }
-        render_priv->state.scroll_y0 = y0;
-        render_priv->state.scroll_y1 = y1;
-        render_priv->state.evt_type |= EVENT_VSCROLL;
-        render_priv->state.detect_collisions = 0;
+        state->scroll_y0 = y0;
+        state->scroll_y1 = y1;
+        state->evt_type |= EVENT_VSCROLL;
+        state->detect_collisions = 0;
     }
 
 }

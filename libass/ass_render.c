@@ -1102,7 +1102,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.effect_skip_timing = 0;
     render_priv->state.reset_effect = false;
 
-    ass_apply_transition_effects(render_priv, event);
+    ass_apply_transition_effects(&render_priv->state);
     render_priv->state.explicit = render_priv->state.evt_type != EVENT_NORMAL ||
                                   ass_event_has_hard_overrides(event->Text);
 
