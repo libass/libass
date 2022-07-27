@@ -143,7 +143,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->settings.font_size_coeff = 1.;
     priv->settings.selective_style_overrides = ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE;
 
-    if (!(priv->shaper = ass_shaper_new(priv->cache.metrics_cache)))
+    if (!(priv->state.shaper = ass_shaper_new(priv->cache.metrics_cache)))
         goto fail;
 
     ass_shaper_info(library);
@@ -172,7 +172,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     ass_cache_done(render_priv->cache.bitmap_cache);
     ass_cache_done(render_priv->cache.outline_cache);
     ass_cache_done(render_priv->cache.metrics_cache);
-    ass_shaper_free(render_priv->shaper);
+    ass_shaper_free(render_priv->state.shaper);
     ass_cache_done(render_priv->cache.font_cache);
 
     ass_rasterizer_done(&render_priv->rasterizer);
@@ -2264,10 +2264,10 @@ static void reorder_text(RenderContext *state)
 {
     ASS_Renderer *render_priv = state->renderer;
     TextInfo *text_info = state->text_info;
-    FriBidiStrIndex *cmap = ass_shaper_reorder(render_priv->shaper, text_info);
+    FriBidiStrIndex *cmap = ass_shaper_reorder(state->shaper, text_info);
     if (!cmap) {
         ass_msg(render_priv->library, MSGL_ERR, "Failed to reorder text");
-        ass_shaper_cleanup(render_priv->shaper, text_info);
+        ass_shaper_cleanup(state->shaper, text_info);
         free_render_context(state);
         return;
     }
@@ -2303,7 +2303,7 @@ static void apply_baseline_shear(RenderContext *state)
 {
     ASS_Renderer *render_priv = state->renderer;
     TextInfo *text_info = state->text_info;
-    FriBidiStrIndex *cmap = ass_shaper_get_reorder_map(render_priv->shaper);
+    FriBidiStrIndex *cmap = ass_shaper_get_reorder_map(state->shaper);
     int32_t shear = 0;
     bool whole_text_layout =
         render_priv->track->parser_priv->feature_flags &
@@ -2853,11 +2853,11 @@ ass_render_event(RenderContext *state, ASS_Event *event,
     split_style_runs(state);
 
     // Find shape runs and shape text
-    ass_shaper_set_base_direction(render_priv->shaper,
+    ass_shaper_set_base_direction(state->shaper,
             ass_resolve_base_direction(state->font_encoding));
-    ass_shaper_find_runs(render_priv->shaper, render_priv, text_info->glyphs,
+    ass_shaper_find_runs(state->shaper, render_priv, text_info->glyphs,
             text_info->length);
-    if (!ass_shaper_shape(render_priv->shaper, text_info)) {
+    if (!ass_shaper_shape(state->shaper, text_info)) {
         ass_msg(render_priv->library, MSGL_ERR, "Failed to shape text");
         free_render_context(state);
         return false;
@@ -3037,7 +3037,7 @@ ass_render_event(RenderContext *state, ASS_Event *event,
     if (state->border_style == 4)
         add_background(state, event_images);
 
-    ass_shaper_cleanup(render_priv->shaper, text_info);
+    ass_shaper_cleanup(state->shaper, text_info);
     free_render_context(state);
 
     return true;
@@ -3099,7 +3099,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
             render_priv->fontselect, render_priv->num_emfonts);
     }
 
-    setup_shaper(render_priv->shaper, render_priv);
+    setup_shaper(render_priv->state.shaper, render_priv);
 
     // PAR correction
     double par = render_priv->settings.par;

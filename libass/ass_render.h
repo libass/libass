@@ -204,11 +204,14 @@ typedef struct {
     unsigned max_bitmaps;
 } TextInfo;
 
+#include "ass_shaper.h"
+
 // Renderer state.
 // Values like current font face, color, screen position, clipping and so on are stored here.
 typedef struct {
     ASS_Renderer *renderer;
     TextInfo *text_info;
+    ASS_Shaper *shaper;
 
     ASS_Event *event;
     ASS_Style *style;
@@ -302,8 +305,6 @@ typedef struct {
     size_t composite_max_size;
 } CacheStore;
 
-#include "ass_shaper.h"
-
 struct ass_renderer {
     ASS_Library *library;
     FT_Library ftlibrary;
@@ -311,7 +312,6 @@ struct ass_renderer {
     size_t num_emfonts;
     ASS_Settings settings;
     int render_id;
-    ASS_Shaper *shaper;
 
     ASS_Image *images_root;     // rendering result is stored here
     ASS_Image *prev_images_root;
