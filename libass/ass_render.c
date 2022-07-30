@@ -48,6 +48,25 @@
 #define BLUR_PRECISION (1.0 / 256)  // blur error as fraction of full input range
 
 
+static bool text_info_init(TextInfo* text_info)
+{
+    text_info->max_bitmaps = MAX_BITMAPS_INITIAL;
+    text_info->max_glyphs = MAX_GLYPHS_INITIAL;
+    text_info->max_lines = MAX_LINES_INITIAL;
+    text_info->n_bitmaps = 0;
+    text_info->combined_bitmaps = calloc(MAX_BITMAPS_INITIAL, sizeof(CombinedBitmapInfo));
+    text_info->glyphs = calloc(MAX_GLYPHS_INITIAL, sizeof(GlyphInfo));
+    text_info->event_text = calloc(MAX_GLYPHS_INITIAL, sizeof(FriBidiChar));
+    text_info->breaks = malloc(MAX_GLYPHS_INITIAL);
+    text_info->lines = calloc(MAX_LINES_INITIAL, sizeof(LineInfo));
+
+    if (!text_info->combined_bitmaps || !text_info->glyphs || !text_info->lines ||
+        !text_info->breaks || !text_info->event_text)
+        return false;
+
+    return true;
+}
+
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
 {
     int error;
@@ -106,17 +125,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->cache.bitmap_max_size = BITMAP_CACHE_MAX_SIZE;
     priv->cache.composite_max_size = COMPOSITE_CACHE_MAX_SIZE;
 
-    priv->text_info.max_bitmaps = MAX_BITMAPS_INITIAL;
-    priv->text_info.max_glyphs = MAX_GLYPHS_INITIAL;
-    priv->text_info.max_lines = MAX_LINES_INITIAL;
-    priv->text_info.n_bitmaps = 0;
-    priv->text_info.combined_bitmaps = calloc(MAX_BITMAPS_INITIAL, sizeof(CombinedBitmapInfo));
-    priv->text_info.glyphs = calloc(MAX_GLYPHS_INITIAL, sizeof(GlyphInfo));
-    priv->text_info.event_text = calloc(MAX_GLYPHS_INITIAL, sizeof(FriBidiChar));
-    priv->text_info.breaks = malloc(MAX_GLYPHS_INITIAL);
-    priv->text_info.lines = calloc(MAX_LINES_INITIAL, sizeof(LineInfo));
-    if (!priv->text_info.combined_bitmaps || !priv->text_info.glyphs ||
-            !priv->text_info.lines || !priv->text_info.breaks)
+    if (!text_info_init(&priv->text_info))
         goto fail;
 
     priv->state.renderer = priv;
