@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     name: build(${{ matrix.msystem || matrix.docker_image || matrix.os }},
-      ${{ matrix.cc }}${{ matrix.api && ', ' }}${{ matrix.api }})
+      ${{ matrix.cc }}${{ matrix.api && ', ' }}${{ matrix.api }}${{ matrix.tsan && ', TSAN'}})
     strategy:
       fail-fast: false
       matrix:
@@ -22,6 +22,11 @@ jobs:
           - os: ubuntu-latest
             cc: clang
             do_coverity: yes
+          # Run one build with TSAN instead of ASAN
+          - os: ubuntu-latest
+            cc: clang
+            do_coverity: no
+            tsan: yes
           # Add a tcc build
           - os: ubuntu-latest
             cc: tcc
@@ -173,7 +178,15 @@ jobs:
       - name: Determine Sanitizer Flags
         id: sanitizer
         run: |
-          aflags="-fsanitize=address"
+          # ASAN and TSAN are not compatible
+          if [ "${{ matrix.tsan }}" = "yes" ] ; then
+            aflags=""
+            tflags="-fsanitize=thread"
+          else
+            aflags="-fsanitize=address"
+            tflags=""
+          fi
+
           uflags="-fsanitize=undefined -fsanitize=float-cast-overflow"
           if [ "${{ startsWith(matrix.cc, 'clang') }}" = "true" ] ; then
             # Clang's UBSAN exits with code zero even if issues were found
@@ -189,7 +202,7 @@ jobs:
             alpine*|windows-*)
               flags="$uflags -fsanitize-undefined-trap-on-error" ;;
             *)
-              flags="$aflags $uflags" ;;
+              flags="$aflags $tflags $uflags" ;;
           esac
 
           if [ -n "$flags" ] ; then
