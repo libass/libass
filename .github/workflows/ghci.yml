@@ -13,12 +13,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        cc: [gcc, clang]
-        docker_image: ['']
-        exclude:
-          - os: macos-latest
-            cc: gcc
         include:
           # Enable distcheck for one build
           - os: ubuntu-latest
@@ -47,6 +41,9 @@ jobs:
             # Crash Tests detect (false?) leaks in Fontconfig, and
             # various regression test fail, assumed due to older deps
             skip_tests: yes
+          # MacOS build
+          - os: macos-latest
+            cc: clang
           # Add a Windows build (MinGW-gcc via MSYS2) with no extras
           - os: windows-2019
             msystem: MINGW32
