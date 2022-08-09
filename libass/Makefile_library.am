@@ -27,7 +27,7 @@ libass_libass_la_SOURCES = \
     libass/ass_bitmap.h libass/ass_bitmap.c libass/ass_blur.c \
     libass/ass_rasterizer.h libass/ass_rasterizer.c libass/ass_rasterizer_c.c \
     libass/ass_render.h libass/ass_render.c libass/ass_render_api.c \
-    libass/ass_func_template.h libass/ass_bitmap_engine.h libass/ass_bitmap_engine.c \
+    libass/ass_bitmap_engine.h libass/ass_bitmap_engine.c \
     libass/wyhash.h
 
 if ASM
