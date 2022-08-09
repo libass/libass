@@ -36,28 +36,6 @@
 #include "ass_render.h"
 
 
-#define ALIGN           C_ALIGN_ORDER
-#define DECORATE(func)  ass_##func##_c
-#include "ass_func_template.h"
-#undef ALIGN
-#undef DECORATE
-
-#if CONFIG_ASM && ARCH_X86
-
-#define ALIGN           4
-#define DECORATE(func)  ass_##func##_sse2
-#include "ass_func_template.h"
-#undef ALIGN
-#undef DECORATE
-
-#define ALIGN           5
-#define DECORATE(func)  ass_##func##_avx2
-#include "ass_func_template.h"
-#undef ALIGN
-#undef DECORATE
-
-#endif
-
 static void be_blur_pre(uint8_t *buf, intptr_t stride, intptr_t width, intptr_t height)
 {
     for (int y = 0; y < height; ++y)
