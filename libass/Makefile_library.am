@@ -9,54 +9,59 @@ nasm_verbose_0 = @echo "  NASM    " $@;
 .asm.lo:
 	$(nasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(top_srcdir)/ltnasm.sh $(AS) $(ASFLAGS) -I$(top_srcdir)/libass/ -Dprivate_prefix=ass -o $@ $<
 
-
-SRC_X86 = libass/x86/rasterizer.asm  libass/x86/blend_bitmaps.asm  libass/x86/be_blur.asm \
-          libass/x86/blur.asm  libass/x86/cpuid.asm  libass/x86/cpuid.h
-
-SRC_FONTCONFIG = libass/ass_fontconfig.c  libass/ass_fontconfig.h
-SRC_DIRECTWRITE = libass/ass_directwrite.c  libass/ass_directwrite.h \
-                  libass/ass_directwrite_info_template.h  libass/dwrite_c.h
-SRC_CORETEXT = libass/ass_coretext.c  libass/ass_coretext.h
-
 lib_LTLIBRARIES += libass/libass.la
 libass_libass_la_SOURCES = \
-            libass/ass.h  libass/ass.c  libass/ass_bitmap.c  libass/ass_bitmap.h \
-            libass/ass_blur.c  libass/ass_cache.c  libass/ass_cache.h \
-            libass/ass_cache_template.h  libass/ass_compat.h  libass/ass_drawing.c \
-            libass/ass_drawing.h  libass/ass_filesystem.c  libass/ass_filesystem.h \
-            libass/ass_font.c  libass/ass_font.h  libass/ass_fontselect.c \
-            libass/ass_fontselect.h  libass/ass_func_template.h \
-            libass/ass_library.c  libass/ass_library.h  libass/ass_outline.c \
-            libass/ass_outline.h  libass/ass_parse.c  libass/ass_parse.h \
-            libass/ass_priv.h  libass/ass_rasterizer.c  libass/ass_rasterizer_c.c \
-            libass/ass_rasterizer.h  libass/ass_render_api.c  libass/ass_render.c \
-            libass/ass_render.h  libass/ass_shaper.c  libass/ass_shaper.h \
-            libass/ass_string.c  libass/ass_string.h  libass/ass_strtod.c \
-            libass/ass_types.h  libass/ass_utils.c  libass/ass_utils.h \
-            libass/wyhash.h
+    libass/ass_utils.h libass/ass_utils.c \
+    libass/ass_string.h libass/ass_string.c \
+    libass/ass_compat.h libass/ass_strtod.c \
+    libass/ass_filesystem.h libass/ass_filesystem.c \
+    libass/ass_types.h libass/ass.h libass/ass_priv.h libass/ass.c \
+    libass/ass_library.h libass/ass_library.c \
+    libass/ass_cache_template.h libass/ass_cache.h libass/ass_cache.c \
+    libass/ass_font.h libass/ass_font.c \
+    libass/ass_fontselect.h libass/ass_fontselect.c \
+    libass/ass_parse.h libass/ass_parse.c \
+    libass/ass_shaper.h libass/ass_shaper.c \
+    libass/ass_outline.h libass/ass_outline.c \
+    libass/ass_drawing.h libass/ass_drawing.c \
+    libass/ass_bitmap.h libass/ass_bitmap.c libass/ass_blur.c \
+    libass/ass_rasterizer.h libass/ass_rasterizer.c libass/ass_rasterizer_c.c \
+    libass/ass_render.h libass/ass_render.c libass/ass_render_api.c \
+    libass/ass_func_template.h \
+    libass/wyhash.h
+
+if ASM
+if X86
+libass_libass_la_SOURCES += \
+    libass/x86/rasterizer.asm \
+    libass/x86/blend_bitmaps.asm \
+    libass/x86/be_blur.asm \
+    libass/x86/blur.asm \
+    libass/x86/cpuid.h libass/x86/cpuid.asm
+endif
+endif
+
+if FONTCONFIG
+libass_libass_la_SOURCES += libass/ass_fontconfig.h libass/ass_fontconfig.c
+endif
+
+if DIRECTWRITE
+libass_libass_la_SOURCES += \
+    libass/dwrite_c.h \
+    libass/ass_directwrite_info_template.h \
+    libass/ass_directwrite.h libass/ass_directwrite.c
+endif
+
+if CORETEXT
+libass_libass_la_SOURCES += libass/ass_coretext.h libass/ass_coretext.c
+endif
 
 libass_libass_la_LDFLAGS = -no-undefined -version-info $(LIBASS_LT_CURRENT):$(LIBASS_LT_REVISION):$(LIBASS_LT_AGE)
 libass_libass_la_LDFLAGS += -export-symbols $(top_srcdir)/libass/libass.sym
 
-if FONTCONFIG
-libass_libass_la_SOURCES += $(SRC_FONTCONFIG)
-endif
-
-if DIRECTWRITE
-libass_libass_la_SOURCES += $(SRC_DIRECTWRITE)
-endif
-
-if CORETEXT
-libass_libass_la_SOURCES += $(SRC_CORETEXT)
-endif
-
-if ASM
-if X86
-libass_libass_la_SOURCES += $(SRC_X86)
-endif
-endif
-
 assheadersdir = $(includedir)/ass
-dist_assheaders_HEADERS = libass/ass.h  libass/ass_types.h
+dist_assheaders_HEADERS = libass/ass_types.h libass/ass.h
 
-EXTRA_DIST += libass/libass.sym  libass/x86/x86inc.asm  libass/x86/utils.asm
+EXTRA_DIST += \
+    libass/x86/x86inc.asm libass/x86/utils.asm \
+    libass/libass.sym
