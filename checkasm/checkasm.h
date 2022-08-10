@@ -58,6 +58,7 @@ int xor128_rand(void);
 
 void checkasm_check_blend_bitmaps(unsigned cpu_flag);
 void checkasm_check_be_blur(unsigned cpu_flag);
+void checkasm_check_blur(unsigned cpu_flag);
 
 void *checkasm_check_func(void *func, const char *name, ...);
 int checkasm_bench_func(void);

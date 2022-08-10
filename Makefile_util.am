@@ -52,6 +52,7 @@ endif
 checkasm_checkasm_SOURCES = \
     checkasm/blend_bitmaps.c \
     checkasm/be_blur.c \
+    checkasm/blur.c \
     checkasm/checkasm.h checkasm/checkasm.c
 
 checkasm_checkasm_CPPFLAGS = -I$(top_srcdir)/libass
