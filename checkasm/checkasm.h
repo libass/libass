@@ -56,6 +56,7 @@
 int xor128_rand(void);
 #define rnd xor128_rand
 
+void checkasm_check_rasterizer(unsigned cpu_flag);
 void checkasm_check_blend_bitmaps(unsigned cpu_flag);
 void checkasm_check_be_blur(unsigned cpu_flag);
 void checkasm_check_blur(unsigned cpu_flag);

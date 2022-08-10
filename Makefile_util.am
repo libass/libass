@@ -50,6 +50,7 @@ endif
 	$(nasm_verbose)$(AS) $(ASFLAGS) -I$(top_srcdir)/libass/ -o $@ $<
 
 checkasm_checkasm_SOURCES = \
+    checkasm/rasterizer.c \
     checkasm/blend_bitmaps.c \
     checkasm/be_blur.c \
     checkasm/blur.c \
