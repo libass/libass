@@ -60,7 +60,6 @@ if CORETEXT
 libass_libass_la_SOURCES += libass/ass_coretext.h libass/ass_coretext.c
 endif
 
-libass_libass_la_CPPFLAGS = -I$(top_srcdir)/libass
 libass_libass_la_LDFLAGS = -no-undefined -version-info $(LIBASS_LT_CURRENT):$(LIBASS_LT_REVISION):$(LIBASS_LT_AGE)
 libass_libass_la_LDFLAGS += -export-symbols $(top_srcdir)/libass/libass.sym
 

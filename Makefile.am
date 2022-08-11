@@ -1,4 +1,5 @@
 ACLOCAL_AMFLAGS = -I m4
+AM_CPPFLAGS = -I$(top_srcdir)/libass
 AM_CFLAGS = -std=gnu99 -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter \
             -Werror-implicit-function-declaration -Wstrict-prototypes        \
             -Wpointer-arith -Wredundant-decls -Wno-missing-field-initializers\
