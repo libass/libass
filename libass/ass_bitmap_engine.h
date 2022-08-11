@@ -44,16 +44,14 @@ typedef void BeBlurFunc(uint8_t *buf, ptrdiff_t stride,
 
 // intermediate bitmaps represented as sets of verical stripes of int16_t[alignment / 2]
 typedef void Convert8to16Func(int16_t *dst, const uint8_t *src, ptrdiff_t src_stride,
-                              uintptr_t width, uintptr_t height);
+                              size_t width, size_t height);
 typedef void Convert16to8Func(uint8_t *dst, ptrdiff_t dst_stride, const int16_t *src,
-                              uintptr_t width, uintptr_t height);
+                              size_t width, size_t height);
 typedef void FilterFunc(int16_t *dst, const int16_t *src,
-                        uintptr_t src_width, uintptr_t src_height);
+                        size_t src_width, size_t src_height);
 typedef void ParamFilterFunc(int16_t *dst, const int16_t *src,
-                             uintptr_t src_width, uintptr_t src_height,
+                             size_t src_width, size_t src_height,
                              const int16_t *param);
-
-#define C_ALIGN_ORDER 5
 
 typedef struct {
     int align_order;  // log2(alignment)
@@ -88,6 +86,7 @@ enum {
 #endif
     ASS_CPU_FLAG_ALL           = 0x0FFF,
     ASS_FLAG_LARGE_TILES       = 0x1000,
+    ASS_FLAG_WIDE_STRIPE       = 0x2000,  // for C version only
 };
 
 unsigned ass_get_cpu_flags(unsigned mask);

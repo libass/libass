@@ -31,7 +31,7 @@ libass_libass_la_SOURCES = \
     libass/c/rasterizer_template.h libass/c/c_rasterizer.c \
     libass/c/c_blend_bitmaps.c \
     libass/c/c_be_blur.c \
-    libass/c/c_blur.c \
+    libass/c/blur_template.h libass/c/c_blur.c \
     libass/wyhash.h
 
 if ASM

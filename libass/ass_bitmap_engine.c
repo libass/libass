@@ -31,6 +31,12 @@
     FillGenericTileFunc   ass_fill_generic_tile   ## tile_size ## _ ## suffix; \
     MergeTileFunc         ass_merge_tile          ## tile_size ## _ ## suffix;
 
+#define GENERIC_PROTOTYPES(suffix) \
+    BitmapBlendFunc ass_add_bitmaps_  ## suffix; \
+    BitmapBlendFunc ass_imul_bitmaps_ ## suffix; \
+    BitmapMulFunc   ass_mul_bitmaps_  ## suffix; \
+    BeBlurFunc      ass_be_blur_      ## suffix;
+
 #define PARAM_BLUR_SET(suffix) \
     ass_blur4_ ## suffix, \
     ass_blur5_ ## suffix, \
@@ -38,19 +44,17 @@
     ass_blur7_ ## suffix, \
     ass_blur8_ ## suffix
 
-#define GENERIC_PROTOTYPES(suffix) \
-    BitmapBlendFunc ass_add_bitmaps_  ## suffix; \
-    BitmapBlendFunc ass_imul_bitmaps_ ## suffix; \
-    BitmapMulFunc   ass_mul_bitmaps_  ## suffix; \
-    BeBlurFunc      ass_be_blur_      ## suffix; \
-    Convert8to16Func ass_stripe_unpack_ ## suffix; \
-    Convert16to8Func ass_stripe_pack_   ## suffix; \
-    FilterFunc ass_shrink_horz_ ## suffix, ass_shrink_vert_ ## suffix; \
-    FilterFunc ass_expand_horz_ ## suffix, ass_expand_vert_ ## suffix; \
-    ParamFilterFunc PARAM_BLUR_SET(horz_ ## suffix); \
-    ParamFilterFunc PARAM_BLUR_SET(vert_ ## suffix);
+#define BLUR_PROTOTYPES(stripe_width, suffix) \
+    Convert8to16Func ass_stripe_unpack  ## stripe_width ## _ ## suffix; \
+    Convert16to8Func ass_stripe_pack    ## stripe_width ## _ ## suffix; \
+    FilterFunc       ass_shrink_horz    ## stripe_width ## _ ## suffix; \
+    FilterFunc       ass_shrink_vert    ## stripe_width ## _ ## suffix; \
+    FilterFunc       ass_expand_horz    ## stripe_width ## _ ## suffix; \
+    FilterFunc       ass_expand_vert    ## stripe_width ## _ ## suffix; \
+    ParamFilterFunc PARAM_BLUR_SET(horz ## stripe_width ## _ ## suffix); \
+    ParamFilterFunc PARAM_BLUR_SET(vert ## stripe_width ## _ ## suffix);
 
-#define BITMAP_ENGINE(align_order_, tile_order_, tile_size, suffix, be_suffix) \
+#define BITMAP_ENGINE(align_order_, alignment, tile_order_, tile_size, suffix, be_suffix) \
     const BitmapEngine ass_bitmap_engine_ ## be_suffix = { \
         .align_order    = align_order_, \
         .tile_order     = tile_order_, \
@@ -62,36 +66,42 @@
         .imul_bitmaps   = ass_imul_bitmaps_ ## suffix, \
         .mul_bitmaps    = ass_mul_bitmaps_  ## suffix, \
         .be_blur        = ass_be_blur_      ## suffix, \
-        .stripe_unpack  = ass_stripe_unpack_ ## suffix, \
-        .stripe_pack    = ass_stripe_pack_   ## suffix, \
-        .shrink_horz    = ass_shrink_horz_   ## suffix, \
-        .shrink_vert    = ass_shrink_vert_   ## suffix, \
-        .expand_horz    = ass_expand_horz_   ## suffix, \
-        .expand_vert    = ass_expand_vert_   ## suffix, \
-        .blur_horz  = { PARAM_BLUR_SET(horz_ ## suffix) }, \
-        .blur_vert  = { PARAM_BLUR_SET(vert_ ## suffix) }, \
+        .stripe_unpack  = ass_stripe_unpack ## alignment ## _ ## suffix, \
+        .stripe_pack    = ass_stripe_pack   ## alignment ## _ ## suffix, \
+        .shrink_horz    = ass_shrink_horz   ## alignment ## _ ## suffix, \
+        .shrink_vert    = ass_shrink_vert   ## alignment ## _ ## suffix, \
+        .expand_horz    = ass_expand_horz   ## alignment ## _ ## suffix, \
+        .expand_vert    = ass_expand_vert   ## alignment ## _ ## suffix, \
+        .blur_horz  = { PARAM_BLUR_SET(horz ## alignment ## _ ## suffix) }, \
+        .blur_vert  = { PARAM_BLUR_SET(vert ## alignment ## _ ## suffix) }, \
     };
 
 
 RASTERIZER_PROTOTYPES(16, c)
 RASTERIZER_PROTOTYPES(32, c)
 GENERIC_PROTOTYPES(c)
-BITMAP_ENGINE(C_ALIGN_ORDER, 4, 16, c, c)
-BITMAP_ENGINE(C_ALIGN_ORDER, 5, 32, c, lt_c)
+BLUR_PROTOTYPES(16, c)
+BLUR_PROTOTYPES(32, c)
+BITMAP_ENGINE(4, 16, 4, 16, c, c)
+BITMAP_ENGINE(4, 16, 5, 32, c, lt_c)
+BITMAP_ENGINE(5, 32, 4, 16, c, c32)
+BITMAP_ENGINE(5, 32, 5, 32, c, lt_c32)
 
 #if CONFIG_ASM && ARCH_X86
 
 RASTERIZER_PROTOTYPES(16, sse2)
 RASTERIZER_PROTOTYPES(32, sse2)
 GENERIC_PROTOTYPES(sse2)
-BITMAP_ENGINE(4, 4, 16, sse2, sse2)
-BITMAP_ENGINE(4, 5, 32, sse2, lt_sse2)
+BLUR_PROTOTYPES(16, sse2)
+BITMAP_ENGINE(4, 16, 4, 16, sse2, sse2)
+BITMAP_ENGINE(4, 16, 5, 32, sse2, lt_sse2)
 
 RASTERIZER_PROTOTYPES(16, avx2)
 RASTERIZER_PROTOTYPES(32, avx2)
 GENERIC_PROTOTYPES(avx2)
-BITMAP_ENGINE(5, 4, 16, avx2, avx2)
-BITMAP_ENGINE(5, 5, 32, avx2, lt_avx2)
+BLUR_PROTOTYPES(32, avx2)
+BITMAP_ENGINE(5, 32, 4, 16, avx2, avx2)
+BITMAP_ENGINE(5, 32, 5, 32, avx2, lt_avx2)
 
 #endif
 
@@ -149,5 +159,7 @@ const BitmapEngine *ass_bitmap_engine_init(unsigned mask)
         return mask & ASS_FLAG_LARGE_TILES ? &ass_bitmap_engine_lt_sse2 : &ass_bitmap_engine_sse2;
 #endif
 #endif
+    if (mask & ASS_FLAG_WIDE_STRIPE)
+        return mask & ASS_FLAG_LARGE_TILES ? &ass_bitmap_engine_lt_c32 : &ass_bitmap_engine_c32;
     return mask & ASS_FLAG_LARGE_TILES ? &ass_bitmap_engine_lt_c : &ass_bitmap_engine_c;
 }

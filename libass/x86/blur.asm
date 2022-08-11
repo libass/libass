@@ -38,13 +38,13 @@ dwords_lomask: times 8 dd 0xFFFF
 SECTION .text
 
 ;------------------------------------------------------------------------------
-; STRIPE_UNPACK
+; STRIPE_UNPACK 1:suffix
 ; void stripe_unpack(int16_t *dst, const uint8_t *src, ptrdiff_t src_stride,
-;                    uintptr_t width, uintptr_t height);
+;                    size_t width, size_t height);
 ;------------------------------------------------------------------------------
 
-%macro STRIPE_UNPACK 0
-cglobal stripe_unpack, 5,6,3
+%macro STRIPE_UNPACK 1
+cglobal stripe_unpack%1, 5,6,3
     lea r3, [2 * r3 + mmsize - 1]
     and r3, -mmsize
     mov r5, r3
@@ -109,18 +109,18 @@ cglobal stripe_unpack, 5,6,3
 %endmacro
 
 INIT_XMM sse2
-STRIPE_UNPACK
+STRIPE_UNPACK 16
 INIT_YMM avx2
-STRIPE_UNPACK
+STRIPE_UNPACK 32
 
 ;------------------------------------------------------------------------------
-; STRIPE_PACK
+; STRIPE_PACK 1:suffix
 ; void stripe_pack(uint8_t *dst, ptrdiff_t dst_stride, const int16_t *src,
-;                  uintptr_t width, uintptr_t height);
+;                  size_t width, size_t height);
 ;------------------------------------------------------------------------------
 
-%macro STRIPE_PACK 0
-cglobal stripe_pack, 5,7,5
+%macro STRIPE_PACK 1
+cglobal stripe_pack%1, 5,7,5
     lea r3, [2 * r3 + mmsize - 1]
     mov r6, r1
     and r3, -mmsize
@@ -199,9 +199,9 @@ cglobal stripe_pack, 5,7,5
 %endmacro
 
 INIT_XMM sse2
-STRIPE_PACK
+STRIPE_PACK 16
 INIT_YMM avx2
-STRIPE_PACK
+STRIPE_PACK 32
 
 ;------------------------------------------------------------------------------
 ; LOAD_LINE 1:m_dst, 2:base, 3:max, 4:zero_offs,
@@ -247,20 +247,20 @@ STRIPE_PACK
 %endmacro
 
 ;------------------------------------------------------------------------------
-; SHRINK_HORZ
+; SHRINK_HORZ 1:suffix
 ; void shrink_horz(int16_t *dst, const int16_t *src,
-;                  uintptr_t src_width, uintptr_t src_height);
+;                  size_t src_width, size_t src_height);
 ;------------------------------------------------------------------------------
 
-%macro SHRINK_HORZ 0
+%macro SHRINK_HORZ 1
 %if ARCH_X86_64
-cglobal shrink_horz, 4,9,9
+cglobal shrink_horz%1, 4,9,9
     DECLARE_REG_TMP 8
 %else
 %if !PIC
-cglobal shrink_horz, 4,7,8
+cglobal shrink_horz%1, 4,7,8
 %else
-cglobal shrink_horz, 4,7,8, -mmsize
+cglobal shrink_horz%1, 4,7,8, -mmsize
     pxor m0, m0
     mova [rsp], m0
 %endif
@@ -393,23 +393,23 @@ cglobal shrink_horz, 4,7,8, -mmsize
 %endmacro
 
 INIT_XMM sse2
-SHRINK_HORZ
+SHRINK_HORZ 16
 INIT_YMM avx2
-SHRINK_HORZ
+SHRINK_HORZ 32
 
 ;------------------------------------------------------------------------------
-; SHRINK_VERT
+; SHRINK_VERT 1:suffix
 ; void shrink_vert(int16_t *dst, const int16_t *src,
-;                  uintptr_t src_width, uintptr_t src_height);
+;                  size_t src_width, size_t src_height);
 ;------------------------------------------------------------------------------
 
-%macro SHRINK_VERT 0
+%macro SHRINK_VERT 1
 %if ARCH_X86_64
-cglobal shrink_vert, 4,7,9
+cglobal shrink_vert%1, 4,7,9
 %elif !PIC
-cglobal shrink_vert, 4,7,8
+cglobal shrink_vert%1, 4,7,8
 %else
-cglobal shrink_vert, 4,7,8, -mmsize
+cglobal shrink_vert%1, 4,7,8, -mmsize
     pxor m0, m0
     mova [rsp], m0
 %endif
@@ -486,25 +486,25 @@ cglobal shrink_vert, 4,7,8, -mmsize
 %endmacro
 
 INIT_XMM sse2
-SHRINK_VERT
+SHRINK_VERT 16
 INIT_YMM avx2
-SHRINK_VERT
+SHRINK_VERT 32
 
 ;------------------------------------------------------------------------------
-; EXPAND_HORZ
+; EXPAND_HORZ 1:suffix
 ; void expand_horz(int16_t *dst, const int16_t *src,
-;                  uintptr_t src_width, uintptr_t src_height);
+;                  size_t src_width, size_t src_height);
 ;------------------------------------------------------------------------------
 
-%macro EXPAND_HORZ 0
+%macro EXPAND_HORZ 1
 %if ARCH_X86_64
-cglobal expand_horz, 4,9,5
+cglobal expand_horz%1, 4,9,5
     DECLARE_REG_TMP 8
 %else
 %if !PIC
-cglobal expand_horz, 4,7,5
+cglobal expand_horz%1, 4,7,5
 %else
-cglobal expand_horz, 4,7,5, -mmsize
+cglobal expand_horz%1, 4,7,5, -mmsize
     pxor m0, m0
     mova [rsp], m0
 %endif
@@ -634,21 +634,21 @@ cglobal expand_horz, 4,7,5, -mmsize
 %endmacro
 
 INIT_XMM sse2
-EXPAND_HORZ
+EXPAND_HORZ 16
 INIT_YMM avx2
-EXPAND_HORZ
+EXPAND_HORZ 32
 
 ;------------------------------------------------------------------------------
-; EXPAND_VERT
+; EXPAND_VERT 1:suffix
 ; void expand_vert(int16_t *dst, const int16_t *src,
-;                  uintptr_t src_width, uintptr_t src_height);
+;                  size_t src_width, size_t src_height);
 ;------------------------------------------------------------------------------
 
-%macro EXPAND_VERT 0
+%macro EXPAND_VERT 1
 %if ARCH_X86_64 || !PIC
-cglobal expand_vert, 4,7,5
+cglobal expand_vert%1, 4,7,5
 %else
-cglobal expand_vert, 4,7,5, -mmsize
+cglobal expand_vert%1, 4,7,5, -mmsize
     pxor m0, m0
     mova [rsp], m0
 %endif
@@ -706,9 +706,9 @@ cglobal expand_vert, 4,7,5, -mmsize
 %endmacro
 
 INIT_XMM sse2
-EXPAND_VERT
+EXPAND_VERT 16
 INIT_YMM avx2
-EXPAND_VERT
+EXPAND_VERT 32
 
 ;------------------------------------------------------------------------------
 ; LOAD_MULTIPLIER 1:n, 2:m_mul, 3:src, 4:tmp
@@ -798,21 +798,21 @@ EXPAND_VERT
 %endmacro
 
 ;------------------------------------------------------------------------------
-; BLUR_HORZ 1:radius
+; BLUR_HORZ 1:radius 2:suffix
 ; void blurN_horz(int16_t *dst, const int16_t *src,
-;                 uintptr_t src_width, uintptr_t src_height,
+;                 size_t src_width, size_t src_height,
 ;                 const int16_t *param);
 ;------------------------------------------------------------------------------
 
-%macro BLUR_HORZ 1
+%macro BLUR_HORZ 2
 %if ARCH_X86_64
     %assign %%narg 9 + (%1 + 1) / 2
-cglobal blur%1_horz, 5,8,%%narg
+cglobal blur%1_horz%2, 5,8,%%narg
 %else
 %if !PIC
-cglobal blur%1_horz, 5,7,8
+cglobal blur%1_horz%2, 5,7,8
 %else
-cglobal blur%1_horz, 5,7,8, -mmsize
+cglobal blur%1_horz%2, 5,7,8, -mmsize
     pxor m0, m0
     mova [rsp], m0
 %endif
@@ -964,33 +964,33 @@ cglobal blur%1_horz, 5,7,8, -mmsize
 %endmacro
 
 INIT_XMM sse2
-BLUR_HORZ 4
-BLUR_HORZ 5
-BLUR_HORZ 6
-BLUR_HORZ 7
-BLUR_HORZ 8
+BLUR_HORZ 4,16
+BLUR_HORZ 5,16
+BLUR_HORZ 6,16
+BLUR_HORZ 7,16
+BLUR_HORZ 8,16
 INIT_YMM avx2
-BLUR_HORZ 4
-BLUR_HORZ 5
-BLUR_HORZ 6
-BLUR_HORZ 7
-BLUR_HORZ 8
+BLUR_HORZ 4,32
+BLUR_HORZ 5,32
+BLUR_HORZ 6,32
+BLUR_HORZ 7,32
+BLUR_HORZ 8,32
 
 ;------------------------------------------------------------------------------
-; BLUR_VERT 1:radius
+; BLUR_VERT 1:radius 2:suffix
 ; void blurN_vert(int16_t *dst, const int16_t *src,
-;                 uintptr_t src_width, uintptr_t src_height,
+;                 size_t src_width, size_t src_height,
 ;                 const int16_t *param);
 ;------------------------------------------------------------------------------
 
-%macro BLUR_VERT 1
+%macro BLUR_VERT 2
 %if ARCH_X86_64
     %assign %%narg 7 + (%1 + 1) / 2
-cglobal blur%1_vert, 5,7,%%narg
+cglobal blur%1_vert%2, 5,7,%%narg
 %elif !PIC
-cglobal blur%1_vert, 5,7,8
+cglobal blur%1_vert%2, 5,7,8
 %else
-cglobal blur%1_vert, 5,7,8, -mmsize
+cglobal blur%1_vert%2, 5,7,8, -mmsize
     pxor m0, m0
     mova [rsp], m0
 %endif
@@ -1061,14 +1061,14 @@ cglobal blur%1_vert, 5,7,8, -mmsize
 %endmacro
 
 INIT_XMM sse2
-BLUR_VERT 4
-BLUR_VERT 5
-BLUR_VERT 6
-BLUR_VERT 7
-BLUR_VERT 8
+BLUR_VERT 4,16
+BLUR_VERT 5,16
+BLUR_VERT 6,16
+BLUR_VERT 7,16
+BLUR_VERT 8,16
 INIT_YMM avx2
-BLUR_VERT 4
-BLUR_VERT 5
-BLUR_VERT 6
-BLUR_VERT 7
-BLUR_VERT 8
+BLUR_VERT 4,32
+BLUR_VERT 5,32
+BLUR_VERT 6,32
+BLUR_VERT 7,32
+BLUR_VERT 8,32
