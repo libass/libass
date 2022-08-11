@@ -106,7 +106,11 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->ftlibrary = ft;
     // images_root and related stuff is zero-filled in calloc
 
-    priv->engine = ass_bitmap_engine_init(ASS_CPU_FLAG_ALL);
+    unsigned flags = ASS_CPU_FLAG_ALL;
+#if CONFIG_LARGE_TILES
+    flags |= ASS_FLAG_LARGE_TILES;
+#endif
+    priv->engine = ass_bitmap_engine_init(flags);
 
     if (!ass_rasterizer_init(priv->engine, &priv->state.rasterizer, RASTERIZER_PRECISION))
         goto fail;

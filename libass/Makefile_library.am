@@ -28,7 +28,7 @@ libass_libass_la_SOURCES = \
     libass/ass_rasterizer.h libass/ass_rasterizer.c \
     libass/ass_render.h libass/ass_render.c libass/ass_render_api.c \
     libass/ass_bitmap_engine.h libass/ass_bitmap_engine.c \
-    libass/c/c_rasterizer.c \
+    libass/c/rasterizer_template.h libass/c/c_rasterizer.c \
     libass/c/c_blend_bitmaps.c \
     libass/c/c_be_blur.c \
     libass/c/c_blur.c \

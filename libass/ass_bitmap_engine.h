@@ -87,6 +87,7 @@ enum {
     ASS_CPU_FLAG_X86_AVX2      = 0x0002,
 #endif
     ASS_CPU_FLAG_ALL           = 0x0FFF,
+    ASS_FLAG_LARGE_TILES       = 0x1000,
 };
 
 unsigned ass_get_cpu_flags(unsigned mask);

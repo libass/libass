@@ -50,8 +50,8 @@
     ParamFilterFunc PARAM_BLUR_SET(horz_ ## suffix); \
     ParamFilterFunc PARAM_BLUR_SET(vert_ ## suffix);
 
-#define BITMAP_ENGINE(align_order_, tile_order_, tile_size, suffix) \
-    const BitmapEngine ass_bitmap_engine_ ## suffix = { \
+#define BITMAP_ENGINE(align_order_, tile_order_, tile_size, suffix, be_suffix) \
+    const BitmapEngine ass_bitmap_engine_ ## be_suffix = { \
         .align_order    = align_order_, \
         .tile_order     = tile_order_, \
         .fill_solid     = ass_fill_solid_tile     ## tile_size ## _ ## suffix, \
@@ -73,34 +73,25 @@
     };
 
 
-GENERIC_PROTOTYPES(c)
-#if CONFIG_LARGE_TILES
-RASTERIZER_PROTOTYPES(32, c)
-BITMAP_ENGINE(C_ALIGN_ORDER, 5, 32, c)
-#else
 RASTERIZER_PROTOTYPES(16, c)
-BITMAP_ENGINE(C_ALIGN_ORDER, 4, 16, c)
-#endif
+RASTERIZER_PROTOTYPES(32, c)
+GENERIC_PROTOTYPES(c)
+BITMAP_ENGINE(C_ALIGN_ORDER, 4, 16, c, c)
+BITMAP_ENGINE(C_ALIGN_ORDER, 5, 32, c, lt_c)
 
 #if CONFIG_ASM && ARCH_X86
 
-GENERIC_PROTOTYPES(sse2)
-#if CONFIG_LARGE_TILES
-RASTERIZER_PROTOTYPES(32, sse2)
-BITMAP_ENGINE(4, 5, 32, sse2)
-#else
 RASTERIZER_PROTOTYPES(16, sse2)
-BITMAP_ENGINE(4, 4, 16, sse2)
-#endif
+RASTERIZER_PROTOTYPES(32, sse2)
+GENERIC_PROTOTYPES(sse2)
+BITMAP_ENGINE(4, 4, 16, sse2, sse2)
+BITMAP_ENGINE(4, 5, 32, sse2, lt_sse2)
 
-GENERIC_PROTOTYPES(avx2)
-#if CONFIG_LARGE_TILES
-RASTERIZER_PROTOTYPES(32, avx2)
-BITMAP_ENGINE(5, 5, 32, avx2)
-#else
 RASTERIZER_PROTOTYPES(16, avx2)
-BITMAP_ENGINE(5, 4, 16, avx2)
-#endif
+RASTERIZER_PROTOTYPES(32, avx2)
+GENERIC_PROTOTYPES(avx2)
+BITMAP_ENGINE(5, 4, 16, avx2, avx2)
+BITMAP_ENGINE(5, 5, 32, avx2, lt_avx2)
 
 #endif
 
@@ -153,10 +144,10 @@ const BitmapEngine *ass_bitmap_engine_init(unsigned mask)
     unsigned flags = ass_get_cpu_flags(mask);
 #if ARCH_X86
     if (flags & ASS_CPU_FLAG_X86_AVX2)
-        return &ass_bitmap_engine_avx2;
+        return mask & ASS_FLAG_LARGE_TILES ? &ass_bitmap_engine_lt_avx2 : &ass_bitmap_engine_avx2;
     if (flags & ASS_CPU_FLAG_X86_SSE2)
-        return &ass_bitmap_engine_sse2;
+        return mask & ASS_FLAG_LARGE_TILES ? &ass_bitmap_engine_lt_sse2 : &ass_bitmap_engine_sse2;
 #endif
 #endif
-    return &ass_bitmap_engine_c;
+    return mask & ASS_FLAG_LARGE_TILES ? &ass_bitmap_engine_lt_c : &ass_bitmap_engine_c;
 }
