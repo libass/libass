@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Vabishchevich Nikolay <vabnick@gmail.com>
+ * Copyright (C) 2014-2022 libass contributors
  *
  * This file is part of libass.
  *
