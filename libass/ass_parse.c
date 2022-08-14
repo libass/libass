@@ -165,7 +165,7 @@ static void change_color(uint32_t *var, uint32_t new, double pwr)
 // like change_color, but for alpha component only
 inline void change_alpha(uint32_t *var, int32_t new, double pwr)
 {
-    *var = (*var & 0xFFFFFF00) | (uint8_t)calc_anim_int32(_a(new), _a(*var), pwr);
+    *var = (*var & 0xFFFFFF00) | (uint8_t)calc_anim_int32(new, _a(*var), pwr);
 }
 
 /**
