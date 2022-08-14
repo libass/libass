@@ -59,8 +59,6 @@ jobs:
             extra_cflags: -DWINAPI_FAMILY=WINAPI_FAMILY_APP -specs=/tmp/windowsapp.specs
             shell: 'msys2 {0}'
             package_prefix: mingw-w64-ucrt-x86_64
-            # FIXME: UBSAN triggers on regression/karaoke/357-k-and-kf-desynced.ass
-            skip_tests: yes
 
     defaults:
       run:
@@ -164,7 +162,9 @@ jobs:
             flags="$flags -fno-sanitize-recover=all"
           fi
 
-          if [ "${{ matrix.cc }}" = "tcc" ] || [ "${{ matrix.skip_tests }}" = "yes" ] ; then
+          if [ "${{ matrix.cc }}" = "tcc" ] || [ "${{ matrix.skip_tests }}" = "yes" ] \
+             || [ "${{ matrix.api }}" = "app" ] ; then
+            # FIXME: For Windows UWP, UBSAN triggers on regression/karaoke/357-k-and-kf-desynced.ass
             flags=""
           fi
 
