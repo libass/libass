@@ -22,6 +22,8 @@ body:
         in a video player that uses VSFilter to render subtitles (for example, MPC-HC).
         If it looks the same, even if it still feels wrong, this is probably intentional
         and not an issue with libass.
+        Note, that “xy-VSFilter with libass” is not a VSFilter-based ASS renderer
+        and should thus **not** be used as a comparison.
 
   - type: textarea
     id: issue-screenshots
