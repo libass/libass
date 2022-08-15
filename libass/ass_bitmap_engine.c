@@ -190,7 +190,8 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
 #elif ARCH_AARCH64
     if (flags & ASS_CPU_FLAG_ARM_NEON) {
         ALL_FUNCTIONS(4, 16, c)
-        GENERIC_PROTOTYPES(neon)
+        ALL_PROTOTYPES(16, neon)
+        RASTERIZER_FUNCTIONS(neon)
         GENERIC_FUNCTIONS(neon)
         return engine;
     }
