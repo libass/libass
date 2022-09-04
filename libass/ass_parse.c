@@ -885,8 +885,9 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
         v[cnt++] = atoi(++p);
     }
 
+    ASS_Vector layout_res = ass_layout_res(render_priv);
     if (strncmp(event->Effect, "Banner;", 7) == 0) {
-        int delay;
+        double delay;
         if (cnt < 1) {
             ass_msg(render_priv->library, MSGL_V,
                     "Error parsing effect: '%s'", event->Effect);
@@ -898,8 +899,20 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
             render_priv->state.scroll_direction = SCROLL_RL;
 
         delay = v[0];
-        if (delay == 0)
-            delay = 1;          // ?
+        // VSF works in storage coordinates, but scales delay to PlayRes canvas
+        // before applying max(scaled_ delay, 1). This means, if scaled_delay < 1
+        // (esp. delay=0) we end up with 1 ms per _storage pixel_ without any
+        // PlayRes scaling.
+        // The way libass deals with delay, it is automatically relative to the
+        // PlayRes canvas, so we only want to "unscale" the small delay values.
+        //
+        // VSF also casts the scaled delay to int, which if not emulated leads to
+        // easily noticeable deviations from VSFilter as the effect goes on.
+        // To achieve both we need to keep our Playres-relative delay with high precision,
+        // but must temporarily convert to storage-relative and truncate and take the
+        // maxuimum there, before converting back.
+        double scale_x = ((double) layout_res.x) / render_priv->track->PlayResX;
+        delay = ((int) FFMAX(delay / scale_x, 1)) * scale_x;
         render_priv->state.scroll_shift =
             (render_priv->time - render_priv->state.event->Start) / delay;
         render_priv->state.evt_type |= EVENT_HSCROLL;
@@ -919,7 +932,7 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
     }
     // parse scroll up/down parameters
     {
-        int delay;
+        double delay;
         int y0, y1;
         if (cnt < 3) {
             ass_msg(render_priv->library, MSGL_V,
@@ -927,8 +940,9 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
             return;
         }
         delay = v[2];
-        if (delay == 0)
-            delay = 1;          // ?
+        // See explanation for Banner
+        double scale_y = ((double) layout_res.y) / render_priv->track->PlayResY;
+        delay = ((int) FFMAX(delay / scale_y, 1)) * scale_y;
         render_priv->state.scroll_shift =
             (render_priv->time - render_priv->state.event->Start) / delay;
         if (v[0] < v[1]) {
