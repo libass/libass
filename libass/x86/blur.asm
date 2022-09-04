@@ -394,6 +394,8 @@ cglobal shrink_horz%1, 4,7,8, -mmsize
 
 INIT_XMM sse2
 SHRINK_HORZ 16
+INIT_XMM ssse3
+SHRINK_HORZ 16
 INIT_YMM avx2
 SHRINK_HORZ 32
 
@@ -634,6 +636,8 @@ cglobal expand_horz%1, 4,7,5, -mmsize
 %endmacro
 
 INIT_XMM sse2
+EXPAND_HORZ 16
+INIT_XMM ssse3
 EXPAND_HORZ 16
 INIT_YMM avx2
 EXPAND_HORZ 32
@@ -964,6 +968,12 @@ cglobal blur%1_horz%2, 5,7,8, -mmsize
 %endmacro
 
 INIT_XMM sse2
+BLUR_HORZ 4,16
+BLUR_HORZ 5,16
+BLUR_HORZ 6,16
+BLUR_HORZ 7,16
+BLUR_HORZ 8,16
+INIT_XMM ssse3
 BLUR_HORZ 4,16
 BLUR_HORZ 5,16
 BLUR_HORZ 6,16

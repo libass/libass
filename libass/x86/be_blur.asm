@@ -230,5 +230,7 @@ cglobal be_blur, 5,7,8
 
 INIT_XMM sse2
 BE_BLUR
+INIT_XMM ssse3
+BE_BLUR
 INIT_YMM avx2
 BE_BLUR

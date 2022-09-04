@@ -127,8 +127,12 @@ unsigned ass_get_cpu_flags(unsigned mask)
     if (max_leaf >= 1) {
         eax = 1;
         ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-        if (edx & (1 << 26))  // SSE2
+        if (edx & (1 << 26)) {  // SSE2
             flags |= ASS_CPU_FLAG_X86_SSE2;
+            if (ecx & (1 << 0) &&  // SSE3
+                ecx & (1 << 9))    // SSSE3
+                    flags |= ASS_CPU_FLAG_X86_SSSE3;
+        }
 
         if (ecx & (1 << 27) &&  // OSXSAVE
             ecx & (1 << 28)) {  // AVX
@@ -169,6 +173,14 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
     } else if (flags & ASS_CPU_FLAG_X86_SSE2) {
         ALL_PROTOTYPES(16, sse2)
         ALL_FUNCTIONS(4, 16, sse2)
+        if (flags & ASS_CPU_FLAG_X86_SSSE3) {
+            ALL_PROTOTYPES(16, ssse3)
+            RASTERIZER_FUNCTION(fill_generic, ssse3)
+            GENERIC_FUNCTION(be_blur, ssse3)
+            BLUR_FUNCTION(shrink_horz, 16, ssse3)
+            BLUR_FUNCTION(expand_horz, 16, ssse3)
+            PARAM_BLUR_FUNCTION(horz, 16, ssse3)
+        }
         return engine;
     }
 #endif

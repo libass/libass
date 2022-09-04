@@ -82,7 +82,8 @@ enum {
     ASS_CPU_FLAG_NONE          = 0x0000,
 #if ARCH_X86
     ASS_CPU_FLAG_X86_SSE2      = 0x0001,
-    ASS_CPU_FLAG_X86_AVX2      = 0x0002,
+    ASS_CPU_FLAG_X86_SSSE3     = 0x0002,
+    ASS_CPU_FLAG_X86_AVX2      = 0x0004,
 #endif
     ASS_CPU_FLAG_ALL           = 0x0FFF,
     ASS_FLAG_LARGE_TILES       = 0x1000,
