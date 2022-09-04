@@ -153,6 +153,10 @@ unsigned ass_get_cpu_flags(unsigned mask)
 
 #endif
 
+#if ARCH_AARCH64
+    flags = ASS_CPU_FLAG_ARM_NEON;
+#endif
+
     return flags & mask;
 }
 
