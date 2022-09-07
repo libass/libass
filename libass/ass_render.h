@@ -261,7 +261,7 @@ typedef struct {
         SCROLL_TB,              // top-to-bottom
         SCROLL_BT
     } scroll_direction;         // for EVENT_HSCROLL, EVENT_VSCROLL
-    int scroll_shift;
+    double scroll_shift;
     int scroll_y0, scroll_y1;
 
     // face properties
