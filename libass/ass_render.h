@@ -345,6 +345,7 @@ typedef struct {
 void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style);
 void ass_frame_ref(ASS_Image *img);
 void ass_frame_unref(ASS_Image *img);
+ASS_Vector ass_layout_res(ASS_Renderer *render_priv);
 
 // XXX: this is actually in ass.c, includes should be fixed later on
 void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track);
