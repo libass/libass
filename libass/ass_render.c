@@ -978,7 +978,21 @@ ASS_Vector ass_layout_res(ASS_Renderer *render_priv)
         return (ASS_Vector) { settings->storage_width, settings->storage_height };
 
     ASS_Track *track = render_priv->track;
-    return (ASS_Vector) { track->PlayResX, track->PlayResY };
+    if (settings->par <= 0 || settings->par == 1 ||
+            !render_priv->orig_width || !render_priv->orig_height)
+        return (ASS_Vector) { track->PlayResX, track->PlayResY };
+    if (settings->par > 1)
+        return (ASS_Vector) {
+            lround(track->PlayResY * render_priv->orig_width / render_priv->orig_height
+                    / settings->par),
+            track->PlayResY
+        };
+    else
+        return (ASS_Vector) {
+            track->PlayResX,
+            lround(track->PlayResX * render_priv->orig_height / render_priv->orig_width
+                    * settings->par)
+        };
 }
 
 static void init_font_scale(ASS_Renderer *render_priv)
