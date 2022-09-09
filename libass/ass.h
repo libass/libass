@@ -376,7 +376,7 @@ void ass_renderer_done(ASS_Renderer *priv);
  * The value set with this function can influence the pixel aspect ratio used
  * for rendering.
  * If after compensating for configured margins the frame size
- * is not an isotropicly scaled version of the video display size,
+ * is not an isotropically scaled version of the video display size,
  * you may have to use ass_set_pixel_aspect().
  * @see ass_set_pixel_aspect()
  * @see ass_set_margins()
@@ -459,7 +459,7 @@ void ass_set_use_margins(ASS_Renderer *priv, int use);
  * by calling this function, libass will calculate a default pixel aspect ratio
  * out of values set with ass_set_frame_size() and ass_set_storage_size(). Note
  * that this default assumes the frame size after compensating for margins
- * corresponds to an isotropicly scaled version of the video display size.
+ * corresponds to an isotropically scaled version of the video display size.
  * If the storage size has not been set, a pixel aspect ratio of 1 is assumed.
  * \param priv renderer handle
  * \param par pixel aspect ratio (1.0 means square pixels, 0 means default)
