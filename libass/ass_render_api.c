@@ -51,6 +51,8 @@ static void ass_reconfigure(ASS_Renderer *priv)
 
 void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
 {
+    if (w < 0 || h < 0)
+        w = h = 0;
     if (priv->settings.frame_width != w || priv->settings.frame_height != h) {
         priv->settings.frame_width = w;
         priv->settings.frame_height = h;
@@ -60,6 +62,8 @@ void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
 
 void ass_set_storage_size(ASS_Renderer *priv, int w, int h)
 {
+    if (w < 0 || h < 0)
+        w = h = 0;
     if (priv->settings.storage_width != w ||
         priv->settings.storage_height != h) {
         priv->settings.storage_width = w;
@@ -101,6 +105,7 @@ void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar)
 
 void ass_set_pixel_aspect(ASS_Renderer *priv, double par)
 {
+    if (par < 0) par = 0;
     if (priv->settings.par != par) {
         priv->settings.par = par;
         ass_reconfigure(priv);
