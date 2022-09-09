@@ -60,6 +60,6 @@ Other ASS/SSA implementations:
   - VSFilter in [guliverkli](http://sourceforge.net/projects/guliverkli/) (defunct, forked as Guliverkli2)
 - [ffdshow](http://ffdshow-tryout.sourceforge.net/) (defunct)
 - [Perian](https://github.com/MaddTheSane/perian) (defunct)
-- [asa](http://git.spaceboyz.net/asa.git) (defunct)
+- [asa](https://web.archive.org/web/20110906033709/http://asa.diac24.net/) (defunct)
 - [libjass](https://github.com/Arnavion/libjass) (defunct)
 - [ASS.js](https://github.com/weizhenye/ASS)
