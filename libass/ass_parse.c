@@ -790,6 +790,14 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 val = render_priv->state.style->Italic;
             render_priv->state.italic = val;
             update_font(render_priv);
+        } else if (tag("kt")) {
+            // v4++
+            double val = 0;
+            if (nargs)
+                val = argtod(*args) * 10;
+            render_priv->state.effect_skip_timing = dtoi32(val);
+            render_priv->state.effect_timing = 0;
+            render_priv->state.reset_effect = true;
         } else if (tag("kf") || tag("K")) {
             double val = 100;
             if (nargs)
@@ -975,9 +983,16 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
     int32_t timing = 0, skip_timing = 0;
     Effect effect_type = EF_NONE;
     GlyphInfo *last_boundary = NULL;
+    bool has_reset = false;
     for (int i = 0; i <= render_priv->text_info.length; i++) {
         if (i < render_priv->text_info.length &&
             !render_priv->text_info.glyphs[i].starts_new_run) {
+
+            if (render_priv->text_info.glyphs[i].reset_effect) {
+                has_reset = true;
+                skip_timing = 0;
+            }
+
             // VSFilter compatibility: if we have \k12345\k0 without a run
             // break, subsequent text is still part of the same karaoke word,
             // the current word's starting and ending time stay unchanged,
@@ -997,10 +1012,14 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
         if (effect_type == EF_NONE)
             continue;
 
+        if (start->reset_effect)
+            timing = 0;
+
         long long tm_start = timing + start->effect_skip_timing;
         long long tm_end = tm_start + start->effect_timing;
-        timing = tm_end + skip_timing;
+        timing = !has_reset * tm_end + skip_timing;
         skip_timing = 0;
+        has_reset = false;
 
         if (effect_type != EF_KARAOKE_KF)
             tm_end = tm_start;

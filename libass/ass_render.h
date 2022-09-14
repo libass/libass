@@ -151,6 +151,7 @@ typedef struct glyph_info {
     // after process_karaoke_effects: distance in subpixels from the karaoke origin.
     // part of the glyph to the left of it is displayed in a different color.
     int32_t effect_skip_timing;     // delay after the end of last karaoke word
+    bool reset_effect;
     int asc, desc;              // font max ascender and descender
     int be;                     // blur edges
     double blur;                // gaussian blur
@@ -254,6 +255,7 @@ typedef struct {
     Effect effect_type;
     int32_t effect_timing;
     int32_t effect_skip_timing;
+    bool reset_effect;
 
     enum {
         SCROLL_LR,              // left-to-right

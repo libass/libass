@@ -1099,6 +1099,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.effect_type = EF_NONE;
     render_priv->state.effect_timing = 0;
     render_priv->state.effect_skip_timing = 0;
+    render_priv->state.reset_effect = false;
 
     apply_transition_effects(render_priv, event);
     render_priv->state.explicit = render_priv->state.evt_type != EVENT_NORMAL ||
@@ -2113,6 +2114,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         info->effect_type = render_priv->state.effect_type;
         info->effect_timing = render_priv->state.effect_timing;
         info->effect_skip_timing = render_priv->state.effect_skip_timing;
+        info->reset_effect = render_priv->state.reset_effect;
         // VSFilter compatibility: font glyphs use PlayResY scaling in both dimensions
         info->font_size =
             fabs(render_priv->state.font_size * render_priv->screen_scale_y);
@@ -2153,6 +2155,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         render_priv->state.effect_type = EF_NONE;
         render_priv->state.effect_timing = 0;
         render_priv->state.effect_skip_timing = 0;
+        render_priv->state.reset_effect = false;
     }
 
     return true;
