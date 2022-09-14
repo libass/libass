@@ -65,6 +65,10 @@ struct parser_priv {
     uint32_t header_flags;
 
     uint32_t feature_flags;
+
+    // bitmaps tracking style overrides for each style
+    uint32_t *override_marginbt;
+    uint32_t *override_marginb;
 };
 
 #endif /* LIBASS_PRIV_H */

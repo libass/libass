@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01701000
+#define LIBASS_VERSION 0x01701010
 
 #ifdef __cplusplus
 extern "C" {

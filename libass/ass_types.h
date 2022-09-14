@@ -124,7 +124,6 @@ typedef struct ass_style {
         and always only refer to the top margin regardless of format version */
     int MarginV; // in SSA v4 and ASS (v4+) for both top and bottom, in v4++ only top
     int MarginB; //v4++: bottom; v4 and v4+: identical to MarginV
-                 // currently ignored, but should not be set to any value but zero
     int Encoding;
     int RelativeTo; // currently ignored, but should not be set to any value but 2
     int treat_fontname_as_pattern; // does nothing (left in place for ABI-compatibility)
@@ -151,7 +150,6 @@ typedef struct ass_event {
         and always only refer to the top margin regardless of format version */
     int MarginV; // in SSA v4 and ASS (v4+) for both top and bottom, in v4++ only top
     int MarginB; //v4++: bottom; v4 and v4+: identical to MarginV
-                 // currently ignored, but should not be set to any value but zero
     char *Effect;
     char *Text;
 

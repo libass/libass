@@ -81,12 +81,6 @@ void ass_free_track(ASS_Track *track)
     if (!track)
         return;
 
-    if (track->parser_priv) {
-        free(track->parser_priv->read_order_bitmap);
-        free(track->parser_priv->fontname);
-        free(track->parser_priv->fontdata);
-        free(track->parser_priv);
-    }
     free(track->style_format);
     free(track->event_format);
     free(track->Language);
@@ -101,6 +95,14 @@ void ass_free_track(ASS_Track *track)
     }
     free(track->events);
     free(track->name);
+    if (track->parser_priv) {
+        free(track->parser_priv->read_order_bitmap);
+        free(track->parser_priv->fontname);
+        free(track->parser_priv->fontdata);
+        free(track->parser_priv->override_marginbt);
+        free(track->parser_priv->override_marginb);
+        free(track->parser_priv);
+    }
     free(track);
 }
 
@@ -119,6 +121,17 @@ int ass_alloc_style(ASS_Track *track)
         int new_max = track->max_styles + ASS_STYLES_ALLOC;
         if (!ASS_REALLOC_ARRAY(track->styles, new_max))
             return -1;
+
+        // TODO: check especially this block again before merge
+        ASS_ParserPriv *priv = track->parser_priv;
+        size_t new_size = FFMAX(new_max + (size_t) 31, (size_t) new_max) / 32;
+        if (!ASS_REALLOC_ARRAY(priv->override_marginbt, new_size) ||
+                !ASS_REALLOC_ARRAY(priv->override_marginb, new_size))
+            return -1;
+        size_t old_size = FFMAX(track->max_styles + (size_t) 31, (size_t) track->max_styles) / 32;
+        memset(priv->override_marginbt + old_size, 0, new_size - old_size);
+        memset(priv->override_marginb  + old_size, 0, new_size - old_size);
+
         track->max_styles = new_max;
     }
 
@@ -167,6 +180,9 @@ void ass_free_style(ASS_Track *track, int sid)
 
     free(style->Name);
     free(style->FontName);
+
+    track->parser_priv->override_marginbt[sid / 32] &= ~(1ul << (sid - 32 * (sid / 32)));
+    track->parser_priv->override_marginb[sid / 32] &= ~(1ul << (sid - 32 * (sid / 32)));
 }
 
 static int resize_read_order_bitmap(ASS_Track *track, int max_id)
@@ -234,7 +250,7 @@ static void set_default_style(ASS_Style *style)
     style->Outline          = 2;
     style->Shadow           = 3;
     style->Alignment        = 2;
-    style->MarginL = style->MarginR = style->MarginV = 20;
+    style->MarginL = style->MarginR = style->MarginV = style->MarginB = 20;
 }
 
 static long long string2timecode(ASS_Library *library, char *p)
@@ -502,6 +518,8 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
                     *--end = 0;
             }
             event->Duration -= event->Start;
+            if (track->track_type != TRACK_TYPE_V4PP)
+                event->MarginB = event->MarginV;
             free(format);
             return event->Text ? 0 : -1;           // "Text" is always the last
         }
@@ -509,6 +527,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
 
         ALIAS(End, Duration)    // temporarily store end timecode in event->Duration
         ALIAS(Actor, Name)      // both variants are used in files
+        ALIAS(MarginT, MarginV)
         PARSE_START
             INTVAL(Layer)
             STYLEVAL(Style)
@@ -517,6 +536,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
+            INTVAL(MarginB)
             TIMEVAL(Start)
             TIMEVAL(Duration)
         PARSE_END
@@ -611,6 +631,21 @@ void ass_process_force_style(ASS_Track *track)
                     INTVAL(MarginL)
                     INTVAL(MarginR)
                     INTVAL(MarginV)
+                        target->MarginB = target->MarginV;
+                    } else if (ass_strcasecmp(tname, "MarginT") == 0) {
+                        ASS_ParserPriv *priv = track->parser_priv;
+                        size_t idx = sid / 32;
+                        uint32_t bit = 1ul << (sid - 32 * idx);
+
+                        priv->override_marginbt[idx] |= bit;
+                        if (!(priv->override_marginb[idx] & bit))
+                            target->MarginB = target->MarginV;
+                        target->MarginV = atoi(token);
+                    INTVAL(MarginB)
+                        size_t idx = sid / 32;
+                        uint32_t bit = 1ul << (sid - 32 * idx);
+                        track->parser_priv->override_marginbt[idx] |= bit;
+                        track->parser_priv->override_marginb[idx] |= bit;
                     INTVAL(Encoding)
                     FPVAL(ScaleX)
                     FPVAL(ScaleY)
@@ -683,6 +718,7 @@ static int process_style(ASS_Track *track, char *str)
         NEXTNAME(q, tname);
         NEXTVAL(p, token);
 
+        ALIAS(MarginT, MarginV)
         PARSE_START
             STARREDSTRVAL(Name)
             STRVAL(FontName)
@@ -715,6 +751,7 @@ static int process_style(ASS_Track *track, char *str)
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
+            INTVAL(MarginB)
             INTVAL(Encoding)
             FPVAL(ScaleX)
             FPVAL(ScaleY)
@@ -735,6 +772,8 @@ static int process_style(ASS_Track *track, char *str)
     style->Italic = !!style->Italic;
     style->Underline = !!style->Underline;
     style->StrikeOut = !!style->StrikeOut;
+    if (track->track_type != TRACK_TYPE_V4PP)
+        target->MarginB = target->MarginV;
     if (!style->Name)
         style->Name = strdup("Default");
     if (!style->FontName)
