@@ -33,20 +33,20 @@ static void ass_reconfigure(ASS_Renderer *priv)
 
     priv->width = settings->frame_width;
     priv->height = settings->frame_height;
-    priv->orig_width = settings->frame_width - settings->left_margin -
+    priv->frame_content_width = settings->frame_width - settings->left_margin -
         settings->right_margin;
-    priv->orig_height = settings->frame_height - settings->top_margin -
+    priv->frame_content_height = settings->frame_height - settings->top_margin -
         settings->bottom_margin;
     priv->fit_width =
-        (long long) priv->orig_width * priv->height >=
-        (long long) priv->orig_height * priv->width ?
+        (long long) priv->frame_content_width * priv->height >=
+        (long long) priv->frame_content_height * priv->width ?
             priv->width :
-            (double) priv->orig_width * priv->height / priv->orig_height;
+            (double) priv->frame_content_width * priv->height / priv->frame_content_height;
     priv->fit_height =
-        (long long) priv->orig_width * priv->height <=
-        (long long) priv->orig_height * priv->width ?
+        (long long) priv->frame_content_width * priv->height <=
+        (long long) priv->frame_content_height * priv->width ?
             priv->height :
-            (double) priv->orig_height * priv->width / priv->orig_width;
+            (double) priv->frame_content_height * priv->width / priv->frame_content_width;
 }
 
 void ass_set_frame_size(ASS_Renderer *priv, int w, int h)

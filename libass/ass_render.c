@@ -211,27 +211,27 @@ static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
  */
 static double x2scr_pos(ASS_Renderer *render_priv, double x)
 {
-    return x * render_priv->orig_width / render_priv->font_scale_x / render_priv->track->PlayResX +
+    return x * render_priv->frame_content_width / render_priv->par_scale_x / render_priv->track->PlayResX +
         render_priv->settings.left_margin;
 }
 static double x2scr_left(ASS_Renderer *render_priv, double x)
 {
     if (render_priv->state.explicit || !render_priv->settings.use_margins)
         return x2scr_pos(render_priv, x);
-    return x * render_priv->fit_width / render_priv->font_scale_x /
+    return x * render_priv->fit_width / render_priv->par_scale_x /
         render_priv->track->PlayResX;
 }
 static double x2scr_right(ASS_Renderer *render_priv, double x)
 {
     if (render_priv->state.explicit || !render_priv->settings.use_margins)
         return x2scr_pos(render_priv, x);
-    return x * render_priv->fit_width / render_priv->font_scale_x /
+    return x * render_priv->fit_width / render_priv->par_scale_x /
         render_priv->track->PlayResX +
         (render_priv->width - render_priv->fit_width);
 }
 static double x2scr_pos_scaled(ASS_Renderer *render_priv, double x)
 {
-    return x * render_priv->orig_width / render_priv->track->PlayResX +
+    return x * render_priv->frame_content_width / render_priv->track->PlayResX +
         render_priv->settings.left_margin;
 }
 /**
@@ -239,7 +239,7 @@ static double x2scr_pos_scaled(ASS_Renderer *render_priv, double x)
  */
 static double y2scr_pos(ASS_Renderer *render_priv, double y)
 {
-    return y * render_priv->orig_height / render_priv->track->PlayResY +
+    return y * render_priv->frame_content_height / render_priv->track->PlayResY +
         render_priv->settings.top_margin;
 }
 static double y2scr(ASS_Renderer *render_priv, double y)
@@ -979,18 +979,18 @@ ASS_Vector ass_layout_res(ASS_Renderer *render_priv)
 
     ASS_Track *track = render_priv->track;
     if (settings->par <= 0 || settings->par == 1 ||
-            !render_priv->orig_width || !render_priv->orig_height)
+            !render_priv->frame_content_width || !render_priv->frame_content_height)
         return (ASS_Vector) { track->PlayResX, track->PlayResY };
     if (settings->par > 1)
         return (ASS_Vector) {
-            lround(track->PlayResY * render_priv->orig_width / render_priv->orig_height
+            lround(track->PlayResY * render_priv->frame_content_width / render_priv->frame_content_height
                     / settings->par),
             track->PlayResY
         };
     else
         return (ASS_Vector) {
             track->PlayResX,
-            lround(track->PlayResX * render_priv->orig_height / render_priv->orig_width
+            lround(track->PlayResX * render_priv->frame_content_height / render_priv->frame_content_width
                     * settings->par)
         };
 }
@@ -999,8 +999,8 @@ static void init_font_scale(ASS_Renderer *render_priv)
 {
     ASS_Settings *settings_priv = &render_priv->settings;
 
-    double font_scr_w = render_priv->orig_width;
-    double font_scr_h = render_priv->orig_height;
+    double font_scr_w = render_priv->frame_content_width;
+    double font_scr_h = render_priv->frame_content_height;
     if (!render_priv->state.explicit && render_priv->settings.use_margins) {
         font_scr_w = render_priv->fit_width;
         font_scr_h = render_priv->fit_height;
@@ -1148,7 +1148,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 
         int32_t scale_base = lshiftwrapi(1, info->drawing_scale - 1);
         double w = scale_base > 0 ? (1.0 / scale_base) : 0;
-        scale.x = info->scale_x * w * priv->screen_scale_x / priv->font_scale_x;
+        scale.x = info->scale_x * w * priv->screen_scale_x / priv->par_scale_x;
         scale.y = info->scale_y * w * priv->screen_scale_y;
         desc = 64 * info->drawing_pbo;
         asc = val->asc - desc;
@@ -1323,8 +1323,8 @@ static void calc_transform_matrix(ASS_Renderer *render_priv,
     double dist = 20000 * render_priv->blur_scale;
     z4[2] += dist;
 
-    double scale_x = dist * render_priv->font_scale_x;
-    double offs_x = info->pos.x - info->shift.x * render_priv->font_scale_x;
+    double scale_x = dist * render_priv->par_scale_x;
+    double offs_x = info->pos.x - info->shift.x * render_priv->par_scale_x;
     double offs_y = info->pos.y - info->shift.y;
     for (int i = 0; i < 3; i++) {
         m[0][i] = z4[i] * offs_x + x4[i] * scale_x;
@@ -1387,7 +1387,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
 
         ASS_DVector bord = {
             64 * info->border_x * render_priv->border_scale_x /
-                render_priv->font_scale_x,
+                render_priv->par_scale_x,
             64 * info->border_y * render_priv->border_scale_y,
         };
         double width = info->hspacing_scaled + info->advance.x;
@@ -1428,7 +1428,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
 
         double bord_x =
             64 * render_priv->border_scale_x * info->border_x / tr->scale.x /
-                render_priv->font_scale_x;
+                render_priv->par_scale_x;
         double bord_y =
             64 * render_priv->border_scale_y * info->border_y / tr->scale.y;
 
@@ -2143,7 +2143,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
 
         if (!drawing_text.str) {
             info->hspacing_scaled = double_to_d6(info->hspacing *
-                    render_priv->screen_scale_x / render_priv->font_scale_x *
+                    render_priv->screen_scale_x / render_priv->par_scale_x *
                     info->scale_x);
             fix_glyph_scaling(render_priv, info);
         }
@@ -2367,7 +2367,7 @@ static void calculate_rotation_params(ASS_Renderer *render_priv, ASS_DRect *bbox
         while (info) {
             info->shift.x = info->pos.x + double_to_d6(device_x - center.x +
                     info->shadow_x * render_priv->border_scale_x /
-                    render_priv->font_scale_x);
+                    render_priv->par_scale_x);
             info->shift.y = info->pos.y + double_to_d6(device_y - center.y +
                     info->shadow_y * render_priv->border_scale_y);
             info = info->next;
@@ -2430,7 +2430,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 {
     TextInfo *text_info = &render_priv->text_info;
     int left = render_priv->settings.left_margin;
-    device_x = (device_x - left) * render_priv->font_scale_x + left;
+    device_x = (device_x - left) * render_priv->par_scale_x + left;
     unsigned nb_bitmaps = 0;
     bool new_run = true;
     CombinedBitmapInfo *combined_info = text_info->combined_bitmaps;
@@ -2518,7 +2518,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             assert(current_info);
 
             ASS_Vector pos, pos_o;
-            info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->font_scale_x);
+            info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->par_scale_x);
             info->pos.y = double_to_d6(device_y) + info->pos.y;
             get_bitmap_glyph(render_priv, info, &current_info->leftmost_x, &pos, &pos_o,
                              &offset, !current_info->bitmap_count, flags);
@@ -2558,7 +2558,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 
         if (info->effect_type == EF_KARAOKE_KF)
             info->effect_timing = lround(d6_to_double(info->leftmost_x) +
-                d6_to_double(info->effect_timing) * render_priv->font_scale_x);
+                d6_to_double(info->effect_timing) * render_priv->par_scale_x);
 
         for (int j = 0; j < info->bitmap_count; j++) {
             info->bitmaps[j].pos.x -= info->x;
@@ -2946,9 +2946,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->height =
         text_info->height + text_info->border_bottom + text_info->border_top;
     event_images->left =
-        (device_x + bbox.x_min) * render_priv->font_scale_x - text_info->border_x + 0.5;
+        (device_x + bbox.x_min) * render_priv->par_scale_x - text_info->border_x + 0.5;
     event_images->width =
-        (bbox.x_max - bbox.x_min) * render_priv->font_scale_x
+        (bbox.x_max - bbox.x_min) * render_priv->par_scale_x
         + 2 * text_info->border_x + 0.5;
     event_images->detect_collisions = render_priv->state.detect_collisions;
     event_images->shift_direction = (valign == VALIGN_SUB) ? -1 : 1;
@@ -3018,16 +3018,16 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     // PAR correction
     double par = render_priv->settings.par;
     if (par == 0.) {
-        if (render_priv->orig_width && render_priv->orig_height) {
-            double dar = ((double) render_priv->orig_width) /
-                         render_priv->orig_height;
+        if (render_priv->frame_content_width && render_priv->frame_content_height) {
+            double dar = ((double) render_priv->frame_content_width) /
+                         render_priv->frame_content_height;
             ASS_Vector layout_res = ass_layout_res(render_priv);
             double sar = ((double) layout_res.x) / layout_res.y;
             par = dar / sar;
         } else
             par = 1.0;
     }
-    render_priv->font_scale_x = par;
+    render_priv->par_scale_x = par;
 
     render_priv->prev_images_root = render_priv->images_root;
     render_priv->images_root = NULL;

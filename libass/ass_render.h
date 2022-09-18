@@ -308,16 +308,16 @@ struct ass_renderer {
     int eimg_size;              // allocated buffer size
 
     // frame-global data
-    int width, height;          // screen dimensions
-    int orig_height;            // frame height ( = screen height - margins )
-    int orig_width;             // frame width ( = screen width - margins )
-    double fit_height;          // frame height without zoom & pan (fit to screen & letterboxed)
-    double fit_width;           // frame width without zoom & pan (fit to screen & letterboxed)
+    int width, height;          // screen dimensions (the whole frame from ass_set_frame_size)
+    int frame_content_height;   // content frame height ( = screen height - API margins )
+    int frame_content_width;    // content frame width ( = screen width - API margins )
+    double fit_height;          // content frame height without zoom & pan (fit to screen & letterboxed)
+    double fit_width;           // content frame width without zoom & pan (fit to screen & letterboxed)
     ASS_Track *track;
     long long time;             // frame's timestamp, ms
     double screen_scale_x;
     double screen_scale_y;
-    double font_scale_x;        // x scale applied to all glyphs to preserve text aspect ratio
+    double par_scale_x;         // x scale applied to e.g. glyphs to preserve text aspect ratio
     double border_scale_x;
     double border_scale_y;
     double blur_scale;
