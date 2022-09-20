@@ -124,6 +124,7 @@ int ass_alloc_style(ASS_Track *track)
 
     sid = track->n_styles++;
     memset(track->styles + sid, 0, sizeof(ASS_Style));
+    track->styles[sid].RelativeTo = 2;
     return sid;
 }
 

@@ -120,8 +120,13 @@ typedef struct ass_style {
     int Alignment; // use `VALIGN_* | HALIGN_*` as value
     int MarginL;
     int MarginR;
-    int MarginV;
+    /** On the next API-break (if ever happening), MarginV will be renamed to MarginT
+        and always only refer to the top margin regardless of format version */
+    int MarginV; // in SSA v4 and ASS (v4+) for both top and bottom, in v4++ only top
+    int MarginB; //v4++: bottom; v4 and v4+: identical to MarginV
+                 // currently ignored, but should not be set to any value but zero
     int Encoding;
+    int RelativeTo; // currently ignored, but should not be set to any value but 2
     int treat_fontname_as_pattern; // does nothing (left in place for ABI-compatibility)
     double Blur; // sets a default \blur for the event; same values as \blur
     int Justify; // sets text justification independent of event alignment; use ASS_JUSTIFY_*
@@ -142,7 +147,11 @@ typedef struct ass_event {
     char *Name;
     int MarginL;
     int MarginR;
-    int MarginV;
+    /** On the next API-break (if ever happening), MarginV will be renamed to MarginT
+        and always only refer to the top margin regardless of format version */
+    int MarginV; // in SSA v4 and ASS (v4+) for both top and bottom, in v4++ only top
+    int MarginB; //v4++: bottom; v4 and v4+: identical to MarginV
+                 // currently ignored, but should not be set to any value but zero
     char *Effect;
     char *Text;
 
