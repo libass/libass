@@ -795,8 +795,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             if (nargs)
                 val = argtod(*args);
             render_priv->state.effect_type = EF_KARAOKE_KF;
-            if (render_priv->state.effect_timing)
-                render_priv->state.effect_skip_timing +=
+            render_priv->state.effect_skip_timing +=
                     render_priv->state.effect_timing;
             render_priv->state.effect_timing = dtoi32(val * 10);
         } else if (tag("ko")) {
@@ -804,8 +803,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             if (nargs)
                 val = argtod(*args);
             render_priv->state.effect_type = EF_KARAOKE_KO;
-            if (render_priv->state.effect_timing)
-                render_priv->state.effect_skip_timing +=
+            render_priv->state.effect_skip_timing +=
                     render_priv->state.effect_timing;
             render_priv->state.effect_timing = dtoi32(val * 10);
         } else if (tag("k")) {
@@ -813,8 +811,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             if (nargs)
                 val = argtod(*args);
             render_priv->state.effect_type = EF_KARAOKE;
-            if (render_priv->state.effect_timing)
-                render_priv->state.effect_skip_timing +=
+            render_priv->state.effect_skip_timing +=
                     render_priv->state.effect_timing;
             render_priv->state.effect_timing = dtoi32(val * 10);
         } else if (tag("shad")) {
