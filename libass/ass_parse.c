@@ -798,7 +798,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             if (render_priv->state.effect_timing)
                 render_priv->state.effect_skip_timing +=
                     render_priv->state.effect_timing;
-            render_priv->state.effect_timing = val * 10;
+            render_priv->state.effect_timing = dtoi32(val * 10);
         } else if (tag("ko")) {
             double val = 100;
             if (nargs)
@@ -807,7 +807,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             if (render_priv->state.effect_timing)
                 render_priv->state.effect_skip_timing +=
                     render_priv->state.effect_timing;
-            render_priv->state.effect_timing = val * 10;
+            render_priv->state.effect_timing = dtoi32(val * 10);
         } else if (tag("k")) {
             double val = 100;
             if (nargs)
