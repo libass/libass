@@ -104,7 +104,7 @@ typedef struct {
     // during render_and_combine_glyphs: distance in subpixels from the karaoke origin.
     // after render_and_combine_glyphs: screen coordinate in pixels.
     // part of the glyph to the left of it is displayed in a different color.
-    int effect_timing;
+    int32_t effect_timing;
 
     // karaoke origin: screen coordinate of leftmost post-transform control point x in subpixels
     int32_t leftmost_x;
@@ -147,10 +147,10 @@ typedef struct glyph_info {
     ASS_Vector advance;         // 26.6
     ASS_Vector cluster_advance;
     Effect effect_type;
-    int effect_timing;          // time duration of current karaoke word
+    int32_t effect_timing;          // time duration of current karaoke word
     // after process_karaoke_effects: distance in subpixels from the karaoke origin.
     // part of the glyph to the left of it is displayed in a different color.
-    int effect_skip_timing;     // delay after the end of last karaoke word
+    int32_t effect_skip_timing;     // delay after the end of last karaoke word
     int asc, desc;              // font max ascender and descender
     int be;                     // blur edges
     double blur;                // gaussian blur
@@ -252,8 +252,8 @@ typedef struct {
     int clip_drawing_mode;      // 0 = regular clip, 1 = inverse clip
 
     Effect effect_type;
-    int effect_timing;
-    int effect_skip_timing;
+    int32_t effect_timing;
+    int32_t effect_skip_timing;
 
     enum {
         SCROLL_LR,              // left-to-right

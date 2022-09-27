@@ -796,7 +796,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 val = argtod(*args);
             render_priv->state.effect_type = EF_KARAOKE_KF;
             render_priv->state.effect_skip_timing +=
-                    render_priv->state.effect_timing;
+                    (uint32_t) render_priv->state.effect_timing;
             render_priv->state.effect_timing = dtoi32(val * 10);
         } else if (tag("ko")) {
             double val = 100;
@@ -804,7 +804,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 val = argtod(*args);
             render_priv->state.effect_type = EF_KARAOKE_KO;
             render_priv->state.effect_skip_timing +=
-                    render_priv->state.effect_timing;
+                    (uint32_t) render_priv->state.effect_timing;
             render_priv->state.effect_timing = dtoi32(val * 10);
         } else if (tag("k")) {
             double val = 100;
@@ -812,7 +812,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 val = argtod(*args);
             render_priv->state.effect_type = EF_KARAOKE;
             render_priv->state.effect_skip_timing +=
-                    render_priv->state.effect_timing;
+                    (uint32_t) render_priv->state.effect_timing;
             render_priv->state.effect_timing = dtoi32(val * 10);
         } else if (tag("shad")) {
             double val, xval, yval;
@@ -972,7 +972,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
 {
     long long tm_current = render_priv->time - render_priv->state.event->Start;
 
-    int timing = 0, skip_timing = 0;
+    int32_t timing = 0, skip_timing = 0;
     Effect effect_type = EF_NONE;
     GlyphInfo *last_boundary = NULL;
     for (int i = 0; i <= render_priv->text_info.length; i++) {
@@ -982,7 +982,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
             // break, subsequent text is still part of the same karaoke word,
             // the current word's starting and ending time stay unchanged,
             // but the starting time of the next karaoke word is advanced.
-            skip_timing += render_priv->text_info.glyphs[i].effect_skip_timing;
+            skip_timing += (uint32_t) render_priv->text_info.glyphs[i].effect_skip_timing;
             continue;
         }
 
