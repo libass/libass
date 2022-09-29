@@ -822,7 +822,13 @@ static int process_events_line(ASS_Track *track, char *str)
             return -1;
         event = track->events + eid;
 
-        return process_event_tail(track, event, str, 0);
+        int ret = process_event_tail(track, event, str, 0);
+        if (!ret)
+            return 0;
+        // If something went wrong, discard the useless Event
+        ass_free_event(track, eid);
+        track->n_events--;
+        return ret;
     } else {
         ass_msg(track->library, MSGL_V, "Not understood: '%.30s'", str);
     }
@@ -1125,7 +1131,8 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
         NEXT(p, token);
         event->Layer = atoi(token);
 
-        process_event_tail(track, event, p, 3);
+        if (process_event_tail(track, event, p, 3))
+            break;
 
         event->Start = timecode;
         event->Duration = duration;
