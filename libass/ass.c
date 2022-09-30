@@ -523,10 +523,10 @@ static int process_style(ASS_Track *track, char *str)
             COLORVAL(SecondaryColour)
             COLORVAL(OutlineColour) // TertiaryColor
             COLORVAL(BackColour)
-            // SSA uses BackColour for both outline and shadow
-            // this will destroy SSA's TertiaryColour, but i'm not going to use it anyway
-            if (track->track_type == TRACK_TYPE_SSA)
-                target->OutlineColour = target->BackColour;
+                // SSA uses BackColour for both outline and shadow
+                // this will destroy SSA's TertiaryColour, but i'm not going to use it anyway
+                if (track->track_type == TRACK_TYPE_SSA)
+                    target->OutlineColour = target->BackColour;
             FPVAL(FontSize)
             INTVAL(Bold)
             INTVAL(Italic)
@@ -536,13 +536,13 @@ static int process_style(ASS_Track *track, char *str)
             FPVAL(Angle)
             INTVAL(BorderStyle)
             INTVAL(Alignment)
-            if (track->track_type == TRACK_TYPE_ASS)
-                target->Alignment = numpad2align(target->Alignment);
-            // VSFilter compatibility
-            else if (target->Alignment == 8)
-                target->Alignment = 3;
-            else if (target->Alignment == 4)
-                target->Alignment = 11;
+                if (track->track_type == TRACK_TYPE_ASS)
+                    target->Alignment = numpad2align(target->Alignment);
+                // VSFilter compatibility
+                else if (target->Alignment == 8)
+                    target->Alignment = 3;
+                else if (target->Alignment == 4)
+                    target->Alignment = 11;
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
