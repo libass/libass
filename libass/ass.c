@@ -380,6 +380,16 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
     return 1;
 }
 
+static void set_style_alpha(ASS_Style *style, int32_t front_alpha, int32_t back_alpha)
+{
+        front_alpha  = FFMAX(FFMIN(front_alpha, 0xFF), 0);
+        back_alpha = FFMAX(FFMIN(back_alpha, 0xFF), 0);
+        style->PrimaryColour   = (style->PrimaryColour   & 0xFFFFFF00) | front_alpha;
+        style->SecondaryColour = (style->SecondaryColour & 0xFFFFFF00) | front_alpha;
+        style->OutlineColour   = (style->OutlineColour   & 0xFFFFFF00) | front_alpha;
+        style->BackColour      = (style->BackColour      & 0xFFFFFF00) | back_alpha;
+}
+
 /**
  * \brief Parse command line style overrides (--ass-force-style option)
  * \param track track to apply overrides to
@@ -436,6 +446,9 @@ void ass_process_force_style(ASS_Track *track)
                     COLORVAL(SecondaryColour)
                     COLORVAL(OutlineColour)
                     COLORVAL(BackColour)
+                    } else if (ass_strcasecmp(tname, "AlphaLevel") == 0) {
+                        int32_t alpha = parse_int_header(token);
+                        set_style_alpha(target, alpha, alpha);
                     FPVAL(FontSize)
                     INTVAL(Bold)
                     INTVAL(Italic)
@@ -512,6 +525,8 @@ static int process_style(ASS_Track *track, char *str)
     style->ScaleX = 100.;
     style->ScaleY = 100.;
 
+    int32_t ssa_alpha = 0;
+
     while (1) {
         NEXT(q, tname);
         NEXT(p, token);
@@ -527,6 +542,8 @@ static int process_style(ASS_Track *track, char *str)
                 // this will destroy SSA's TertiaryColour, but i'm not going to use it anyway
                 if (track->track_type == TRACK_TYPE_SSA)
                     target->OutlineColour = target->BackColour;
+            } else if (ass_strcasecmp(tname, "AlphaLevel") == 0) {
+                ssa_alpha = parse_int_header(token);
             FPVAL(FontSize)
             INTVAL(Bold)
             INTVAL(Italic)
@@ -554,6 +571,9 @@ static int process_style(ASS_Track *track, char *str)
         PARSE_END
     }
     free(format);
+    // VSF compat: always set BackColour Alpha to 0x80 in SSA
+    if (track->track_type == TRACK_TYPE_SSA)
+        set_style_alpha(style, ssa_alpha, 0x80);
     style->ScaleX = FFMAX(style->ScaleX, 0.) / 100.;
     style->ScaleY = FFMAX(style->ScaleY, 0.) / 100.;
     style->Spacing = FFMAX(style->Spacing, 0.);
