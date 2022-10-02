@@ -1101,8 +1101,14 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.effect_skip_timing = 0;
 
     apply_transition_effects(render_priv, event);
-    render_priv->state.explicit = render_priv->state.evt_type != EVENT_NORMAL ||
-                                  event_has_hard_overrides(event->Text);
+
+#define EXPLICIT_DIALOGUE_MARKER "{dialogue}"
+#define EXPLICIT_TS_MARKER "{ts}"
+
+    render_priv->state.explicit = !strncmp(event->Text, EXPLICIT_DIALOGUE_MARKER, sizeof(EXPLICIT_DIALOGUE_MARKER) - 1) ? 0 :
+                                  !strncmp(event->Text, EXPLICIT_TS_MARKER, sizeof(EXPLICIT_TS_MARKER) - 1) ? 1 :
+                                  (render_priv->state.evt_type != EVENT_NORMAL ||
+                                   event_has_hard_overrides(event->Text));
 
     reset_render_context(render_priv, NULL);
     render_priv->state.alignment = render_priv->state.style->Alignment;
