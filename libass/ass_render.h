@@ -235,6 +235,8 @@ typedef struct {
     int clip_x0, clip_y0, clip_x1, clip_y1;
     char have_origin;           // origin is explicitly defined; if 0, get_base_point() is used
     char clip_mode;             // 1 = iclip
+    int margin_x0, margin_y0, margin_x1, margin_y1;
+    char margin_set;
     char detect_collisions;
     char be;                    // blur edges
     int fade;                   // alpha from \fad

@@ -1099,6 +1099,11 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.effect_type = EF_NONE;
     render_priv->state.effect_timing = 0;
     render_priv->state.effect_skip_timing = 0;
+    render_priv->state.margin_x0 = 0;
+    render_priv->state.margin_y0 = 0;
+    render_priv->state.margin_x1 = 0;
+    render_priv->state.margin_y1 = 0;
+    render_priv->state.margin_set = 0;
 
     apply_transition_effects(render_priv, event);
     render_priv->state.explicit = render_priv->state.evt_type != EVENT_NORMAL ||
@@ -2794,8 +2799,16 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         (event->MarginL) ? event->MarginL : render_priv->state.style->MarginL;
     int MarginR =
         (event->MarginR) ? event->MarginR : render_priv->state.style->MarginR;
-    int MarginV =
+    int MarginT =
         (event->MarginV) ? event->MarginV : render_priv->state.style->MarginV;
+    int MarginB = MarginT;
+
+    if (render_priv->state.margin_set) {
+        MarginL = render_priv->state.margin_x0;
+        MarginR = render_priv->state.margin_x1;
+        MarginT = render_priv->state.margin_y0;
+        MarginB = render_priv->state.margin_y1;
+    }
 
     // calculate max length of a line
     double max_text_width =
@@ -2867,7 +2880,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         if (valign == VALIGN_TOP) {     // toptitle
             device_y =
                 y2scr_top(render_priv,
-                          MarginV) + text_info->lines[0].asc;
+                          MarginT) + text_info->lines[0].asc;
         } else if (valign == VALIGN_CENTER) {   // midtitle
             double scr_y =
                 y2scr(render_priv, render_priv->track->PlayResY / 2.0);
@@ -2881,7 +2894,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                        "Invalid valign, assuming 0 (subtitle)");
             scr_bottom =
                 y2scr_sub(render_priv,
-                          render_priv->track->PlayResY - MarginV);
+                          render_priv->track->PlayResY - MarginB);
             scr_top = y2scr_top(render_priv, 0); //xxx not always 0?
             device_y = scr_bottom + (scr_top - scr_bottom) * line_pos / 100.0;
             device_y -= text_info->height;

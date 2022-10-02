@@ -778,6 +778,16 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 render_priv->state.be = val;
             } else
                 render_priv->state.be = 0;
+        } else if (complex_tag("box")) {
+            if (nargs == 4) {
+                render_priv->state.margin_x0 = argtoi(args[0]);
+                render_priv->state.margin_y0 = argtoi(args[1]);
+                render_priv->state.margin_x1 =
+                    render_priv->track->PlayResX - argtoi(args[2]);
+                render_priv->state.margin_y1 =
+                    render_priv->track->PlayResY - argtoi(args[3]);
+                render_priv->state.margin_set = 1;
+            }
         } else if (tag("b")) {
             int32_t val = argtoi32(*args);
             if (!nargs || !(val == 0 || val == 1 || val >= 100))
