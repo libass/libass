@@ -3018,7 +3018,8 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     // PAR correction
     double par = render_priv->settings.par;
     if (par == 0.) {
-        if (render_priv->frame_content_width && render_priv->frame_content_height) {
+        if (render_priv->frame_content_width && render_priv->frame_content_height &&
+                render_priv->settings.storage_width && render_priv->settings.storage_height) {
             double dar = ((double) render_priv->frame_content_width) /
                          render_priv->frame_content_height;
             ASS_Vector layout_res = ass_layout_res(render_priv);
