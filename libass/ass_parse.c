@@ -27,6 +27,7 @@
 #include "ass_library.h"
 #include "ass_render.h"
 #include "ass_parse.h"
+#include "ass_string.h"
 
 #define MAX_VALID_NARGS 7
 #define MAX_BE 127
@@ -73,6 +74,21 @@ static inline int mystrcmp(char **p, const char *sample)
     if (*sample == 0) {
         *p = p2;
         return 1;
+    }
+    return 0;
+}
+
+/**
+ * \brief Check if s1 contains s2, case insensitive
+ */
+static inline int string_contains_substring_icase(char *s1, char *s2)
+{
+    int len1 = strlen(s1);
+    int len2 = strlen(s2);
+    for(int i=0; i<=len1-len2; i++) {
+        char *p = s1 + i;
+        if (ass_strncasecmp(p, s2, len2) == 0)
+            return 1;
     }
     return 0;
 }
@@ -1112,4 +1128,35 @@ int event_has_hard_overrides(char *str)
         }
     }
     return 0;
+}
+
+// Returns 1 if style name of an event contains keywords that indicate a sign
+// event and the style override code should not touch. Return 0 otherwise.
+int event_is_sign(char *str)
+{
+    if (string_contains_substring_icase(str, "sign") ||
+        string_contains_substring_icase(str, "title") ||
+        string_contains_substring_icase(str, "lyric") ||
+        string_contains_substring_icase(str, "song") ||
+        string_contains_substring_icase(str, "kara") ||
+        string_contains_substring_icase(str, "opening") ||
+        string_contains_substring_icase(str, "ending") ||
+        string_contains_substring_icase(str, "kfx") ||
+        string_contains_substring_icase(str, "insert") ||
+        string_contains_substring_icase(str, "kanji") ||
+        string_contains_substring_icase(str, "romaji") ||
+        string_contains_substring_icase(str, "note") ||
+        string_contains_substring_icase(str, "shadow") ||
+        string_contains_substring_icase(str, "trans") ||
+        string_contains_substring_icase(str, "translation") ||
+        string_contains_substring_icase(str, "next") ||
+        string_contains_substring_icase(str, "nt") ||
+        string_contains_substring_icase(str, "small") ||
+        string_contains_substring_icase(str, "big") ||
+        strncmp(str, "op-", 3) == 0 || strncmp(str, "ed-", 3) == 0 ||
+        strncmp(str, "op ", 3) == 0 || strncmp(str, "ed ", 3) == 0 ||
+        strncmp(str, "OP", 2) == 0 || strncmp(str, "ED", 2) == 0)
+        return 1;
+    else
+        return 0;
 }

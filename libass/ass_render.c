@@ -1102,7 +1102,8 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
 
     apply_transition_effects(render_priv, event);
     render_priv->state.explicit = render_priv->state.evt_type != EVENT_NORMAL ||
-                                  event_has_hard_overrides(event->Text);
+                                  event_has_hard_overrides(event->Text) ||
+                                  event_is_sign(render_priv->track->styles[event->Style].Name);
 
     reset_render_context(render_priv, NULL);
     render_priv->state.alignment = render_priv->state.style->Alignment;
