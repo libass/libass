@@ -97,6 +97,7 @@ void skip_spaces(char **str);
 void rskip_spaces(char **str, char *limit);
 int32_t parse_alpha_tag(char *str);
 uint32_t parse_color_tag(char *str);
+int32_t parse_int_header(char *str);
 uint32_t parse_color_header(char *str);
 char parse_bool(char *str);
 int parse_ycbcr_matrix(char *str);

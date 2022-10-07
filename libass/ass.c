@@ -282,7 +282,7 @@ static long long string2timecode(ASS_Library *library, char *p)
         }
 
 #define COLORVAL(name) ANYVAL(name,parse_color_header)
-#define INTVAL(name) ANYVAL(name,atoi)
+#define INTVAL(name) ANYVAL(name,parse_int_header)
 #define FPVAL(name) ANYVAL(name,ass_atof)
 #define TIMEVAL(name) \
     } else if (ass_strcasecmp(tname, #name) == 0) { \
@@ -403,13 +403,13 @@ void ass_process_force_style(ASS_Track *track)
         token = eq + 1;
 
         if (!ass_strcasecmp(*fs, "PlayResX"))
-            track->PlayResX = atoi(token);
+            track->PlayResX = parse_int_header(token);
         else if (!ass_strcasecmp(*fs, "PlayResY"))
-            track->PlayResY = atoi(token);
+            track->PlayResY = parse_int_header(token);
         else if (!ass_strcasecmp(*fs, "Timer"))
             track->Timer = ass_atof(token);
         else if (!ass_strcasecmp(*fs, "WrapStyle"))
-            track->WrapStyle = atoi(token);
+            track->WrapStyle = parse_int_header(token);
         else if (!ass_strcasecmp(*fs, "ScaledBorderAndShadow"))
             track->ScaledBorderAndShadow = parse_bool(token);
         else if (!ass_strcasecmp(*fs, "Kerning"))
@@ -677,16 +677,16 @@ static int process_info_line(ASS_Track *track, char *str)
 {
     if (!strncmp(str, "PlayResX:", 9)) {
         check_duplicate_info_line(track, SINFO_PLAYRESX, "PlayResX");
-        track->PlayResX = atoi(str + 9);
+        track->PlayResX = parse_int_header(str + 9);
     } else if (!strncmp(str, "PlayResY:", 9)) {
         check_duplicate_info_line(track, SINFO_PLAYRESY, "PlayResY");
-        track->PlayResY = atoi(str + 9);
+        track->PlayResY = parse_int_header(str + 9);
     } else if (!strncmp(str, "Timer:", 6)) {
         check_duplicate_info_line(track, SINFO_TIMER, "Timer");
         track->Timer = ass_atof(str + 6);
     } else if (!strncmp(str, "WrapStyle:", 10)) {
         check_duplicate_info_line(track, SINFO_WRAPSTYLE, "WrapStyle");
-        track->WrapStyle = atoi(str + 10);
+        track->WrapStyle = parse_int_header(str + 10);
     } else if (!strncmp(str, "ScaledBorderAndShadow:", 22)) {
         check_duplicate_info_line(track, SINFO_SCALEDBORDER,
                                     "ScaledBorderAndShadow");
@@ -1129,7 +1129,7 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
             break;
 
         NEXT(p, token);
-        event->Layer = atoi(token);
+        event->Layer = parse_int_header(token);
 
         if (process_event_tail(track, event, p, 3))
             break;

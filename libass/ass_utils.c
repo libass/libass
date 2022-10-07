@@ -256,9 +256,9 @@ uint32_t parse_color_tag(char *str)
     return ass_bswap32((uint32_t) color);
 }
 
-uint32_t parse_color_header(char *str)
+int32_t parse_int_header(char *str)
 {
-    uint32_t color = 0;
+    uint32_t val = 0;
     unsigned base;
 
     if (!ass_strncasecmp(str, "&h", 2) || !ass_strncasecmp(str, "0x", 2)) {
@@ -267,7 +267,13 @@ uint32_t parse_color_header(char *str)
     } else
         base = 10;
 
-    mystrtou32_modulo(&str, base, &color);
+    mystrtou32_modulo(&str, base, &val);
+    return val;
+}
+
+uint32_t parse_color_header(char *str)
+{
+    uint32_t color = parse_int_header(str);
     return ass_bswap32(color);
 }
 
