@@ -197,6 +197,28 @@ jobs:
       - name: compile
         run: make -j 2
 
+      - name: ensure internal functions are namespaced
+        if: startsWith(matrix.os, 'ubuntu-')
+        run: |
+          test -f libass/.libs/libass.a || (echo "Static lib is missing!"; exit 1)
+          set +e
+          list="$(nm libass/.libs/libass.a | grep ' T ' | grep -v ' ass_')"
+          case "$?" in
+            1)
+              : # All good
+              ;;
+            0)
+              echo "There are non-namespaced functions! Prefix them with 'ass_'."
+              echo "$list"
+              exit 1
+              ;;
+            *)
+              echo "Internal grep error occured!"
+              echo "$list"
+              exit 2
+              ;;
+          esac
+
       - name: run tests
         if: matrix.skip_tests != 'yes'
         run: |
