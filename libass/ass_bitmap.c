@@ -58,6 +58,34 @@
 
 #endif
 
+static void be_blur_pre(uint8_t *buf, intptr_t stride, intptr_t width, intptr_t height)
+{
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
+        {
+            // This is equivalent to (value * 64 + 127) / 255 for all
+            // values from 0 to 256 inclusive. Assist vectorizing
+            // compilers by noting that all temporaries fit in 8 bits.
+            buf[y * stride + x] =
+                (uint8_t) ((buf[y * stride + x] >> 1) + 1) >> 1;
+        }
+    }
+}
+
+static void be_blur_post(uint8_t *buf, intptr_t stride, intptr_t width, intptr_t height)
+{
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
+        {
+            // This is equivalent to (value * 255 + 32) / 64 for all values
+            // from 0 to 96 inclusive, and we only care about 0 to 64.
+            uint8_t value = buf[y * stride + x];
+            buf[y * stride + x] = (value << 2) - (value > 32);
+        }
+    }
+}
 
 void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
                     int be, double blur_r2)
@@ -316,35 +344,6 @@ void ass_be_blur_c(uint8_t *buf, intptr_t stride,
         dst=buf+(y-1)*stride;
         for (x = 0; x < width; x++)
             dst[x] = (col_sum_buf[x] + col_pix_buf[x]) >> 4;
-    }
-}
-
-void be_blur_pre(uint8_t *buf, intptr_t stride, intptr_t width, intptr_t height)
-{
-    for (int y = 0; y < height; ++y)
-    {
-        for (int x = 0; x < width; ++x)
-        {
-            // This is equivalent to (value * 64 + 127) / 255 for all
-            // values from 0 to 256 inclusive. Assist vectorizing
-            // compilers by noting that all temporaries fit in 8 bits.
-            buf[y * stride + x] =
-                (uint8_t) ((buf[y * stride + x] >> 1) + 1) >> 1;
-        }
-    }
-}
-
-void be_blur_post(uint8_t *buf, intptr_t stride, intptr_t width, intptr_t height)
-{
-    for (int y = 0; y < height; ++y)
-    {
-        for (int x = 0; x < width; ++x)
-        {
-            // This is equivalent to (value * 255 + 32) / 64 for all values
-            // from 0 to 96 inclusive, and we only care about 0 to 64.
-            uint8_t value = buf[y * stride + x];
-            buf[y * stride + x] = (value << 2) - (value > 32);
-        }
     }
 }
 

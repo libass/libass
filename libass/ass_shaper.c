@@ -221,7 +221,7 @@ static void update_hb_size(hb_font_t *hb_font, FT_Face face)
  *
  */
 
-FT_Glyph_Metrics *
+static FT_Glyph_Metrics *
 get_cached_metrics(struct ass_shaper_metrics_data *metrics,
                    hb_codepoint_t unicode, hb_codepoint_t glyph)
 {
