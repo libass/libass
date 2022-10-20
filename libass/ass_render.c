@@ -91,7 +91,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->engine = &ass_bitmap_engine_c;
 #endif
 
-    if (!rasterizer_init(priv->engine, &priv->rasterizer, RASTERIZER_PRECISION))
+    if (!ass_rasterizer_init(priv->engine, &priv->rasterizer, RASTERIZER_PRECISION))
         goto fail;
 
     priv->cache.font_cache = ass_font_cache_create();
@@ -152,7 +152,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     ass_shaper_free(render_priv->shaper);
     ass_cache_done(render_priv->cache.font_cache);
 
-    rasterizer_done(&render_priv->rasterizer);
+    ass_rasterizer_done(&render_priv->rasterizer);
 
     if (render_priv->fontselect)
         ass_fontselect_free(render_priv->fontselect);
@@ -1032,7 +1032,7 @@ static void init_font_scale(ASS_Renderer *render_priv)
  * \brief partially reset render_context to style values
  * Works like {\r}: resets some style overrides
  */
-void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
+void ass_reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
 {
     style = handle_selective_style_overrides(render_priv, style);
 
@@ -1052,7 +1052,7 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
     render_priv->state.treat_family_as_pattern = style->treat_fontname_as_pattern;
     render_priv->state.bold = style->Bold;
     render_priv->state.italic = style->Italic;
-    update_font(render_priv);
+    ass_update_font(render_priv);
 
     render_priv->state.border_style = style->BorderStyle;
     render_priv->state.border_x = style->Outline;
@@ -1101,11 +1101,11 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.effect_skip_timing = 0;
     render_priv->state.reset_effect = false;
 
-    apply_transition_effects(render_priv, event);
+    ass_apply_transition_effects(render_priv, event);
     render_priv->state.explicit = render_priv->state.evt_type != EVENT_NORMAL ||
-                                  event_has_hard_overrides(event->Text);
+                                  ass_event_has_hard_overrides(event->Text);
 
-    reset_render_context(render_priv, NULL);
+    ass_reset_render_context(render_priv, NULL);
     render_priv->state.alignment = render_priv->state.style->Alignment;
     render_priv->state.justify = render_priv->state.style->Justify;
 }
@@ -1239,26 +1239,26 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
                 break;
 
             ASS_Outline src;
-            if (!outline_scale_pow2(&src, &k->outline->outline[0],
-                                    k->scale_ord_x, k->scale_ord_y))
+            if (!ass_outline_scale_pow2(&src, &k->outline->outline[0],
+                                        k->scale_ord_x, k->scale_ord_y))
                 return 1;
-            if (!outline_stroke(&v->outline[0], &v->outline[1], &src,
-                                k->border.x * STROKER_PRECISION,
-                                k->border.y * STROKER_PRECISION,
-                                STROKER_PRECISION)) {
+            if (!ass_outline_stroke(&v->outline[0], &v->outline[1], &src,
+                                    k->border.x * STROKER_PRECISION,
+                                    k->border.y * STROKER_PRECISION,
+                                    STROKER_PRECISION)) {
                 ass_msg(render_priv->library, MSGL_WARN, "Cannot stroke outline");
-                outline_free(&v->outline[0]);
-                outline_free(&v->outline[1]);
-                outline_free(&src);
+                ass_outline_free(&v->outline[0]);
+                ass_outline_free(&v->outline[1]);
+                ass_outline_free(&src);
                 return 1;
             }
-            outline_free(&src);
+            ass_outline_free(&src);
             break;
         }
     case OUTLINE_BOX:
         {
             ASS_Outline *ol = &v->outline[0];
-            if (!outline_alloc(ol, 4, 4))
+            if (!ass_outline_alloc(ol, 4, 4))
                 return 1;
             ol->points[0].x = ol->points[3].x = 0;
             ol->points[1].x = ol->points[2].x = 64;
@@ -1276,8 +1276,8 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
     }
 
     rectangle_reset(&v->cbox);
-    outline_update_cbox(&v->outline[0], &v->cbox);
-    outline_update_cbox(&v->outline[1], &v->cbox);
+    ass_outline_update_cbox(&v->outline[0], &v->cbox);
+    ass_outline_update_cbox(&v->outline[1], &v->cbox);
     if (v->cbox.x_min > v->cbox.x_max || v->cbox.y_min > v->cbox.y_max)
         v->cbox.x_min = v->cbox.y_min = v->cbox.x_max = v->cbox.y_max = 0;
     v->valid = true;
@@ -1364,7 +1364,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
     memcpy(m, m2, sizeof(m));
 
     if (info->effect_type == EF_KARAOKE_KF)
-        outline_update_min_transformed_x(&info->outline->outline[0], m, leftmost_x);
+        ass_outline_update_min_transformed_x(&info->outline->outline[0], m, leftmost_x);
 
     BitmapHashKey key;
     key.outline = info->outline;
@@ -1519,17 +1519,17 @@ size_t ass_bitmap_construct(void *key, void *value, void *priv)
 
     ASS_Outline outline[2];
     if (k->matrix_z.x || k->matrix_z.y) {
-        outline_transform_3d(&outline[0], &k->outline->outline[0], m);
-        outline_transform_3d(&outline[1], &k->outline->outline[1], m);
+        ass_outline_transform_3d(&outline[0], &k->outline->outline[0], m);
+        ass_outline_transform_3d(&outline[1], &k->outline->outline[1], m);
     } else {
-        outline_transform_2d(&outline[0], &k->outline->outline[0], m);
-        outline_transform_2d(&outline[1], &k->outline->outline[1], m);
+        ass_outline_transform_2d(&outline[0], &k->outline->outline[0], m);
+        ass_outline_transform_2d(&outline[1], &k->outline->outline[1], m);
     }
 
-    if (!outline_to_bitmap(render_priv, bm, &outline[0], &outline[1]))
+    if (!ass_outline_to_bitmap(render_priv, bm, &outline[0], &outline[1]))
         memset(bm, 0, sizeof(*bm));
-    outline_free(&outline[0]);
-    outline_free(&outline[1]);
+    ass_outline_free(&outline[0]);
+    ass_outline_free(&outline[1]);
 
     return sizeof(BitmapHashKey) + sizeof(Bitmap) + bitmap_size(bm);
 }
@@ -2044,7 +2044,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         unsigned code = 0;
         while (*p) {
             if ((*p == '{') && (q = strchr(p, '}'))) {
-                p = parse_tags(render_priv, p, q, 1., false);
+                p = ass_parse_tags(render_priv, p, q, 1., false);
                 assert(*p == '}');
                 p++;
             } else if (render_priv->state.drawing_scale) {
@@ -2059,7 +2059,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
                 p = q;
                 break;
             } else {
-                code = get_next_char(render_priv, &p);
+                code = ass_get_next_char(render_priv, &p);
                 break;
             }
         }
@@ -2613,7 +2613,7 @@ static inline void rectangle_combine(ASS_Rect *rect, const Bitmap *bm, ASS_Vecto
  * with extreme values are the theoretical limit of the worst case.
  * Make sure to use the right pixel value range in the simulation!
  */
-int be_padding(int be)
+int ass_be_padding(int be)
 {
     if (be <= 3)
         return be;
@@ -2650,15 +2650,15 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
         }
     }
 
-    int bord = be_padding(k->filter.be);
+    int bord = ass_be_padding(k->filter.be);
     if (!bord && n_bm == 1) {
-        copy_bitmap(render_priv->engine, &v->bm, last->bm);
+        ass_copy_bitmap(render_priv->engine, &v->bm, last->bm);
         v->bm.left += last->pos.x;
         v->bm.top  += last->pos.y;
-    } else if (n_bm && alloc_bitmap(render_priv->engine, &v->bm,
-                                    rect.x_max - rect.x_min + 2 * bord,
-                                    rect.y_max - rect.y_min + 2 * bord,
-                                    true)) {
+    } else if (n_bm && ass_alloc_bitmap(render_priv->engine, &v->bm,
+                                        rect.x_max - rect.x_min + 2 * bord,
+                                        rect.y_max - rect.y_min + 2 * bord,
+                                        true)) {
         Bitmap *dst = &v->bm;
         dst->left = rect.x_min - bord;
         dst->top  = rect.y_min - bord;
@@ -2677,13 +2677,13 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
         }
     }
     if (!bord && n_bm_o == 1) {
-        copy_bitmap(render_priv->engine, &v->bm_o, last_o->bm_o);
+        ass_copy_bitmap(render_priv->engine, &v->bm_o, last_o->bm_o);
         v->bm_o.left += last_o->pos_o.x;
         v->bm_o.top  += last_o->pos_o.y;
-    } else if (n_bm_o && alloc_bitmap(render_priv->engine, &v->bm_o,
-                                      rect_o.x_max - rect_o.x_min + 2 * bord,
-                                      rect_o.y_max - rect_o.y_min + 2 * bord,
-                                      true)) {
+    } else if (n_bm_o && ass_alloc_bitmap(render_priv->engine, &v->bm_o,
+                                          rect_o.x_max - rect_o.x_min + 2 * bord,
+                                          rect_o.y_max - rect_o.y_min + 2 * bord,
+                                          true)) {
         Bitmap *dst = &v->bm_o;
         dst->left = rect_o.x_min - bord;
         dst->top  = rect_o.y_min - bord;
@@ -2709,29 +2709,29 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     ass_synth_blur(render_priv->engine, &v->bm_o, k->filter.be, r2);
 
     if (!(flags & FILTER_FILL_IN_BORDER) && !(flags & FILTER_FILL_IN_SHADOW))
-        fix_outline(&v->bm, &v->bm_o);
+        ass_fix_outline(&v->bm, &v->bm_o);
 
     if (flags & FILTER_NONZERO_SHADOW) {
         if (flags & FILTER_NONZERO_BORDER) {
-            copy_bitmap(render_priv->engine, &v->bm_s, &v->bm_o);
+            ass_copy_bitmap(render_priv->engine, &v->bm_s, &v->bm_o);
             if ((flags & FILTER_FILL_IN_BORDER) && !(flags & FILTER_FILL_IN_SHADOW))
-                fix_outline(&v->bm, &v->bm_s);
+                ass_fix_outline(&v->bm, &v->bm_s);
         } else if (flags & FILTER_BORDER_STYLE_3) {
             v->bm_s = v->bm_o;
             memset(&v->bm_o, 0, sizeof(v->bm_o));
         } else {
-            copy_bitmap(render_priv->engine, &v->bm_s, &v->bm);
+            ass_copy_bitmap(render_priv->engine, &v->bm_s, &v->bm);
         }
 
         // Works right even for negative offsets
         // '>>' rounds toward negative infinity, '&' returns correct remainder
         v->bm_s.left += k->filter.shadow.x >> 6;
         v->bm_s.top  += k->filter.shadow.y >> 6;
-        shift_bitmap(&v->bm_s, k->filter.shadow.x & SUBPIXEL_MASK, k->filter.shadow.y & SUBPIXEL_MASK);
+        ass_shift_bitmap(&v->bm_s, k->filter.shadow.x & SUBPIXEL_MASK, k->filter.shadow.y & SUBPIXEL_MASK);
     }
 
     if ((flags & FILTER_FILL_IN_SHADOW) && !(flags & FILTER_FILL_IN_BORDER))
-        fix_outline(&v->bm, &v->bm_o);
+        ass_fix_outline(&v->bm, &v->bm_o);
 
     return sizeof(CompositeHashKey) + sizeof(CompositeHashValue) +
         bitmap_size(&v->bm) + bitmap_size(&v->bm_o) + bitmap_size(&v->bm_s);
@@ -2803,7 +2803,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     // Find shape runs and shape text
     ass_shaper_set_base_direction(render_priv->shaper,
-            resolve_base_direction(render_priv->state.font_encoding));
+            ass_resolve_base_direction(render_priv->state.font_encoding));
     ass_shaper_find_runs(render_priv->shaper, render_priv, text_info->glyphs,
             text_info->length);
     if (!ass_shaper_shape(render_priv->shaper, text_info)) {
@@ -2834,7 +2834,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     wrap_lines_smart(render_priv, max_text_width);
 
     // depends on glyph x coordinates being monotonous within runs, so it should be done before reorder
-    process_karaoke_effects(render_priv);
+    ass_process_karaoke_effects(render_priv);
 
     reorder_text(render_priv);
 

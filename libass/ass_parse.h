@@ -26,13 +26,13 @@
 #define _b(c)   (((c) >> 8) & 0xFF)
 #define _a(c)   ((c) & 0xFF)
 
-void update_font(ASS_Renderer *render_priv);
-void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event);
-void process_karaoke_effects(ASS_Renderer *render_priv);
-unsigned get_next_char(ASS_Renderer *render_priv, char **str);
-char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
-                 bool nested);
-int event_has_hard_overrides(char *str);
+void ass_update_font(ASS_Renderer *render_priv);
+void ass_apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event);
+void ass_process_karaoke_effects(ASS_Renderer *render_priv);
+unsigned ass_get_next_char(ASS_Renderer *render_priv, char **str);
+char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
+                     bool nested);
+int ass_event_has_hard_overrides(char *str);
 void ass_apply_fade(uint32_t *clr, int fade);
 
 

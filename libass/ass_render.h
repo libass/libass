@@ -148,7 +148,7 @@ typedef struct glyph_info {
     ASS_Vector cluster_advance;
     Effect effect_type;
     int32_t effect_timing;          // time duration of current karaoke word
-    // after process_karaoke_effects: distance in subpixels from the karaoke origin.
+    // after ass_process_karaoke_effects: distance in subpixels from the karaoke origin.
     // part of the glyph to the left of it is displayed in a different color.
     int32_t effect_skip_timing;     // delay after the end of last karaoke word
     bool reset_effect;
@@ -346,7 +346,7 @@ typedef struct {
     int y1;
 } Rect;
 
-void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style);
+void ass_reset_render_context(ASS_Renderer *render_priv, ASS_Style *style);
 void ass_frame_ref(ASS_Image *img);
 void ass_frame_unref(ASS_Image *img);
 ASS_Vector ass_layout_res(ASS_Renderer *render_priv);

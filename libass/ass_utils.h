@@ -103,7 +103,7 @@ void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_si
     __attribute__ ((format (printf, 3, 4)))
 #endif
 void ass_msg(ASS_Library *priv, int lvl, const char *fmt, ...);
-int lookup_style(ASS_Track *track, char *name);
+int ass_lookup_style(ASS_Track *track, char *name);
 
 /* defined in ass_strtod.c */
 double ass_strtod(const char *string, char **endPtr);

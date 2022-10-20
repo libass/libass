@@ -80,7 +80,7 @@ static inline int mystrcmp(char **p, const char *sample)
 /**
  * \brief Change current font, using setting from render_priv->state.
  */
-void update_font(ASS_Renderer *render_priv)
+void ass_update_font(ASS_Renderer *render_priv)
 {
     unsigned val;
     ASS_FontDesc desc;
@@ -280,8 +280,8 @@ static ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len)
  *            of a number of spaces immediately preceding '}' or ')'
  * \param pwr multiplier for some tag effects (comes from \t tags)
  */
-char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
-                 bool nested)
+char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
+                     bool nested)
 {
     for (char *q; p < end; p = q) {
         while (*p != '\\' && p != end)
@@ -560,7 +560,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 render_priv->state.family.str = render_priv->state.style->FontName;
                 render_priv->state.family.len = strlen(render_priv->state.style->FontName);
             }
-            update_font(render_priv);
+            ass_update_font(render_priv);
         } else if (tag("alpha")) {
             int i;
             if (nargs) {
@@ -712,7 +712,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             p = args[cnt].start;
             if (args[cnt].end < end) {
                 assert(!nested);
-                p = parse_tags(render_priv, p, args[cnt].end, k, true);
+                p = ass_parse_tags(render_priv, p, args[cnt].end, k, true);
             } else {
                 assert(q == end);
                 // No other tags can possibly follow this \t tag,
@@ -802,10 +802,10 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
         } else if (tag("r")) {
             if (nargs) {
                 int len = args->end - args->start;
-                reset_render_context(render_priv,
+                ass_reset_render_context(render_priv,
                         lookup_style_strict(render_priv->track, args->start, len));
             } else
-                reset_render_context(render_priv, NULL);
+                ass_reset_render_context(render_priv, NULL);
         } else if (tag("be")) {
             double dval;
             if (nargs) {
@@ -824,13 +824,13 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             if (!nargs || !(val == 0 || val == 1 || val >= 100))
                 val = render_priv->state.style->Bold;
             render_priv->state.bold = val;
-            update_font(render_priv);
+            ass_update_font(render_priv);
         } else if (tag("i")) {
             int32_t val = argtoi32(*args);
             if (!nargs || !(val == 0 || val == 1))
                 val = render_priv->state.style->Italic;
             render_priv->state.italic = val;
-            update_font(render_priv);
+            ass_update_font(render_priv);
         } else if (tag("kt")) {
             // v4++
             double val = 0;
@@ -917,7 +917,7 @@ char *parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
     return p;
 }
 
-void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
+void ass_apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
 {
     int v[4];
     int cnt;
@@ -1008,7 +1008,7 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
 
 /**
  * \brief determine karaoke effects
- * Karaoke effects cannot be calculated during parse stage (get_next_char()),
+ * Karaoke effects cannot be calculated during parse stage (ass_get_next_char()),
  * so they are done in a separate step.
  * Parse stage: when karaoke style override is found, its parameters are stored in the next glyph's
  * (the first glyph of the karaoke word)'s effect_type and effect_timing.
@@ -1017,7 +1017,7 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
  * 2. sets effect_timing for all glyphs to x coordinate of the border line between the left and right karaoke parts
  * (left part is filled with PrimaryColour, right one - with SecondaryColour).
  */
-void process_karaoke_effects(ASS_Renderer *render_priv)
+void ass_process_karaoke_effects(ASS_Renderer *render_priv)
 {
     long long tm_current = render_priv->time - render_priv->state.event->Start;
 
@@ -1107,7 +1107,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
  * \return ucs4 code of the next char
  * On return str points to the unparsed part of the string
  */
-unsigned get_next_char(ASS_Renderer *render_priv, char **str)
+unsigned ass_get_next_char(ASS_Renderer *render_priv, char **str)
 {
     char *p = *str;
     unsigned chr;
@@ -1147,10 +1147,10 @@ unsigned get_next_char(ASS_Renderer *render_priv, char **str)
 
 // Return 1 if the event contains tags that will apply overrides the selective
 // style override code should not touch. Return 0 otherwise.
-int event_has_hard_overrides(char *str)
+int ass_event_has_hard_overrides(char *str)
 {
     // look for \pos and \move tags inside {...}
-    // mirrors get_next_char, but is faster and doesn't change any global state
+    // mirrors ass_get_next_char, but is faster and doesn't change any global state
     while (*str) {
         if (str[0] == '\\' && str[1] != '\0') {
             str += 2;

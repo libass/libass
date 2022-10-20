@@ -583,7 +583,7 @@ bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2)
     }
     assert(w == end_w && h == end_h);
 
-    if (!realloc_bitmap(engine, bm, w, h)) {
+    if (!ass_realloc_bitmap(engine, bm, w, h)) {
         ass_aligned_free(tmp);
         return false;
     }

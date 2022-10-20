@@ -182,7 +182,7 @@ static void load_fonts_from_dir(ASS_Library *library, const char *dir)
             continue;
         ass_msg(library, MSGL_INFO, "Loading font file '%s'", path);
         size_t size = 0;
-        void *data = read_file(library, path, FN_DIR_LIST, &size);
+        void *data = ass_load_file(library, path, FN_DIR_LIST, &size);
         if (data) {
             ass_add_font(library, name, data, size);
             free(data);
@@ -984,7 +984,7 @@ static void process_fontdata(ASS_FontProvider *priv, int idx)
 
         num_faces = face->num_faces;
 
-        charmap_magic(library, face);
+        ass_charmap_magic(library, face);
 
         memset(&info, 0, sizeof(ASS_FontProviderMetaData));
         if (!get_font_info(selector->ftlibrary, face, NULL, &info)) {

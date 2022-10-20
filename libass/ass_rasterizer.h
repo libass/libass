@@ -56,8 +56,8 @@ typedef struct {
     uint8_t *tile;
 } RasterizerData;
 
-bool rasterizer_init(const BitmapEngine *engine, RasterizerData *rst, int outline_error);
-void rasterizer_done(RasterizerData *rst);
+bool ass_rasterizer_init(const BitmapEngine *engine, RasterizerData *rst, int outline_error);
+void ass_rasterizer_done(RasterizerData *rst);
 
 /**
  * \brief Convert outline to polyline and calculate exact bounds
@@ -65,8 +65,8 @@ void rasterizer_done(RasterizerData *rst);
  * \param extra in: true if path is second border outline
  * \return false on error
  */
-bool rasterizer_set_outline(RasterizerData *rst,
-                            const ASS_Outline *path, bool extra);
+bool ass_rasterizer_set_outline(RasterizerData *rst,
+                                const ASS_Outline *path, bool extra);
 
 /**
  * \brief Polyline rasterization function
@@ -76,9 +76,9 @@ bool rasterizer_set_outline(RasterizerData *rst,
  * \return false on error
  * Deletes preprocessed polyline after work.
  */
-bool rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
-                     uint8_t *buf, int x0, int y0,
-                     int width, int height, ptrdiff_t stride);
+bool ass_rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
+                         uint8_t *buf, int x0, int y0,
+                         int width, int height, ptrdiff_t stride);
 
 
 #endif /* LIBASS_RASTERIZER_H */

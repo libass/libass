@@ -292,7 +292,7 @@ void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_si
  * Returns 0 if no styles found => expects at least 1 style.
  * Parsing code always adds "Default" style in the beginning.
  */
-int lookup_style(ASS_Track *track, char *name)
+int ass_lookup_style(ASS_Track *track, char *name)
 {
     int i;
     // '*' seem to mean literally nothing;

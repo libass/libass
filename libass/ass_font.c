@@ -191,7 +191,7 @@ static uint32_t convert_unicode_to_mb(FT_Encoding encoding, uint32_t codepoint) 
  * Select a good charmap, prefer Microsoft Unicode charmaps.
  * Otherwise, let FreeType decide.
  */
-void charmap_magic(ASS_Library *library, FT_Face face)
+void ass_charmap_magic(ASS_Library *library, FT_Face face)
 {
     int i;
     int ms_cmap = -1;
@@ -436,7 +436,7 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     if (!face)
         return -1;
 
-    charmap_magic(font->library, face);
+    ass_charmap_magic(font->library, face);
     set_font_metrics(face);
 
     font->faces[font->n_faces] = face;
@@ -722,16 +722,16 @@ bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
     assert(face->glyph->format == FT_GLYPH_FORMAT_OUTLINE);
     FT_Outline *source = &face->glyph->outline;
     if (!source->n_points && !n_lines) {
-        outline_clear(outline);
+        ass_outline_clear(outline);
         return true;
     }
 
     size_t max_points = 2 * source->n_points + 4 * n_lines;
     size_t max_segments = source->n_points + 4 * n_lines;
-    if (!outline_alloc(outline, max_points, max_segments))
+    if (!ass_outline_alloc(outline, max_points, max_segments))
         return false;
 
-    if (!outline_convert(outline, source))
+    if (!ass_outline_convert(outline, source))
         goto fail;
 
     if (flags & DECO_ROTATE) {
@@ -746,7 +746,7 @@ bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
         if (llabs(dv) > 2 * OUTLINE_MAX)
             goto fail;
         ASS_Vector offs = { dv, -desc };
-        if (!outline_rotate_90(outline, offs))
+        if (!ass_outline_rotate_90(outline, offs))
             goto fail;
     }
 
@@ -755,10 +755,10 @@ bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
     FT_Orientation dir = FT_Outline_Get_Orientation(source);
     int iy = (dir == FT_ORIENTATION_TRUETYPE ? 0 : 1);
     for (int i = 0; i < n_lines; i++)
-        outline_add_rect(outline, 0, line_y[i][iy], adv, line_y[i][iy ^ 1]);
+        ass_outline_add_rect(outline, 0, line_y[i][iy], adv, line_y[i][iy ^ 1]);
     return true;
 
 fail:
-    outline_free(outline);
+    ass_outline_free(outline);
     return false;
 }

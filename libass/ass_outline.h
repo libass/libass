@@ -87,40 +87,40 @@ typedef struct {
 #define OUTLINE_MAX  (((int32_t) 1 << 28) - 1)
 // cubic spline splitting requires 8 * OUTLINE_MAX + 4 <= INT32_MAX
 
-void outline_clear(ASS_Outline *outline);
-bool outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_segments);
-void outline_free(ASS_Outline *outline);
+void ass_outline_clear(ASS_Outline *outline);
+bool ass_outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_segments);
+void ass_outline_free(ASS_Outline *outline);
 
 // expects preallocated outline and works inplace
-bool outline_convert(ASS_Outline *outline, const FT_Outline *source);
-void outline_add_rect(ASS_Outline *outline,
-                      int32_t x0, int32_t y0, int32_t x1, int32_t y1);
+bool ass_outline_convert(ASS_Outline *outline, const FT_Outline *source);
+void ass_outline_add_rect(ASS_Outline *outline,
+                          int32_t x0, int32_t y0, int32_t x1, int32_t y1);
 
 // enlarges outline automatically
-bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment);
-bool outline_add_segment(ASS_Outline *outline, char segment);
-void outline_close_contour(ASS_Outline *outline);
+bool ass_outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment);
+bool ass_outline_add_segment(ASS_Outline *outline, char segment);
+void ass_outline_close_contour(ASS_Outline *outline);
 
 // works inplace
-bool outline_rotate_90(ASS_Outline *outline, ASS_Vector offs);
+bool ass_outline_rotate_90(ASS_Outline *outline, ASS_Vector offs);
 
 // creates a new outline for the result
-bool outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
-                        int scale_ord_x, int scale_ord_y);
-bool outline_transform_2d(ASS_Outline *outline, const ASS_Outline *source,
-                          const double m[2][3]);
-bool outline_transform_3d(ASS_Outline *outline, const ASS_Outline *source,
-                          const double m[3][3]);
+bool ass_outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
+                            int scale_ord_x, int scale_ord_y);
+bool ass_outline_transform_2d(ASS_Outline *outline, const ASS_Outline *source,
+                              const double m[2][3]);
+bool ass_outline_transform_3d(ASS_Outline *outline, const ASS_Outline *source,
+                              const double m[3][3]);
 
 // info queries
-void outline_update_min_transformed_x(const ASS_Outline *outline,
-                                      const double m[3][3],
-                                      int32_t *min_x);
-void outline_update_cbox(const ASS_Outline *outline, ASS_Rect *cbox);
+void ass_outline_update_min_transformed_x(const ASS_Outline *outline,
+                                          const double m[3][3],
+                                          int32_t *min_x);
+void ass_outline_update_cbox(const ASS_Outline *outline, ASS_Rect *cbox);
 
 // creates new outlines for the results (positive and negative offset outlines)
-bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
-                    const ASS_Outline *path, int xbord, int ybord, int eps);
+bool ass_outline_stroke(ASS_Outline *result, ASS_Outline *result1,
+                        const ASS_Outline *path, int xbord, int ybord, int eps);
 
 
 #endif /* LIBASS_OUTLINE_H */

@@ -417,7 +417,7 @@ static int parse_ycbcr_matrix(char *str)
 
 #define STYLEVAL(name) \
     } else if (ass_strcasecmp(tname, #name) == 0) { \
-        target->name = lookup_style(track, token);
+        target->name = ass_lookup_style(track, token);
 
 // skip spaces in str beforehand, or trim leading spaces afterwards
 static inline void advance_token_pos(const char **const str,
@@ -1420,7 +1420,7 @@ out:
  * \param bufsize out: file size
  * \return pointer to file contents. Caller is responsible for its deallocation.
  */
-char *read_file(ASS_Library *library, const char *fname, FileNameSource hint, size_t *bufsize)
+char *ass_load_file(ASS_Library *library, const char *fname, FileNameSource hint, size_t *bufsize)
 {
     int res;
     long sz;
@@ -1552,7 +1552,7 @@ static char *read_file_recode(ASS_Library *library, char *fname,
     char *buf;
     size_t bufsize;
 
-    buf = read_file(library, fname, FN_EXTERNAL, &bufsize);
+    buf = ass_load_file(library, fname, FN_EXTERNAL, &bufsize);
     if (!buf)
         return 0;
 #ifdef CONFIG_ICONV
@@ -1608,7 +1608,7 @@ int ass_read_styles(ASS_Track *track, char *fname, char *codepage)
     ParserState old_state;
     size_t sz;
 
-    buf = read_file(track->library, fname, FN_EXTERNAL, &sz);
+    buf = ass_load_file(track->library, fname, FN_EXTERNAL, &sz);
     if (!buf)
         return 1;
 #ifdef CONFIG_ICONV

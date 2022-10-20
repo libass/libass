@@ -28,7 +28,7 @@
  * \brief Initialize ASS_Outline to an empty state
  * Equivalent to zeroing of outline object and doesn't free any memory.
  */
-void outline_clear(ASS_Outline *outline)
+void ass_outline_clear(ASS_Outline *outline)
 {
     outline->points = NULL;
     outline->segments = NULL;
@@ -40,17 +40,17 @@ void outline_clear(ASS_Outline *outline)
 /*
  * \brief Initialize ASS_Outline and allocate memory
  */
-bool outline_alloc(ASS_Outline *outline, size_t max_points, size_t max_segments)
+bool ass_outline_alloc(ASS_Outline *outline, size_t max_points, size_t max_segments)
 {
     assert(max_points && max_segments);
     if (max_points > SIZE_MAX / sizeof(ASS_Vector)) {
-        outline_clear(outline);
+        ass_outline_clear(outline);
         return false;
     }
     outline->points = malloc(sizeof(ASS_Vector) * max_points);
     outline->segments = malloc(max_segments);
     if (!outline->points || !outline->segments) {
-        outline_free(outline);
+        ass_outline_free(outline);
         return false;
     }
 
@@ -62,10 +62,10 @@ bool outline_alloc(ASS_Outline *outline, size_t max_points, size_t max_segments)
 
 /*
  * \brief Free previously initialized ASS_Outline
- * Outline state after the call is the same as after outline_clear().
+ * Outline state after the call is the same as after ass_outline_clear().
  * Outline pointer can be NULL.
  */
-void outline_free(ASS_Outline *outline)
+void ass_outline_free(ASS_Outline *outline)
 {
     if (!outline)
         return;
@@ -73,7 +73,7 @@ void outline_free(ASS_Outline *outline)
     free(outline->points);
     free(outline->segments);
 
-    outline_clear(outline);
+    ass_outline_clear(outline);
 }
 
 
@@ -86,7 +86,7 @@ static bool valid_point(const FT_Vector *pt)
  * \brief Convert FT_Ouline into ASS_Outline
  * Outline should be preallocated to a sufficient size.
  */
-bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
+bool ass_outline_convert(ASS_Outline *outline, const FT_Outline *source)
 {
     enum Status {
         S_ON, S_Q, S_C1, S_C2
@@ -245,8 +245,8 @@ bool outline_convert(ASS_Outline *outline, const FT_Outline *source)
  * Outline should be preallocated to a sufficient size
  * and coordinates should be in the allowable range.
  */
-void outline_add_rect(ASS_Outline *outline,
-                      int32_t x0, int32_t y0, int32_t x1, int32_t y1)
+void ass_outline_add_rect(ASS_Outline *outline,
+                          int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 {
     assert(outline->n_points + 4 <= outline->max_points);
     assert(outline->n_segments + 4 <= outline->max_segments);
@@ -276,7 +276,7 @@ void outline_add_rect(ASS_Outline *outline,
  * Outline should be allocated and will be enlarged if needed.
  * Also adds outline segment if segment parameter is nonzero.
  */
-bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment)
+bool ass_outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment)
 {
     assert(outline->max_points);
     if (abs(pt.x) > OUTLINE_MAX || abs(pt.y) > OUTLINE_MAX)
@@ -291,14 +291,14 @@ bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment)
     outline->points[outline->n_points] = pt;
     outline->n_points++;
 
-    return !segment || outline_add_segment(outline, segment);
+    return !segment || ass_outline_add_segment(outline, segment);
 }
 
 /*
  * \brief Add a segment to the outline
  * Outline should be allocated and will be enlarged if needed.
  */
-bool outline_add_segment(ASS_Outline *outline, char segment)
+bool ass_outline_add_segment(ASS_Outline *outline, char segment)
 {
     assert(outline->max_segments);
     if (outline->n_segments >= outline->max_segments) {
@@ -315,7 +315,7 @@ bool outline_add_segment(ASS_Outline *outline, char segment)
 /*
  * \brief Close last contour
  */
-void outline_close_contour(ASS_Outline *outline)
+void ass_outline_close_contour(ASS_Outline *outline)
 {
     assert(outline->n_segments);
     assert(!(outline->segments[outline->n_segments - 1] & ~OUTLINE_COUNT_MASK));
@@ -326,7 +326,7 @@ void outline_close_contour(ASS_Outline *outline)
 /*
  * \brief Inplace rotate outline by 90 degrees and translate by offs
  */
-bool outline_rotate_90(ASS_Outline *outline, ASS_Vector offs)
+bool ass_outline_rotate_90(ASS_Outline *outline, ASS_Vector offs)
 {
     assert(abs(offs.x) <= INT32_MAX - OUTLINE_MAX);
     assert(abs(offs.y) <= INT32_MAX - OUTLINE_MAX);
@@ -345,11 +345,11 @@ bool outline_rotate_90(ASS_Outline *outline, ASS_Vector offs)
  * Result outline should be uninitialized or empty.
  * Source outline can be NULL.
  */
-bool outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
-                        int scale_ord_x, int scale_ord_y)
+bool ass_outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
+                            int scale_ord_x, int scale_ord_y)
 {
     if (!source || !source->n_points) {
-        outline_clear(outline);
+        ass_outline_clear(outline);
         return true;
     }
 
@@ -366,11 +366,11 @@ bool outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
         scale_ord_y = FFMAX(scale_ord_y, -32);
 
     if (!lim_x || !lim_y) {
-        outline_clear(outline);
+        ass_outline_clear(outline);
         return false;
     }
 
-    if (!outline_alloc(outline, source->n_points, source->n_segments))
+    if (!ass_outline_alloc(outline, source->n_points, source->n_segments))
         return false;
 
     int sx = scale_ord_x + 32;
@@ -378,7 +378,7 @@ bool outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
     const ASS_Vector *pt = source->points;
     for (size_t i = 0; i < source->n_points; i++) {
         if (abs(pt[i].x) > lim_x || abs(pt[i].y) > lim_y) {
-            outline_free(outline);
+            ass_outline_free(outline);
             return false;
         }
         // that's equivalent to pt[i].x << scale_ord_x,
@@ -397,15 +397,15 @@ bool outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
  * Result outline should be uninitialized or empty.
  * Source outline can be NULL.
  */
-bool outline_transform_2d(ASS_Outline *outline, const ASS_Outline *source,
-                         const double m[2][3])
+bool ass_outline_transform_2d(ASS_Outline *outline, const ASS_Outline *source,
+                              const double m[2][3])
 {
     if (!source || !source->n_points) {
-        outline_clear(outline);
+        ass_outline_clear(outline);
         return true;
     }
 
-    if (!outline_alloc(outline, source->n_points, source->n_segments))
+    if (!ass_outline_alloc(outline, source->n_points, source->n_segments))
         return false;
 
     const ASS_Vector *pt = source->points;
@@ -415,7 +415,7 @@ bool outline_transform_2d(ASS_Outline *outline, const ASS_Outline *source,
             v[k] = m[k][0] * pt[i].x + m[k][1] * pt[i].y + m[k][2];
 
         if (!(fabs(v[0]) < OUTLINE_MAX && fabs(v[1]) < OUTLINE_MAX)) {
-            outline_free(outline);
+            ass_outline_free(outline);
             return false;
         }
         outline->points[i].x = lrint(v[0]);
@@ -432,15 +432,15 @@ bool outline_transform_2d(ASS_Outline *outline, const ASS_Outline *source,
  * Result outline should be uninitialized or empty.
  * Source outline can be NULL.
  */
-bool outline_transform_3d(ASS_Outline *outline, const ASS_Outline *source,
-                         const double m[3][3])
+bool ass_outline_transform_3d(ASS_Outline *outline, const ASS_Outline *source,
+                              const double m[3][3])
 {
     if (!source || !source->n_points) {
-        outline_clear(outline);
+        ass_outline_clear(outline);
         return true;
     }
 
-    if (!outline_alloc(outline, source->n_points, source->n_segments))
+    if (!ass_outline_alloc(outline, source->n_points, source->n_segments))
         return false;
 
     const ASS_Vector *pt = source->points;
@@ -454,7 +454,7 @@ bool outline_transform_3d(ASS_Outline *outline, const ASS_Outline *source,
         v[1] *= w;
 
         if (!(fabs(v[0]) < OUTLINE_MAX && fabs(v[1]) < OUTLINE_MAX)) {
-            outline_free(outline);
+            ass_outline_free(outline);
             return false;
         }
         outline->points[i].x = lrint(v[0]);
@@ -469,9 +469,9 @@ bool outline_transform_3d(ASS_Outline *outline, const ASS_Outline *source,
 /*
  * \brief Find minimal X-coordinate of control points after perspective transform
  */
-void outline_update_min_transformed_x(const ASS_Outline *outline,
-                                      const double m[3][3],
-                                      int32_t *min_x) {
+void ass_outline_update_min_transformed_x(const ASS_Outline *outline,
+                                          const double m[3][3],
+                                          int32_t *min_x) {
     const ASS_Vector *pt = outline->points;
     for (size_t i = 0; i < outline->n_points; i++) {
         double z = m[2][0] * pt[i].x + m[2][1] * pt[i].y + m[2][2];
@@ -486,7 +486,7 @@ void outline_update_min_transformed_x(const ASS_Outline *outline,
 /*
  * \brief Update bounding box of control points
  */
-void outline_update_cbox(const ASS_Outline *outline, ASS_Rect *cbox)
+void ass_outline_update_cbox(const ASS_Outline *outline, ASS_Rect *cbox)
 {
     for (size_t i = 0; i < outline->n_points; i++)
         rectangle_update(cbox,
@@ -622,12 +622,12 @@ static bool emit_point(StrokerState *str, ASS_Vector pt,
 
     if (dir & 1) {
         ASS_Vector res = { pt.x + dx, pt.y + dy };
-        if (!outline_add_point(str->result[0], res, segment))
+        if (!ass_outline_add_point(str->result[0], res, segment))
             return false;
     }
     if (dir & 2) {
         ASS_Vector res = { pt.x - dx, pt.y - dy };
-        if (!outline_add_point(str->result[1], res, segment))
+        if (!ass_outline_add_point(str->result[1], res, segment))
             return false;
     }
     return true;
@@ -1466,9 +1466,9 @@ static bool close_contour(StrokerState *str, int dir)
         str->contour_start = true;
     }
     if (dir & 1)
-        outline_close_contour(str->result[0]);
+        ass_outline_close_contour(str->result[0]);
     if (dir & 2)
-        outline_close_contour(str->result[1]);
+        ass_outline_close_contour(str->result[1]);
     str->contour_first[0] = str->result[0]->n_points;
     str->contour_first[1] = str->result[1]->n_points;
     return true;
@@ -1485,11 +1485,11 @@ static bool close_contour(StrokerState *str, int dir)
  * \param eps approximate allowable error
  * \return false on allocation failure
  */
-bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
-                    const ASS_Outline *path, int xbord, int ybord, int eps)
+bool ass_outline_stroke(ASS_Outline *result, ASS_Outline *result1,
+                        const ASS_Outline *path, int xbord, int ybord, int eps)
 {
-    outline_alloc(result,  2 * path->n_points, 2 * path->n_segments);
-    outline_alloc(result1, 2 * path->n_points, 2 * path->n_segments);
+    ass_outline_alloc(result,  2 * path->n_points, 2 * path->n_segments);
+    ass_outline_alloc(result1, 2 * path->n_points, 2 * path->n_segments);
     if (!result->max_points || !result1->max_points)
         return false;
 

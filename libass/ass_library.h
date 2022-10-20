@@ -40,6 +40,6 @@ struct ass_library {
     void *msg_callback_data;
 };
 
-char *read_file(struct ass_library *library, const char *fname, FileNameSource hint, size_t *bufsize);
+char *ass_load_file(struct ass_library *library, const char *fname, FileNameSource hint, size_t *bufsize);
 
 #endif                          /* LIBASS_LIBRARY_H */

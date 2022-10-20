@@ -1128,7 +1128,7 @@ FriBidiStrIndex *ass_shaper_get_reorder_map(ASS_Shaper *shaper)
  * can be used for autodetection.
  * \param enc Windows font encoding
  */
-FriBidiParType resolve_base_direction(int enc)
+FriBidiParType ass_resolve_base_direction(int enc)
 {
     switch (enc) {
         case -1:

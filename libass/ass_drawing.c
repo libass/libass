@@ -165,10 +165,10 @@ static bool drawing_add_curve(ASS_Outline *outline, ASS_Rect *cbox,
     }
 
     return (started ||
-        outline_add_point(outline, p[0], 0)) &&
-        outline_add_point(outline, p[1], 0) &&
-        outline_add_point(outline, p[2], 0) &&
-        outline_add_point(outline, p[3], OUTLINE_CUBIC_SPLINE);
+        ass_outline_add_point(outline, p[0], 0)) &&
+        ass_outline_add_point(outline, p[1], 0) &&
+        ass_outline_add_point(outline, p[2], 0) &&
+        ass_outline_add_point(outline, p[3], OUTLINE_CUBIC_SPLINE);
 }
 
 /*
@@ -177,7 +177,7 @@ static bool drawing_add_curve(ASS_Outline *outline, ASS_Rect *cbox,
 bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
                        const char *text, ASS_Library *lib)
 {
-    if (!outline_alloc(outline, DRAWING_INITIAL_POINTS, DRAWING_INITIAL_SEGMENTS))
+    if (!ass_outline_alloc(outline, DRAWING_INITIAL_POINTS, DRAWING_INITIAL_SEGMENTS))
         return false;
     rectangle_reset(cbox);
 
@@ -198,9 +198,9 @@ bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
             pen = token->point;
             rectangle_update(cbox, pen.x, pen.y, pen.x, pen.y);
             if (started) {
-                if (!outline_add_segment(outline, OUTLINE_LINE_SEGMENT))
+                if (!ass_outline_add_segment(outline, OUTLINE_LINE_SEGMENT))
                     goto error;
-                outline_close_contour(outline);
+                ass_outline_close_contour(outline);
                 started = false;
             }
             token = token->next;
@@ -208,9 +208,9 @@ bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
         case TOKEN_LINE: {
             ASS_Vector to = token->point;
             rectangle_update(cbox, to.x, to.y, to.x, to.y);
-            if (!started && !outline_add_point(outline, pen, 0))
+            if (!started && !ass_outline_add_point(outline, pen, 0))
                 goto error;
-            if (!outline_add_point(outline, to, OUTLINE_LINE_SEGMENT))
+            if (!ass_outline_add_point(outline, to, OUTLINE_LINE_SEGMENT))
                 goto error;
             started = true;
             token = token->next;
@@ -246,9 +246,9 @@ bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
 
     // Close the last contour
     if (started) {
-        if (!outline_add_segment(outline, OUTLINE_LINE_SEGMENT))
+        if (!ass_outline_add_segment(outline, OUTLINE_LINE_SEGMENT))
             goto error;
-        outline_close_contour(outline);
+        ass_outline_close_contour(outline);
     }
 
     if (lib)
@@ -261,6 +261,6 @@ bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
 
 error:
     drawing_free_tokens(tokens);
-    outline_free(outline);
+    ass_outline_free(outline);
     return false;
 }

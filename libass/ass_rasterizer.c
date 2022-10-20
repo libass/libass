@@ -51,7 +51,7 @@ static inline int ilog2(uint32_t n)
 }
 
 
-bool rasterizer_init(const BitmapEngine *engine, RasterizerData *rst, int outline_error)
+bool ass_rasterizer_init(const BitmapEngine *engine, RasterizerData *rst, int outline_error)
 {
     rst->outline_error = outline_error;
     rst->linebuf[0] = rst->linebuf[1] = NULL;
@@ -89,7 +89,7 @@ static inline bool check_capacity(RasterizerData *rst, int index, size_t delta)
     return true;
 }
 
-void rasterizer_done(RasterizerData *rst)
+void ass_rasterizer_done(RasterizerData *rst)
 {
     free(rst->linebuf[0]);
     free(rst->linebuf[1]);
@@ -262,8 +262,8 @@ static bool add_cubic(RasterizerData *rst, const ASS_Vector *pt)
 }
 
 
-bool rasterizer_set_outline(RasterizerData *rst,
-                            const ASS_Outline *path, bool extra)
+bool ass_rasterizer_set_outline(RasterizerData *rst,
+                                const ASS_Outline *path, bool extra)
 {
     if (!extra) {
         rectangle_reset(&rst->bbox);
@@ -719,9 +719,9 @@ static bool rasterizer_fill_level(const BitmapEngine *engine, RasterizerData *rs
     return true;
 }
 
-bool rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
-                     uint8_t *buf, int x0, int y0,
-                     int width, int height, ptrdiff_t stride)
+bool ass_rasterizer_fill(const BitmapEngine *engine, RasterizerData *rst,
+                         uint8_t *buf, int x0, int y0,
+                         int width, int height, ptrdiff_t stride)
 {
     assert(width > 0 && height > 0);
     assert(!(width  & ((1 << engine->tile_order) - 1)));

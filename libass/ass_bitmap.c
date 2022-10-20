@@ -122,8 +122,8 @@ void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
     ass_aligned_free(tmp);
 }
 
-bool alloc_bitmap(const BitmapEngine *engine, Bitmap *bm,
-                  int32_t w, int32_t h, bool zero)
+bool ass_alloc_bitmap(const BitmapEngine *engine, Bitmap *bm,
+                      int32_t w, int32_t h, bool zero)
 {
     unsigned align = 1 << engine->align_order;
     size_t s = ass_align(align, w);
@@ -140,10 +140,10 @@ bool alloc_bitmap(const BitmapEngine *engine, Bitmap *bm,
     return true;
 }
 
-bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h)
+bool ass_realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h)
 {
     uint8_t *old = bm->buffer;
-    if (!alloc_bitmap(engine, bm, w, h, false))
+    if (!ass_alloc_bitmap(engine, bm, w, h, false))
         return false;
     ass_aligned_free(old);
     return true;
@@ -154,13 +154,13 @@ void ass_free_bitmap(Bitmap *bm)
     ass_aligned_free(bm->buffer);
 }
 
-bool copy_bitmap(const BitmapEngine *engine, Bitmap *dst, const Bitmap *src)
+bool ass_copy_bitmap(const BitmapEngine *engine, Bitmap *dst, const Bitmap *src)
 {
     if (!src->buffer) {
         memset(dst, 0, sizeof(*dst));
         return true;
     }
-    if (!alloc_bitmap(engine, dst, src->w, src->h, false))
+    if (!ass_alloc_bitmap(engine, dst, src->w, src->h, false))
         return false;
     dst->left = src->left;
     dst->top  = src->top;
@@ -168,15 +168,15 @@ bool copy_bitmap(const BitmapEngine *engine, Bitmap *dst, const Bitmap *src)
     return true;
 }
 
-bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
-                       ASS_Outline *outline1, ASS_Outline *outline2)
+bool ass_outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
+                           ASS_Outline *outline1, ASS_Outline *outline2)
 {
     RasterizerData *rst = &render_priv->rasterizer;
-    if (outline1 && !rasterizer_set_outline(rst, outline1, false)) {
+    if (outline1 && !ass_rasterizer_set_outline(rst, outline1, false)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
         return false;
     }
-    if (outline2 && !rasterizer_set_outline(rst, outline2, !!outline1)) {
+    if (outline2 && !ass_rasterizer_set_outline(rst, outline2, !!outline1)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
         return false;
     }
@@ -202,13 +202,13 @@ bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
 
     int32_t tile_w = (w + mask) & ~mask;
     int32_t tile_h = (h + mask) & ~mask;
-    if (!alloc_bitmap(render_priv->engine, bm, tile_w, tile_h, false))
+    if (!ass_alloc_bitmap(render_priv->engine, bm, tile_w, tile_h, false))
         return false;
     bm->left = x_min;
     bm->top  = y_min;
 
-    if (!rasterizer_fill(render_priv->engine, rst, bm->buffer,
-                         x_min, y_min, bm->stride, tile_h, bm->stride)) {
+    if (!ass_rasterizer_fill(render_priv->engine, rst, bm->buffer,
+                             x_min, y_min, bm->stride, tile_h, bm->stride)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph!\n");
         ass_free_bitmap(bm);
         return false;
@@ -223,7 +223,7 @@ bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
  * The glyph bitmap is subtracted from outline bitmap. This way looks much
  * better in some cases.
  */
-void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
+void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o)
 {
     if (!bm_g->buffer || !bm_o->buffer)
         return;
@@ -248,7 +248,7 @@ void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
  * \brief Shift a bitmap by the fraction of a pixel in x and y direction
  * expressed in 26.6 fixed point
  */
-void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
+void ass_shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 {
     assert((shift_x & ~63) == 0 && (shift_y & ~63) == 0);
 
