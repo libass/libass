@@ -347,33 +347,6 @@ void ass_be_blur_c(uint8_t *buf, intptr_t stride,
     }
 }
 
-/*
- * To find these values, simulate blur on the border between two
- * half-planes, one zero-filled (background) and the other filled
- * with the maximum supported value (foreground). Keep incrementing
- * the \be argument. The necessary padding is the distance by which
- * the blurred foreground image extends beyond the original border
- * and into the background. Initially it increases along with \be,
- * but very soon it grinds to a halt. At some point, the blurred
- * image actually reaches a stationary point and stays unchanged
- * forever after, simply _shifting_ by one pixel for each \be
- * step--moving in the direction of the non-zero half-plane and
- * thus decreasing the necessary padding (although the large
- * padding is still needed for intermediate results). In practice,
- * images are finite rather than infinite like half-planes, but
- * this can only decrease the required padding. Half-planes filled
- * with extreme values are the theoretical limit of the worst case.
- * Make sure to use the right pixel value range in the simulation!
- */
-int be_padding(int be)
-{
-    if (be <= 3)
-        return be;
-    if (be <= 7)
-        return 4;
-    return 5;
-}
-
 /**
  * \brief Add two bitmaps together at a given position
  * Uses additive blending, clipped to [0,255]. Pure C implementation.

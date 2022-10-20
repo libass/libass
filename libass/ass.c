@@ -239,6 +239,133 @@ static long long string2timecode(ASS_Library *library, char *p)
     return tm;
 }
 
+static int read_digits(char **str, unsigned base, uint32_t *res)
+{
+    char *p = *str;
+    char *start = p;
+    uint32_t val = 0;
+
+    while (1) {
+        unsigned digit;
+        if (*p >= '0' && *p < FFMIN(base, 10) + '0')
+            digit = *p - '0';
+        else if (*p >= 'a' && *p < base - 10 + 'a')
+            digit = *p - 'a' + 10;
+        else if (*p >= 'A' && *p < base - 10 + 'A')
+            digit = *p - 'A' + 10;
+        else
+            break;
+        val = val * base + digit;
+        ++p;
+    }
+
+    *res = val;
+    *str = p;
+    return p != start;
+}
+
+/**
+ * \brief Convert a string to an integer reduced modulo 2**32
+ * Follows the rules for strtoul but reduces the number modulo 2**32
+ * instead of saturating it to 2**32 - 1.
+ */
+static int mystrtou32_modulo(char **p, unsigned base, uint32_t *res)
+{
+    // This emulates scanf with %d or %x format as it works on
+    // Windows, because that's what is used by VSFilter. In practice,
+    // scanf works the same way on other platforms too, but
+    // the standard leaves its behavior on overflow undefined.
+
+    // Unlike scanf and like strtoul, produce 0 for invalid inputs.
+
+    char *start = *p;
+    int sign = 1;
+
+    skip_spaces(p);
+
+    if (**p == '+')
+        ++*p;
+    else if (**p == '-')
+        sign = -1, ++*p;
+
+    if (base == 16 && !ass_strncasecmp(*p, "0x", 2))
+        *p += 2;
+
+    if (read_digits(p, base, res)) {
+        *res *= sign;
+        return 1;
+    } else {
+        *p = start;
+        return 0;
+    }
+}
+
+static int32_t parse_int_header(char *str)
+{
+    uint32_t val = 0;
+    unsigned base;
+
+    if (!ass_strncasecmp(str, "&h", 2) || !ass_strncasecmp(str, "0x", 2)) {
+        str += 2;
+        base = 16;
+    } else
+        base = 10;
+
+    mystrtou32_modulo(&str, base, &val);
+    return val;
+}
+
+static uint32_t parse_color_header(char *str)
+{
+    uint32_t color = parse_int_header(str);
+    return ass_bswap32(color);
+}
+
+// Return a boolean value for a string
+static char parse_bool(char *str)
+{
+    skip_spaces(&str);
+    return !ass_strncasecmp(str, "yes", 3) || strtol(str, NULL, 10) > 0;
+}
+
+static int parse_ycbcr_matrix(char *str)
+{
+    skip_spaces(&str);
+    if (*str == '\0')
+        return YCBCR_DEFAULT;
+
+    char *end = str + strlen(str);
+    rskip_spaces(&end, str);
+
+    // Trim a local copy of the input that we know is safe to
+    // modify. The buffer is larger than any valid string + NUL,
+    // so we can simply chop off the rest of the input.
+    char buffer[16];
+    size_t n = FFMIN(end - str, sizeof buffer - 1);
+    memcpy(buffer, str, n);
+    buffer[n] = '\0';
+
+    if (!ass_strcasecmp(buffer, "none"))
+        return YCBCR_NONE;
+    if (!ass_strcasecmp(buffer, "tv.601"))
+        return YCBCR_BT601_TV;
+    if (!ass_strcasecmp(buffer, "pc.601"))
+        return YCBCR_BT601_PC;
+    if (!ass_strcasecmp(buffer, "tv.709"))
+        return YCBCR_BT709_TV;
+    if (!ass_strcasecmp(buffer, "pc.709"))
+        return YCBCR_BT709_PC;
+    if (!ass_strcasecmp(buffer, "tv.240m"))
+        return YCBCR_SMPTE240M_TV;
+    if (!ass_strcasecmp(buffer, "pc.240m"))
+        return YCBCR_SMPTE240M_PC;
+    if (!ass_strcasecmp(buffer, "tv.fcc"))
+        return YCBCR_FCC_TV;
+    if (!ass_strcasecmp(buffer, "pc.fcc"))
+        return YCBCR_FCC_PC;
+    return YCBCR_UNKNOWN;
+}
+
 #define NEXT(str,token) \
     token = next_token(&str); \
     if (!token) break;

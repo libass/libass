@@ -108,7 +108,6 @@ bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
 void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
                     int be, double blur_r2);
 
-int be_padding(int be);
 bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2);
 void shift_bitmap(Bitmap *bm, int shift_x, int shift_y);
 void fix_outline(Bitmap *bm_g, Bitmap *bm_o);

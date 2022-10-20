@@ -222,6 +222,50 @@ static bool parse_vector_clip(ASS_Renderer *render_priv,
     return true;
 }
 
+static int32_t parse_alpha_tag(char *str)
+{
+    int32_t alpha = 0;
+
+    while (*str == '&' || *str == 'H')
+        ++str;
+
+    mystrtoi32(&str, 16, &alpha);
+    return alpha;
+}
+
+static uint32_t parse_color_tag(char *str)
+{
+    int32_t color = 0;
+
+    while (*str == '&' || *str == 'H')
+        ++str;
+
+    mystrtoi32(&str, 16, &color);
+    return ass_bswap32((uint32_t) color);
+}
+
+/**
+ * \brief find style by name as in \r
+ * \param track track
+ * \param name style name
+ * \param len style name length
+ * \return style in track->styles
+ * Returns NULL if no style has the given name.
+ */
+static ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len)
+{
+    int i;
+    for (i = track->n_styles - 1; i >= 0; --i) {
+        if (strncmp(track->styles[i].Name, name, len) == 0 &&
+            track->styles[i].Name[len] == '\0')
+            return track->styles + i;
+    }
+    ass_msg(track->library, MSGL_WARN,
+            "[%p]: Warning: no style named '%.*s' found",
+            track, (int) len, name);
+    return NULL;
+}
+
 /**
  * \brief Parse style override tags.
  * \param p string to parse
