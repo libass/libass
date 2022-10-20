@@ -27,7 +27,6 @@
 #define _a(c)   ((c) & 0xFF)
 
 void update_font(ASS_Renderer *render_priv);
-double ensure_font_size(ASS_Renderer *priv, double size);
 void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event);
 void process_karaoke_effects(ASS_Renderer *render_priv);
 unsigned get_next_char(ASS_Renderer *render_priv, char **str);
