@@ -27,6 +27,7 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <limits.h>
 #include <math.h>
 
 #include "ass.h"
@@ -93,9 +94,6 @@ void *ass_try_realloc_array(void *ptr, size_t nmemb, size_t size);
 #define ASS_REALLOC_ARRAY(ptr, count) \
     (errno = 0, (ptr) = ass_try_realloc_array(ptr, count, sizeof(*ptr)), !errno)
 
-void skip_spaces(char **str);
-void rskip_spaces(char **str, char *limit);
-int numpad2align(int val);
 unsigned ass_utf8_get_char(char **str);
 unsigned ass_utf8_put_char(char *dest, uint32_t ch);
 void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_size);
@@ -109,6 +107,44 @@ int lookup_style(ASS_Track *track, char *name);
 
 /* defined in ass_strtod.c */
 double ass_strtod(const char *string, char **endPtr);
+
+static inline void skip_spaces(char **str)
+{
+    char *p = *str;
+    while ((*p == ' ') || (*p == '\t'))
+        ++p;
+    *str = p;
+}
+
+static inline void rskip_spaces(char **str, char *limit)
+{
+    char *p = *str;
+    while ((p > limit) && ((p[-1] == ' ') || (p[-1] == '\t')))
+        --p;
+    *str = p;
+}
+
+/**
+ * \brief converts numpad-style align to align.
+ */
+static inline int numpad2align(int val)
+{
+    if (val < -INT_MAX)
+        // Pick an alignment somewhat arbitrarily. VSFilter handles
+        // INT32_MIN as a mix of 1, 2 and 3, so prefer one of those values.
+        val = 2;
+    else if (val < 0)
+        val = -val;
+
+    int res = ((val - 1) % 3) + 1;  // horizontal alignment
+    if (val <= 3)
+        res |= VALIGN_SUB;
+    else if (val <= 6)
+        res |= VALIGN_CENTER;
+    else
+        res |= VALIGN_TOP;
+    return res;
+}
 
 static inline size_t ass_align(size_t alignment, size_t s)
 {
