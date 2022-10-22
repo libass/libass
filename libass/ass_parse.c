@@ -153,7 +153,7 @@ static void change_color(uint32_t *var, uint32_t new, double pwr)
 }
 
 // like change_color, but for alpha component only
-inline void change_alpha(uint32_t *var, int32_t new, double pwr)
+static inline void change_alpha(uint32_t *var, int32_t new, double pwr)
 {
     *var = (*var & 0xFFFFFF00) | (uint8_t)calc_anim_int32(new, _a(*var), pwr);
 }
@@ -166,9 +166,16 @@ inline void change_alpha(uint32_t *var, int32_t new, double pwr)
  * At least one of the parameters must be less than or equal to 0xFF.
  * The result is less than or equal to max(a, b, 0xFF).
  */
-inline uint32_t mult_alpha(uint32_t a, uint32_t b)
+static inline uint32_t mult_alpha(uint32_t a, uint32_t b)
 {
     return a - ((uint64_t) a * b + 0x7F) / 0xFF + b;
+}
+
+void ass_apply_fade(uint32_t *clr, int fade)
+{
+    // VSFilter compatibility: apply fade only when it's positive
+    if (fade > 0)
+        change_alpha(clr, mult_alpha(_a(*clr), fade), 1);
 }
 
 /**

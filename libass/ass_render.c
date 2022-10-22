@@ -2103,11 +2103,8 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
             ass_cache_inc_ref(info->font);
         for (int i = 0; i < 4; i++) {
             uint32_t clr = render_priv->state.c[i];
-            // VSFilter compatibility: apply fade only when it's positive
             info->a_pre_fade[i] = _a(clr);
-            if (render_priv->state.fade > 0)
-                change_alpha(&clr,
-                             mult_alpha(_a(clr), render_priv->state.fade), 1.);
+            ass_apply_fade(&clr, render_priv->state.fade);
             info->c[i] = clr;
         }
 
