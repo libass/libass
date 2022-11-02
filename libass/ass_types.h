@@ -180,7 +180,7 @@ typedef struct ass_event {
  * know the real colorspace of the video they're rendering to, so the
  * header wasn't created as a simple "Use ColourMangling: yes/no", but instead
  * specifies exactly which colorspace to use for the initial conversion
- * from the subtitle's RGB values. So we now got
+ * from the subtitle's RGB values to the video's YCbCr. So we now got
  *
  *    screen_rgb = video_csp_to_rgb(rgb_to_ycbcr_header_csp(ass_rgb))
  *
@@ -191,6 +191,10 @@ typedef struct ass_event {
  * renderers like libass an additional special value "None" was also added.
  * "None" tells the renderer to directly use untouched RGB values without
  * any conversion.
+ *
+ * If the video itself is already in RGB natively, then no color mangling
+ * happens regardless of the presence or value of a "YCbCr Matrix" header.
+ *
  * The above mangling process with special value "None" to opt out
  * of any colour mangling is the recommended default behaviour.
  *
