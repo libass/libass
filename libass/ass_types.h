@@ -197,9 +197,9 @@ typedef struct ass_event {
  * Keep in mind though, that xy-VSFilter cannot accurately implement this and
  * will instead resort to a guessing the video colorspace based on resolution
  * and then convert RGB to the guessed space.
- * Also some versions of MPC-HC's Internal Subtitle Renderer don't (explicitly)
- * implement "None", but use xy-VSFilter-like resolution-based guessing for
- * unknown values or no header at all (which ofc also breaks old subtitles).
+ * Also some versions of MPC-HC's Internal Subtitle Renderer don't implement
+ * "None" and use TV.601 for unknown, but the video colourspace for no or an
+ * empty header (which can break old subtitles).
  *
  * Aegisub's (the main application to produce ASS subtitle scripts) behaviour
  * regarding colorspaces is unfortunately a bit confusing.
