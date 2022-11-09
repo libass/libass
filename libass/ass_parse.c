@@ -964,6 +964,7 @@ void ass_apply_transition_effects(RenderContext *state)
         delay = ((int) FFMAX(delay / scale_x, 1)) * scale_x;
         state->scroll_shift =
             (render_priv->time - event->Start) / delay;
+        state->scroll_fade_width = cnt >= 3 ? v[2] : 0;
         state->evt_type |= EVENT_HSCROLL;
         state->detect_collisions = 0;
         state->wrap_style = 2;
@@ -1003,6 +1004,7 @@ void ass_apply_transition_effects(RenderContext *state)
         }
         state->scroll_y0 = y0;
         state->scroll_y1 = y1;
+        state->scroll_fade_width = cnt >= 4 ? v[3] : 0;
         state->evt_type |= EVENT_VSCROLL;
         state->detect_collisions = 0;
     }

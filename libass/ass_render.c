@@ -220,6 +220,20 @@ static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
     return &img->result;
 }
 
+static inline ASS_Image *ass_image_borrow_copy(const ASS_Image *img)
+{
+    ASS_Image *nimg = my_draw_bitmap(img->bitmap, img->w, img->h, img->stride,
+                                     img->dst_x, img->dst_y, img->color,
+                                     ((ASS_ImagePriv *) img)->source);
+    if (!nimg)
+        return NULL;
+    nimg->next = img->next;
+    nimg->type = img->type;
+    // Borrow the buffer from the original ASS_Image
+    ((ASS_ImagePriv *) nimg)->buffer = NULL;
+    return nimg;
+}
+
 /**
  * \brief Mapping between script and screen coordinates
  */
@@ -677,6 +691,116 @@ static inline size_t bitmap_size(const Bitmap *bm)
     return bm->stride * bm->h;
 }
 
+static void apply_hscroll_fade(RenderContext *state, ASS_Image *head)
+{
+    int fade_width = state->scroll_fade_width * state->screen_scale_x;
+    if (fade_width <= 0)
+        return;
+
+    ASS_Renderer *render_priv = state->renderer;
+
+    for (ASS_Image *cur = head; cur; cur = cur->next) {
+        int event_start = cur->dst_x - render_priv->settings.left_margin;
+        int event_end = event_start + cur->w;
+        int trailing_fade_end = render_priv->frame_content_width;
+        int trailing_fade_start = trailing_fade_end - fade_width;
+
+        int full_a = _a(cur->color);
+
+        for (int x = event_start; x < event_end; x++) {
+            int a = 0xFF - full_a;
+
+            if (x <= fade_width)
+                a = (a * (long long) x + fade_width / 2) / fade_width;
+            else if (x <= trailing_fade_start) {
+                x = trailing_fade_start + 1;
+                if (x >= event_end)
+                    break;
+            }
+
+            if (x > trailing_fade_start)
+                a = (a * (long long) (trailing_fade_end - x) + fade_width / 2) / fade_width;
+
+            a = 0xFF - a;
+            if (a != _a(cur->color)) {
+                if (x > event_start) {
+                    ASS_Image *nimg = ass_image_borrow_copy(cur);
+                    nimg->dst_x = x + render_priv->settings.left_margin;
+                    cur->w = nimg->dst_x - cur->dst_x;
+                    nimg->w -= cur->w;
+                    nimg->bitmap += cur->w;
+                    cur->next = nimg;
+                    cur = nimg;
+                }
+                cur->color = (cur->color & ~0xFF) | a;
+            }
+        }
+    }
+}
+
+static void apply_vscroll_fade(RenderContext *state, ASS_Image *head)
+{
+    int fade_height = state->scroll_fade_width * state->screen_scale_y;
+    if (fade_height <= 0)
+        return;
+
+    ASS_Renderer *render_priv = state->renderer;
+
+    for (ASS_Image *cur = head; cur; cur = cur->next) {
+        int event_start = cur->dst_y - render_priv->settings.top_margin;
+        int event_end = event_start + cur->h;
+        int leading_fade_start = state->scroll_y0 * state->screen_scale_y;
+        int leading_fade_end = leading_fade_start + fade_height;
+        int trailing_fade_end = state->scroll_y1 * state->screen_scale_y;
+        int trailing_fade_start = trailing_fade_end - fade_height;
+
+        int full_a = _a(cur->color);
+
+        assert(event_start >= leading_fade_start && event_end <= trailing_fade_end);
+        for (int y = event_start; y < event_end; y++) {
+            int a = 0xFF - full_a;
+
+            if (y <= leading_fade_end)
+                a = (a * (long long) (y - leading_fade_start) + fade_height / 2) / fade_height;
+            else if (y <= trailing_fade_start) {
+                y = trailing_fade_start + 1;
+                if (y >= event_end)
+                    break;
+            }
+
+            if (y > trailing_fade_start)
+                a = (a * (long long) (trailing_fade_end - y) + fade_height / 2) / fade_height;
+
+            a = 0xFF - a;
+            if (a != _a(cur->color)) {
+                if (y > event_start) {
+                    ASS_Image *nimg = ass_image_borrow_copy(cur);
+                    nimg->dst_y = y + render_priv->settings.top_margin;
+                    cur->h = nimg->dst_y - cur->dst_y;
+                    nimg->h -= cur->h;
+                    nimg->bitmap += cur->h * cur->stride;
+                    cur->next = nimg;
+                    cur = nimg;
+                }
+                cur->color = (cur->color & ~0xFF) | a;
+            }
+        }
+    }
+}
+
+/**
+ * Iterate through a list of bitmaps and apply the fade gradient
+ * from a Banner or Scroll effect, if applicable. Each image is
+ * replaced by multiple cropped copies with different alphas.
+ */
+static void apply_scroll_fade(RenderContext *state, ASS_Image *head)
+{
+    if (state->evt_type & EVENT_HSCROLL)
+        apply_hscroll_fade(state, head);
+    else if (state->evt_type & EVENT_VSCROLL)
+        apply_vscroll_fade(state, head);
+}
+
 /**
  * Iterate through a list of bitmaps and blend with clip vector, if
  * applicable. The blended bitmaps are added to a free list which is freed
@@ -870,6 +994,7 @@ static ASS_Image *render_text(RenderContext *state)
 
     *tail = 0;
     blend_vector_clip(state, head);
+    apply_scroll_fade(state, head);
 
     return head;
 }
