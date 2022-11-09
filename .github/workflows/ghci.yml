@@ -152,8 +152,12 @@ jobs:
           #        but when SIGILL'ing the lib is not needed
           # ASAN:  Not supported with musl and in Windows
           case "${{ matrix.docker_image || matrix.os }}" in
-            alpine*|windows-*)
+            alpine*)
               flags="$uflags -fsanitize-undefined-trap-on-error" ;;
+            windows-*)
+              # TEMPORARY: MinGW's headers have problematic code in isnan's inline version
+              # triggering UBSAN. Until the fix is available in MSYS2, avoid inlines.
+              flags="$uflags -fsanitize-undefined-trap-on-error -D__CRT__NO_INLINE=1" ;;
             *)
               flags="$aflags $uflags" ;;
           esac
@@ -162,11 +166,10 @@ jobs:
             flags="$flags -fno-sanitize-recover=all"
           fi
 
-          if [ "${{ matrix.cc }}" = "tcc" ] || [ "${{ matrix.skip_tests }}" = "yes" ] \
-             || [ "${{ matrix.api }}" = "app" ] ; then
-            # FIXME: For Windows UWP, UBSAN triggers on regression/karaoke/357-k-and-kf-desynced.ass
+          if [ "${{ matrix.cc }}" = "tcc" ] || [ "${{ matrix.skip_tests }}" = "yes" ] ; then
             flags=""
           fi
+
 
           echo "SANFLAGS=$flags"
           echo "::set-output name=flags::${flags}"
