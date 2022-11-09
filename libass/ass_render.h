@@ -292,7 +292,8 @@ struct render_context {
     double screen_scale_y;
     double border_scale_x;
     double border_scale_y;
-    double blur_scale;
+    double blur_scale_x;
+    double blur_scale_y;
 };
 
 typedef struct render_context RenderContext;
