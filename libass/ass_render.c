@@ -703,12 +703,14 @@ static void apply_hscroll_fade(RenderContext *state, ASS_Image *head)
         int event_start = cur->dst_x - render_priv->settings.left_margin;
         int event_end = event_start + cur->w;
 
-        double leading_fade_start = -0.5;
+        double leading_fade_start = 0.5 * state->blur_scale_x - 0.5;
         int leading_fade_start_int = floor(leading_fade_start) + 1;
         double leading_fade_end = leading_fade_start + fade_width;
         int leading_fade_end_int = ceil(leading_fade_end);
 
-        double trailing_fade_end = render_priv->frame_content_width - 0.5;
+        // int trailing_fade_end_int = render_priv->frame_content_width;
+        // double trailing_fade_end = trailing_fade_end_int + leading_fade_start;
+        double trailing_fade_end = render_priv->frame_content_width + leading_fade_start;
         int trailing_fade_end_int = ceil(trailing_fade_end);
         double trailing_fade_start = trailing_fade_end - fade_width;
         int trailing_fade_start_int = floor(trailing_fade_start) + 1;
@@ -757,12 +759,18 @@ static void apply_vscroll_fade(RenderContext *state, ASS_Image *head)
         int event_start = cur->dst_y - render_priv->settings.top_margin;
         int event_end = event_start + cur->h;
 
-        double leading_fade_start = state->scroll_y0 * state->screen_scale_y - 0.5;
+        ASS_Vector layout_res = ass_layout_res(render_priv);
+        double scale_y = ((double) layout_res.y) / render_priv->track->PlayResY;
+        double half_pixel = 0.5 * state->blur_scale_y - 0.5;
+
+        double leading_fade_start =
+            ((int32_t) (state->scroll_y0 * scale_y * 8) >> 3) * state->blur_scale_y + half_pixel;
         int leading_fade_start_int = floor(leading_fade_start) + 1;
         double leading_fade_end = leading_fade_start + fade_height;
         int leading_fade_end_int = ceil(leading_fade_end);
 
-        double trailing_fade_end = state->scroll_y1 * state->screen_scale_y - 0.5;
+        double trailing_fade_end =
+            ((int32_t) (state->scroll_y1 * scale_y * 8) >> 3) * state->blur_scale_y + half_pixel;
         int trailing_fade_end_int = ceil(trailing_fade_end);
         double trailing_fade_start = trailing_fade_end - fade_height;
         int trailing_fade_start_int = floor(trailing_fade_start) + 1;
