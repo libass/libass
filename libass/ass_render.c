@@ -1008,15 +1008,15 @@ ASS_Vector ass_layout_res(ASS_Renderer *render_priv)
         return (ASS_Vector) { track->PlayResX, track->PlayResY };
     if (settings->par > 1)
         return (ASS_Vector) {
-            lround(track->PlayResY * render_priv->frame_content_width / render_priv->frame_content_height
-                    / settings->par),
+            FFMAX(1, lround(track->PlayResY * render_priv->frame_content_width
+                    / render_priv->frame_content_height / settings->par)),
             track->PlayResY
         };
     else
         return (ASS_Vector) {
             track->PlayResX,
-            lround(track->PlayResX * render_priv->frame_content_height / render_priv->frame_content_width
-                    * settings->par)
+            FFMAX(1, lround(track->PlayResX * render_priv->frame_content_height
+                    / render_priv->frame_content_width * settings->par))
         };
 }
 
