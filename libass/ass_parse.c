@@ -280,10 +280,10 @@ static ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len)
  *            of a number of spaces immediately preceding '}' or ')'
  * \param pwr multiplier for some tag effects (comes from \t tags)
  */
-char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
+char *ass_parse_tags(RenderContext *state, char *p, char *end, double pwr,
                      bool nested)
 {
-    RenderContext *state = &render_priv->state;
+    ASS_Renderer *render_priv = state->renderer;
     for (char *q; p < end; p = q) {
         while (*p != '\\' && p != end)
             ++p;
@@ -354,52 +354,52 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             double val;
             if (nargs) {
                 val = argtod(*args);
-                val = render_priv->state.border_x * (1 - pwr) + val * pwr;
+                val = state->border_x * (1 - pwr) + val * pwr;
                 val = (val < 0) ? 0 : val;
             } else
-                val = render_priv->state.style->Outline;
-            render_priv->state.border_x = val;
+                val = state->style->Outline;
+            state->border_x = val;
         } else if (tag("ybord")) {
             double val;
             if (nargs) {
                 val = argtod(*args);
-                val = render_priv->state.border_y * (1 - pwr) + val * pwr;
+                val = state->border_y * (1 - pwr) + val * pwr;
                 val = (val < 0) ? 0 : val;
             } else
-                val = render_priv->state.style->Outline;
-            render_priv->state.border_y = val;
+                val = state->style->Outline;
+            state->border_y = val;
         } else if (tag("xshad")) {
             double val;
             if (nargs) {
                 val = argtod(*args);
-                val = render_priv->state.shadow_x * (1 - pwr) + val * pwr;
+                val = state->shadow_x * (1 - pwr) + val * pwr;
             } else
-                val = render_priv->state.style->Shadow;
-            render_priv->state.shadow_x = val;
+                val = state->style->Shadow;
+            state->shadow_x = val;
         } else if (tag("yshad")) {
             double val;
             if (nargs) {
                 val = argtod(*args);
-                val = render_priv->state.shadow_y * (1 - pwr) + val * pwr;
+                val = state->shadow_y * (1 - pwr) + val * pwr;
             } else
-                val = render_priv->state.style->Shadow;
-            render_priv->state.shadow_y = val;
+                val = state->style->Shadow;
+            state->shadow_y = val;
         } else if (tag("fax")) {
             double val;
             if (nargs) {
                 val = argtod(*args);
-                render_priv->state.fax =
-                    val * pwr + render_priv->state.fax * (1 - pwr);
+                state->fax =
+                    val * pwr + state->fax * (1 - pwr);
             } else
-                render_priv->state.fax = 0.;
+                state->fax = 0.;
         } else if (tag("fay")) {
             double val;
             if (nargs) {
                 val = argtod(*args);
-                render_priv->state.fay =
-                    val * pwr + render_priv->state.fay * (1 - pwr);
+                state->fay =
+                    val * pwr + state->fay * (1 - pwr);
             } else
-                render_priv->state.fay = 0.;
+                state->fay = 0.;
         } else if (complex_tag("iclip")) {
             if (nargs == 4) {
                 int32_t x0, y0, x1, y1;
@@ -407,83 +407,83 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 y0 = argtoi32(args[1]);
                 x1 = argtoi32(args[2]);
                 y1 = argtoi32(args[3]);
-                render_priv->state.clip_x0 =
-                    render_priv->state.clip_x0 * (1 - pwr) + x0 * pwr;
-                render_priv->state.clip_x1 =
-                    render_priv->state.clip_x1 * (1 - pwr) + x1 * pwr;
-                render_priv->state.clip_y0 =
-                    render_priv->state.clip_y0 * (1 - pwr) + y0 * pwr;
-                render_priv->state.clip_y1 =
-                    render_priv->state.clip_y1 * (1 - pwr) + y1 * pwr;
-                render_priv->state.clip_mode = 1;
-            } else if (!render_priv->state.clip_drawing_text.str) {
+                state->clip_x0 =
+                    state->clip_x0 * (1 - pwr) + x0 * pwr;
+                state->clip_x1 =
+                    state->clip_x1 * (1 - pwr) + x1 * pwr;
+                state->clip_y0 =
+                    state->clip_y0 * (1 - pwr) + y0 * pwr;
+                state->clip_y1 =
+                    state->clip_y1 * (1 - pwr) + y1 * pwr;
+                state->clip_mode = 1;
+            } else if (!state->clip_drawing_text.str) {
                 if (parse_vector_clip(render_priv, args, nargs))
-                    render_priv->state.clip_drawing_mode = 1;
+                    state->clip_drawing_mode = 1;
             }
         } else if (tag("blur")) {
             double val;
             if (nargs) {
                 val = argtod(*args);
-                val = render_priv->state.blur * (1 - pwr) + val * pwr;
+                val = state->blur * (1 - pwr) + val * pwr;
                 val = (val < 0) ? 0 : val;
                 val = (val > BLUR_MAX_RADIUS) ? BLUR_MAX_RADIUS : val;
-                render_priv->state.blur = val;
+                state->blur = val;
             } else
-                render_priv->state.blur = 0.0;
+                state->blur = 0.0;
             // ASS standard tags
         } else if (tag("fscx")) {
             double val;
             if (nargs) {
                 val = argtod(*args) / 100;
-                val = render_priv->state.scale_x * (1 - pwr) + val * pwr;
+                val = state->scale_x * (1 - pwr) + val * pwr;
                 val = (val < 0) ? 0 : val;
             } else
-                val = render_priv->state.style->ScaleX;
-            render_priv->state.scale_x = val;
+                val = state->style->ScaleX;
+            state->scale_x = val;
         } else if (tag("fscy")) {
             double val;
             if (nargs) {
                 val = argtod(*args) / 100;
-                val = render_priv->state.scale_y * (1 - pwr) + val * pwr;
+                val = state->scale_y * (1 - pwr) + val * pwr;
                 val = (val < 0) ? 0 : val;
             } else
-                val = render_priv->state.style->ScaleY;
-            render_priv->state.scale_y = val;
+                val = state->style->ScaleY;
+            state->scale_y = val;
         } else if (tag("fsc")) {
-            render_priv->state.scale_x = render_priv->state.style->ScaleX;
-            render_priv->state.scale_y = render_priv->state.style->ScaleY;
+            state->scale_x = state->style->ScaleX;
+            state->scale_y = state->style->ScaleY;
         } else if (tag("fsp")) {
             double val;
             if (nargs) {
                 val = argtod(*args);
-                render_priv->state.hspacing =
-                    render_priv->state.hspacing * (1 - pwr) + val * pwr;
+                state->hspacing =
+                    state->hspacing * (1 - pwr) + val * pwr;
             } else
-                render_priv->state.hspacing = render_priv->state.style->Spacing;
+                state->hspacing = state->style->Spacing;
         } else if (tag("fs")) {
             double val = 0;
             if (nargs) {
                 val = argtod(*args);
                 if (*args->start == '+' || *args->start == '-')
-                    val = render_priv->state.font_size * (1 + pwr * val / 10);
+                    val = state->font_size * (1 + pwr * val / 10);
                 else
-                    val = render_priv->state.font_size * (1 - pwr) + val * pwr;
+                    val = state->font_size * (1 - pwr) + val * pwr;
             }
             if (val <= 0)
-                val = render_priv->state.style->FontSize;
-            render_priv->state.font_size = val;
+                val = state->style->FontSize;
+            state->font_size = val;
         } else if (tag("bord")) {
             double val, xval, yval;
             if (nargs) {
                 val = argtod(*args);
-                xval = render_priv->state.border_x * (1 - pwr) + val * pwr;
-                yval = render_priv->state.border_y * (1 - pwr) + val * pwr;
+                xval = state->border_x * (1 - pwr) + val * pwr;
+                yval = state->border_y * (1 - pwr) + val * pwr;
                 xval = (xval < 0) ? 0 : xval;
                 yval = (yval < 0) ? 0 : yval;
             } else
-                xval = yval = render_priv->state.style->Outline;
-            render_priv->state.border_x = xval;
-            render_priv->state.border_y = yval;
+                xval = yval = state->style->Outline;
+            state->border_x = xval;
+            state->border_y = yval;
         } else if (complex_tag("move")) {
             double x1, x2, y1, y2;
             int32_t t1, t2, delta_t, t;
@@ -508,10 +508,10 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 continue;
             if (t1 <= 0 && t2 <= 0) {
                 t1 = 0;
-                t2 = render_priv->state.event->Duration;
+                t2 = state->event->Duration;
             }
             delta_t = (uint32_t) t2 - t1;
-            t = render_priv->time - render_priv->state.event->Start;
+            t = render_priv->time - state->event->Start;
             if (t <= t1)
                 k = 0.;
             else if (t >= t2)
@@ -520,46 +520,46 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 k = ((double) (int32_t) ((uint32_t) t - t1)) / delta_t;
             x = k * (x2 - x1) + x1;
             y = k * (y2 - y1) + y1;
-            if (!(render_priv->state.evt_type & EVENT_POSITIONED)) {
-                render_priv->state.pos_x = x;
-                render_priv->state.pos_y = y;
-                render_priv->state.detect_collisions = 0;
-                render_priv->state.evt_type |= EVENT_POSITIONED;
+            if (!(state->evt_type & EVENT_POSITIONED)) {
+                state->pos_x = x;
+                state->pos_y = y;
+                state->detect_collisions = 0;
+                state->evt_type |= EVENT_POSITIONED;
             }
         } else if (tag("frx")) {
             double val;
             if (nargs) {
                 val = argtod(*args);
-                render_priv->state.frx =
-                    val * pwr + render_priv->state.frx * (1 - pwr);
+                state->frx =
+                    val * pwr + state->frx * (1 - pwr);
             } else
-                render_priv->state.frx = 0.;
+                state->frx = 0.;
         } else if (tag("fry")) {
             double val;
             if (nargs) {
                 val = argtod(*args);
-                render_priv->state.fry =
-                    val * pwr + render_priv->state.fry * (1 - pwr);
+                state->fry =
+                    val * pwr + state->fry * (1 - pwr);
             } else
-                render_priv->state.fry = 0.;
+                state->fry = 0.;
         } else if (tag("frz") || tag("fr")) {
             double val;
             if (nargs) {
                 val = argtod(*args);
-                render_priv->state.frz =
-                    val * pwr + render_priv->state.frz * (1 - pwr);
+                state->frz =
+                    val * pwr + state->frz * (1 - pwr);
             } else
-                render_priv->state.frz =
-                    render_priv->state.style->Angle;
+                state->frz =
+                    state->style->Angle;
         } else if (tag("fn")) {
             char *start = args->start;
             if (nargs && strncmp(start, "0", args->end - start)) {
                 skip_spaces(&start);
-                render_priv->state.family.str = start;
-                render_priv->state.family.len = args->end - start;
+                state->family.str = start;
+                state->family.len = args->end - start;
             } else {
-                render_priv->state.family.str = render_priv->state.style->FontName;
-                render_priv->state.family.len = strlen(render_priv->state.style->FontName);
+                state->family.str = state->style->FontName;
+                state->family.len = strlen(state->style->FontName);
             }
             ass_update_font(state);
         } else if (tag("alpha")) {
@@ -567,39 +567,39 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             if (nargs) {
                 int32_t a = parse_alpha_tag(args->start);
                 for (i = 0; i < 4; ++i)
-                    change_alpha(&render_priv->state.c[i], a, pwr);
+                    change_alpha(&state->c[i], a, pwr);
             } else {
-                change_alpha(&render_priv->state.c[0],
-                             _a(render_priv->state.style->PrimaryColour), 1);
-                change_alpha(&render_priv->state.c[1],
-                             _a(render_priv->state.style->SecondaryColour), 1);
-                change_alpha(&render_priv->state.c[2],
-                             _a(render_priv->state.style->OutlineColour), 1);
-                change_alpha(&render_priv->state.c[3],
-                             _a(render_priv->state.style->BackColour), 1);
+                change_alpha(&state->c[0],
+                             _a(state->style->PrimaryColour), 1);
+                change_alpha(&state->c[1],
+                             _a(state->style->SecondaryColour), 1);
+                change_alpha(&state->c[2],
+                             _a(state->style->OutlineColour), 1);
+                change_alpha(&state->c[3],
+                             _a(state->style->BackColour), 1);
             }
             // FIXME: simplify
         } else if (tag("an")) {
             int32_t val = argtoi32(*args);
-            if ((render_priv->state.parsed_tags & PARSED_A) == 0) {
+            if ((state->parsed_tags & PARSED_A) == 0) {
                 if (val >= 1 && val <= 9)
-                    render_priv->state.alignment = numpad2align(val);
+                    state->alignment = numpad2align(val);
                 else
-                    render_priv->state.alignment =
-                        render_priv->state.style->Alignment;
-                render_priv->state.parsed_tags |= PARSED_A;
+                    state->alignment =
+                        state->style->Alignment;
+                state->parsed_tags |= PARSED_A;
             }
         } else if (tag("a")) {
             int32_t val = argtoi32(*args);
-            if ((render_priv->state.parsed_tags & PARSED_A) == 0) {
+            if ((state->parsed_tags & PARSED_A) == 0) {
                 if (val >= 1 && val <= 11)
                     // take care of a vsfilter quirk:
                     // handle illegal \a8 and \a4 like \a5
-                    render_priv->state.alignment = ((val & 3) == 0) ? 5 : val;
+                    state->alignment = ((val & 3) == 0) ? 5 : val;
                 else
-                    render_priv->state.alignment =
-                        render_priv->state.style->Alignment;
-                render_priv->state.parsed_tags |= PARSED_A;
+                    state->alignment =
+                        state->style->Alignment;
+                state->parsed_tags |= PARSED_A;
             }
         } else if (complex_tag("pos")) {
             double v1, v2;
@@ -608,14 +608,14 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 v2 = argtod(args[1]);
             } else
                 continue;
-            if (render_priv->state.evt_type & EVENT_POSITIONED) {
+            if (state->evt_type & EVENT_POSITIONED) {
                 ass_msg(render_priv->library, MSGL_V, "Subtitle has a new \\pos "
                        "after \\move or \\pos, ignoring");
             } else {
-                render_priv->state.evt_type |= EVENT_POSITIONED;
-                render_priv->state.detect_collisions = 0;
-                render_priv->state.pos_x = v1;
-                render_priv->state.pos_y = v2;
+                state->evt_type |= EVENT_POSITIONED;
+                state->detect_collisions = 0;
+                state->pos_x = v1;
+                state->pos_y = v2;
             }
         } else if (complex_tag("fade") || complex_tag("fad")) {
             int32_t a1, a2, a3;
@@ -642,15 +642,15 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 continue;
             if (t1 == -1 && t4 == -1) {
                 t1 = 0;
-                t4 = render_priv->state.event->Duration;
+                t4 = state->event->Duration;
                 t3 = (uint32_t) t4 - t3;
             }
-            if ((render_priv->state.parsed_tags & PARSED_FADE) == 0) {
-                render_priv->state.fade =
+            if ((state->parsed_tags & PARSED_FADE) == 0) {
+                state->fade =
                     interpolate_alpha(render_priv->time -
-                            render_priv->state.event->Start, t1, t2,
+                            state->event->Start, t1, t2,
                             t3, t4, a1, a2, a3);
-                render_priv->state.parsed_tags |= PARSED_FADE;
+                state->parsed_tags |= PARSED_FADE;
             }
         } else if (complex_tag("org")) {
             double v1, v2;
@@ -659,11 +659,11 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 v2 = argtod(args[1]);
             } else
                 continue;
-            if (!render_priv->state.have_origin) {
-                render_priv->state.org_x = v1;
-                render_priv->state.org_y = v2;
-                render_priv->state.have_origin = 1;
-                render_priv->state.detect_collisions = 0;
+            if (!state->have_origin) {
+                state->org_x = v1;
+                state->org_y = v2;
+                state->have_origin = 1;
+                state->detect_collisions = 0;
             }
         } else if (complex_tag("t")) {
             double accel;
@@ -689,11 +689,11 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 t2 = 0;
                 accel = 1.;
             }
-            render_priv->state.detect_collisions = 0;
+            state->detect_collisions = 0;
             if (t2 == 0)
-                t2 = render_priv->state.event->Duration;
+                t2 = state->event->Duration;
             delta_t = (uint32_t) t2 - t1;
-            t = render_priv->time - render_priv->state.event->Start;        // FIXME: move to render_context
+            t = render_priv->time - state->event->Start;        // FIXME: move to render_context
             if (t < t1)
                 k = 0.;
             else if (t >= t2)
@@ -713,7 +713,7 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             p = args[cnt].start;
             if (args[cnt].end < end) {
                 assert(!nested);
-                p = ass_parse_tags(render_priv, p, args[cnt].end, k, true);
+                p = ass_parse_tags(state, p, args[cnt].end, k, true);
             } else {
                 assert(q == end);
                 // No other tags can possibly follow this \t tag,
@@ -731,75 +731,75 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 y0 = argtoi32(args[1]);
                 x1 = argtoi32(args[2]);
                 y1 = argtoi32(args[3]);
-                render_priv->state.clip_x0 =
-                    render_priv->state.clip_x0 * (1 - pwr) + x0 * pwr;
-                render_priv->state.clip_x1 =
-                    render_priv->state.clip_x1 * (1 - pwr) + x1 * pwr;
-                render_priv->state.clip_y0 =
-                    render_priv->state.clip_y0 * (1 - pwr) + y0 * pwr;
-                render_priv->state.clip_y1 =
-                    render_priv->state.clip_y1 * (1 - pwr) + y1 * pwr;
-                render_priv->state.clip_mode = 0;
-            } else if (!render_priv->state.clip_drawing_text.str) {
+                state->clip_x0 =
+                    state->clip_x0 * (1 - pwr) + x0 * pwr;
+                state->clip_x1 =
+                    state->clip_x1 * (1 - pwr) + x1 * pwr;
+                state->clip_y0 =
+                    state->clip_y0 * (1 - pwr) + y0 * pwr;
+                state->clip_y1 =
+                    state->clip_y1 * (1 - pwr) + y1 * pwr;
+                state->clip_mode = 0;
+            } else if (!state->clip_drawing_text.str) {
                 if (parse_vector_clip(render_priv, args, nargs))
-                    render_priv->state.clip_drawing_mode = 0;
+                    state->clip_drawing_mode = 0;
             }
         } else if (tag("c") || tag("1c")) {
             if (nargs) {
                 uint32_t val = parse_color_tag(args->start);
-                change_color(&render_priv->state.c[0], val, pwr);
+                change_color(&state->c[0], val, pwr);
             } else
-                change_color(&render_priv->state.c[0],
-                             render_priv->state.style->PrimaryColour, 1);
+                change_color(&state->c[0],
+                             state->style->PrimaryColour, 1);
         } else if (tag("2c")) {
             if (nargs) {
                 uint32_t val = parse_color_tag(args->start);
-                change_color(&render_priv->state.c[1], val, pwr);
+                change_color(&state->c[1], val, pwr);
             } else
-                change_color(&render_priv->state.c[1],
-                             render_priv->state.style->SecondaryColour, 1);
+                change_color(&state->c[1],
+                             state->style->SecondaryColour, 1);
         } else if (tag("3c")) {
             if (nargs) {
                 uint32_t val = parse_color_tag(args->start);
-                change_color(&render_priv->state.c[2], val, pwr);
+                change_color(&state->c[2], val, pwr);
             } else
-                change_color(&render_priv->state.c[2],
-                             render_priv->state.style->OutlineColour, 1);
+                change_color(&state->c[2],
+                             state->style->OutlineColour, 1);
         } else if (tag("4c")) {
             if (nargs) {
                 uint32_t val = parse_color_tag(args->start);
-                change_color(&render_priv->state.c[3], val, pwr);
+                change_color(&state->c[3], val, pwr);
             } else
-                change_color(&render_priv->state.c[3],
-                             render_priv->state.style->BackColour, 1);
+                change_color(&state->c[3],
+                             state->style->BackColour, 1);
         } else if (tag("1a")) {
             if (nargs) {
                 uint32_t val = parse_alpha_tag(args->start);
-                change_alpha(&render_priv->state.c[0], val, pwr);
+                change_alpha(&state->c[0], val, pwr);
             } else
-                change_alpha(&render_priv->state.c[0],
-                             _a(render_priv->state.style->PrimaryColour), 1);
+                change_alpha(&state->c[0],
+                             _a(state->style->PrimaryColour), 1);
         } else if (tag("2a")) {
             if (nargs) {
                 uint32_t val = parse_alpha_tag(args->start);
-                change_alpha(&render_priv->state.c[1], val, pwr);
+                change_alpha(&state->c[1], val, pwr);
             } else
-                change_alpha(&render_priv->state.c[1],
-                             _a(render_priv->state.style->SecondaryColour), 1);
+                change_alpha(&state->c[1],
+                             _a(state->style->SecondaryColour), 1);
         } else if (tag("3a")) {
             if (nargs) {
                 uint32_t val = parse_alpha_tag(args->start);
-                change_alpha(&render_priv->state.c[2], val, pwr);
+                change_alpha(&state->c[2], val, pwr);
             } else
-                change_alpha(&render_priv->state.c[2],
-                             _a(render_priv->state.style->OutlineColour), 1);
+                change_alpha(&state->c[2],
+                             _a(state->style->OutlineColour), 1);
         } else if (tag("4a")) {
             if (nargs) {
                 uint32_t val = parse_alpha_tag(args->start);
-                change_alpha(&render_priv->state.c[3], val, pwr);
+                change_alpha(&state->c[3], val, pwr);
             } else
-                change_alpha(&render_priv->state.c[3],
-                             _a(render_priv->state.style->BackColour), 1);
+                change_alpha(&state->c[3],
+                             _a(state->style->BackColour), 1);
         } else if (tag("r")) {
             if (nargs) {
                 int len = args->end - args->start;
@@ -813,105 +813,105 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 int32_t val;
                 dval = argtod(*args);
                 // VSFilter always adds +0.5, even if the value is negative
-                val = dtoi32(render_priv->state.be * (1 - pwr) + dval * pwr + 0.5);
+                val = dtoi32(state->be * (1 - pwr) + dval * pwr + 0.5);
                 // Clamp to a safe upper limit, since high values need excessive CPU
                 val = (val < 0) ? 0 : val;
                 val = (val > MAX_BE) ? MAX_BE : val;
-                render_priv->state.be = val;
+                state->be = val;
             } else
-                render_priv->state.be = 0;
+                state->be = 0;
         } else if (tag("b")) {
             int32_t val = argtoi32(*args);
             if (!nargs || !(val == 0 || val == 1 || val >= 100))
-                val = render_priv->state.style->Bold;
-            render_priv->state.bold = val;
+                val = state->style->Bold;
+            state->bold = val;
             ass_update_font(state);
         } else if (tag("i")) {
             int32_t val = argtoi32(*args);
             if (!nargs || !(val == 0 || val == 1))
-                val = render_priv->state.style->Italic;
-            render_priv->state.italic = val;
+                val = state->style->Italic;
+            state->italic = val;
             ass_update_font(state);
         } else if (tag("kt")) {
             // v4++
             double val = 0;
             if (nargs)
                 val = argtod(*args) * 10;
-            render_priv->state.effect_skip_timing = dtoi32(val);
-            render_priv->state.effect_timing = 0;
-            render_priv->state.reset_effect = true;
+            state->effect_skip_timing = dtoi32(val);
+            state->effect_timing = 0;
+            state->reset_effect = true;
         } else if (tag("kf") || tag("K")) {
             double val = 100;
             if (nargs)
                 val = argtod(*args);
-            render_priv->state.effect_type = EF_KARAOKE_KF;
-            render_priv->state.effect_skip_timing +=
-                    (uint32_t) render_priv->state.effect_timing;
-            render_priv->state.effect_timing = dtoi32(val * 10);
+            state->effect_type = EF_KARAOKE_KF;
+            state->effect_skip_timing +=
+                    (uint32_t) state->effect_timing;
+            state->effect_timing = dtoi32(val * 10);
         } else if (tag("ko")) {
             double val = 100;
             if (nargs)
                 val = argtod(*args);
-            render_priv->state.effect_type = EF_KARAOKE_KO;
-            render_priv->state.effect_skip_timing +=
-                    (uint32_t) render_priv->state.effect_timing;
-            render_priv->state.effect_timing = dtoi32(val * 10);
+            state->effect_type = EF_KARAOKE_KO;
+            state->effect_skip_timing +=
+                    (uint32_t) state->effect_timing;
+            state->effect_timing = dtoi32(val * 10);
         } else if (tag("k")) {
             double val = 100;
             if (nargs)
                 val = argtod(*args);
-            render_priv->state.effect_type = EF_KARAOKE;
-            render_priv->state.effect_skip_timing +=
-                    (uint32_t) render_priv->state.effect_timing;
-            render_priv->state.effect_timing = dtoi32(val * 10);
+            state->effect_type = EF_KARAOKE;
+            state->effect_skip_timing +=
+                    (uint32_t) state->effect_timing;
+            state->effect_timing = dtoi32(val * 10);
         } else if (tag("shad")) {
             double val, xval, yval;
             if (nargs) {
                 val = argtod(*args);
-                xval = render_priv->state.shadow_x * (1 - pwr) + val * pwr;
-                yval = render_priv->state.shadow_y * (1 - pwr) + val * pwr;
+                xval = state->shadow_x * (1 - pwr) + val * pwr;
+                yval = state->shadow_y * (1 - pwr) + val * pwr;
                 // VSFilter compatibility: clip for \shad but not for \[xy]shad
                 xval = (xval < 0) ? 0 : xval;
                 yval = (yval < 0) ? 0 : yval;
             } else
-                xval = yval = render_priv->state.style->Shadow;
-            render_priv->state.shadow_x = xval;
-            render_priv->state.shadow_y = yval;
+                xval = yval = state->style->Shadow;
+            state->shadow_x = xval;
+            state->shadow_y = yval;
         } else if (tag("s")) {
             int32_t val = argtoi32(*args);
             if (!nargs || !(val == 0 || val == 1))
-                val = render_priv->state.style->StrikeOut;
+                val = state->style->StrikeOut;
             if (val)
-                render_priv->state.flags |= DECO_STRIKETHROUGH;
+                state->flags |= DECO_STRIKETHROUGH;
             else
-                render_priv->state.flags &= ~DECO_STRIKETHROUGH;
+                state->flags &= ~DECO_STRIKETHROUGH;
         } else if (tag("u")) {
             int32_t val = argtoi32(*args);
             if (!nargs || !(val == 0 || val == 1))
-                val = render_priv->state.style->Underline;
+                val = state->style->Underline;
             if (val)
-                render_priv->state.flags |= DECO_UNDERLINE;
+                state->flags |= DECO_UNDERLINE;
             else
-                render_priv->state.flags &= ~DECO_UNDERLINE;
+                state->flags &= ~DECO_UNDERLINE;
         } else if (tag("pbo")) {
             double val = argtod(*args);
-            render_priv->state.pbo = val;
+            state->pbo = val;
         } else if (tag("p")) {
             int32_t val = argtoi32(*args);
             val = (val < 0) ? 0 : val;
-            render_priv->state.drawing_scale = val;
+            state->drawing_scale = val;
         } else if (tag("q")) {
             int32_t val = argtoi32(*args);
             if (!nargs || !(val >= 0 && val <= 3))
                 val = render_priv->track->WrapStyle;
-            render_priv->state.wrap_style = val;
+            state->wrap_style = val;
         } else if (tag("fe")) {
             int32_t val;
             if (nargs)
                 val = argtoi32(*args);
             else
-                val = render_priv->state.style->Encoding;
-            render_priv->state.font_encoding = val;
+                val = state->style->Encoding;
+            state->font_encoding = val;
         }
     }
 

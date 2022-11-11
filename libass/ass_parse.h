@@ -32,7 +32,7 @@ void ass_update_font(RenderContext *state);
 void ass_apply_transition_effects(RenderContext *state);
 void ass_process_karaoke_effects(ASS_Renderer *render_priv);
 unsigned ass_get_next_char(RenderContext *state, char **str);
-char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
+char *ass_parse_tags(RenderContext *state, char *p, char *end, double pwr,
                      bool nested);
 int ass_event_has_hard_overrides(char *str);
 void ass_apply_fade(uint32_t *clr, int fade);
