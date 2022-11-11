@@ -50,7 +50,6 @@ jobs:
             cc: gcc
             api: desktop
             shell: 'msys2 {0}'
-            package_prefix: mingw-w64-i686
           # Add a best-effort build for UWP apps for Microsoft Store
           - os: windows-2019
             msystem: UCRT64
@@ -58,7 +57,6 @@ jobs:
             api: app
             extra_cflags: -DWINAPI_FAMILY=WINAPI_FAMILY_APP -specs=/tmp/windowsapp.specs
             shell: 'msys2 {0}'
-            package_prefix: mingw-w64-ucrt-x86_64
 
     defaults:
       run:
@@ -108,7 +106,7 @@ jobs:
               brew install automake fribidi harfbuzz nasm
               ;;
             windows-*)
-              pre="${{ matrix.package_prefix }}"
+              pre="$MINGW_PACKAGE_PREFIX"
               pacman --noconfirm -S \
                       automake autoconf libtool nasm make \
                       $pre-pkg-config $pre-gcc \
