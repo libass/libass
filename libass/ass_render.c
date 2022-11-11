@@ -2980,20 +2980,20 @@ ass_render_event(RenderContext *state, ASS_Event *event,
     // fix clip coordinates
     if (state->explicit || !render_priv->settings.use_margins) {
         state->clip_x0 =
-            x2scr_pos_scaled(render_priv, state->clip_x0);
+            lround(x2scr_pos_scaled(render_priv, state->clip_x0));
         state->clip_x1 =
-            x2scr_pos_scaled(render_priv, state->clip_x1);
+            lround(x2scr_pos_scaled(render_priv, state->clip_x1));
         state->clip_y0 =
-            y2scr_pos(render_priv, state->clip_y0);
+            lround(y2scr_pos(render_priv, state->clip_y0));
         state->clip_y1 =
-            y2scr_pos(render_priv, state->clip_y1);
+            lround(y2scr_pos(render_priv, state->clip_y1));
 
         if (state->explicit) {
             // we still need to clip against screen boundaries
-            double zx = x2scr_pos_scaled(render_priv, 0);
-            double zy = y2scr_pos(render_priv, 0);
-            double sx = x2scr_pos_scaled(render_priv, render_priv->track->PlayResX);
-            double sy = y2scr_pos(render_priv, render_priv->track->PlayResY);
+            int zx = render_priv->settings.left_margin;
+            int zy = render_priv->settings.top_margin;
+            int sx = zx + render_priv->frame_content_width;
+            int sy = zy + render_priv->frame_content_height;
 
             state->clip_x0 = FFMAX(state->clip_x0, zx);
             state->clip_y0 = FFMAX(state->clip_y0, zy);
@@ -3009,8 +3009,8 @@ ass_render_event(RenderContext *state, ASS_Event *event,
     }
 
     if (state->evt_type & EVENT_VSCROLL) {
-        double y0 = y2scr_pos(render_priv, state->scroll_y0);
-        double y1 = y2scr_pos(render_priv, state->scroll_y1);
+        int y0 = lround(y2scr_pos(render_priv, state->scroll_y0));
+        int y1 = lround(y2scr_pos(render_priv, state->scroll_y1));
 
         state->clip_y0 = FFMAX(state->clip_y0, y0);
         state->clip_y1 = FFMIN(state->clip_y1, y1);
