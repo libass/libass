@@ -101,7 +101,7 @@ deps += dependency(
 
 deps += dependency(
     'fribidi',
-    version: '>= 0.19.1',
+    version: '>= 0.19.7',
     default_options: ['docs=false', 'tests=false'],
 )
 
