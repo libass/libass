@@ -83,8 +83,8 @@ PKG_CHECK_MODULES([FREETYPE], [freetype2 >= 9.17.3], [
     AC_DEFINE(CONFIG_FREETYPE, 1, [found freetype2 via pkg-config])
 ])
 
-PKG_CHECK_MODULES([FRIBIDI], [fribidi >= 0.19.1], [
-    pkg_requires="fribidi >= 0.19.1, ${pkg_requires}"
+PKG_CHECK_MODULES([FRIBIDI], [fribidi >= 0.19.7], [
+    pkg_requires="fribidi >= 0.19.7, ${pkg_requires}"
     CFLAGS="$CFLAGS $FRIBIDI_CFLAGS"
     LIBS="$LIBS $FRIBIDI_LIBS"
     AC_DEFINE(CONFIG_FRIBIDI, 1, [found fribidi via pkg-config])
