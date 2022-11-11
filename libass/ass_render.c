@@ -2033,6 +2033,7 @@ static void split_style_runs(ASS_Renderer *render_priv)
 static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
 {
     TextInfo *text_info = &render_priv->text_info;
+    RenderContext *state = &render_priv->state;
 
     char *p = event->Text, *q;
 
@@ -2060,7 +2061,7 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
                 p = q;
                 break;
             } else {
-                code = ass_get_next_char(render_priv, &p);
+                code = ass_get_next_char(state, &p);
                 break;
             }
         }

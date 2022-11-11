@@ -1110,7 +1110,7 @@ void ass_process_karaoke_effects(ASS_Renderer *render_priv)
  * \return ucs4 code of the next char
  * On return str points to the unparsed part of the string
  */
-unsigned ass_get_next_char(ASS_Renderer *render_priv, char **str)
+unsigned ass_get_next_char(RenderContext *state, char **str)
 {
     char *p = *str;
     unsigned chr;
@@ -1121,7 +1121,7 @@ unsigned ass_get_next_char(ASS_Renderer *render_priv, char **str)
     }
     if (*p == '\\') {
         if ((p[1] == 'N') || ((p[1] == 'n') &&
-                              (render_priv->state.wrap_style == 2))) {
+                              (state->wrap_style == 2))) {
             p += 2;
             *str = p;
             return '\n';
