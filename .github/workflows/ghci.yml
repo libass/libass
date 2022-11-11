@@ -30,14 +30,14 @@ jobs:
           - os: ubuntu-latest
             cc: gcc
             docker_image: alpine:latest
-            shell: '/usr/bin/docker exec dockerciimage sh -e {0}'
+            shell: '/tmp/docker_shell {0}'
             art_reg_skip: 'font_nonunicode'
           # Add docker-build with minimum version of dependencies
           - os: ubuntu-latest
             cc: gcc
             docker_image: oldlibs
             docker_pullprefix: 'ghcr.io/theoneric/libass-containers/'
-            shell: '/usr/bin/docker exec dockerciimage sh -e {0}'
+            shell: '/tmp/docker_shell {0}'
             # Crash Tests detect (false?) leaks in Fontconfig, and
             # various regression test fail, assumed due to older deps
             skip_tests: yes
@@ -87,6 +87,21 @@ jobs:
             "${{ matrix.docker_pullprefix }}${{ matrix.docker_image }}" \
             "-f" "/dev/null"
           docker start dockerciimage
+
+          # Create a proxy-shell for Docker containers
+          # Scripts for each step and the output file are inside the mounted
+          # directories, but some environment variable must be forwarded.
+          echo '#!/bin/sh
+          set -eu
+          if [ "$#" -ne 1 ] ; then
+            echo "Usage: $0 <script file>"
+            exit 1
+          fi
+          exec /usr/bin/docker exec \
+            --env GITHUB_OUTPUT --env GITHUB_ENV --env GITHUB_PATH --env GITHUB_STATE \
+            dockerciimage sh -e "$1"
+          ' > /tmp/docker_shell
+          chmod a+x /tmp/docker_shell
 
       - name: Setup MSys2
         uses: msys2/setup-msys2@v2
@@ -170,7 +185,7 @@ jobs:
 
 
           echo "SANFLAGS=$flags"
-          echo "::set-output name=flags::${flags}"
+          echo "flags=${flags}" >> $GITHUB_OUTPUT
 
       - name: Customize compiler
         if: matrix.api == 'app' && matrix.cc == 'gcc'
