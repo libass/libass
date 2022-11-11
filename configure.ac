@@ -98,8 +98,8 @@ PKG_CHECK_MODULES([FREETYPE], [freetype2 >= 9.17.3], [
     LIBS="$LIBS $FREETYPE_LIBS"
 ])
 
-PKG_CHECK_MODULES([FRIBIDI], [fribidi >= 0.19.1], [
-    pkg_requires="fribidi >= 0.19.1, ${pkg_requires}"
+PKG_CHECK_MODULES([FRIBIDI], [fribidi >= 0.19.7], [
+    pkg_requires="fribidi >= 0.19.7, ${pkg_requires}"
     CFLAGS="$CFLAGS $FRIBIDI_CFLAGS"
     LIBS="$LIBS $FRIBIDI_LIBS"
 ])
