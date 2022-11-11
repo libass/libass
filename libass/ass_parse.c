@@ -80,12 +80,12 @@ static inline int mystrcmp(char **p, const char *sample)
 /**
  * \brief Change current font, using setting from render_priv->state.
  */
-void ass_update_font(ASS_Renderer *render_priv)
+void ass_update_font(RenderContext *state)
 {
     unsigned val;
     ASS_FontDesc desc;
 
-    desc.family = render_priv->state.family;
+    desc.family = state->family;
     if (!desc.family.str)
         return;
     if (desc.family.len && desc.family.str[0] == '@') {
@@ -96,7 +96,7 @@ void ass_update_font(ASS_Renderer *render_priv)
         desc.vertical = 0;
     }
 
-    val = render_priv->state.bold;
+    val = state->bold;
     // 0 = normal, 1 = bold, >1 = exact weight
     if (val == 1 || val == -1)
         val = 700;               // bold
@@ -104,15 +104,15 @@ void ass_update_font(ASS_Renderer *render_priv)
         val = 400;               // normal
     desc.bold = val;
 
-    val = render_priv->state.italic;
+    val = state->italic;
     if (val == 1)
         val = 100;              // italic
     else if (val <= 0)
         val = 0;                // normal
     desc.italic = val;
 
-    ass_cache_dec_ref(render_priv->state.font);
-    render_priv->state.font = ass_font_new(render_priv, &desc);
+    ass_cache_dec_ref(state->font);
+    state->font = ass_font_new(state->renderer, &desc);
 }
 
 /**
@@ -283,6 +283,7 @@ static ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len)
 char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                      bool nested)
 {
+    RenderContext *state = &render_priv->state;
     for (char *q; p < end; p = q) {
         while (*p != '\\' && p != end)
             ++p;
@@ -560,7 +561,7 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
                 render_priv->state.family.str = render_priv->state.style->FontName;
                 render_priv->state.family.len = strlen(render_priv->state.style->FontName);
             }
-            ass_update_font(render_priv);
+            ass_update_font(state);
         } else if (tag("alpha")) {
             int i;
             if (nargs) {
@@ -824,13 +825,13 @@ char *ass_parse_tags(ASS_Renderer *render_priv, char *p, char *end, double pwr,
             if (!nargs || !(val == 0 || val == 1 || val >= 100))
                 val = render_priv->state.style->Bold;
             render_priv->state.bold = val;
-            ass_update_font(render_priv);
+            ass_update_font(state);
         } else if (tag("i")) {
             int32_t val = argtoi32(*args);
             if (!nargs || !(val == 0 || val == 1))
                 val = render_priv->state.style->Italic;
             render_priv->state.italic = val;
-            ass_update_font(render_priv);
+            ass_update_font(state);
         } else if (tag("kt")) {
             // v4++
             double val = 0;

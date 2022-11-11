@@ -19,6 +19,8 @@
 #ifndef LIBASS_PARSE_H
 #define LIBASS_PARSE_H
 
+#include "ass_render.h"
+
 #define BLUR_MAX_RADIUS 100.0
 
 #define _r(c)   ((c) >> 24)
@@ -26,7 +28,7 @@
 #define _b(c)   (((c) >> 8) & 0xFF)
 #define _a(c)   ((c) & 0xFF)
 
-void ass_update_font(ASS_Renderer *render_priv);
+void ass_update_font(RenderContext *state);
 void ass_apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event);
 void ass_process_karaoke_effects(ASS_Renderer *render_priv);
 unsigned ass_get_next_char(ASS_Renderer *render_priv, char **str);
