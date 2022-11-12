@@ -43,4 +43,15 @@ char *ass_strndup_fallback(const char *s, size_t n); // definition in ass_utils.
 #define strndup ass_strndup_fallback
 #endif
 
+#ifdef _WIN32
+
+#ifdef WINAPI_FAMILY
+#include <winapifamily.h>
+#define ASS_WINAPI_DESKTOP WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+#else
+#define ASS_WINAPI_DESKTOP 1
+#endif
+
+#endif // _WIN32
+
 #endif                          /* LIBASS_COMPAT_H */

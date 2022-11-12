@@ -22,13 +22,6 @@
 #ifndef ASS_DIRECTWRITE_H
 #define ASS_DIRECTWRITE_H
 
-#ifdef WINAPI_FAMILY
-#include <winapifamily.h>
-#define ASS_WINAPI_DESKTOP WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
-#else
-#define ASS_WINAPI_DESKTOP 1
-#endif
-
 ASS_FontProvider *
 ass_directwrite_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
                              const char *config, FT_Library ftlib);
