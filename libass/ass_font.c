@@ -494,19 +494,6 @@ void ass_face_set_size(FT_Face face, double size)
 }
 
 /**
- * \brief Set font size
- **/
-void ass_font_set_size(ASS_Font *font, double size)
-{
-    int i;
-    if (font->size != size) {
-        font->size = size;
-        for (i = 0; i < font->n_faces; ++i)
-            ass_face_set_size(font->faces[i], size);
-    }
-}
-
-/**
  * \brief Get face weight
  **/
 int ass_face_get_weight(FT_Face face)
