@@ -171,11 +171,11 @@ static int compare1(const Image16 *target, const uint16_t *grad,
 
 static int compare(const Image16 *target, const uint16_t *grad,
                    const ASS_Image *img, const char *path,
-                   double *result, int scale)
+                   double *result, int scale_x, int scale_y)
 {
-    if (scale == 1)
+    if (scale_x == 1 && scale_y == 1)
         return compare1(target, grad, img, path, result);
-    int scale2 = scale * scale;
+    int scale_area = scale_x * scale_y;
 
     Image16 frame;
     frame.width  = target->width;
@@ -186,9 +186,9 @@ static int compare(const Image16 *target, const uint16_t *grad,
         return 0;
 
     Image8 temp;
-    temp.width  = scale * target->width;
-    temp.height = scale * target->height;
-    temp.buffer = malloc(4 * scale2 * size);
+    temp.width  = scale_x * target->width;
+    temp.height = scale_y * target->height;
+    temp.buffer = malloc(4 * scale_area * size);
     if (!temp.buffer) {
         free(frame.buffer);
         return 0;
@@ -198,24 +198,24 @@ static int compare(const Image16 *target, const uint16_t *grad,
     uint16_t *dst = frame.buffer;
     const uint8_t *src = temp.buffer;
     int32_t stride = 4 * temp.width;
-    const uint32_t offs = ((uint32_t) 1 << 18) - 1;
-    uint32_t mul = ((uint32_t) 257 << 19) / scale2;
+    const uint32_t offs = ((uint32_t) 1 << 19) - 1;
+    uint32_t mul = ((uint32_t) 257 << 20) / scale_area;
     for (int32_t y = 0; y < frame.height; y++) {
         for (int32_t x = 0; x < frame.width; x++) {
             uint16_t res[4] = {0};
             const uint8_t *ptr = src;
-            for (int i = 0; i < scale; i++) {
-                for (int j = 0; j < scale; j++)
+            for (int i = 0; i < scale_y; i++) {
+                for (int j = 0; j < scale_x; j++)
                     for (int k = 0; k < 4; k++)
                         res[k] += ptr[4 * j + k];
                 ptr += stride;
             }
             for (int k = 0; k < 4; k++)
-                // equivalent to (257 * res[k] + (scale2 - 1) / 2) / scale2;
-                *dst++ = (res[k] * (uint64_t) mul + offs) >> 19;
-            src += 4 * scale;
+                // equivalent to (257 * res[k] + (scale_area - 1) / 2) / scale_area;
+                *dst++ = (res[k] * (uint64_t) mul + offs) >> 20;
+            src += 4 * scale_x;
         }
-        src += (scale - 1) * stride;
+        src += (scale_y - 1) * stride;
     }
 
     free(temp.buffer);
@@ -323,7 +323,8 @@ Result classify_result(double error)
 
 static Result process_image(ASS_Renderer *renderer, ASS_Track *track,
                             const char *input, const char *output,
-                            const char *file, int64_t time, int scale)
+                            const char *file, int64_t time,
+                            int scale_x, int scale_y)
 {
     uint64_t tm = time;
     unsigned msec = tm % 1000;  tm /= 1000;
@@ -349,7 +350,7 @@ static Result process_image(ASS_Renderer *renderer, ASS_Track *track,
     calc_grad(&target, grad);
 
     ass_set_storage_size(renderer, target.width, target.height);
-    ass_set_frame_size(renderer, scale * target.width, scale * target.height);
+    ass_set_frame_size(renderer, scale_x * target.width, scale_y * target.height);
     ASS_Image *img = ass_render_frame(renderer, track, time, NULL);
 
     const char *out_file = NULL;
@@ -358,7 +359,7 @@ static Result process_image(ASS_Renderer *renderer, ASS_Track *track,
         out_file = path;
     }
     double max_err;
-    int res = compare(&target, grad, img, out_file, &max_err, scale);
+    int res = compare(&target, grad, img, out_file, &max_err, scale_x, scale_y);
     free(target.buffer);
     free(grad);
     if (!res) {
@@ -569,9 +570,24 @@ static int *parse_cmdline(int argc, char *argv[])
 fail:
     free(pos);
     const char *fmt =
-        "Usage: %s ([-i] <input-dir>)+ [-o <output-dir>] [-s <scale:1-8>] [-p <pass-level:0-3>]\n";
+        "Usage: %s ([-i] <input-dir>)+ [-o <output-dir>] [-s <scale:1-8>[x<scale:1-8>]] [-p <pass-level:0-3>]\n"
+        "\n"
+        "Scale can be a single uniform scaling factor or a pair of independent horizontal and vertical factors. -s N is equivalent to -s NxN.\n";
     printf(fmt, argv[0] ? argv[0] : "compare");
     return NULL;
+}
+
+static bool parse_scale(const char *arg,  int *scale_x, int *scale_y)
+{
+    if (arg[0] < '1' || arg[0] > '8')
+        return false;
+    *scale_x = *scale_y = arg[0] - '0';
+    if (!arg[1])
+        return true;
+    if (arg[1] != 'x' || arg[2] < '1' || arg[2] > '8' || arg[3])
+        return false;
+    *scale_y = arg[2] - '0';
+    return true;
 }
 
 void msg_callback(int level, const char *fmt, va_list va, void *data)
@@ -593,14 +609,10 @@ int main(int argc, char *argv[])
     ItemList list = {0};
     int result = R_ERROR;
 
-    int scale = 1;
-    if (pos[SCALE]) {
-        const char *arg = argv[pos[SCALE]];
-        if (arg[0] < '1' || arg[0] > '8' || arg[1]) {
-            printf("Invalid scale value, should be 1-8!\n");
-            goto end;
-        }
-        scale = arg[0] - '0';
+    int scale_x = 1, scale_y = 1;
+    if (pos[SCALE] && !parse_scale(argv[pos[SCALE]], &scale_x, &scale_y)) {
+        printf("Invalid scale value, should be 1-8[x1-8]!\n");
+        goto end;
     }
 
     int level = R_BAD;
@@ -680,7 +692,8 @@ int main(int argc, char *argv[])
         if (!track)
             continue;
         Result res = process_image(renderer, track, list.items[i].dir, output,
-                                   name, list.items[i].time, scale);
+                                   name, list.items[i].time,
+                                   scale_x, scale_y);
         result = FFMAX(result, res);
         if (res <= level)
             good++;

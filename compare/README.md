@@ -5,11 +5,12 @@ To build a test utility configure libass with the `--enable-compare` flag.
 The utility works with `png` image files so there is external dependency of libpng.
 
 Test program command line:  
-`compare ([-i] <input-dir>)+ [-o <output-dir>] [-s <scale:1-8>] [-p <pass-level:0-3>]`
+`compare ([-i] <input-dir>)+ [-o <output-dir>] [-s <scale:1-8>[x<scale:1-8>]] [-p <pass-level:0-3>]`
 
 * `<input-dir>` is a test input directory, can be several of them;
 * `<output-dir>` if present sets directory to store the rendering results;
-* `<scale>` sets an oversampling factor (positive integer up to 8, default 1);
+* `<scale>` sets factors for horizontal and vertical oversampling (positive integers up to 8)
+  or a single factor to be used in both directions (default 1);
 * `<pass-level>` corresponds to the level of image differences required to pass test:
   - 0: only `SAME` level accepted, bitwise comparison mode;
   - 1: `GOOD` level or less required;
