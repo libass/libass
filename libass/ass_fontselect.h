@@ -158,7 +158,7 @@ typedef char   *(*GetFallbackFunc)(void *priv,
 
 typedef struct font_provider_funcs {
     GetDataFunc         get_data;               /* optional/mandatory */
-    CheckPostscriptFunc check_postscript;       /* mandatory */
+    CheckPostscriptFunc check_postscript;       /* optional */
     CheckGlyphFunc      check_glyph;            /* mandatory */
     DestroyFontFunc     destroy_font;           /* optional */
     DestroyProviderFunc destroy_provider;       /* optional */
@@ -211,6 +211,12 @@ struct ass_font_provider_meta_data {
                         // See FONT_WEIGHT_*
     int width;          // Font weight in percent, normally 100
                         // See FONT_WIDTH_*
+
+    /**
+     * Whether the font contains PostScript outlines.
+     * Unused if the font provider has a check_postscript function.
+     */
+    bool is_postscript;
 };
 
 struct ass_font_stream {

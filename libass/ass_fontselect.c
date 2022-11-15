@@ -78,6 +78,9 @@ struct font_info {
 
     // private data for callbacks
     void *priv;
+
+    // unused if the provider has a check_postscript function
+    bool is_postscript;
 };
 
 struct font_selector {
@@ -113,13 +116,6 @@ struct font_data_ft {
     FT_Face face;
     int idx;
 };
-
-static bool check_postscript_ft(void *data)
-{
-    FontDataFT *fd = (FontDataFT *)data;
-    PS_FontInfoRec postscript_info;
-    return !FT_Get_PS_Font_Info(fd->face, &postscript_info);
-}
 
 static bool check_glyph_ft(void *data, uint32_t codepoint)
 {
@@ -161,7 +157,6 @@ get_data_embedded(void *data, unsigned char *buf, size_t offset, size_t len)
 
 static ASS_FontProviderFuncs ft_funcs = {
     .get_data          = get_data_embedded,
-    .check_postscript  = check_postscript_ft,
     .check_glyph       = check_glyph_ft,
     .destroy_font      = destroy_font_ft,
 };
@@ -265,6 +260,7 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     int slant, weight;
     char *fullnames[MAX_FULLNAME];
     char *families[MAX_FULLNAME];
+    PS_FontInfoRec postscript_info;
 
     // we're only interested in outlines
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
@@ -324,6 +320,7 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     info->width  = 100;     // FIXME, should probably query the OS/2 table
 
     info->postscript_name = (char *)FT_Get_Postscript_Name(face);
+    info->is_postscript = !FT_Get_PS_Font_Info(face, &postscript_info);
 
     if (num_family) {
         info->families = calloc(sizeof(char *), num_family);
@@ -488,6 +485,7 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     info->width         = width;
     info->n_fullname    = meta->n_fullname;
     info->n_family      = meta->n_family;
+    info->is_postscript = meta->is_postscript;
 
     info->families = calloc(meta->n_family, sizeof(char *));
     if (info->families == NULL)
@@ -612,9 +610,12 @@ void ass_font_provider_free(ASS_FontProvider *provider)
 static bool check_postscript(ASS_FontInfo *fi)
 {
     ASS_FontProvider *provider = fi->provider;
-    assert(provider && provider->funcs.check_postscript);
+    assert(provider);
 
-    return provider->funcs.check_postscript(fi->priv);
+    if (provider->funcs.check_postscript)
+        return provider->funcs.check_postscript(fi->priv);
+    else
+        return fi->is_postscript;
 }
 
 /**

@@ -61,29 +61,6 @@ static void destroy_font(void *priv)
     CFRelease(fontd);
 }
 
-static bool is_postscript_font_format(CFNumberRef cfformat)
-{
-    bool ret = false;
-    int format;
-    if (CFNumberGetValue(cfformat, kCFNumberIntType, &format)) {
-        ret = format == kCTFontFormatOpenTypePostScript ||
-              format == kCTFontFormatPostScript;
-    }
-    return ret;
-}
-
-static bool check_postscript(void *priv)
-{
-    CTFontDescriptorRef fontd = priv;
-    CFNumberRef cfformat =
-        CTFontDescriptorCopyAttribute(fontd, kCTFontFormatAttribute);
-    if (!cfformat)
-        return false;
-    bool ret = is_postscript_font_format(cfformat);
-    CFRelease(cfformat);
-    return ret;
-}
-
 static bool check_glyph(void *priv, uint32_t code)
 {
     if (code == 0)
@@ -295,7 +272,6 @@ static void get_substitutions(void *priv, const char *name,
 }
 
 static ASS_FontProviderFuncs coretext_callbacks = {
-    .check_postscript   = check_postscript,
     .check_glyph        = check_glyph,
     .destroy_font       = destroy_font,
     .match_fonts        = match_fonts,
