@@ -57,8 +57,8 @@ static char *cfstr2buf(CFStringRef string)
 
 static void destroy_font(void *priv)
 {
-    CTFontDescriptorRef fontd = priv;
-    CFRelease(fontd);
+    CFCharacterSetRef set = priv;
+    SAFE_CFRelease(set);
 }
 
 static bool check_glyph(void *priv, uint32_t code)
@@ -66,16 +66,12 @@ static bool check_glyph(void *priv, uint32_t code)
     if (code == 0)
         return true;
 
-    CTFontDescriptorRef fontd = priv;
-    CFCharacterSetRef set =
-        CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
+    CFCharacterSetRef set = priv;
 
     if (!set)
         return true;
 
-    bool result = CFCharacterSetIsLongCharacterMember(set, code);
-    CFRelease(set);
-    return result;
+    return CFCharacterSetIsLongCharacterMember(set, code);
 }
 
 static char *get_font_file(CTFontDescriptorRef fontd)
@@ -139,8 +135,9 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
 
         char *path = NULL;
         if (get_font_info_ct(fontd, &path, &meta)) {
-            CFRetain(fontd);
-            ass_font_provider_add_font(provider, &meta, path, index, (void*)fontd);
+            CFCharacterSetRef set =
+                CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
+            ass_font_provider_add_font(provider, &meta, path, index, (void*)set);
         }
 
         free(meta.postscript_name);
