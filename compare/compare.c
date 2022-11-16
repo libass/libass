@@ -653,7 +653,8 @@ int main(int argc, char *argv[])
     const char *prev = "";
     ASS_Track *track = NULL;
     unsigned total = 0, good = 0;
-    qsort(list.items, list.n_items, sizeof(Item), item_compare);
+    if (list.n_items)
+        qsort(list.items, list.n_items, sizeof(Item), item_compare);
     for (size_t i = 0; i < list.n_items; i++) {
         char *name = list.items[i].name;
         size_t len = list.items[i].prefix;
