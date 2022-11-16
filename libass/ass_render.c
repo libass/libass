@@ -693,7 +693,7 @@ static inline size_t bitmap_size(const Bitmap *bm)
 
 static void apply_hscroll_fade(RenderContext *state, ASS_Image *head)
 {
-    int fade_width = state->scroll_fade_width * state->screen_scale_x;
+    double fade_width = state->scroll_fade_width * state->screen_scale_x;
     if (fade_width <= 0)
         return;
 
@@ -702,26 +702,28 @@ static void apply_hscroll_fade(RenderContext *state, ASS_Image *head)
     for (ASS_Image *cur = head; cur; cur = cur->next) {
         int event_start = cur->dst_x - render_priv->settings.left_margin;
         int event_end = event_start + cur->w;
-        int trailing_fade_end = render_priv->frame_content_width;
-        int trailing_fade_start = trailing_fade_end - fade_width;
+
+        double leading_fade_start = -0.5;
+        int leading_fade_start_int = floor(leading_fade_start) + 1;
+        double leading_fade_end = leading_fade_start + fade_width;
+        int leading_fade_end_int = ceil(leading_fade_end);
+
+        double trailing_fade_end = render_priv->frame_content_width - 0.5;
+        int trailing_fade_end_int = ceil(trailing_fade_end);
+        double trailing_fade_start = trailing_fade_end - fade_width;
+        int trailing_fade_start_int = floor(trailing_fade_start) + 1;
 
         int full_a = _a(cur->color);
+        cur->color |= 0xFF;  // starts out fully transparent
 
-        for (int x = event_start; x < event_end; x++) {
-            int a = 0xFF - full_a;
+        for (int x = FFMAX(event_start, leading_fade_start_int); x < event_end && x <= trailing_fade_end_int; ) {
+            double exact_a = 0xFF - full_a;
+            if (x < leading_fade_end_int)
+                exact_a *= (x - leading_fade_start) / fade_width;
+            if (x >= trailing_fade_start_int)
+                exact_a *= FFMAX(trailing_fade_end - x, 0) / fade_width;
 
-            if (x <= fade_width)
-                a = (a * (long long) x + fade_width / 2) / fade_width;
-            else if (x <= trailing_fade_start) {
-                x = trailing_fade_start + 1;
-                if (x >= event_end)
-                    break;
-            }
-
-            if (x > trailing_fade_start)
-                a = (a * (long long) (trailing_fade_end - x) + fade_width / 2) / fade_width;
-
-            a = 0xFF - a;
+            int a = 0xFF - lround(exact_a);
             if (a != _a(cur->color)) {
                 if (x > event_start) {
                     ASS_Image *nimg = ass_image_borrow_copy(cur);
@@ -734,13 +736,18 @@ static void apply_hscroll_fade(RenderContext *state, ASS_Image *head)
                 }
                 cur->color = (cur->color & ~0xFF) | a;
             }
+
+            if (x >= leading_fade_end_int && x < trailing_fade_start_int)
+                x = trailing_fade_start_int;
+            else
+                x++;
         }
     }
 }
 
 static void apply_vscroll_fade(RenderContext *state, ASS_Image *head)
 {
-    int fade_height = state->scroll_fade_width * state->screen_scale_y;
+    double fade_height = state->scroll_fade_width * state->screen_scale_y;
     if (fade_height <= 0)
         return;
 
@@ -749,29 +756,28 @@ static void apply_vscroll_fade(RenderContext *state, ASS_Image *head)
     for (ASS_Image *cur = head; cur; cur = cur->next) {
         int event_start = cur->dst_y - render_priv->settings.top_margin;
         int event_end = event_start + cur->h;
-        int leading_fade_start = state->scroll_y0 * state->screen_scale_y;
-        int leading_fade_end = leading_fade_start + fade_height;
-        int trailing_fade_end = state->scroll_y1 * state->screen_scale_y;
-        int trailing_fade_start = trailing_fade_end - fade_height;
+
+        double leading_fade_start = state->scroll_y0 * state->screen_scale_y - 0.5;
+        int leading_fade_start_int = floor(leading_fade_start) + 1;
+        double leading_fade_end = leading_fade_start + fade_height;
+        int leading_fade_end_int = ceil(leading_fade_end);
+
+        double trailing_fade_end = state->scroll_y1 * state->screen_scale_y - 0.5;
+        int trailing_fade_end_int = ceil(trailing_fade_end);
+        double trailing_fade_start = trailing_fade_end - fade_height;
+        int trailing_fade_start_int = floor(trailing_fade_start) + 1;
 
         int full_a = _a(cur->color);
+        cur->color |= 0xFF;  // starts out fully transparent
 
-        assert(event_start >= leading_fade_start && event_end <= trailing_fade_end);
-        for (int y = event_start; y < event_end; y++) {
-            int a = 0xFF - full_a;
+        for (int y = FFMAX(event_start, leading_fade_start_int); y < event_end && y <= trailing_fade_end_int; ) {
+            double exact_a = 0xFF - full_a;
+            if (y < leading_fade_end_int)
+                exact_a *= (y - leading_fade_start) / fade_height;
+            if (y >= trailing_fade_start_int)
+                exact_a *= FFMAX(trailing_fade_end - y, 0) / fade_height;
 
-            if (y <= leading_fade_end)
-                a = (a * (long long) (y - leading_fade_start) + fade_height / 2) / fade_height;
-            else if (y <= trailing_fade_start) {
-                y = trailing_fade_start + 1;
-                if (y >= event_end)
-                    break;
-            }
-
-            if (y > trailing_fade_start)
-                a = (a * (long long) (trailing_fade_end - y) + fade_height / 2) / fade_height;
-
-            a = 0xFF - a;
+            int a = 0xFF - lround(exact_a);
             if (a != _a(cur->color)) {
                 if (y > event_start) {
                     ASS_Image *nimg = ass_image_borrow_copy(cur);
@@ -784,6 +790,11 @@ static void apply_vscroll_fade(RenderContext *state, ASS_Image *head)
                 }
                 cur->color = (cur->color & ~0xFF) | a;
             }
+
+            if (y >= leading_fade_end_int && y < trailing_fade_start_int)
+                y = trailing_fade_start_int;
+            else
+                y++;
         }
     }
 }
