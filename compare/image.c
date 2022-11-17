@@ -20,6 +20,11 @@
 #include <png.h>
 
 
+static inline bool is_little_endian(void)
+{
+    return *(char *) &(uint16_t) {1};
+}
+
 bool read_png(const char *path, Image16 *img)
 {
     FILE *fp = fopen(path, "rb");
@@ -79,7 +84,7 @@ bool read_png(const char *path, Image16 *img)
     ptrdiff_t half = 4 * w;
     if (depth == 8)
         ptr += half;
-    else
+    else if (is_little_endian())
         png_set_swap(png);
 
     for (uint32_t i = 0; i < h; i++) {
@@ -186,7 +191,7 @@ static bool write_png(const char *path, uint32_t width, uint32_t height,
                  PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
     png_write_info(png, info);
 
-    if (depth > 8)
+    if (depth > 8 && is_little_endian())
         png_set_swap(png);
     png_write_image(png, rows);
     png_write_end(png, NULL);
