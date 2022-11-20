@@ -234,83 +234,83 @@ AS_IF([test "x$enable_require_system_font_provider" != xno  dnl
 
 # Locate and configure Assembler appropriately
 can_asm=false
+cpu_family="other"
 AS_IF([test "x$enable_asm" != xno], [
     AS_CASE([$host],
         [i?86-*], [
             AS=nasm
-            X86=true
+            cpu_family="x86"
             BITS=32
             BITTYPE=32
             ASFLAGS="$ASFLAGS -DARCH_X86_64=0"
         ],
         [x86_64-*-gnux32|amd64-*-gnux32], [
             AS=nasm
-            X86=true
-            X86_64=true
+            cpu_family="x86"
             BITS=64
             BITTYPE=x32
             ASFLAGS="$ASFLAGS -DARCH_X86_64=1"
         ],
         [x86_64-*|amd64-*], [
             AS=nasm
-            X86=true
-            X86_64=true
+            cpu_family="x86"
             BITS=64
             BITTYPE=64
             ASFLAGS="$ASFLAGS -DARCH_X86_64=1"
         ],
         [ # default
-            X86=false
             AC_MSG_NOTICE([Assembly optimizations are not yet supported on this architecture; disabling.])
         ]
     )
-    AS_IF([test "x$X86" = xtrue], [
-        AC_CHECK_PROG([nasm_check], [$AS], [yes])
-        AS_IF([test "x$nasm_check" != xyes], [
-            AC_MSG_WARN(nasm was not found; ASM functions are disabled.)
-            AC_MSG_WARN(Install nasm for a significantly faster libass build.)
-        ], [
-            AS_CASE([$host],
-                [*darwin*], [
-                    ASFLAGS="$ASFLAGS -f macho$BITTYPE -DPREFIX -DSTACK_ALIGNMENT=16"
-                ],
-                [*linux*|*solaris*|*haiku*], [
-                    ASFLAGS="$ASFLAGS -f elf$BITTYPE -DSTACK_ALIGNMENT=16"
-                ],
-                [*dragonfly*|*bsd*], [
-                    ASFLAGS="$ASFLAGS -f elf$BITTYPE"
-                ],
-                [*cygwin*|*mingw*], [
-                    ASFLAGS="$ASFLAGS -f win$BITTYPE"
-                    AS_IF([test "x$BITS" = x32], [
-                        ASFLAGS="$ASFLAGS -DPREFIX"
-                    ])
-                ],
-                [ # default
-                    AC_MSG_ERROR(m4_text_wrap(m4_normalize([
-                            Please contact libass upstream to figure out if ASM
-                            support for your platform can be added.
-                            In the meantime you will need to use --disable-asm.]),
-                        [                  ],
-                        [could not identify NASM format for $host !],
-                        [78]
-                    ))
-                ]
-            )
-            AC_MSG_CHECKING([if $AS supports vpmovzxwd])
-            echo "vpmovzxwd ymm0, xmm0" > conftest.asm
-            AS_IF([$AS conftest.asm $ASFLAGS -o conftest.o >conftest.log 2>&1], [
-                AC_MSG_RESULT([yes])
-                can_asm=true
+    AS_CASE([$cpu_family],
+        [x86], [
+            AC_CHECK_PROG([nasm_check], [$AS], [yes])
+            AS_IF([test "x$nasm_check" != xyes], [
+                AC_MSG_WARN(nasm was not found; ASM functions are disabled.)
+                AC_MSG_WARN(Install nasm for a significantly faster libass build.)
             ], [
-                AC_MSG_RESULT([no])
-                VER=`($AS --version || echo no assembler) 2>/dev/null | head -n 1`
-                AC_MSG_WARN([nasm is too old (found $VER); ASM functions are disabled.])
-                AC_MSG_WARN([Install nasm-2.10 or later for a significantly faster libass build.])
+                AS_CASE([$host],
+                    [*darwin*], [
+                        ASFLAGS="$ASFLAGS -f macho$BITTYPE -DPREFIX -DSTACK_ALIGNMENT=16"
+                    ],
+                    [*linux*|*solaris*|*haiku*], [
+                        ASFLAGS="$ASFLAGS -f elf$BITTYPE -DSTACK_ALIGNMENT=16"
+                    ],
+                    [*dragonfly*|*bsd*], [
+                        ASFLAGS="$ASFLAGS -f elf$BITTYPE"
+                    ],
+                    [*cygwin*|*mingw*], [
+                        ASFLAGS="$ASFLAGS -f win$BITTYPE"
+                        AS_IF([test "x$BITS" = x32], [
+                            ASFLAGS="$ASFLAGS -DPREFIX"
+                        ])
+                    ],
+                    [ # default
+                        AC_MSG_ERROR(m4_text_wrap(m4_normalize([
+                                Please contact libass upstream to figure out if ASM
+                                support for your platform can be added.
+                                In the meantime you will need to use --disable-asm.]),
+                            [                  ],
+                            [could not identify NASM format for $host !],
+                            [78]
+                        ))
+                    ]
+                )
+                AC_MSG_CHECKING([if $AS supports vpmovzxwd])
+                echo "vpmovzxwd ymm0, xmm0" > conftest.asm
+                AS_IF([$AS conftest.asm $ASFLAGS -o conftest.o >conftest.log 2>&1], [
+                    AC_MSG_RESULT([yes])
+                    can_asm=true
+                ], [
+                    AC_MSG_RESULT([no])
+                    VER=`($AS --version || echo no assembler) 2>/dev/null | head -n 1`
+                    AC_MSG_WARN([nasm is too old (found $VER); ASM functions are disabled.])
+                    AC_MSG_WARN([Install nasm-2.10 or later for a significantly faster libass build.])
+                ])
+                rm conftest.asm conftest.o > /dev/null 2>&1
             ])
-            rm conftest.asm conftest.o > /dev/null 2>&1
-        ])
-    ])
+        ]
+    )
 ])
 
 AS_IF([test x"$enable_asm" = xyes && test x"$can_asm" != xtrue], [
@@ -340,8 +340,8 @@ AS_IF([test "x$enable_shared" != xno], [
 
 ## Setup conditionals for use in Makefiles
 AM_CONDITIONAL([ASM], [test "x$can_asm" = xtrue])
-AM_CONDITIONAL([X86], [test "x$X86" = xtrue])
-AM_CONDITIONAL([X86_64], [test "x$X86_64" = xtrue])
+AM_CONDITIONAL([X86], [test "x$cpu_family" = xx86])
+AM_CONDITIONAL([X86_64], [test "x$cpu_family" = xx86 && test "x$BITS" = x64])
 
 AM_CONDITIONAL([ENABLE_LARGE_TILES], [test "x$enable_large_tiles" = xyes])
 
