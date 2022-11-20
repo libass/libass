@@ -8,6 +8,7 @@ AC_CONFIG_HEADERS([config.h])
 # Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O
+AM_PROG_AS
 
 # Checks for header files.
 AC_CHECK_HEADERS_ONCE([iconv.h])
@@ -258,6 +259,11 @@ AS_IF([test "x$enable_asm" != xno], [
             BITTYPE=64
             ASFLAGS="$ASFLAGS -DARCH_X86_64=1"
         ],
+        [aarch64-*|aarch64_be-*], [
+            cpu_family="arm64"
+            BITS=64
+            BITTYPE=64
+        ],
         [ # default
             AC_MSG_NOTICE([Assembly optimizations are not yet supported on this architecture; disabling.])
         ]
@@ -309,6 +315,14 @@ AS_IF([test "x$enable_asm" != xno], [
                 ])
                 rm conftest.asm conftest.o > /dev/null 2>&1
             ])
+        ],
+        [arm64], [
+            AS_CASE([$host],
+                [*darwin*], [
+                    CCASFLAGS="$CCASFLAGS -DPREFIX"
+                ]
+            )
+            can_asm=true
         ]
     )
 ])
@@ -342,6 +356,7 @@ AS_IF([test "x$enable_shared" != xno], [
 AM_CONDITIONAL([ASM], [test "x$can_asm" = xtrue])
 AM_CONDITIONAL([X86], [test "x$cpu_family" = xx86])
 AM_CONDITIONAL([X86_64], [test "x$cpu_family" = xx86 && test "x$BITS" = x64])
+AM_CONDITIONAL([AARCH64], [test "x$cpu_family" = xarm64])
 
 AM_CONDITIONAL([ENABLE_LARGE_TILES], [test "x$enable_large_tiles" = xyes])
 
@@ -359,6 +374,9 @@ AM_COND_IF([ASM], [
     AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])
     AM_COND_IF([X86], [
         AC_DEFINE(ARCH_X86, 1, [targeting a 32- or 64-bit x86 host architecture])
+    ])
+    AM_COND_IF([AARCH64], [
+        AC_DEFINE(ARCH_AARCH64, 1, [targeting a 64-bit arm host architecture])
     ])
 ], [
     AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])
