@@ -187,6 +187,13 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
         }
         return engine;
     }
+#elif ARCH_AARCH64
+    if (flags & ASS_CPU_FLAG_ARM_NEON) {
+        ALL_FUNCTIONS(4, 16, c)
+        GENERIC_PROTOTYPES(neon)
+        GENERIC_FUNCTIONS(neon)
+        return engine;
+    }
 #endif
 #endif
 
