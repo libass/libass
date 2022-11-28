@@ -1,3 +1,30 @@
+libass (0.17.0)
+ * Fix various parts relating to automatic linebreaking
+ * Fix rendering when hinting was enabled and fontsizes or scales are zero
+ * Switch build to a non-recursive setup for improved parallelism
+ * Improve quality of SSA Effects movement
+ * Further documentation improvements
+ * Completely invalid Events are now discarded during parsing
+
+ * Introduction of LayoutRes{X,Y} script headers
+ * New AlphaLevel style override to set all alpha values while keeping the color
+ * Add ASS_FEATURE_WRAP_UNICODE to allow automatic linebreaks in accordance
+   with the Unicode line breaking algorithm instead of ASS' much stricter
+   breaking rules. For the feature to be available at runtime, libass must be
+   linked against the new optional dependency libunibreak.
+
+ * Improve VSFilter compatibility:
+   * Fix premature truncation of animated alphas (was a 0.15.0 regression)
+   * Fix handling of small delay parameters for legacy SSA Effects
+   * Fix x-scaling with PlayResX
+   * Fix x-scaling for anamorphic video
+     (except for \be whose scaling remains buggy in general)
+   * Support SSA's AlphaLevel style field
+   * Support the \kt override tag from VSFilter's v4++ set
+   * Parse ScriptType headers
+   * Parse integer header, style and event field values like VSFilter
+   * Ignore trailing whitespace in an event's text
+
 libass (0.16.0)
  * Fix missing `-framework` options in libass.pc on macOS
  * Fix missing GDI or DirectWrite options in libass.pc on Win32

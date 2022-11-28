@@ -1,4 +1,4 @@
-AC_INIT(libass, 0.16.0)
+AC_INIT(libass, 0.17.0)
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AC_CONFIG_MACRO_DIR([m4])
 LT_INIT
