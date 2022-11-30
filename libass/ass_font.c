@@ -556,9 +556,6 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
         *face_index = 0;
         return 0;
     }
-    // Handle NBSP like a regular space when rendering the glyph
-    if (symbol == 0xa0)
-        symbol = ' ';
     if (font->n_faces == 0) {
         *face_index = 0;
         return 0;
