@@ -153,6 +153,18 @@ static void consume_track(ASS_Renderer *renderer, ASS_Track *track)
 }
 
 #if ASS_FUZZMODE == FUZZMODE_STANDALONE
+#include "writeout.h"
+
+struct settings {
+    enum {
+        CONSUME_INPUT,
+        WRITEOUT_TRACK
+    } mode;
+    const char *input; // path or "-" for stdin
+    const char *output; // path or NULL for tmp file
+};
+
+
 static ASS_Track *read_track_from_stdin(void)
 {
     size_t smax = 4096;
@@ -186,6 +198,64 @@ error:
     return NULL;
 }
 
+/**
+ * \param argc
+ * \param argv
+ * \param settings will be filled according to parsed args or defaults
+ * \return whether CLI args could be parsed successfully
+ */
+static bool parse_cmdline(int argc, char *argv[], struct settings *settings)
+{
+    // defaults
+    settings->mode = CONSUME_INPUT;
+    settings->input = NULL;
+    settings->output = NULL;
+
+    int i;
+    for (i = 1; i < argc; i++) {
+        const char *param = argv[i];
+        if (!param || param[0] != '-' || !param[1])
+            goto no_more_args;
+
+        switch (param[1]) {
+        case 'q':
+            quiet = true;
+            break;
+
+        case 'o':
+            settings->mode = WRITEOUT_TRACK;
+            // optional argument
+            if (argc - i > 1 && argv[i + 1][0] != '-') {
+                settings->output = argv[i + 1];
+                i++;
+            }
+            break;
+
+        case '-':
+            if (param[2]) {
+                return false;
+            } else {
+                i++;
+                goto no_more_args;
+            }
+
+        default:
+            return false;
+        }
+
+        continue;
+
+no_more_args:
+        break;
+    }
+
+    if (argc < 2 || argc - i > 1 || argc == i)
+        return false;
+
+    settings->input = argv[argc - 1];
+    return !!settings->input;
+}
+
 int main(int argc, char *argv[])
 {
     /* Default failure code of sanitisers is 1, unless
@@ -206,16 +276,18 @@ int main(int argc, char *argv[])
     ASS_Track *track = NULL;
     int retval = FUZZ_OK;
 
-    if (argc < 2 || argc > 3 ||
-            (argc == 3 && strcmp(argv[1], "-q")) ) {
-        printf("usage: %s [-q] <subtitle file>\n", argc ? argv[0] : "fuzz");
+    struct settings settings;
+    if (!parse_cmdline(argc, argv, &settings)) {
+        printf("usage: %s [-q] [-o [output_file]] [--] <subtitle file>\n"
+               "  -q:\n"
+               "    Hide libass log messages\n"
+               "\n"
+               "  -o [FILE]:\n"
+               "    Write out parsed file content in a standardized form\n"
+               "    into FILE or if omitted a generated temproary file.\n"
+               "    If used the input file will not be processed, only parsed.\n",
+               argc ? argv[0] : "fuzz");
         return FUZZ_BAD_USAGE;
-    }
-
-    size_t fileidx = 1;
-    if (argc == 3) {
-        quiet = true;
-        fileidx = 2;
     }
 
     if (!init()) {
@@ -224,8 +296,8 @@ int main(int argc, char *argv[])
         goto cleanup;
     }
 
-    if (strcmp(argv[fileidx], "-"))
-        track = ass_read_file(ass_library, argv[fileidx], NULL);
+    if (strcmp(settings.input, "-"))
+        track = ass_read_file(ass_library, settings.input, NULL);
     else
         track = read_track_from_stdin();
 
@@ -235,7 +307,15 @@ int main(int argc, char *argv[])
         goto cleanup;
     }
 
-    consume_track(ass_renderer, track);
+    switch (settings.mode) {
+    case CONSUME_INPUT:
+        consume_track(ass_renderer, track);
+        break;
+
+    case WRITEOUT_TRACK:
+        write_out_track(track, settings.output);
+        break;
+    }
 
 cleanup:
     if (track)        ass_free_track(track);

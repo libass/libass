@@ -23,7 +23,7 @@ EXTRA_DIST += compare/README.md
 if ENABLE_FUZZ
 noinst_PROGRAMS += fuzz/fuzz
 endif
-fuzz_fuzz_SOURCES = fuzz/fuzz.c
+fuzz_fuzz_SOURCES = fuzz/fuzz.c fuzz/writeout.h fuzz/writeout.c
 fuzz_fuzz_CPPFLAGS = $(AM_CPPFLAGS) $(FUZZ_CPPFLAGS)
 fuzz_fuzz_LDADD = libass/libass.la
 fuzz_fuzz_LDFLAGS = $(AM_LDFLAGS) $(FUZZ_LDFLAGS) -static
