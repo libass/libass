@@ -28,8 +28,7 @@
 
 #define PRIVATE_PREFIX checkasm_
 
-#include "src/arm/asm.S"
-#include "src/arm/64/util.S"
+#include "aarch64/asm.S"
 
 const register_init, align=4
         .quad 0x21f86d66c8ca00ce

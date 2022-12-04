@@ -25,10 +25,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DAV1D_TESTS_CHECKASM_CHECKASM_H
-#define DAV1D_TESTS_CHECKASM_CHECKASM_H
+#ifndef CHECKASM_CHECKASM_H
+#define CHECKASM_CHECKASM_H
 
 #include "config.h"
+
+#include "ass_bitmap.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -51,26 +53,11 @@
 #define checkasm_load_context()
 #endif
 
-#include "include/common/attributes.h"
-#include "include/common/bitdepth.h"
-#include "include/common/intops.h"
-
 int xor128_rand(void);
 #define rnd xor128_rand
 
-#define decl_check_bitfns(name) \
-name##_8bpc(void); \
-name##_16bpc(void)
-
-void checkasm_check_msac(void);
-void checkasm_check_refmvs(void);
-decl_check_bitfns(void checkasm_check_cdef);
-decl_check_bitfns(void checkasm_check_filmgrain);
-decl_check_bitfns(void checkasm_check_ipred);
-decl_check_bitfns(void checkasm_check_itx);
-decl_check_bitfns(void checkasm_check_loopfilter);
-decl_check_bitfns(void checkasm_check_looprestoration);
-decl_check_bitfns(void checkasm_check_mc);
+void checkasm_check_blend_bitmaps(unsigned cpu_flag);
+void checkasm_check_be_blur(unsigned cpu_flag);
 
 void *checkasm_check_func(void *func, const char *name, ...);
 int checkasm_bench_func(void);
@@ -118,7 +105,7 @@ int float_near_abs_eps_array_ulp(const float *a, const float *b, float eps,
      ((func_type *)func_ref)(__VA_ARGS__));\
     checkasm_set_signal_handler_state(0)
 
-#if HAVE_ASM
+#if CONFIG_ASM
 #if ARCH_X86
 #if defined(_MSC_VER) && !defined(__clang__)
 #include <intrin.h>
@@ -293,14 +280,14 @@ void checkasm_stack_clobber(uint64_t clobber, ...);
      ((func_type *)func_new)(__VA_ARGS__));\
     checkasm_set_signal_handler_state(0)
 #endif
-#else /* HAVE_ASM */
+#else /* CONFIG_ASM */
 #define declare_new(ret, ...)
 /* Call the function */
 #define call_new(...)\
     (checkasm_set_signal_handler_state(1),\
      ((func_type *)func_new)(__VA_ARGS__));\
     checkasm_set_signal_handler_state(0)
-#endif /* HAVE_ASM */
+#endif /* CONFIG_ASM */
 
 /* Benchmark the function */
 #ifdef readtime
@@ -338,46 +325,12 @@ void checkasm_stack_clobber(uint64_t clobber, ...);
 #define bench_new(...) do {} while (0)
 #endif
 
-/* Alternates between two pointers. Intended to be used within bench_new()
- * calls for functions which modifies their input buffer(s) to ensure that
- * throughput, and not latency, is measured. */
-#define alternate(a, b) (talt ? (b) : (a))
-
-#define ROUND_UP(x,a) (((x)+((a)-1)) & ~((a)-1))
-#define PIXEL_RECT(name, w, h) \
-    ALIGN_STK_64(pixel, name##_buf, ((h)+32)*(ROUND_UP(w,64)+64) + 64,); \
-    ptrdiff_t name##_stride = sizeof(pixel)*(ROUND_UP(w,64)+64); \
-    (void)name##_stride; \
-    pixel *name = name##_buf + (ROUND_UP(w,64)+64)*16 + 64
-
-#define CLEAR_PIXEL_RECT(name) \
-    memset(name##_buf, 0x99, sizeof(name##_buf)) \
-
-#define DECL_CHECKASM_CHECK_FUNC(type) \
-int checkasm_check_##type(const char *const file, const int line, \
-                          const type *const buf1, const ptrdiff_t stride1, \
-                          const type *const buf2, const ptrdiff_t stride2, \
-                          const int w, const int h, const char *const name, \
-                          const int align_w, const int align_h, \
-                          const int padding)
-
-DECL_CHECKASM_CHECK_FUNC(int8_t);
-DECL_CHECKASM_CHECK_FUNC(int16_t);
-DECL_CHECKASM_CHECK_FUNC(int32_t);
-DECL_CHECKASM_CHECK_FUNC(uint8_t);
-DECL_CHECKASM_CHECK_FUNC(uint16_t);
-DECL_CHECKASM_CHECK_FUNC(uint32_t);
-
-#define CONCAT(a,b) a ## b
-
-#define checkasm_check2(prefix, ...) CONCAT(checkasm_check_, prefix)(__FILE__, __LINE__, __VA_ARGS__)
-#define checkasm_check(prefix, ...) checkasm_check2(prefix, __VA_ARGS__, 0, 0, 0)
-
-#ifdef BITDEPTH
-#define checkasm_check_pixel(...) checkasm_check(PIXEL_TYPE, __VA_ARGS__)
-#define checkasm_check_pixel_padded(...) checkasm_check2(PIXEL_TYPE, __VA_ARGS__, 1, 1, 8)
-#define checkasm_check_pixel_padded_align(...) checkasm_check2(PIXEL_TYPE, __VA_ARGS__, 8)
-#define checkasm_check_coef(...)  checkasm_check(COEF_TYPE,  __VA_ARGS__)
+#ifdef _MSC_VER
+#define ALIGN(ll, a) \
+    __declspec(align(a)) ll
+#else
+#define ALIGN(line, align) \
+    line __attribute__((aligned(align)))
 #endif
 
-#endif /* DAV1D_TESTS_CHECKASM_CHECKASM_H */
+#endif /* CHECKASM_CHECKASM_H */

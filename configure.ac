@@ -364,6 +364,8 @@ AM_CONDITIONAL([ENABLE_COMPARE], [test "x$enable_compare" = xyes && test "x$libp
 AM_CONDITIONAL([ENABLE_TEST], [test "x$enable_test" = xyes && test "x$libpng" = xtrue])
 AM_CONDITIONAL([ENABLE_PROFILE], [test "x$enable_profile" = xyes])
 AM_CONDITIONAL([ENABLE_FUZZ], [test "x$enable_fuzz" = xyes])
+# tcc doesn't have the full support of __attribute__((aligned(32)))
+AM_CONDITIONAL([ENABLE_CHECKASM], [test "x$can_asm" = xtrue && test "x$GCC" = xyes])
 
 AM_CONDITIONAL([FONTCONFIG], [test "x$fontconfig" = xtrue])
 AM_CONDITIONAL([CORETEXT], [test "x$coretext" = xtrue])
@@ -374,6 +376,9 @@ AM_COND_IF([ASM], [
     AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])
     AM_COND_IF([X86], [
         AC_DEFINE(ARCH_X86, 1, [targeting a 32- or 64-bit x86 host architecture])
+    ])
+    AM_COND_IF([X86_64], [
+        AC_DEFINE(ARCH_X86_64, 1, [targeting a 64-bit x86 host architecture])
     ])
     AM_COND_IF([AARCH64], [
         AC_DEFINE(ARCH_AARCH64, 1, [targeting a 64-bit arm host architecture])

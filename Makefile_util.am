@@ -38,3 +38,35 @@ fuzz/fuzz_ossfuzz: fuzz/fuzz-fuzz.o libass/libass.la $(srcdir)/libass.pc
 		$$(pkg-config --static --libs $(srcdir)/libass.pc | sed -e 's/-lm //g' -e 's/-lass //g') \
 		-Wl,-Bdynamic
 endif
+
+
+if ENABLE_CHECKASM
+check_PROGRAMS += checkasm/checkasm
+TESTS += checkasm/checkasm$(EXEEXT)
+bench: run-checkasm-bench
+endif
+
+.asm.o:
+	$(nasm_verbose)$(AS) $(ASFLAGS) -I$(top_srcdir)/libass/ -o $@ $<
+
+checkasm_checkasm_SOURCES = \
+    checkasm/blend_bitmaps.c \
+    checkasm/be_blur.c \
+    checkasm/checkasm.h checkasm/checkasm.c
+
+checkasm_checkasm_CPPFLAGS = -I$(top_srcdir)/libass
+checkasm_checkasm_LDADD = libass/libass.la
+checkasm_checkasm_LDFLAGS = $(AM_LDFLAGS) -static
+
+if X86
+checkasm_checkasm_SOURCES += checkasm/x86/checkasm.asm
+endif
+if AARCH64
+checkasm_checkasm_SOURCES += checkasm/arm/checkasm_64.S
+endif
+
+run-checkasm: checkasm/checkasm$(EXEEXT)
+	checkasm/checkasm$(EXEEXT)
+
+run-checkasm-bench: checkasm/checkasm$(EXEEXT)
+	checkasm/checkasm$(EXEEXT) --bench

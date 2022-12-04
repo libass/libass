@@ -24,14 +24,13 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "tests/checkasm/checkasm.h"
+
+#include "checkasm.h"
 
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "src/cpu.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -53,28 +52,10 @@
 /* List of tests to invoke */
 static const struct {
     const char *name;
-    void (*func)(void);
+    void (*func)(unsigned cpu_flag);
 } tests[] = {
-    { "msac", checkasm_check_msac },
-    { "refmvs", checkasm_check_refmvs },
-#if CONFIG_8BPC
-    { "cdef_8bpc", checkasm_check_cdef_8bpc },
-    { "filmgrain_8bpc", checkasm_check_filmgrain_8bpc },
-    { "ipred_8bpc", checkasm_check_ipred_8bpc },
-    { "itx_8bpc", checkasm_check_itx_8bpc },
-    { "loopfilter_8bpc", checkasm_check_loopfilter_8bpc },
-    { "looprestoration_8bpc", checkasm_check_looprestoration_8bpc },
-    { "mc_8bpc", checkasm_check_mc_8bpc },
-#endif
-#if CONFIG_16BPC
-    { "cdef_16bpc", checkasm_check_cdef_16bpc },
-    { "filmgrain_16bpc", checkasm_check_filmgrain_16bpc },
-    { "ipred_16bpc", checkasm_check_ipred_16bpc },
-    { "itx_16bpc", checkasm_check_itx_16bpc },
-    { "loopfilter_16bpc", checkasm_check_loopfilter_16bpc },
-    { "looprestoration_16bpc", checkasm_check_looprestoration_16bpc },
-    { "mc_16bpc", checkasm_check_mc_16bpc },
-#endif
+    { "blend_bitmaps", checkasm_check_blend_bitmaps },
+    { "be_blur", checkasm_check_be_blur },
     { 0 }
 };
 
@@ -85,15 +66,11 @@ static const struct {
     unsigned flag;
 } cpus[] = {
 #if ARCH_X86
-    { "SSE2",               "sse2",      DAV1D_X86_CPU_FLAG_SSE2 },
-    { "SSSE3",              "ssse3",     DAV1D_X86_CPU_FLAG_SSSE3 },
-    { "SSE4.1",             "sse4",      DAV1D_X86_CPU_FLAG_SSE41 },
-    { "AVX2",               "avx2",      DAV1D_X86_CPU_FLAG_AVX2 },
-    { "AVX-512 (Ice Lake)", "avx512icl", DAV1D_X86_CPU_FLAG_AVX512ICL },
-#elif ARCH_AARCH64 || ARCH_ARM
-    { "NEON",               "neon",      DAV1D_ARM_CPU_FLAG_NEON },
-#elif ARCH_PPC64LE
-    { "VSX",                "vsx",       DAV1D_PPC_CPU_FLAG_VSX },
+    { "SSE2",               "sse2",      ASS_CPU_FLAG_X86_SSE2 },
+    { "SSSE3",              "ssse3",     ASS_CPU_FLAG_X86_SSSE3 },
+    { "AVX2",               "avx2",      ASS_CPU_FLAG_X86_AVX2 },
+#elif ARCH_AARCH64
+    { "NEON",               "neon",      ASS_CPU_FLAG_ARM_NEON },
 #endif
     { 0 }
 };
@@ -516,8 +493,7 @@ static void check_cpu_flag(const char *const name, unsigned flag) {
     const unsigned old_cpu_flag = state.cpu_flag;
 
     flag |= old_cpu_flag;
-    dav1d_set_cpu_flags_mask(flag);
-    state.cpu_flag = dav1d_get_cpu_flags();
+    state.cpu_flag = ass_get_cpu_flags(flag);
 
     if (!flag || state.cpu_flag != old_cpu_flag) {
         state.cpu_flag_name = name;
@@ -526,7 +502,7 @@ static void check_cpu_flag(const char *const name, unsigned flag) {
                 continue;
             xor128_srand(state.seed);
             state.current_test_name = tests[i].name;
-            tests[i].func();
+            tests[i].func(state.cpu_flag);
         }
     }
 }
@@ -612,8 +588,6 @@ int main(int argc, char *argv[]) {
     return 0;
 #endif
 
-    dav1d_init_cpu();
-
 #ifdef _WIN32
 #if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
     AddVectoredExceptionHandler(0, signal_handler);
@@ -651,10 +625,10 @@ int main(int argc, char *argv[]) {
 #if ARCH_X86_64
         void checkasm_warmup_avx2(void);
         void checkasm_warmup_avx512(void);
-        const unsigned cpu_flags = dav1d_get_cpu_flags();
-        if (cpu_flags & DAV1D_X86_CPU_FLAG_AVX512ICL)
+        const unsigned cpu_flags = ass_get_cpu_flags(ASS_CPU_FLAG_ALL);
+        if (cpu_flags & /*ASS_CPU_FLAG_X86_AVX512ICL*/0)
             state.simd_warmup = checkasm_warmup_avx512;
-        else if (cpu_flags & DAV1D_X86_CPU_FLAG_AVX2)
+        else if (cpu_flags & ASS_CPU_FLAG_X86_AVX2)
             state.simd_warmup = checkasm_warmup_avx2;
         checkasm_simd_warmup();
 #endif
@@ -801,7 +775,7 @@ void checkasm_report(const char *const name, ...) {
         va_start(arg, name);
         pad_length -= vfprintf(stderr, name, arg);
         va_end(arg);
-        fprintf(stderr, "%*c", imax(pad_length, 0) + 2, '[');
+        fprintf(stderr, "%*c", FFMAX(pad_length, 0) + 2, '[');
 
         if (state.num_failed == prev_failed)
             color_printf(COLOR_GREEN, "OK");
@@ -829,97 +803,6 @@ void checkasm_report(const char *const name, ...) {
 void checkasm_set_signal_handler_state(const int enabled) {
     state.catch_signals = enabled;
 }
-
-static int check_err(const char *const file, const int line,
-                     const char *const name, const int w, const int h,
-                     int *const err)
-{
-    if (*err)
-        return 0;
-    if (!checkasm_fail_func("%s:%d", file, line))
-        return 1;
-    *err = 1;
-    fprintf(stderr, "%s (%dx%d):\n", name, w, h);
-    return 0;
-}
-
-#define DEF_CHECKASM_CHECK_FUNC(type, fmt) \
-int checkasm_check_##type(const char *const file, const int line, \
-                          const type *buf1, ptrdiff_t stride1, \
-                          const type *buf2, ptrdiff_t stride2, \
-                          const int w, int h, const char *const name, \
-                          const int align_w, const int align_h, \
-                          const int padding) \
-{ \
-    int aligned_w = (w + align_w - 1) & ~(align_w - 1); \
-    int aligned_h = (h + align_h - 1) & ~(align_h - 1); \
-    int err = 0; \
-    stride1 /= sizeof(*buf1); \
-    stride2 /= sizeof(*buf2); \
-    int y = 0; \
-    for (y = 0; y < h; y++) \
-        if (memcmp(&buf1[y*stride1], &buf2[y*stride2], w*sizeof(*buf1))) \
-            break; \
-    if (y != h) { \
-        if (check_err(file, line, name, w, h, &err)) \
-            return 1; \
-        for (y = 0; y < h; y++) { \
-            for (int x = 0; x < w; x++) \
-                fprintf(stderr, " " fmt, buf1[x]); \
-            fprintf(stderr, "    "); \
-            for (int x = 0; x < w; x++) \
-                fprintf(stderr, " " fmt, buf2[x]); \
-            fprintf(stderr, "    "); \
-            for (int x = 0; x < w; x++) \
-                fprintf(stderr, "%c", buf1[x] != buf2[x] ? 'x' : '.'); \
-            buf1 += stride1; \
-            buf2 += stride2; \
-            fprintf(stderr, "\n"); \
-        } \
-        buf1 -= h*stride1; \
-        buf2 -= h*stride2; \
-    } \
-    for (y = -padding; y < 0; y++) \
-        if (memcmp(&buf1[y*stride1 - padding], &buf2[y*stride2 - padding], \
-                   (w + 2*padding)*sizeof(*buf1))) { \
-            if (check_err(file, line, name, w, h, &err)) \
-                return 1; \
-            fprintf(stderr, " overwrite above\n"); \
-            break; \
-        } \
-    for (y = aligned_h; y < aligned_h + padding; y++) \
-        if (memcmp(&buf1[y*stride1 - padding], &buf2[y*stride2 - padding], \
-                   (w + 2*padding)*sizeof(*buf1))) { \
-            if (check_err(file, line, name, w, h, &err)) \
-                return 1; \
-            fprintf(stderr, " overwrite below\n"); \
-            break; \
-        } \
-    for (y = 0; y < h; y++) \
-        if (memcmp(&buf1[y*stride1 - padding], &buf2[y*stride2 - padding], \
-                   padding*sizeof(*buf1))) { \
-            if (check_err(file, line, name, w, h, &err)) \
-                return 1; \
-            fprintf(stderr, " overwrite left\n"); \
-            break; \
-        } \
-    for (y = 0; y < h; y++) \
-        if (memcmp(&buf1[y*stride1 + aligned_w], &buf2[y*stride2 + aligned_w], \
-                   padding*sizeof(*buf1))) { \
-            if (check_err(file, line, name, w, h, &err)) \
-                return 1; \
-            fprintf(stderr, " overwrite right\n"); \
-            break; \
-        } \
-    return err; \
-}
-
-DEF_CHECKASM_CHECK_FUNC(int8_t,   "%4d")
-DEF_CHECKASM_CHECK_FUNC(int16_t,  "%6d")
-DEF_CHECKASM_CHECK_FUNC(int32_t,  "%9d")
-DEF_CHECKASM_CHECK_FUNC(uint8_t,  "%02x")
-DEF_CHECKASM_CHECK_FUNC(uint16_t, "%04x")
-DEF_CHECKASM_CHECK_FUNC(uint32_t, "%08x")
 
 #if ARCH_X86_64
 void checkasm_simd_warmup(void)
