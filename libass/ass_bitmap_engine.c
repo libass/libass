@@ -164,7 +164,7 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
 {
     ALL_PROTOTYPES(16, c)
     BLUR_PROTOTYPES(32, c)
-    BitmapEngine engine = {};
+    BitmapEngine engine = {0};
     engine.tile_order = mask & ASS_FLAG_LARGE_TILES ? 5 : 4;
 
 #if CONFIG_ASM
