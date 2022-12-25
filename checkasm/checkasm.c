@@ -240,6 +240,7 @@ static void color_printf(const int color, const char *const fmt, ...) {
     va_list arg;
 
 #ifdef _WIN32
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
     static HANDLE con;
     static WORD org_attributes;
 
@@ -257,6 +258,7 @@ static void color_printf(const int color, const char *const fmt, ...) {
     if (use_color)
         SetConsoleTextAttribute(con, (org_attributes & 0xfff0) |
                                 (color & 0x0f));
+#endif
 #else
     if (use_color < 0) {
         const char *const term = getenv("TERM");
@@ -272,7 +274,9 @@ static void color_printf(const int color, const char *const fmt, ...) {
 
     if (use_color) {
 #ifdef _WIN32
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
         SetConsoleTextAttribute(con, org_attributes);
+#endif
 #else
         fprintf(stderr, "\x1b[0m");
 #endif
@@ -443,6 +447,7 @@ checkasm_context checkasm_context_buf;
 /* Crash handling: attempt to catch crashes and handle them
  * gracefully instead of just aborting abruptly. */
 #ifdef _WIN32
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
 static LONG NTAPI signal_handler(EXCEPTION_POINTERS *const e) {
     if (!state.catch_signals)
         return EXCEPTION_CONTINUE_SEARCH;
@@ -472,6 +477,7 @@ static LONG NTAPI signal_handler(EXCEPTION_POINTERS *const e) {
     checkasm_load_context();
     return EXCEPTION_CONTINUE_EXECUTION; /* never reached, but shuts up gcc */
 }
+#endif
 #else
 static void signal_handler(const int s) {
     if (state.catch_signals) {
