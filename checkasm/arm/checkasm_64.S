@@ -60,6 +60,13 @@ error_message_stack:
 endconst
 
 
+#if defined(__BYTE_ORDER__ ) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define WORD_OFFS 4
+#else
+#define WORD_OFFS 0
+#endif
+
+
 // max number of args used by any asm function.
 #define MAX_ARGS 15
 
@@ -125,7 +132,7 @@ function checked_call, export=1
         // that were passed on the stack (if any), so we can only check after
         // that point. First figure out how many parameters the function
         // really took on the stack:
-        ldr             w2,  [x29, #16 + 8*8 + (MAX_ARGS-8)*8]
+        ldr             w2,  [x29, #16 + 8*8 + (MAX_ARGS-8)*8 + WORD_OFFS]
         // Load the first non-parameter value from the stack, that should be
         // left untouched by the function. Store a copy of it inverted, so that
         // e.g. overwriting everything with zero would be noticed.
@@ -143,7 +150,7 @@ function checked_call, export=1
         blr             x12
 
         // Load the number of stack parameters, stack canary and its reference
-        ldr             w2,  [x29, #16 + 8*8 + (MAX_ARGS-8)*8]
+        ldr             w2,  [x29, #16 + 8*8 + (MAX_ARGS-8)*8 + WORD_OFFS]
         ldr             x2,  [sp, x2, lsl #3]
         ldr             x3,  [sp, #ARG_STACK-8]
 
@@ -158,7 +165,7 @@ function checked_call, export=1
         movi            v3.8h,  #0
 
 .macro check_reg_neon reg1, reg2
-        ldr             q1,  [x9], #16
+        ld1             {v1.2d},  [x9], #16
         uzp1            v2.2d,  v\reg1\().2d, v\reg2\().2d
         eor             v1.16b, v1.16b, v2.16b
         orr             v3.16b, v3.16b, v1.16b
