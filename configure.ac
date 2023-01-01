@@ -279,9 +279,6 @@ AS_IF([test "x$enable_asm" != xno], [
                     [*darwin*], [
                         ASFLAGS="$ASFLAGS -f macho$BITTYPE -DPREFIX -DSTACK_ALIGNMENT=16"
                     ],
-                    [*linux*|*solaris*|*haiku*], [
-                        ASFLAGS="$ASFLAGS -f elf$BITTYPE -DSTACK_ALIGNMENT=16"
-                    ],
                     [*dragonfly*|*bsd*], [
                         ASFLAGS="$ASFLAGS -f elf$BITTYPE"
                     ],
@@ -290,6 +287,9 @@ AS_IF([test "x$enable_asm" != xno], [
                         AS_IF([test "x$BITS" = x32], [
                             ASFLAGS="$ASFLAGS -DPREFIX"
                         ])
+                    ],
+                    [*linux*|*solaris*|*haiku*|*-gnu*], [
+                        ASFLAGS="$ASFLAGS -f elf$BITTYPE -DSTACK_ALIGNMENT=16"
                     ],
                     [ # default
                         AC_MSG_ERROR(m4_text_wrap(m4_normalize([
