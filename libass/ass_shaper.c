@@ -1102,7 +1102,7 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
                 return NULL;
 
             last_break = i + 1;
-            if (shaper->whole_text_layout)
+            if (shaper->whole_text_layout && glyphs[i].symbol == '\n')
                 pdir++;
         }
     }
