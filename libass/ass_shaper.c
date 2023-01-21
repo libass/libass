@@ -97,10 +97,10 @@ void ass_shaper_info(ASS_Library *lib)
 }
 
 /**
- * \brief grow arrays, if needed
+ * \brief grow per-codepoint arrays, if needed
  * \param new_size requested size
  */
-static bool check_allocations(ASS_Shaper *shaper, size_t new_size, size_t n_pars)
+static bool check_codepoint_allocations(ASS_Shaper *shaper, size_t new_size)
 {
     if (new_size > shaper->n_codepoints) {
         if (!ASS_REALLOC_ARRAY(shaper->ctypes, new_size) ||
@@ -112,6 +112,15 @@ static bool check_allocations(ASS_Shaper *shaper, size_t new_size, size_t n_pars
             return false;
         shaper->n_codepoints = new_size;
     }
+    return true;
+}
+
+/**
+ * \brief grow per-bidi-paragraph arrays, if needed
+ * \param n_pars requested size
+ */
+static bool check_par_allocations(ASS_Shaper *shaper, size_t n_pars)
+{
     if (shaper->whole_text_layout && n_pars > shaper->n_pars) {
         if (!ASS_REALLOC_ARRAY(shaper->pbase_dir, n_pars))
             return false;
@@ -968,12 +977,7 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     GlyphInfo *glyphs = text_info->glyphs;
     shaper->event_text = text_info->event_text;
 
-    int n_pars = 1;
-    for (i = 0; i < text_info->length - 1; i++)
-        if (glyphs[i].symbol == '\n')
-            n_pars++;
-
-    if (!check_allocations(shaper, text_info->length, n_pars))
+    if (!check_codepoint_allocations(shaper, text_info->length))
         return false;
 
     for (i = 0; i < text_info->length; i++)
@@ -981,6 +985,14 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
 
     fribidi_get_bidi_types(shaper->event_text,
             text_info->length, shaper->ctypes);
+
+    int n_pars = 1;
+    for (i = 0; i < text_info->length - 1; i++)
+        if (shaper->ctypes[i] == FRIBIDI_TYPE_BS)
+            n_pars++;
+
+    if (!check_par_allocations(shaper, n_pars))
+        return false;
 
 #ifdef USE_FRIBIDI_EX_API
     if (shaper->bidi_brackets) {
@@ -994,7 +1006,8 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     pdir = shaper->pbase_dir;
     for (i = 0; i < text_info->length; i++) {
         // embedding levels should be calculated paragraph by paragraph
-        if (glyphs[i].symbol == '\n' || i == text_info->length - 1 ||
+        if (i == text_info->length - 1 ||
+                shaper->ctypes[i] == FRIBIDI_TYPE_BS ||
                 (!shaper->whole_text_layout &&
                     (glyphs[i + 1].starts_new_run || glyphs[i].hspacing))) {
             dir = shaper->base_direction;
@@ -1091,7 +1104,11 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
         shaper->pbase_dir : &shaper->base_direction;
     GlyphInfo *glyphs = text_info->glyphs;
     for (i = 0; i < text_info->length; i++) {
+        // Bidi "paragraph separators" may occur between line breaks:
+        // U+001C..1E even with ASS_FEATURE_WRAP_UNICODE,
+        // or U+000D, U+0085, U+2029 only without it
         if (i == text_info->length - 1 || glyphs[i + 1].linebreak ||
+                shaper->ctypes[i] == FRIBIDI_TYPE_BS ||
                 (!shaper->whole_text_layout &&
                     (glyphs[i + 1].starts_new_run || glyphs[i].hspacing))) {
             ret = fribidi_reorder_line(0,
@@ -1102,7 +1119,7 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
                 return NULL;
 
             last_break = i + 1;
-            if (shaper->whole_text_layout && glyphs[i].symbol == '\n')
+            if (shaper->whole_text_layout && shaper->ctypes[i] == FRIBIDI_TYPE_BS)
                 pdir++;
         }
     }
