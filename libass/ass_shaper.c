@@ -49,7 +49,7 @@ struct ass_shaper {
     ASS_ShapingLevel shaping_level;
 
     // FriBidi log2vis
-    int n_glyphs, n_pars;
+    int n_codepoints, n_pars;
     FriBidiChar *event_text; // just a reference, owned by text_info
     FriBidiCharType *ctypes;
     FriBidiLevel *emblevels;
@@ -102,7 +102,7 @@ void ass_shaper_info(ASS_Library *lib)
  */
 static bool check_allocations(ASS_Shaper *shaper, size_t new_size, size_t n_pars)
 {
-    if (new_size > shaper->n_glyphs) {
+    if (new_size > shaper->n_codepoints) {
         if (!ASS_REALLOC_ARRAY(shaper->ctypes, new_size) ||
 #ifdef USE_FRIBIDI_EX_API
             (shaper->bidi_brackets && !ASS_REALLOC_ARRAY(shaper->btypes, new_size)) ||
@@ -110,7 +110,7 @@ static bool check_allocations(ASS_Shaper *shaper, size_t new_size, size_t n_pars
             !ASS_REALLOC_ARRAY(shaper->emblevels, new_size) ||
             !ASS_REALLOC_ARRAY(shaper->cmap, new_size))
             return false;
-        shaper->n_glyphs = new_size;
+        shaper->n_codepoints = new_size;
     }
     if (shaper->whole_text_layout && n_pars > shaper->n_pars) {
         if (!ASS_REALLOC_ARRAY(shaper->pbase_dir, n_pars))
