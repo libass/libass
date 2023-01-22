@@ -36,6 +36,11 @@
 #include "ass_utils.h"
 #include "ass_shaper.h"
 
+#if FREETYPE_MAJOR == 2 && FREETYPE_MINOR < 6
+// The lowercase name is still included (as a macro) but deprecated as of 2.6, so avoid using it if we can
+#define FT_SFNT_OS2 ft_sfnt_os2
+#endif
+
 /**
  *  Get the mbcs codepoint from the output bytes of iconv/WideCharToMultiByte,
  *  by treating the bytes as a prefix-zero-byte-omitted big-endian integer.
@@ -262,7 +267,7 @@ static void set_font_metrics(FT_Face face)
     // Mimicking GDI's behavior for asc/desc/height.
     // These fields are (apparently) sometimes used for signed values,
     // despite being unsigned in the spec.
-    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
     if (os2 && ((short)os2->usWinAscent + (short)os2->usWinDescent != 0)) {
         face->ascender  =  (short)os2->usWinAscent;
         face->descender = -(short)os2->usWinDescent;
@@ -498,12 +503,7 @@ void ass_face_set_size(FT_Face face, double size)
  **/
 int ass_face_get_weight(FT_Face face)
 {
-#if FREETYPE_MAJOR > 2 || (FREETYPE_MAJOR == 2 && FREETYPE_MINOR >= 6)
     TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
-#else
-    // This old name is still included (as a macro), but deprecated as of 2.6, so avoid using it if we can
-    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
-#endif
     if (os2 && os2->version != 0xffff && os2->usWeightClass)
         return os2->usWeightClass;
     else
@@ -690,7 +690,7 @@ bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
         }
     }
     if (adv > 0 && (flags & DECO_STRIKETHROUGH)) {
-        TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
+        TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
         if (os2 && os2->yStrikeoutPosition >= 0 && os2->yStrikeoutSize > 0) {
             int64_t pos  = ((int64_t) os2->yStrikeoutPosition * y_scale + 0x8000) >> 16;
             int64_t size = ((int64_t) os2->yStrikeoutSize     * y_scale + 0x8000) >> 16;
@@ -719,7 +719,7 @@ bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
         goto fail;
 
     if (flags & DECO_ROTATE) {
-        TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
+        TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
         int64_t desc = 0;
         if (os2) {
             desc = ((int64_t) os2->sTypoDescender * y_scale + 0x8000) >> 16;
