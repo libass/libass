@@ -560,6 +560,21 @@ static void ass_glyph_embolden(FT_GlyphSlot slot)
 }
 
 /**
+ * Slightly italicize a glyph
+ */
+static void ass_glyph_italicize(FT_GlyphSlot slot)
+{
+    FT_Matrix xfrm = {
+        .xx = 0x10000L,
+        .yx = 0x00000L,
+        .xy = 0x05700L,
+        .yy = 0x10000L,
+    };
+
+    FT_Outline_Transform(&slot->outline, &xfrm);
+}
+
+/**
  * \brief Get glyph and face index
  * Finds a face that has the requested codepoint and returns both face
  * and glyph index.
@@ -662,7 +677,7 @@ bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
         return false;
     }
     if (!(face->style_flags & FT_STYLE_FLAG_ITALIC) && (font->desc.italic > 55))
-        FT_GlyphSlot_Oblique(face->glyph);
+        ass_glyph_italicize(face->glyph);
     if (font->desc.bold > ass_face_get_weight(face) + 150)
         ass_glyph_embolden(face->glyph);
     return true;
