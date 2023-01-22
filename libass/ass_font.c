@@ -504,10 +504,31 @@ void ass_face_set_size(FT_Face face, double size)
 int ass_face_get_weight(FT_Face face)
 {
     TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
-    if (os2 && os2->usWeightClass)
-        return os2->usWeightClass;
-    else
+    FT_UShort os2Weight = os2 ? os2->usWeightClass : 0;
+    switch (os2Weight) {
+    case 0:
         return 300 * !!(face->style_flags & FT_STYLE_FLAG_BOLD) + 400;
+    case 1:
+        return 100;
+    case 2:
+        return 200;
+    case 3:
+        return 300;
+    case 4:
+        return 350;
+    case 5:
+        return 400;
+    case 6:
+        return 600;
+    case 7:
+        return 700;
+    case 8:
+        return 800;
+    case 9:
+        return 900;
+    default:
+        return os2Weight;
+    }
 }
 
 /**
