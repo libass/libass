@@ -14,9 +14,20 @@ static bool NAME(FONT_TYPE)(FONT_TYPE *font,
     meta->weight = font->lpVtbl->GetWeight(font);
 
     DWRITE_FONT_STYLE style = font->lpVtbl->GetStyle(font);
-    meta->slant = (style == DWRITE_FONT_STYLE_NORMAL) ? FONT_SLANT_NONE :
-                 (style == DWRITE_FONT_STYLE_OBLIQUE)? FONT_SLANT_OBLIQUE :
-                 (style == DWRITE_FONT_STYLE_ITALIC) ? FONT_SLANT_ITALIC : FONT_SLANT_NONE;
+    meta->style_flags = style == DWRITE_FONT_STYLE_NORMAL ? 0 : FT_STYLE_FLAG_ITALIC;
+
+    const char* data;
+    UINT32 size;
+    void* context;
+    hr = font->lpVtbl->TryGetFontTable(font, DWRITE_MAKE_OPENTYPE_TAG('O', 'S', '/', '2'),
+                                       &data, &size, &context, &exists);
+    if (!FAILED(hr)) {
+        if (exists && size >= 64) {
+            uint16_t fsSelection = ((unsigned)data[62] << 8) | (unsigned)data[63];
+            meta->style_flags = ass_fsSelection_to_style_flags(fsSelection);
+        }
+        font->lpVtbl->ReleaseFontTable(font, context);
+    }
 
     IDWriteLocalizedStrings *psNames;
     hr = font->lpVtbl->GetInformationalStrings(font,
