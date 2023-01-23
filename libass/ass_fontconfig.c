@@ -109,7 +109,6 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
 
         // simple types
         result  = FcPatternGetInteger(pat, FC_SLANT, 0, &meta.slant);
-        result |= FcPatternGetInteger(pat, FC_WIDTH, 0, &meta.width);
         result |= FcPatternGetDouble(pat, FC_WEIGHT, 0, &weight);
         result |= FcPatternGetInteger(pat, FC_INDEX, 0, &index);
         if (result != FcResultMatch)

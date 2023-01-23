@@ -12,7 +12,6 @@ static bool NAME(FONT_TYPE)(FONT_TYPE *font,
     BOOL exists;
 
     meta->weight = font->lpVtbl->GetWeight(font);
-    meta->width = map_width(font->lpVtbl->GetStretch(font));
 
     DWRITE_FONT_STYLE style = font->lpVtbl->GetStyle(font);
     meta->slant = (style == DWRITE_FONT_STYLE_NORMAL) ? FONT_SLANT_NONE :
