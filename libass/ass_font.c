@@ -548,6 +548,29 @@ int ass_face_get_weight(FT_Face face)
     }
 }
 
+static FT_Long fsSelection_to_style_flags(uint16_t fsSelection)
+{
+    FT_Long ret = 0;
+
+    if (fsSelection & 1)
+        ret |= FT_STYLE_FLAG_ITALIC;
+    if (fsSelection & (1 << 5))
+        ret |= FT_STYLE_FLAG_BOLD;
+
+    return ret;
+}
+
+FT_Long ass_face_get_style_flags(FT_Face face)
+{
+    // If we have an OS/2 table, compute this ourselves, since FreeType
+    // will mix in some flags that GDI ignores.
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
+    if (os2)
+        return fsSelection_to_style_flags(os2->fsSelection);
+
+    return face->style_flags;
+}
+
 /**
  * \brief Get maximal font ascender and descender.
  **/
@@ -693,9 +716,12 @@ bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
                 index);
         return false;
     }
-    if (!(face->style_flags & FT_STYLE_FLAG_ITALIC) && (font->desc.italic > 55))
+
+    FT_Long style_flags = ass_face_get_style_flags(face);
+    if (!(style_flags & FT_STYLE_FLAG_ITALIC) && (font->desc.italic > 55))
         ass_glyph_italicize(face->glyph);
-    if (font->desc.bold > ass_face_get_weight(face) + 150)
+    if (!(style_flags & FT_STYLE_FLAG_BOLD) &&
+        font->desc.bold > ass_face_get_weight(face) + 150)
         ass_glyph_embolden(face->glyph);
     return true;
 }
