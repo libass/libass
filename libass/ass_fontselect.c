@@ -62,7 +62,6 @@ struct font_info {
 
     int slant;
     int weight;         // TrueType scale, 100-900
-    int width;
 
     // how to access this face
     char *path;            // absolute path
@@ -317,7 +316,6 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     // fill our struct
     info->slant  = slant;
     info->weight = weight;
-    info->width  = 100;     // FIXME, should probably query the OS/2 table
 
     info->postscript_name = (char *)FT_Get_Postscript_Name(face);
     info->is_postscript = !FT_Get_PS_Font_Info(face, &postscript_info);
@@ -391,7 +389,7 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
                            int index, void *data)
 {
     int i;
-    int weight, slant, width;
+    int weight, slant;
     ASS_FontSelector *selector = provider->parent;
     ASS_FontInfo *info = NULL;
     ASS_FontProviderMetaData implicit_meta = {0};
@@ -449,22 +447,18 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     printf("\n");
     printf("  slant: %d\n", meta->slant);
     printf("  weight: %d\n", meta->weight);
-    printf("  width: %d\n", meta->width);
     printf("  path: %s\n", path);
     printf("  index: %d\n", index);
 #endif
 
     weight = meta->weight;
     slant  = meta->slant;
-    width  = meta->width;
 
     // check slant/weight for validity, use defaults if they're invalid
     if (weight < 100 || weight > 900)
         weight = 400;
     if (slant < 0 || slant > 110)
         slant = 0;
-    if (width < 50 || width > 200)
-        width = 100;
 
     // check size
     if (selector->n_font >= selector->alloc_font) {
@@ -482,7 +476,6 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
 
     info->slant         = slant;
     info->weight        = weight;
-    info->width         = width;
     info->n_fullname    = meta->n_fullname;
     info->n_family      = meta->n_family;
     info->is_postscript = meta->is_postscript;
@@ -678,7 +671,6 @@ static unsigned font_attributes_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
     unsigned similarity = 0;
     similarity += ABS(a->weight - req->weight);
     similarity += ABS(a->slant - req->slant);
-    similarity += ABS(a->width - req->width);
 
     return similarity;
 }
@@ -701,7 +693,6 @@ static void font_info_dump(ASS_FontInfo *font_infos, size_t len)
         printf("\n");
         printf("  slant: %d\n", font_infos[i].slant);
         printf("  weight: %d\n", font_infos[i].weight);
-        printf("  width: %d\n", font_infos[i].width);
         printf("  path: %s\n", font_infos[i].path);
         printf("  index: %d\n", font_infos[i].index);
         printf("  score: %d\n", font_infos[i].score);
@@ -735,7 +726,6 @@ find_font(ASS_FontSelector *priv,
     // fill font request
     req.slant   = italic;
     req.weight  = bold;
-    req.width   = 100;
 
     // Match font family name against font list
     unsigned score_min = UINT_MAX;
