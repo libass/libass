@@ -1005,7 +1005,7 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     last_break = 0;
     pdir = shaper->pbase_dir;
     for (i = 0; i < text_info->length; i++) {
-        // embedding levels should be calculated paragraph by paragraph
+        // Embedding levels must be calculated one bidi "paragraph" at a time
         if (i == text_info->length - 1 ||
                 shaper->ctypes[i] == FRIBIDI_TYPE_BS ||
                 (!shaper->whole_text_layout &&
