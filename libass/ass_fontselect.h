@@ -208,8 +208,6 @@ struct ass_font_provider_meta_data {
     int slant;          // Font slant value from FONT_SLANT_*
     int weight;         // Font weight in TrueType scale, 100-900
                         // See FONT_WEIGHT_*
-    int width;          // Font weight in percent, normally 100
-                        // See FONT_WIDTH_*
 
     /**
      * Whether the font contains PostScript outlines.
