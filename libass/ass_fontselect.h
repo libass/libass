@@ -205,7 +205,7 @@ struct ass_font_provider_meta_data {
     int n_family;       // Number of localized family names
     int n_fullname;     // Number of localized full names
 
-    int slant;          // Font slant value from FONT_SLANT_*
+    FT_Long style_flags; // Computed from OS/2 table, or equivalent
     int weight;         // Font weight in TrueType scale, 100-900
                         // See FONT_WEIGHT_*
 
