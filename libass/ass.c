@@ -366,9 +366,11 @@ static int parse_ycbcr_matrix(char *str)
     return YCBCR_UNKNOWN;
 }
 
-#define NEXT(str,token) \
-    token = next_token(&str); \
+#define NEXT(str,token,rtrim) \
+    token = next_token(&str, rtrim); \
     if (!token) break;
+#define NEXTNAME(str,token) NEXT(str, token, true)
+#define NEXTVAL(str,token) NEXT(str, token, false)
 
 
 #define ALIAS(alias,name) \
@@ -428,10 +430,9 @@ static inline void advance_token_pos(const char **const str,
     *end   = *start;
     while (**end != '\0' && **end != ',') ++*end;
     *str = *end + (**end == ',');
-    rskip_spaces((char**)end, (char*)*start);
 }
 
-static char *next_token(char **str)
+static char *next_token(char **str, bool rtrim)
 {
     char *p;
     char *start;
@@ -444,6 +445,8 @@ static char *next_token(char **str)
                       (const char**)&start,
                       (const char**)&p);
 
+    if (rtrim)
+        rskip_spaces(&p, start);
     *p = '\0';
     return start;
 }
@@ -470,11 +473,11 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
     char *q = format;           // format scanning pointer
 
     for (i = 0; i < n_ignored; ++i) {
-        NEXT(q, tname);
+        NEXTVAL(q, tname);
     }
 
     while (1) {
-        NEXT(q, tname);
+        NEXTNAME(q, tname);
         if (ass_strcasecmp(tname, "Text") == 0) {
             event->Text = strdup(p);
             if (event->Text && *event->Text != 0) {
@@ -487,7 +490,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
             free(format);
             return event->Text ? 0 : -1;           // "Text" is always the last
         }
-        NEXT(p, token);
+        NEXTVAL(p, token);
 
         ALIAS(End, Duration)    // temporarily store end timecode in event->Duration
         ALIAS(Actor, Name)      // both variants are used in files
@@ -659,8 +662,8 @@ static int process_style(ASS_Track *track, char *str)
     int32_t ssa_alpha = 0;
 
     while (1) {
-        NEXT(q, tname);
-        NEXT(p, token);
+        NEXTNAME(q, tname);
+        NEXTVAL(p, token);
 
         PARSE_START
             STARREDSTRVAL(Name)
@@ -750,6 +753,8 @@ static bool format_line_compare(const char *fmt1, const char *fmt2)
 
         advance_token_pos(&fmt1, &tk1_start, &tk1_end);
         advance_token_pos(&fmt2, &tk2_start, &tk2_end);
+        rskip_spaces((char**)&tk1_end, (char*)tk1_start);
+        rskip_spaces((char**)&tk2_end, (char*)tk2_start);
 
         TOKEN_ALIAS(Name, Actor)
         if ((tk1_end-tk1_start) != (tk2_end-tk2_start))
@@ -1302,12 +1307,12 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
     p = str;
 
     do {
-        NEXT(p, token);
+        NEXTVAL(p, token);
         event->ReadOrder = atoi(token);
         if (check_readorder && check_duplicate_event(track, event->ReadOrder))
             break;
 
-        NEXT(p, token);
+        NEXTVAL(p, token);
         event->Layer = parse_int_header(token);
 
         if (process_event_tail(track, event, p, 3))
