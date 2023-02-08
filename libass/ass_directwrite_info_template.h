@@ -29,7 +29,7 @@ static bool NAME(FONT_TYPE)(FONT_TYPE *font,
     IDWriteLocalizedStrings *familyNames;
     hr = font->lpVtbl->GetInformationalStrings(font,
             DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES, &familyNames, &exists);
-    if (!FAILED(hr) && !exists) {
+    if (SUCCEEDED(hr) && !exists) {
 #ifdef FAMILY_AS_ARG
         hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &familyNames);
 #else
