@@ -568,7 +568,15 @@ static char *get_fallback(void *priv, ASS_Library *lib,
     hr = IDWriteFont_GetInformationalStrings(font,
             DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES,
             &familyNames, &exists);
-    if (FAILED(hr) || !exists) {
+    if (SUCCEEDED(hr) && !exists) {
+        IDWriteFontFamily *fontFamily = NULL;
+        hr = IDWriteFont_GetFontFamily(font, &fontFamily);
+        if (SUCCEEDED(hr)) {
+            hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &familyNames);
+            IDWriteFontFamily_Release(fontFamily);
+        }
+    }
+    if (FAILED(hr)) {
         IDWriteFont_Release(font);
         return NULL;
     }
