@@ -580,23 +580,6 @@ static char *get_fallback(void *priv, ASS_Library *lib,
     return family;
 }
 
-static int map_width(enum DWRITE_FONT_STRETCH stretch)
-{
-    switch (stretch) {
-    case DWRITE_FONT_STRETCH_ULTRA_CONDENSED: return 50;
-    case DWRITE_FONT_STRETCH_EXTRA_CONDENSED: return 63;
-    case DWRITE_FONT_STRETCH_CONDENSED:       return FONT_WIDTH_CONDENSED;
-    case DWRITE_FONT_STRETCH_SEMI_CONDENSED:  return 88;
-    case DWRITE_FONT_STRETCH_MEDIUM:          return FONT_WIDTH_NORMAL;
-    case DWRITE_FONT_STRETCH_SEMI_EXPANDED:   return 113;
-    case DWRITE_FONT_STRETCH_EXPANDED:        return FONT_WIDTH_EXPANDED;
-    case DWRITE_FONT_STRETCH_EXTRA_EXPANDED:  return 150;
-    case DWRITE_FONT_STRETCH_ULTRA_EXPANDED:  return 200;
-    default:
-        return FONT_WIDTH_NORMAL;
-    }
-}
-
 #define FONT_TYPE IDWriteFontFace3
 #include "ass_directwrite_info_template.h"
 #undef FONT_TYPE
