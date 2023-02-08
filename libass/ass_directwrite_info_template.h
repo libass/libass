@@ -31,7 +31,14 @@ static bool NAME(FONT_TYPE)(FONT_TYPE *font,
             DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES, &familyNames, &exists);
     if (SUCCEEDED(hr) && !exists) {
 #ifdef FAMILY_AS_ARG
-        hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &familyNames);
+        if (fontFamily)
+            hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &familyNames);
+        else {
+            hr = font->lpVtbl->GetFontFamily(font, &fontFamily);
+            if (SUCCEEDED(hr))
+                hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &familyNames);
+            IDWriteFontFamily_Release(fontFamily);
+        }
 #else
         hr = font->lpVtbl->GetFamilyNames(font, &familyNames);
 #endif
