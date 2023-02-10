@@ -113,7 +113,7 @@ typedef struct {
     BitmapRef *bitmaps;
 
     int x, y;
-    Bitmap *bm, *bm_o, *bm_s;   // glyphs, outline, shadow bitmaps
+    Bitmap *bm, *bm_o, *bm_o_k, *bm_s;   // glyphs, outline, shadow bitmaps
     CompositeHashValue *image;
 } CombinedBitmapInfo;
 

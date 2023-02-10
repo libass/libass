@@ -156,6 +156,7 @@ static void composite_destruct(void *key, void *value)
     CompositeHashKey *k = key;
     ass_free_bitmap(&v->bm);
     ass_free_bitmap(&v->bm_o);
+    ass_free_bitmap(&v->bm_o_k);
     ass_free_bitmap(&v->bm_s);
     for (size_t i = 0; i < k->bitmap_count; i++) {
         ass_cache_dec_ref(k->bitmaps[i].bm);

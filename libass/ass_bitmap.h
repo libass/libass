@@ -49,6 +49,6 @@ void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
 
 bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2x, double r2y);
 void ass_shift_bitmap(Bitmap *bm, int shift_x, int shift_y);
-void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o);
+void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o, uint8_t alpha_g);
 
 #endif                          /* LIBASS_BITMAP_H */

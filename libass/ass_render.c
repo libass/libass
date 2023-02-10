@@ -830,6 +830,15 @@ static ASS_Image *render_text(RenderContext *state)
         if ((info->effect_type == EF_KARAOKE_KO)
                 && (info->effect_timing <= 0)) {
             // do nothing
+        } else if ((info->effect_type == EF_KARAOKE_KF) && info->bm_o_k) {
+            tail =
+                render_glyph(state, info->bm_o, info->x, info->y,
+                             info->c[2], 0x000000FF, info->effect_timing, tail,
+                             IMAGE_TYPE_OUTLINE, info->image);
+            tail =
+                render_glyph(state, info->bm_o_k, info->x, info->y,
+                             0x000000FF, info->c[2], info->effect_timing, tail,
+                             IMAGE_TYPE_OUTLINE, info->image);
         } else {
             tail =
                 render_glyph(state, info->bm_o, info->x, info->y, info->c[2],
@@ -2536,6 +2545,15 @@ static void render_and_combine_glyphs(RenderContext *state,
                 filter->flags = flags;
                 filter->be = info->be;
 
+                if (flags & FILTER_FILL_IN_BORDER) {
+                    // Alpha doesn't matter, so set it to a constant
+                    // to avoid unnecessarily splitting the cache
+                    filter->alpha_primary = filter->alpha_secondary = 0;
+                } else {
+                    filter->alpha_primary = _a(info->c[0]);
+                    filter->alpha_secondary = _a(info->c[1]);
+                }
+
                 int32_t shadow_mask_x, shadow_mask_y;
                 double blur_radius_scale = 2 / sqrt(log(256));
                 double blur_scale_x = state->blur_scale_x * blur_radius_scale;
@@ -2551,7 +2569,7 @@ static void render_and_combine_glyphs(RenderContext *state,
                     filter->shadow.x = filter->shadow.y = 0;
 
                 current_info->x = current_info->y = INT_MAX;
-                current_info->bm = current_info->bm_o = current_info->bm_s = NULL;
+                current_info->bm = current_info->bm_o = current_info->bm_o_k = current_info->bm_s = NULL;
                 current_info->image = NULL;
 
                 current_info->bitmap_count = current_info->max_bitmap_count = 0;
@@ -2609,6 +2627,13 @@ static void render_and_combine_glyphs(RenderContext *state,
         if (info->effect_type == EF_KARAOKE_KF)
             info->effect_timing = lround(d6_to_double(info->leftmost_x) +
                 d6_to_double(info->effect_timing) * render_priv->par_scale_x);
+        else if (info->effect_type == EF_NONE || info->effect_timing > 0)
+            // Set both alphas to the same value even for EF_KARAOKE
+            // or EF_KARAOKE_KO in hopes of avoiding many unnecessary
+            // re-renders in case the other alpha is being animated.
+            info->filter.alpha_secondary = info->filter.alpha_primary;
+        else
+            info->filter.alpha_primary = info->filter.alpha_secondary;
 
         for (int j = 0; j < info->bitmap_count; j++) {
             info->bitmaps[j].pos.x -= info->x;
@@ -2629,6 +2654,8 @@ static void render_and_combine_glyphs(RenderContext *state,
             info->bm = &val->bm;
         if (val->bm_o.buffer)
             info->bm_o = &val->bm_o;
+        if (val->bm_o_k.buffer)
+            info->bm_o_k = &val->bm_o_k;
         if (val->bm_s.buffer)
             info->bm_s = &val->bm_s;
         info->image = val;
@@ -2759,14 +2786,25 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
         ass_synth_blur(&render_priv->engine, &v->bm, k->filter.be, r2x, r2y);
     ass_synth_blur(&render_priv->engine, &v->bm_o, k->filter.be, r2x, r2y);
 
-    if (!(flags & FILTER_FILL_IN_BORDER) && !(flags & FILTER_FILL_IN_SHADOW))
-        ass_fix_outline(&v->bm, &v->bm_o);
+    Bitmap *bm_s_source = &v->bm_o;
+    bool share_fix_outline =
+        !(flags & FILTER_FILL_IN_BORDER) && !(flags & FILTER_FILL_IN_SHADOW) &&
+        (k->filter.alpha_primary == 0xFF || k->filter.alpha_secondary == 0xFF);
+    if (share_fix_outline) {
+        if (k->filter.alpha_primary != k->filter.alpha_secondary) {
+            ass_copy_bitmap(&render_priv->engine, &v->bm_o_k, &v->bm_o);
+            ass_fix_outline(&v->bm, &v->bm_o_k, k->filter.alpha_secondary);
+            if (k->filter.alpha_primary != 0xFF)
+                bm_s_source = &v->bm_o_k;
+        }
+        ass_fix_outline(&v->bm, &v->bm_o, k->filter.alpha_primary);
+    }
 
     if (flags & FILTER_NONZERO_SHADOW) {
         if (flags & FILTER_NONZERO_BORDER) {
-            ass_copy_bitmap(&render_priv->engine, &v->bm_s, &v->bm_o);
-            if ((flags & FILTER_FILL_IN_BORDER) && !(flags & FILTER_FILL_IN_SHADOW))
-                ass_fix_outline(&v->bm, &v->bm_s);
+            ass_copy_bitmap(&render_priv->engine, &v->bm_s, bm_s_source);
+            if (!(flags & FILTER_FILL_IN_SHADOW) && !share_fix_outline)
+                ass_fix_outline(&v->bm, &v->bm_s, 0xFF);
         } else if (flags & FILTER_BORDER_STYLE_3) {
             v->bm_s = v->bm_o;
             memset(&v->bm_o, 0, sizeof(v->bm_o));
@@ -2781,11 +2819,16 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
         ass_shift_bitmap(&v->bm_s, k->filter.shadow.x & SUBPIXEL_MASK, k->filter.shadow.y & SUBPIXEL_MASK);
     }
 
-    if ((flags & FILTER_FILL_IN_SHADOW) && !(flags & FILTER_FILL_IN_BORDER))
-        ass_fix_outline(&v->bm, &v->bm_o);
+    if (!(flags & FILTER_FILL_IN_BORDER) && !share_fix_outline) {
+        if (k->filter.alpha_primary != k->filter.alpha_secondary) {
+            ass_copy_bitmap(&render_priv->engine, &v->bm_o_k, &v->bm_o);
+            ass_fix_outline(&v->bm, &v->bm_o_k, k->filter.alpha_secondary);
+        }
+        ass_fix_outline(&v->bm, &v->bm_o, k->filter.alpha_primary);
+    }
 
     return sizeof(CompositeHashKey) + sizeof(CompositeHashValue) +
-        bitmap_size(&v->bm) + bitmap_size(&v->bm_o) + bitmap_size(&v->bm_s);
+        bitmap_size(&v->bm) + bitmap_size(&v->bm_o) + bitmap_size(&v->bm_o_k) + bitmap_size(&v->bm_s);
 }
 
 static void add_background(RenderContext *state, EventImages *event_images)
