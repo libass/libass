@@ -38,6 +38,7 @@ if cc.get_argument_syntax() == 'gcc'
         '-Wpointer-arith',
         '-Wredundant-decls',
         '-Wno-missing-field-initializers',
+        '-Watomic-implicit-seq-cst',
     ]
 endif
 

@@ -13,10 +13,10 @@ AM_PROG_CC_C_O
 AM_PROG_AS
 
 # Checks for header files.
-AC_CHECK_HEADERS_ONCE([iconv.h stdatomic.h windows.h])
+AC_CHECK_HEADERS_ONCE([iconv.h sched.h stdatomic.h unistd.h windows.h])
 
 # Checks for library functions.
-AC_CHECK_FUNCS([strdup strndup])
+AC_CHECK_FUNCS([sched_getaffinity strdup strndup])
 
 # Query configuration parameters and set their description
 AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
@@ -61,7 +61,7 @@ AX_APPEND_COMPILE_FLAGS([-fno-math-errno])
 AX_APPEND_COMPILE_FLAGS([ \
     -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes \
     -Wpointer-arith -Werror-implicit-function-declaration -Wredundant-decls \
-    -Wno-missing-field-initializers \
+    -Wno-missing-field-initializers -Watomic-implicit-seq-cst \
 ])
 
 # Checks for available libraries and define corresponding C Macros
