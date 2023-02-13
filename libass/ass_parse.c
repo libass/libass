@@ -1022,7 +1022,7 @@ void ass_apply_transition_effects(RenderContext *state)
  */
 void ass_process_karaoke_effects(RenderContext *state)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     long long tm_current = state->renderer->time - state->event->Start;
 
     int32_t timing = 0, skip_timing = 0;
