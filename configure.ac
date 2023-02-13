@@ -13,10 +13,10 @@ AM_PROG_CC_C_O
 AM_PROG_AS
 
 # Checks for header files.
-AC_CHECK_HEADERS_ONCE([iconv.h stdatomic.h windows.h])
+AC_CHECK_HEADERS_ONCE([iconv.h sched.h stdatomic.h unistd.h windows.h])
 
 # Checks for library functions.
-AC_CHECK_FUNCS([strdup strndup])
+AC_CHECK_FUNCS([sched_getaffinity strdup strndup])
 
 # Query configuration parameters and set their description
 AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
