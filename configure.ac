@@ -66,6 +66,7 @@ AX_APPEND_COMPILE_FLAGS([ \
     -Wno-missing-field-initializers \
     dnl clang-specific, gcc currently has no fine-grained toggle for this, only -Wpedantic
     -Wformat-non-iso -Werror=format-non-iso \
+    -Watomic-implicit-seq-cst \
 ])
 
 # Checks for available libraries and define corresponding C Macros

@@ -42,6 +42,7 @@ if cc.get_argument_syntax() == 'gcc'
         '-Wno-missing-field-initializers',
         '-Wformat-non-iso',
         '-Werror=format-non-iso',
+        '-Watomic-implicit-seq-cst',
     ]
 elif cc.get_id() == 'msvc'
     cc_warnings += [
