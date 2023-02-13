@@ -127,13 +127,12 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->cache.bitmap_max_size = BITMAP_CACHE_MAX_SIZE;
     priv->cache.composite_max_size = COMPOSITE_CACHE_MAX_SIZE;
 
-    if (!text_info_init(&priv->text_info))
+    if (!text_info_init(&priv->state.text_info))
         goto fail;
 
     priv->user_override_style.Name = "OverrideStyle"; // name insignificant
 
     priv->state.renderer = priv;
-    priv->state.text_info = &priv->text_info;
 
     priv->settings.font_size_coeff = 1.;
     priv->settings.selective_style_overrides = ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE;
@@ -178,7 +177,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
         FT_Done_FreeType(render_priv->ftlibrary);
     free(render_priv->eimg);
 
-    text_info_done(&render_priv->text_info);
+    text_info_done(&render_priv->state.text_info);
 
     free(render_priv->settings.default_font);
     free(render_priv->settings.default_family);
@@ -809,8 +808,8 @@ static ASS_Image *render_text(RenderContext *state)
 {
     ASS_Image *head;
     ASS_Image **tail = &head;
-    unsigned n_bitmaps = state->text_info->n_bitmaps;
-    CombinedBitmapInfo *bitmaps = state->text_info->combined_bitmaps;
+    unsigned n_bitmaps = state->text_info.n_bitmaps;
+    CombinedBitmapInfo *bitmaps = state->text_info.combined_bitmaps;
 
     for (unsigned i = 0; i < n_bitmaps; i++) {
         CombinedBitmapInfo *info = &bitmaps[i];
@@ -1149,9 +1148,7 @@ static void free_render_context(RenderContext *state)
     state->family.len = 0;
     state->clip_drawing_text.str = NULL;
     state->clip_drawing_text.len = 0;
-
-    if (state->text_info)
-        state->text_info->length = 0;
+    state->text_info.length = 0;
 }
 
 /**
@@ -1574,7 +1571,7 @@ static void measure_text_on_eol(RenderContext *state, double scale, int cur_line
                                 int max_asc, int max_desc,
                                 double max_border_x, double max_border_y)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     text_info->lines[cur_line].asc  = scale * max_asc;
     text_info->lines[cur_line].desc = scale * max_desc;
     text_info->height += scale * max_asc + scale * max_desc;
@@ -1602,7 +1599,7 @@ static void measure_text_on_eol(RenderContext *state, double scale, int cur_line
 static void measure_text(RenderContext *state)
 {
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     text_info->height = 0;
     text_info->border_x = 0;
 
@@ -1655,7 +1652,7 @@ static void trim_whitespace(RenderContext *state)
 {
     int i, j;
     GlyphInfo *cur;
-    TextInfo *ti = state->text_info;
+    TextInfo *ti = &state->text_info;
 
     // Mark trailing spaces
     i = ti->length - 1;
@@ -1726,7 +1723,7 @@ static void
 wrap_lines_naive(RenderContext *state, double max_text_width, char *unibrks)
 {
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     GlyphInfo *s1  = text_info->glyphs; // current line start
     int last_breakable = -1;
     int break_type = 0;
@@ -1806,7 +1803,7 @@ static inline GlyphInfo *rewind_trailing_spaces(GlyphInfo *start1, GlyphInfo* st
 static void
 wrap_lines_rebalance(RenderContext *state, double max_text_width, char *unibrks)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     int exit = 0;
 
 #define DIFF(x,y) (((x) < (y)) ? (y - x) : (x - y))
@@ -1875,7 +1872,7 @@ wrap_lines_rebalance(RenderContext *state, double max_text_width, char *unibrks)
 static void
 wrap_lines_measure(RenderContext *state, char *unibrks)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     int cur_line = 1;
     int i = 0;
 
@@ -1927,7 +1924,7 @@ wrap_lines_smart(RenderContext *state, double max_text_width)
 
 #ifdef CONFIG_UNIBREAK
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     if (render_priv->track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_WRAP_UNICODE)) {
         unibrks = text_info->breaks;
         set_linebreaks_utf32(
@@ -2027,7 +2024,7 @@ fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
 // Initial run splitting based purely on the characters' styles
 static void split_style_runs(RenderContext *state)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     Effect last_effect_type = text_info->glyphs[0].effect_type;
     text_info->glyphs[0].starts_new_run = true;
     for (int i = 1; i < text_info->length; i++) {
@@ -2073,7 +2070,7 @@ static void split_style_runs(RenderContext *state)
 // Fill render_priv->text_info.
 static bool parse_events(RenderContext *state, ASS_Event *event)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     ASS_Renderer *render_priv = state->renderer;
 
     char *p = event->Text, *q;
@@ -2208,10 +2205,10 @@ fail:
 // Process render_priv->text_info and load glyph outlines.
 static void retrieve_glyphs(RenderContext *state)
 {
-    GlyphInfo *glyphs = state->text_info->glyphs;
+    GlyphInfo *glyphs = state->text_info.glyphs;
     int i;
 
-    for (i = 0; i < state->text_info->length; i++) {
+    for (i = 0; i < state->text_info.length; i++) {
         GlyphInfo *info = glyphs + i;
         do {
             get_outline_glyph(state, info);
@@ -2239,8 +2236,8 @@ static void retrieve_glyphs(RenderContext *state)
 static void preliminary_layout(RenderContext *state)
 {
     ASS_Vector pen = { 0, 0 };
-    for (int i = 0; i < state->text_info->length; i++) {
-        GlyphInfo *info = state->text_info->glyphs + i;
+    for (int i = 0; i < state->text_info.length; i++) {
+        GlyphInfo *info = state->text_info.glyphs + i;
         ASS_Vector cluster_pen = pen;
         do {
             info->pos.x = cluster_pen.x;
@@ -2251,7 +2248,7 @@ static void preliminary_layout(RenderContext *state)
 
             info = info->next;
         } while (info);
-        info = state->text_info->glyphs + i;
+        info = state->text_info.glyphs + i;
         pen.x += info->cluster_advance.x;
         pen.y += info->cluster_advance.y;
     }
@@ -2261,7 +2258,7 @@ static void preliminary_layout(RenderContext *state)
 static void reorder_text(RenderContext *state)
 {
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     FriBidiStrIndex *cmap = ass_shaper_reorder(state->shaper, text_info);
     if (!cmap) {
         ass_msg(render_priv->library, MSGL_ERR, "Failed to reorder text");
@@ -2300,7 +2297,7 @@ static void reorder_text(RenderContext *state)
 static void apply_baseline_shear(RenderContext *state)
 {
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     FriBidiStrIndex *cmap = ass_shaper_get_reorder_map(state->shaper);
     int32_t shear = 0;
     bool whole_text_layout =
@@ -2323,7 +2320,7 @@ static void apply_baseline_shear(RenderContext *state)
 
 static void align_lines(RenderContext *state, double max_text_width)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     GlyphInfo *glyphs = text_info->glyphs;
     int i, j;
     double width = 0;
@@ -2407,7 +2404,7 @@ static void calculate_rotation_params(RenderContext *state, ASS_DRect *bbox,
         center.y = device_y + by;
     }
 
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + i;
         while (info) {
@@ -2475,7 +2472,7 @@ static void render_and_combine_glyphs(RenderContext *state,
                                       double device_x, double device_y)
 {
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     int left = render_priv->settings.left_margin;
     device_x = (device_x - left) * render_priv->par_scale_x + left;
     unsigned nb_bitmaps = 0;
@@ -2845,7 +2842,7 @@ ass_render_event(RenderContext *state, ASS_Event *event,
     if (!parse_events(state, event))
         return false;
 
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     if (text_info->length == 0) {
         // no valid symbols in the event; this can be smth like {comment}
         free_render_context(state);
