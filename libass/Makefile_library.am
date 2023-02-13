@@ -13,7 +13,7 @@ lib_LTLIBRARIES += libass/libass.la
 libass_libass_la_SOURCES = \
     libass/ass_utils.h libass/ass_utils.c \
     libass/ass_string.h libass/ass_string.c \
-    libass/ass_compat.h libass/ass_strtod.c \
+    libass/ass_compat.h  libass/ass_threading.h libass/ass_strtod.c \
     libass/ass_filesystem.h libass/ass_filesystem.c \
     libass/ass_types.h libass/ass.h libass/ass_priv.h libass/ass.c \
     libass/ass_library.h libass/ass_library.c \
