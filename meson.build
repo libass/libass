@@ -4,7 +4,7 @@ project(
     license: 'ISC',
     meson_version: '>= 0.64.0',
     default_options: [
-        'c_std=gnu99',
+        'c_std=' + ((meson.version().version_compare('>= 1.3.0') and not meson.version().endswith('.99')) ? 'gnu11,gnu99,c11,c99' : 'gnu99'),
         'buildtype=debugoptimized',
         'warning_level=2',
         'default_library=static',
