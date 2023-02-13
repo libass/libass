@@ -42,6 +42,7 @@ if cc.get_argument_syntax() == 'gcc'
         '-Wno-missing-field-initializers',
         '-Wformat-non-iso',
         '-Werror=format-non-iso',
+        '-Watomic-implicit-seq-cst',
     ]
 endif
 
@@ -52,15 +53,20 @@ add_project_arguments(
 
 # Configuration
 
-str_check_functions = ['strdup', 'strndup']
+check_functions = {
+  'string.h': ['strdup', 'strndup'],
+  'sched.h': ['sched_getaffinity'],
+}
 
-foreach name : str_check_functions
-    if (
-        cc.has_function(name)
-        and cc.has_header_symbol('string.h', name, args: cc_features)
-    )
-        conf.set('HAVE_@0@'.format(name.to_upper()), 1)
-    endif
+foreach header, functions : check_functions
+    foreach func : functions
+        if (
+            cc.has_function(func)
+            and cc.has_header_symbol(header, func, args: cc_features)
+        )
+            conf.set('HAVE_@0@'.format(func.to_upper()), 1)
+        endif
+    endforeach
 endforeach
 
 if (
@@ -78,6 +84,12 @@ endif
 have_stdatomic = cc.check_header('stdatomic.h')
 if have_stdatomic
     conf.set('HAVE_STDATOMIC_H', 1)
+endif
+if cc.check_header('unistd.h')
+    conf.set('HAVE_UNISTD_H', 1)
+endif
+if cc.check_header('sched.h')
+    conf.set('HAVE_SCHED_H', 1)
 endif
 
 # Dependencies
