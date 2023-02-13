@@ -76,6 +76,29 @@ static void text_info_done(TextInfo* text_info)
     free(text_info->combined_bitmaps);
 }
 
+static bool setup_render_context(RenderContext *state, ASS_Renderer *priv)
+{
+    state->renderer = priv;
+
+    if (!text_info_init(&state->text_info))
+        return false;
+
+    if (!(state->shaper = ass_shaper_new(priv->cache.metrics_cache)))
+        return false;
+
+    return ass_rasterizer_init(&priv->engine, &state->rasterizer, RASTERIZER_PRECISION);
+}
+
+static void render_context_done(RenderContext *state)
+{
+    ass_rasterizer_done(&state->rasterizer);
+
+    if (state->shaper)
+        ass_shaper_free(state->shaper);
+
+    text_info_done(&state->text_info);
+}
+
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
 {
     int error;
@@ -112,9 +135,6 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 #endif
     priv->engine = ass_bitmap_engine_init(flags);
 
-    if (!ass_rasterizer_init(&priv->engine, &priv->state.rasterizer, RASTERIZER_PRECISION))
-        goto fail;
-
     priv->cache.font_cache = ass_font_cache_create();
     priv->cache.bitmap_cache = ass_bitmap_cache_create();
     priv->cache.composite_cache = ass_composite_cache_create();
@@ -127,18 +147,13 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->cache.bitmap_max_size = BITMAP_CACHE_MAX_SIZE;
     priv->cache.composite_max_size = COMPOSITE_CACHE_MAX_SIZE;
 
-    if (!text_info_init(&priv->state.text_info))
+    if (!setup_render_context(&priv->state, priv))
         goto fail;
 
     priv->user_override_style.Name = "OverrideStyle"; // name insignificant
 
-    priv->state.renderer = priv;
-
     priv->settings.font_size_coeff = 1.;
     priv->settings.selective_style_overrides = ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE;
-
-    if (!(priv->state.shaper = ass_shaper_new(priv->cache.metrics_cache)))
-        goto fail;
 
     ass_shaper_info(library);
     priv->settings.shaper = ASS_SHAPING_COMPLEX;
@@ -166,10 +181,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     ass_cache_done(render_priv->cache.bitmap_cache);
     ass_cache_done(render_priv->cache.outline_cache);
     ass_cache_done(render_priv->cache.metrics_cache);
-    ass_shaper_free(render_priv->state.shaper);
     ass_cache_done(render_priv->cache.font_cache);
-
-    ass_rasterizer_done(&render_priv->state.rasterizer);
 
     if (render_priv->fontselect)
         ass_fontselect_free(render_priv->fontselect);
@@ -177,7 +189,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
         FT_Done_FreeType(render_priv->ftlibrary);
     free(render_priv->eimg);
 
-    text_info_done(&render_priv->state.text_info);
+    render_context_done(&render_priv->state);
 
     free(render_priv->settings.default_font);
     free(render_priv->settings.default_family);
