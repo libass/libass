@@ -115,10 +115,8 @@ jobs:
           case "${{ matrix.docker_image || matrix.os }}" in
             macos-*)
               #brew update
-              # fontconfig, freetype, autoconf and libtool are preinstalled
-              # and `brew install` fails if a non-uptodate version is already installed
-              #brew upgrade fontconfig freetype autoconf libtool
-              brew install automake fribidi harfbuzz nasm
+              brew install autoconf automake libtool nasm \
+                           harfbuzz freetype fribidi fontconfig
               ;;
             windows-*)
               pre="$MINGW_PACKAGE_PREFIX"
