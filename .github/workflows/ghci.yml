@@ -115,7 +115,7 @@ jobs:
           case "${{ matrix.docker_image || matrix.os }}" in
             macos-*)
               #brew update
-              brew install autoconf automake libtool nasm \
+              brew install autoconf automake libtool nasm pkg-config \
                            harfbuzz freetype fribidi fontconfig
               ;;
             windows-*)
