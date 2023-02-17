@@ -44,11 +44,11 @@ struct render_context;
 bool ass_outline_to_bitmap(struct render_context *state, Bitmap *bm,
                            ASS_Outline *outline1, ASS_Outline *outline2);
 
-void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
+bool ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
                     int be, double blur_r2x, double blur_r2y);
 
 bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2x, double r2y);
 void ass_shift_bitmap(Bitmap *bm, int shift_x, int shift_y);
-void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o);
+void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o, uint8_t alpha_g, bool blurred);
 
 #endif                          /* LIBASS_BITMAP_H */
