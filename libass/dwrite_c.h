@@ -185,6 +185,12 @@ typedef struct DWRITE_UNDERLINE DWRITE_UNDERLINE;
 #endif
 #endif
 
+#define DWRITE_MAKE_OPENTYPE_TAG(a,b,c,d) ( \
+    ((UINT32)(UINT8)(d) << 24) | \
+    ((UINT32)(UINT8)(c) << 16) | \
+    ((UINT32)(UINT8)(b) <<  8) | \
+     (UINT32)(UINT8)(a))
+
 #undef  INTERFACE
 #define INTERFACE IDWriteFactory
 DECLARE_INTERFACE_(IDWriteFactory,IUnknown)
