@@ -479,6 +479,16 @@ DECLARE_INTERFACE_(IDWriteFontFace,IUnknown)
         UINT32 codePointCount,
         UINT16 *glyphIndices) PURE;
 
+    STDMETHOD(TryGetFontTable)(THIS_
+        UINT32 openTypeTableTag,
+        const void **tableData,
+        UINT32 *tableSize,
+        void **tableContext,
+        WINBOOL *exists) PURE;
+
+    STDMETHOD_(void, ReleaseFontTable)(THIS_
+        void *tableContext) PURE;
+
     /* rest dropped */
     END_INTERFACE
 };
@@ -524,8 +534,16 @@ DECLARE_INTERFACE_(IDWriteFontFace3,IDWriteFontFace)
         UINT32 codePointCount,
         UINT16 *glyphIndices) PURE;
 
-    STDMETHOD(dummy6)(THIS);
-    STDMETHOD(dummy7)(THIS);
+    STDMETHOD(TryGetFontTable)(THIS_
+        UINT32 openTypeTableTag,
+        const void **tableData,
+        UINT32 *tableSize,
+        void **tableContext,
+        WINBOOL *exists) PURE;
+
+    STDMETHOD_(void, ReleaseFontTable)(THIS_
+        void *tableContext) PURE;
+
     STDMETHOD(dummy8)(THIS);
     STDMETHOD(dummy9)(THIS);
     STDMETHOD(dummy10)(THIS);
