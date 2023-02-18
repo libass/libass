@@ -11,7 +11,7 @@ AM_PROG_CC_C_O
 AM_PROG_AS
 
 # Checks for header files.
-AC_CHECK_HEADERS_ONCE([iconv.h])
+AC_CHECK_HEADERS_ONCE([iconv.h stdatomic.h])
 
 # Checks for library functions.
 AC_CHECK_FUNCS([strdup strndup])
@@ -37,6 +37,8 @@ AC_ARG_ENABLE([require-system-font-provider], AS_HELP_STRING([--disable-require-
     [allow compilation even if no system font provider was found @<:@default=enabled:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
+AC_ARG_ENABLE([pthreads], AS_HELP_STRING([--disable-pthreads],
+    [disable threading support via pthreads @<:@default=check@:>@]))
 AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
     [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
 
@@ -75,6 +77,24 @@ AC_SEARCH_LIBS([lrint], [m], [
 ])
 pkg_libs="$LIBS"
 
+AS_IF([test "x$enable_pthreads" = xyes && test "x$ac_cv_header_stdatomic_h" != xyes], [
+    AC_MSG_ERROR([pthread support was requested, but <stdatomic.h> was not found.])
+])
+
+AS_IF([test "x$enable_pthreads" != xno && test "x$ac_cv_header_stdatomic_h" = xyes], [
+    AX_PTHREAD([
+        pkg_libs="$pkg_libs $PTHREAD_LIBS"
+        CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+        LIBS="$LIBS $PTHREAD_LIBS"
+        CC="$PTHREAD_CC"
+        AC_DEFINE(CONFIG_PTHREAD, 1, [Have POSIX threads])
+    ], [
+        AS_IF([test "x$enable_pthreads" = xyes], [
+            AC_MSG_ERROR([pthread support was requested, but was not found.])
+        ])
+    ])
+])
+
 ## Check for libraries via pkg-config and add to pkg_requires as needed
 PKG_CHECK_MODULES([FREETYPE], [freetype2 >= 9.17.3], [
     pkg_requires="freetype2 >= 9.17.3"
@@ -83,8 +103,8 @@ PKG_CHECK_MODULES([FREETYPE], [freetype2 >= 9.17.3], [
     AC_DEFINE(CONFIG_FREETYPE, 1, [found freetype2 via pkg-config])
 ])
 
-PKG_CHECK_MODULES([FRIBIDI], [fribidi >= 0.19.1], [
-    pkg_requires="fribidi >= 0.19.1, ${pkg_requires}"
+PKG_CHECK_MODULES([FRIBIDI], [fribidi >= 0.19.7], [
+    pkg_requires="fribidi >= 0.19.7, ${pkg_requires}"
     CFLAGS="$CFLAGS $FRIBIDI_CFLAGS"
     LIBS="$LIBS $FRIBIDI_LIBS"
     AC_DEFINE(CONFIG_FRIBIDI, 1, [found fribidi via pkg-config])

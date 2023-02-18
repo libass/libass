@@ -250,6 +250,9 @@ char *ass_font_select(ASS_FontSelector *priv,
                       int *uid, ASS_FontStream *data, uint32_t code);
 void ass_fontselect_free(ASS_FontSelector *priv);
 
+void ass_fontselect_lock(ASS_FontSelector *priv);
+void ass_fontselect_unlock(ASS_FontSelector *priv);
+
 // Font provider functions
 ASS_FontProvider *ass_font_provider_new(ASS_FontSelector *selector,
         ASS_FontProviderFuncs *funcs, void *data);

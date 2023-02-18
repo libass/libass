@@ -29,6 +29,7 @@
 #include "ass_font.h"
 #include "ass_outline.h"
 #include "ass_cache.h"
+#include "ass_threading.h"
 
 // Always enable native-endian mode, since we don't care about cross-platform consistency of the hash
 #define WYHASH_LITTLE_ENDIAN 1
@@ -298,11 +299,12 @@ const CacheDesc glyph_metrics_cache_desc = {
 
 // Cache data
 typedef struct cache_item {
-    Cache *cache;
+    Cache *_Atomic cache;
     const CacheDesc *desc;
     struct cache_item *next, **prev;
     struct cache_item *queue_next, **queue_prev;
-    size_t size, ref_count;
+    size_t size;
+    _Atomic size_t ref_count;
 } CacheItem;
 
 struct cache {
@@ -312,10 +314,15 @@ struct cache {
 
     const CacheDesc *desc;
 
-    size_t cache_size;
-    unsigned hits;
-    unsigned misses;
-    unsigned items;
+    _Atomic size_t cache_size;
+    _Atomic unsigned hits;
+    _Atomic unsigned misses;
+    _Atomic unsigned items;
+
+#if ENABLE_THREADS
+    pthread_mutex_t mutex;
+    pthread_cond_t  cond;
+#endif
 };
 
 #define CACHE_ALIGN 8
@@ -343,11 +350,25 @@ Cache *ass_cache_create(const CacheDesc *desc)
     cache->desc = desc;
     cache->map = calloc(cache->buckets, sizeof(CacheItem *));
     if (!cache->map) {
-        free(cache);
-        return NULL;
+        goto fail;
     }
 
+#if ENABLE_THREADS
+    if (pthread_mutex_init(&cache->mutex, NULL) != 0)
+        goto fail;
+
+    if (pthread_cond_init(&cache->cond, NULL) != 0) {
+        pthread_mutex_destroy(&cache->mutex);
+        goto fail;
+    }
+#endif
+
     return cache;
+
+fail:
+    free(cache->map);
+    free(cache);
+    return NULL;
 }
 
 void *ass_cache_get(Cache *cache, void *key, void *priv)
@@ -355,16 +376,18 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
     const CacheDesc *desc = cache->desc;
     size_t key_offs = CACHE_ITEM_SIZE + align_cache(desc->value_size);
     unsigned bucket = desc->hash_func(key, ASS_HASH_INIT) % cache->buckets;
+
+    pthread_mutex_lock(&cache->mutex);
+
     CacheItem *item = cache->map[bucket];
     while (item) {
         if (desc->compare_func(key, (char *) item + key_offs)) {
-            assert(item->size);
             if (!item->queue_prev || item->queue_next) {
                 if (item->queue_prev) {
                     item->queue_next->queue_prev = item->queue_prev;
                     *item->queue_prev = item->queue_next;
                 } else
-                    item->ref_count++;
+                    inc_ref(&item->ref_count);
                 *cache->queue_last = item;
                 item->queue_prev = cache->queue_last;
                 cache->queue_last = &item->queue_next;
@@ -372,7 +395,15 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
             }
             cache->hits++;
             desc->key_move_func(NULL, key);
-            item->ref_count++;
+            inc_ref(&item->ref_count);
+
+#if ENABLE_THREADS
+            while (!item->size)
+                pthread_cond_wait(&cache->cond, &cache->mutex);
+
+            pthread_mutex_unlock(&cache->mutex);
+#endif
+
             return (char *) item + CACHE_ITEM_SIZE;
         }
         item = item->next;
@@ -382,18 +413,19 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
     item = malloc(key_offs + desc->key_size);
     if (!item) {
         desc->key_move_func(NULL, key);
+        pthread_mutex_unlock(&cache->mutex);
         return NULL;
     }
-    item->cache = cache;
-    item->desc = desc;
     void *new_key = (char *) item + key_offs;
     if (!desc->key_move_func(new_key, key)) {
         free(item);
+        pthread_mutex_unlock(&cache->mutex);
         return NULL;
     }
-    void *value = (char *) item + CACHE_ITEM_SIZE;
-    item->size = desc->construct_func(new_key, value, priv);
-    assert(item->size);
+
+    item->cache = cache;
+    item->desc = desc;
+    item->size = 0;
 
     CacheItem **bucketptr = &cache->map[bucket];
     if (*bucketptr)
@@ -408,8 +440,23 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
     item->queue_next = NULL;
     item->ref_count = 2;
 
-    cache->cache_size += item->size;
     cache->items++;
+
+    pthread_mutex_unlock(&cache->mutex);
+
+    void *value = (char *) item + CACHE_ITEM_SIZE;
+    size_t size = desc->construct_func(new_key, value, priv);
+    assert(size);
+
+    pthread_mutex_lock(&cache->mutex);
+
+    cache->cache_size += size;
+    item->size = size;
+
+    pthread_mutex_unlock(&cache->mutex);
+
+    pthread_cond_broadcast(&cache->cond);
+
     return value;
 }
 
@@ -433,7 +480,7 @@ void ass_cache_inc_ref(void *value)
         return;
     CacheItem *item = value_to_item(value);
     assert(item->size && item->ref_count);
-    item->ref_count++;
+    inc_ref(&item->ref_count);
 }
 
 void ass_cache_dec_ref(void *value)
@@ -442,18 +489,23 @@ void ass_cache_dec_ref(void *value)
         return;
     CacheItem *item = value_to_item(value);
     assert(item->size && item->ref_count);
-    if (--item->ref_count)
+    if (dec_ref(&item->ref_count))
         return;
 
     Cache *cache = item->cache;
     if (cache) {
+        pthread_mutex_lock(&cache->mutex);
+
         if (item->next)
             item->next->prev = item->prev;
         *item->prev = item->next;
 
-        cache->items--;
         cache->cache_size -= item->size;
+        cache->items--;
+
+        pthread_mutex_unlock(&cache->mutex);
     }
+
     destroy_item(item->desc, item);
 }
 
@@ -462,6 +514,8 @@ void ass_cache_cut(Cache *cache, size_t max_size)
     if (cache->cache_size <= max_size)
         return;
 
+    pthread_mutex_lock(&cache->mutex);
+
     do {
         CacheItem *item = cache->queue_first;
         if (!item)
@@ -469,7 +523,7 @@ void ass_cache_cut(Cache *cache, size_t max_size)
         assert(item->size);
 
         cache->queue_first = item->queue_next;
-        if (--item->ref_count) {
+        if (dec_ref(&item->ref_count)) {
             item->queue_prev = NULL;
             continue;
         }
@@ -480,12 +534,19 @@ void ass_cache_cut(Cache *cache, size_t max_size)
 
         cache->items--;
         cache->cache_size -= item->size;
+
+        pthread_mutex_unlock(&cache->mutex);
+
         destroy_item(cache->desc, item);
+
+        pthread_mutex_lock(&cache->mutex);
     } while (cache->cache_size > max_size);
     if (cache->queue_first)
         cache->queue_first->queue_prev = &cache->queue_first;
     else
         cache->queue_last = &cache->queue_first;
+
+    pthread_mutex_unlock(&cache->mutex);
 }
 
 void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
@@ -508,12 +569,18 @@ void ass_cache_empty(Cache *cache)
         while (item) {
             assert(item->size);
             CacheItem *next = item->next;
-            if (item->queue_prev)
-                item->ref_count--;
-            if (item->ref_count)
-                item->cache = NULL;
-            else
+
+            if (!item->queue_prev)
+                inc_ref(&item->ref_count);
+            item->cache = NULL;
+            if (!dec_ref(&item->ref_count)) {
+                if (item->next)
+                    item->next->prev = item->prev;
+                *item->prev = item->next;
+
                 destroy_item(cache->desc, item);
+                cache->items--;
+            }
             item = next;
         }
         cache->map[i] = NULL;
@@ -521,13 +588,22 @@ void ass_cache_empty(Cache *cache)
 
     cache->queue_first = NULL;
     cache->queue_last = &cache->queue_first;
-    cache->items = cache->hits = cache->misses = cache->cache_size = 0;
+    cache->cache_size = 0;
+    cache->hits = cache->misses = 0;
 }
 
 void ass_cache_done(Cache *cache)
 {
     ass_cache_empty(cache);
+
     free(cache->map);
+    cache->map = NULL;
+
+#if ENABLE_THREADS
+    pthread_mutex_destroy(&cache->mutex);
+    pthread_cond_destroy(&cache->cond);
+#endif
+
     free(cache);
 }
 

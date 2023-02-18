@@ -99,6 +99,10 @@ struct font_selector {
 
     ASS_FontProvider *default_provider;
     ASS_FontProvider *embedded_provider;
+
+#if ENABLE_THREADS
+    pthread_mutex_t mutex;
+#endif
 };
 
 struct font_provider {
@@ -1123,6 +1127,11 @@ ass_fontselect_init(ASS_Library *library, FT_Library ftlibrary, size_t *num_emfo
 
     }
 
+#if ENABLE_THREADS
+    if (pthread_mutex_init(&priv->mutex, NULL) != 0)
+        goto fail;
+#endif
+
     return priv;
 
 fail:
@@ -1178,7 +1187,21 @@ void ass_fontselect_free(ASS_FontSelector *priv)
     free(priv->path_default);
     free(priv->family_default);
 
+#if ENABLE_THREADS
+    pthread_mutex_destroy(&priv->mutex);
+#endif
+
     free(priv);
+}
+
+void ass_fontselect_lock(ASS_FontSelector *priv)
+{
+    pthread_mutex_lock(&priv->mutex);
+}
+
+void ass_fontselect_unlock(ASS_FontSelector *priv)
+{
+    pthread_mutex_unlock(&priv->mutex);
 }
 
 void ass_map_font(const ASS_FontMapping *map, int len, const char *name,

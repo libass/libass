@@ -45,8 +45,10 @@ static void ass_msg_handler(int level, const char *fmt, va_list va, void *data)
 ASS_Library *ass_library_init(void)
 {
     ASS_Library* lib = calloc(1, sizeof(*lib));
-    if (lib)
+    if (lib) {
         lib->msg_callback = ass_msg_handler;
+        lib->thread_safe_cb = -1;
+    }
     #ifdef CONFIG_UNIBREAK
     // libunibreak works without, but its docs suggest this improves performance
     init_linebreak();
@@ -155,5 +157,7 @@ void ass_set_message_cb(ASS_Library *priv,
     if (msg_cb) {
         priv->msg_callback = msg_cb;
         priv->msg_callback_data = data;
+        if (priv->thread_safe_cb == -1)
+            priv->thread_safe_cb = 0;
     }
 }

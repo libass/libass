@@ -22,6 +22,7 @@
 #include <stdarg.h>
 
 #include "ass_filesystem.h"
+#include "ass_threading.h"
 
 typedef struct {
     char *name;
@@ -32,12 +33,17 @@ typedef struct {
 struct ass_library {
     char *fonts_dir;
     int extract_fonts;
+    int thread_safe_cb;
     char **style_overrides;
 
     ASS_Fontdata *fontdata;
     size_t num_fontdata;
     void (*msg_callback)(int, const char *, va_list, void *);
     void *msg_callback_data;
+
+#if ENABLE_THREADING
+    pthread_mutex_t log_mutex;
+#endif
 };
 
 char *ass_load_file(struct ass_library *library, const char *fname, FileNameSource hint, size_t *bufsize);

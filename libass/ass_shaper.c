@@ -700,9 +700,12 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         }
 
         int offset = i;
+        ass_font_lock(glyphs[offset].font);
         hb_font_t *font = get_hb_font(shaper, glyphs + offset);
-        if (!font)
+        if (!font) {
+            ass_font_unlock(glyphs[offset].font);
             return false;
+        }
         int run_id = glyphs[offset].shape_run_id;
         int level = shaper->emblevels[offset];
 
@@ -743,6 +746,8 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         shape_harfbuzz_process_run(glyphs, buf,
                 shaper->whole_text_layout ? 0 : offset - lead_context);
         hb_buffer_reset(buf);
+
+        ass_font_unlock(glyphs[offset].font);
     }
 
     hb_buffer_destroy(buf);

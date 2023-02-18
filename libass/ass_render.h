@@ -20,6 +20,8 @@
 #ifndef LIBASS_RENDER_H
 #define LIBASS_RENDER_H
 
+#include "ass_compat.h"
+
 #include <inttypes.h>
 #include <stdbool.h>
 #include <fribidi.h>
@@ -39,6 +41,7 @@
 #include "ass_drawing.h"
 #include "ass_bitmap.h"
 #include "ass_rasterizer.h"
+#include "ass_threading.h"
 
 #define GLYPH_CACHE_MAX 10000
 #define MEGABYTE (1024 * 1024)
@@ -77,6 +80,8 @@ typedef struct {
 
     char *default_font;
     char *default_family;
+
+    int threads;
 } ASS_Settings;
 
 // a rendered event
@@ -210,7 +215,7 @@ typedef struct {
 // Values like current font face, color, screen position, clipping and so on are stored here.
 struct render_context {
     ASS_Renderer *renderer;
-    TextInfo *text_info;
+    TextInfo text_info;
     ASS_Shaper *shaper;
     RasterizerData rasterizer;
 
@@ -334,12 +339,26 @@ struct ass_renderer {
     double par_scale_x;        // x scale applied to all glyphs to preserve text aspect ratio
 
     RenderContext state;
-    TextInfo text_info;
     CacheStore cache;
 
     BitmapEngine engine;
 
     ASS_Style user_override_style;
+
+#if ENABLE_THREADS
+    pthread_mutex_t mutex;
+    int mutex_inited;
+    pthread_cond_t main_cond, pool_cond;
+    int main_cond_inited, pool_cond_inited;
+
+    unsigned n_threads, started_threads;
+    pthread_t *threads;
+
+    int thread_start_failed;
+
+    int shutting_down;
+    int processing_eimgs, sent_eimgs, next_eimg, got_eimgs;
+#endif
 };
 
 typedef struct render_priv {

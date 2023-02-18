@@ -23,9 +23,15 @@
 #include <math.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 #ifdef CONFIG_UNIBREAK
 #include <linebreak.h>
+#endif
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #endif
 
 #include "ass.h"
@@ -76,6 +82,29 @@ static void text_info_done(TextInfo* text_info)
     free(text_info->combined_bitmaps);
 }
 
+static bool setup_render_context(RenderContext *state, ASS_Renderer *priv)
+{
+    state->renderer = priv;
+
+    if (!text_info_init(&state->text_info))
+        return false;
+
+    if (!(state->shaper = ass_shaper_new(priv->cache.metrics_cache)))
+        return false;
+
+    return ass_rasterizer_init(&priv->engine, &state->rasterizer, RASTERIZER_PRECISION);
+}
+
+static void render_context_done(RenderContext *state)
+{
+    ass_rasterizer_done(&state->rasterizer);
+
+    if (state->shaper)
+        ass_shaper_free(state->shaper);
+
+    text_info_done(&state->text_info);
+}
+
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
 {
     int error;
@@ -112,9 +141,6 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 #endif
     priv->engine = ass_bitmap_engine_init(flags);
 
-    if (!ass_rasterizer_init(&priv->engine, &priv->state.rasterizer, RASTERIZER_PRECISION))
-        goto fail;
-
     priv->cache.font_cache = ass_font_cache_create();
     priv->cache.bitmap_cache = ass_bitmap_cache_create();
     priv->cache.composite_cache = ass_composite_cache_create();
@@ -127,22 +153,39 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->cache.bitmap_max_size = BITMAP_CACHE_MAX_SIZE;
     priv->cache.composite_max_size = COMPOSITE_CACHE_MAX_SIZE;
 
-    if (!text_info_init(&priv->text_info))
+    if (!setup_render_context(&priv->state, priv))
         goto fail;
 
     priv->user_override_style.Name = "OverrideStyle"; // name insignificant
 
-    priv->state.renderer = priv;
-    priv->state.text_info = &priv->text_info;
-
     priv->settings.font_size_coeff = 1.;
     priv->settings.selective_style_overrides = ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE;
 
-    if (!(priv->state.shaper = ass_shaper_new(priv->cache.metrics_cache)))
-        goto fail;
-
     ass_shaper_info(library);
     priv->settings.shaper = ASS_SHAPING_COMPLEX;
+
+#if ENABLE_THREADS
+    if (pthread_mutex_init(&priv->mutex, NULL) != 0)
+        goto thread_fail;
+
+    priv->mutex_inited = true;
+
+    if (pthread_cond_init(&priv->main_cond, NULL) != 0)
+        goto thread_fail;
+
+    priv->main_cond_inited = true;
+
+    if (pthread_cond_init(&priv->pool_cond, NULL) != 0)
+        goto thread_fail;
+
+    priv->pool_cond_inited = true;
+
+thread_fail:
+    if (!priv->pool_cond_inited) {
+        ass_msg(library, MSGL_WARN, "Failed to initialize threading functionality; disabling");
+        priv->thread_start_failed = 1;
+    }
+#endif
 
     ass_msg(library, MSGL_V, "Initialized");
 
@@ -160,6 +203,28 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     if (!render_priv)
         return;
 
+#if ENABLE_THREADS
+    if (render_priv->threads) {
+        pthread_mutex_lock(&render_priv->mutex);
+        render_priv->shutting_down = 1;
+        pthread_mutex_unlock(&render_priv->mutex);
+        pthread_cond_broadcast(&render_priv->pool_cond);
+
+        for (unsigned i = 0; i < render_priv->n_threads; i++)
+            pthread_join(render_priv->threads[i], NULL);
+
+        free(render_priv->threads);
+    }
+
+
+    if (render_priv->mutex_inited)
+        pthread_mutex_destroy(&render_priv->mutex);
+    if (render_priv->main_cond_inited)
+        pthread_cond_destroy(&render_priv->main_cond);
+    if (render_priv->pool_cond_inited)
+        pthread_cond_destroy(&render_priv->pool_cond);
+#endif
+
     ass_frame_unref(render_priv->images_root);
     ass_frame_unref(render_priv->prev_images_root);
 
@@ -167,10 +232,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     ass_cache_done(render_priv->cache.bitmap_cache);
     ass_cache_done(render_priv->cache.outline_cache);
     ass_cache_done(render_priv->cache.metrics_cache);
-    ass_shaper_free(render_priv->state.shaper);
     ass_cache_done(render_priv->cache.font_cache);
-
-    ass_rasterizer_done(&render_priv->state.rasterizer);
 
     if (render_priv->fontselect)
         ass_fontselect_free(render_priv->fontselect);
@@ -178,7 +240,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
         FT_Done_FreeType(render_priv->ftlibrary);
     free(render_priv->eimg);
 
-    text_info_done(&render_priv->text_info);
+    render_context_done(&render_priv->state);
 
     free(render_priv->settings.default_font);
     free(render_priv->settings.default_family);
@@ -809,8 +871,8 @@ static ASS_Image *render_text(RenderContext *state)
 {
     ASS_Image *head;
     ASS_Image **tail = &head;
-    unsigned n_bitmaps = state->text_info->n_bitmaps;
-    CombinedBitmapInfo *bitmaps = state->text_info->combined_bitmaps;
+    unsigned n_bitmaps = state->text_info.n_bitmaps;
+    CombinedBitmapInfo *bitmaps = state->text_info.combined_bitmaps;
 
     for (unsigned i = 0; i < n_bitmaps; i++) {
         CombinedBitmapInfo *info = &bitmaps[i];
@@ -1149,9 +1211,7 @@ static void free_render_context(RenderContext *state)
     state->family.len = 0;
     state->clip_drawing_text.str = NULL;
     state->clip_drawing_text.len = 0;
-
-    if (state->text_info)
-        state->text_info->length = 0;
+    state->text_info.length = 0;
 }
 
 /**
@@ -1238,16 +1298,22 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
     case OUTLINE_GLYPH:
         {
             GlyphHashKey *k = &outline_key->u.glyph;
+            ass_font_lock(k->font);
             ass_face_set_size(k->font->faces[k->face_index], k->size);
             if (!ass_font_get_glyph(k->font, k->face_index, k->glyph_index,
-                                    render_priv->settings.hinting))
+                                    render_priv->settings.hinting)) {
+                ass_font_unlock(k->font);
                 return 1;
+            }
             if (!ass_get_glyph_outline(&v->outline[0], &v->advance,
                                        k->font->faces[k->face_index],
-                                       k->flags))
+                                       k->flags)) {
+                ass_font_unlock(k->font);
                 return 1;
+            }
             ass_font_get_asc_desc(k->font, k->face_index,
                                   &v->asc, &v->desc);
+            ass_font_unlock(k->font);
             break;
         }
     case OUTLINE_DRAWING:
@@ -1574,7 +1640,7 @@ static void measure_text_on_eol(RenderContext *state, double scale, int cur_line
                                 int max_asc, int max_desc,
                                 double max_border_x, double max_border_y)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     text_info->lines[cur_line].asc  = scale * max_asc;
     text_info->lines[cur_line].desc = scale * max_desc;
     text_info->height += scale * max_asc + scale * max_desc;
@@ -1602,7 +1668,7 @@ static void measure_text_on_eol(RenderContext *state, double scale, int cur_line
 static void measure_text(RenderContext *state)
 {
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     text_info->height = 0;
     text_info->border_x = 0;
 
@@ -1655,7 +1721,7 @@ static void trim_whitespace(RenderContext *state)
 {
     int i, j;
     GlyphInfo *cur;
-    TextInfo *ti = state->text_info;
+    TextInfo *ti = &state->text_info;
 
     // Mark trailing spaces
     i = ti->length - 1;
@@ -1726,7 +1792,7 @@ static void
 wrap_lines_naive(RenderContext *state, double max_text_width, char *unibrks)
 {
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     GlyphInfo *s1  = text_info->glyphs; // current line start
     int last_breakable = -1;
     int break_type = 0;
@@ -1806,7 +1872,7 @@ static inline GlyphInfo *rewind_trailing_spaces(GlyphInfo *start1, GlyphInfo* st
 static void
 wrap_lines_rebalance(RenderContext *state, double max_text_width, char *unibrks)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     int exit = 0;
 
 #define DIFF(x,y) (((x) < (y)) ? (y - x) : (x - y))
@@ -1875,7 +1941,7 @@ wrap_lines_rebalance(RenderContext *state, double max_text_width, char *unibrks)
 static void
 wrap_lines_measure(RenderContext *state, char *unibrks)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     int cur_line = 1;
     int i = 0;
 
@@ -1927,7 +1993,7 @@ wrap_lines_smart(RenderContext *state, double max_text_width)
 
 #ifdef CONFIG_UNIBREAK
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     if (render_priv->track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_WRAP_UNICODE)) {
         unibrks = text_info->breaks;
         set_linebreaks_utf32(
@@ -2027,7 +2093,7 @@ fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
 // Initial run splitting based purely on the characters' styles
 static void split_style_runs(RenderContext *state)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     Effect last_effect_type = text_info->glyphs[0].effect_type;
     text_info->glyphs[0].starts_new_run = true;
     for (int i = 1; i < text_info->length; i++) {
@@ -2073,7 +2139,7 @@ static void split_style_runs(RenderContext *state)
 // Fill render_priv->text_info.
 static bool parse_events(RenderContext *state, ASS_Event *event)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     ASS_Renderer *render_priv = state->renderer;
 
     char *p = event->Text, *q;
@@ -2208,10 +2274,10 @@ fail:
 // Process render_priv->text_info and load glyph outlines.
 static void retrieve_glyphs(RenderContext *state)
 {
-    GlyphInfo *glyphs = state->text_info->glyphs;
+    GlyphInfo *glyphs = state->text_info.glyphs;
     int i;
 
-    for (i = 0; i < state->text_info->length; i++) {
+    for (i = 0; i < state->text_info.length; i++) {
         GlyphInfo *info = glyphs + i;
         do {
             get_outline_glyph(state, info);
@@ -2239,8 +2305,8 @@ static void retrieve_glyphs(RenderContext *state)
 static void preliminary_layout(RenderContext *state)
 {
     ASS_Vector pen = { 0, 0 };
-    for (int i = 0; i < state->text_info->length; i++) {
-        GlyphInfo *info = state->text_info->glyphs + i;
+    for (int i = 0; i < state->text_info.length; i++) {
+        GlyphInfo *info = state->text_info.glyphs + i;
         ASS_Vector cluster_pen = pen;
         do {
             info->pos.x = cluster_pen.x;
@@ -2251,7 +2317,7 @@ static void preliminary_layout(RenderContext *state)
 
             info = info->next;
         } while (info);
-        info = state->text_info->glyphs + i;
+        info = state->text_info.glyphs + i;
         pen.x += info->cluster_advance.x;
         pen.y += info->cluster_advance.y;
     }
@@ -2261,7 +2327,7 @@ static void preliminary_layout(RenderContext *state)
 static void reorder_text(RenderContext *state)
 {
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     FriBidiStrIndex *cmap = ass_shaper_reorder(state->shaper, text_info);
     if (!cmap) {
         ass_msg(render_priv->library, MSGL_ERR, "Failed to reorder text");
@@ -2300,7 +2366,7 @@ static void reorder_text(RenderContext *state)
 static void apply_baseline_shear(RenderContext *state)
 {
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     FriBidiStrIndex *cmap = ass_shaper_get_reorder_map(state->shaper);
     int32_t shear = 0;
     bool whole_text_layout =
@@ -2323,7 +2389,7 @@ static void apply_baseline_shear(RenderContext *state)
 
 static void align_lines(RenderContext *state, double max_text_width)
 {
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     GlyphInfo *glyphs = text_info->glyphs;
     int i, j;
     double width = 0;
@@ -2407,7 +2473,7 @@ static void calculate_rotation_params(RenderContext *state, ASS_DRect *bbox,
         center.y = device_y + by;
     }
 
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + i;
         while (info) {
@@ -2475,7 +2541,7 @@ static void render_and_combine_glyphs(RenderContext *state,
                                       double device_x, double device_y)
 {
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     int left = render_priv->settings.left_margin;
     device_x = (device_x - left) * render_priv->par_scale_x + left;
     unsigned nb_bitmaps = 0;
@@ -2819,6 +2885,21 @@ static void add_background(RenderContext *state, EventImages *event_images)
     }
 }
 
+static void setup_shaper(ASS_Shaper *shaper, ASS_Renderer *render_priv)
+{
+    ASS_Track *track = render_priv->track;
+
+    ass_shaper_set_kerning(shaper, track->Kerning);
+    ass_shaper_set_language(shaper, track->Language);
+    ass_shaper_set_level(shaper, render_priv->settings.shaper);
+#ifdef USE_FRIBIDI_EX_API
+    ass_shaper_set_bidi_brackets(shaper,
+            track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_BIDI_BRACKETS));
+#endif
+    ass_shaper_set_whole_text_layout(shaper,
+            track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_WHOLE_TEXT_LAYOUT));
+}
+
 /**
  * \brief Main ass rendering function, glues everything together
  * \param event event to render
@@ -2826,9 +2907,12 @@ static void add_background(RenderContext *state, EventImages *event_images)
  * Process event, appending resulting ASS_Image's to images_root.
  */
 static bool
-ass_render_event(RenderContext *state, ASS_Event *event,
-                 EventImages *event_images)
+ass_render_event(RenderContext *state, EventImages *event_images)
 {
+    ASS_Event *event = event_images->event;
+
+    event_images->event = NULL;
+
     ASS_Renderer *render_priv = state->renderer;
     if (event->Style >= render_priv->track->n_styles) {
         ass_msg(render_priv->library, MSGL_WARN, "No style found");
@@ -2839,13 +2923,15 @@ ass_render_event(RenderContext *state, ASS_Event *event,
         return false;
     }
 
+    setup_shaper(state->shaper, render_priv);
+
     free_render_context(state);
     init_render_context(state, event);
 
     if (!parse_events(state, event))
         return false;
 
-    TextInfo *text_info = state->text_info;
+    TextInfo *text_info = &state->text_info;
     if (text_info->length == 0) {
         // no valid symbols in the event; this can be smth like {comment}
         free_render_context(state);
@@ -3045,6 +3131,59 @@ ass_render_event(RenderContext *state, ASS_Event *event,
     return true;
 }
 
+#if ENABLE_THREADS
+static void *run_thread(void *ptr)
+{
+    ASS_Renderer *priv = ptr;
+
+    RenderContext state = {0};
+
+    thread_set_name("libass/render");
+
+    bool success = setup_render_context(&state, priv);
+
+    pthread_mutex_lock(&priv->mutex);
+
+    if (!success) {
+        ass_msg(priv->library, MSGL_WARN, "Thread setup failed; disabling");
+        priv->thread_start_failed = 1;
+        goto fail;
+    }
+
+    priv->started_threads++;
+
+    pthread_cond_broadcast(&priv->main_cond);
+
+    while (!priv->shutting_down) {
+        while (priv->next_eimg < priv->sent_eimgs) {
+            EventImages *imgs = priv->eimg + priv->next_eimg++;
+
+            pthread_mutex_unlock(&priv->mutex);
+
+            success = ass_render_event(&state, imgs);
+
+            pthread_mutex_lock(&priv->mutex);
+
+            if (success)
+                priv->got_eimgs++;
+
+            if (!--priv->processing_eimgs)
+                pthread_cond_broadcast(&priv->main_cond);
+        }
+
+        pthread_cond_wait(&priv->pool_cond, &priv->mutex);
+    }
+
+fail:
+
+    pthread_mutex_unlock(&priv->mutex);
+
+    render_context_done(&state);
+
+    return NULL;
+}
+#endif
+
 /**
  * \brief Check cache limits and reset cache if they are exceeded
  */
@@ -3053,21 +3192,6 @@ static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
     ass_cache_cut(cache->composite_cache, cache->composite_max_size);
     ass_cache_cut(cache->bitmap_cache, cache->bitmap_max_size);
     ass_cache_cut(cache->outline_cache, cache->glyph_max);
-}
-
-static void setup_shaper(ASS_Shaper *shaper, ASS_Renderer *render_priv)
-{
-    ASS_Track *track = render_priv->track;
-
-    ass_shaper_set_kerning(shaper, track->Kerning);
-    ass_shaper_set_language(shaper, track->Language);
-    ass_shaper_set_level(shaper, render_priv->settings.shaper);
-#ifdef USE_FRIBIDI_EX_API
-    ass_shaper_set_bidi_brackets(shaper,
-            track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_BIDI_BRACKETS));
-#endif
-    ass_shaper_set_whole_text_layout(shaper,
-            track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_WHOLE_TEXT_LAYOUT));
 }
 
 /**
@@ -3101,8 +3225,6 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
             render_priv->fontselect, render_priv->num_emfonts);
     }
 
-    setup_shaper(render_priv->state.shaper, render_priv);
-
     // PAR correction
     double par = render_priv->settings.par;
     bool lr_track = track->LayoutResX > 0 && track->LayoutResY > 0;
@@ -3131,6 +3253,12 @@ static int cmp_event_layer(const void *p1, const void *p2)
 {
     ASS_Event *e1 = ((EventImages *) p1)->event;
     ASS_Event *e2 = ((EventImages *) p2)->event;
+    if (!e1 && !e2)
+        return 0;
+    if (e1 && !e2)
+        return -1;
+    if (!e1 && e2)
+        return 1;
     if (e1->Layer < e2->Layer)
         return -1;
     if (e1->Layer > e2->Layer)
@@ -3389,25 +3517,73 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
     }
 
     // render events separately
-    int cnt = 0;
+    int sent = 0, cnt = 0;
     for (int i = 0; i < track->n_events; i++) {
         ASS_Event *event = track->events + i;
         if ((event->Start <= now)
             && (now < (event->Start + event->Duration))) {
-            if (cnt >= priv->eimg_size) {
+            if (sent >= priv->eimg_size) {
                 priv->eimg_size += 100;
                 priv->eimg =
                     realloc(priv->eimg,
                             priv->eimg_size * sizeof(EventImages));
             }
-            if (ass_render_event(&priv->state, event, priv->eimg + cnt))
+            priv->eimg[sent++].event = event;
+        }
+    }
+
+#if ENABLE_THREADS
+    if (priv->settings.threads == 0)
+        priv->settings.threads = default_threads();
+
+    if (!priv->n_threads && !priv->thread_start_failed && priv->settings.threads > 1) {
+        if (!(priv->threads = calloc(priv->settings.threads, sizeof(pthread_t)))) {
+            ass_msg(priv->library, MSGL_ERR, "Allocation failure");
+            return NULL;
+        }
+
+        for (priv->n_threads = 0; priv->n_threads < priv->settings.threads; priv->n_threads++) {
+            if (pthread_create(&priv->threads[priv->n_threads], NULL, run_thread, priv) != 0) {
+                pthread_mutex_lock(&priv->mutex);
+                ass_msg(priv->library, MSGL_WARN, "Thread startup failure");
+                priv->thread_start_failed = 1;
+                pthread_mutex_unlock(&priv->mutex);
+                goto thread_fail;
+            }
+        }
+
+        pthread_mutex_lock(&priv->mutex);
+        while (priv->started_threads < priv->n_threads && !priv->thread_start_failed)
+            pthread_cond_wait(&priv->main_cond, &priv->mutex);
+        pthread_mutex_unlock(&priv->mutex);
+    }
+
+thread_fail:
+    if (priv->n_threads > 0 && !priv->thread_start_failed && sent > 1) {
+        pthread_mutex_lock(&priv->mutex);
+        priv->next_eimg = priv->got_eimgs = 0;
+        priv->processing_eimgs = priv->sent_eimgs = sent;
+
+        pthread_cond_broadcast(&priv->pool_cond);
+
+        while (priv->processing_eimgs)
+            pthread_cond_wait(&priv->main_cond, &priv->mutex);
+
+        cnt = priv->got_eimgs;
+
+        pthread_mutex_unlock(&priv->mutex);
+    } else
+#endif
+    {
+        for (int i = 0; i < sent; i++) {
+            if (ass_render_event(&priv->state, priv->eimg + i))
                 cnt++;
         }
     }
 
     // sort by layer
-    if (cnt > 0)
-        qsort(priv->eimg, cnt, sizeof(EventImages), cmp_event_layer);
+    if (sent > 0)
+        qsort(priv->eimg, sent, sizeof(EventImages), cmp_event_layer);
 
     // call fix_collisions for each group of events with the same layer
     EventImages *last = priv->eimg;
