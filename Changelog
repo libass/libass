@@ -1,3 +1,9 @@
+libass (0.17.1)
+ * Fix buffer overread if soft-wrapping occurred and
+   ASS_FEATURE_WHOLE_TEXT_LAYOUT was enabled via API or due to Encoding -1
+   (bug introduced in 0.16.0)
+ * x86: detect GNU Hurd and configure NASM appropriately
+
 libass (0.17.0)
  * Fix various parts relating to automatic linebreaking
  * Fix rendering when hinting was enabled and fontsizes or scales are zero
