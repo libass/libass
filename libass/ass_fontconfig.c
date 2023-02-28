@@ -199,7 +199,7 @@ static void cache_fallbacks(ProviderPrivate *fc)
 
     // Create a suitable pattern
     FcPattern *pat = FcPatternCreate();
-    FcPatternAddString(pat, FC_FAMILY, (FcChar8 *)"sans-serif");
+    FcPatternAddString(pat, FC_FAMILY, (const FcChar8 *)"sans-serif");
     FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
     FcConfigSubstitute (fc->config, pat, FcMatchPattern);
     FcDefaultSubstitute (pat);
@@ -280,8 +280,8 @@ static void get_substitutions(void *priv, const char *name,
     if (!pat)
         return;
 
-    FcPatternAddString(pat, FC_FAMILY, (FcChar8 *)name);
-    FcPatternAddString(pat, FC_FAMILY, (FcChar8 *)"__libass_delimiter");
+    FcPatternAddString(pat, FC_FAMILY, (const FcChar8 *)name);
+    FcPatternAddString(pat, FC_FAMILY, (const FcChar8 *)"__libass_delimiter");
     FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
     if (!FcConfigSubstitute(fc->config, pat, FcMatchPattern))
         goto cleanup;
