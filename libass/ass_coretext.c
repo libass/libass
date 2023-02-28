@@ -29,6 +29,18 @@
 
 #include "ass_coretext.h"
 
+#ifndef __has_builtin
+#define __has_builtin 0
+#endif
+
+#if __has_builtin(__builtin_available)
+#define CHECK_AVAILABLE(sym, ...) __builtin_available(__VA_ARGS__)
+#else
+// Cast to suppress "comparison never succeeds" warnings in some compilers
+// when the build target is new enough that sym isn't a weak symbol
+#define CHECK_AVAILABLE(sym, ...) (!!(intptr_t) &sym)
+#endif
+
 #define SAFE_CFRelease(x) do { if (x) CFRelease(x); } while (0)
 
 static const ASS_FontMapping font_substitutions[] = {
