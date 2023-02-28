@@ -29,6 +29,10 @@
 
 #include "ass_coretext.h"
 
+#ifndef __has_builtin
+#define __has_builtin 0
+#endif
+
 #define SAFE_CFRelease(x) do { if (x) CFRelease(x); } while (0)
 
 static const ASS_FontMapping font_substitutions[] = {
