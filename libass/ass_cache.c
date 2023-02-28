@@ -58,7 +58,11 @@ static bool font_key_move(void *dst, void *src)
 
     *d = *s;
     d->family.str = ass_copy_string(s->family);
-    return d->family.str;
+    if (d->family.str)
+        d->locale.str = ass_copy_string(s->locale);
+    if (!d->locale.str)
+        free((char *)d->family.str);
+    return d->family.str && d->locale.str;
 }
 
 static void font_destruct(void *key, void *value)
