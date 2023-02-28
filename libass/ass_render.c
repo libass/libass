@@ -1935,10 +1935,16 @@ wrap_lines_smart(RenderContext *state, double max_text_width)
     ASS_Renderer *render_priv = state->renderer;
     TextInfo *text_info = state->text_info;
     if (render_priv->track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_WRAP_UNICODE)) {
+        const char *ubrk_lang = render_priv->track->Language;
+
+        if (ubrk_lang && ubrk_lang[0] && ubrk_lang[1] && ubrk_lang[2] &&
+            ubrk_lang[2] != '-')
+            ubrk_lang = NULL;
+
         unibrks = text_info->breaks;
         set_linebreaks_utf32(
             text_info->event_text, text_info->length,
-            render_priv->track->Language, unibrks);
+            ubrk_lang, unibrks);
 #if UNIBREAK_VERSION < 0x0500UL
         // Prior to 5.0 libunibreaks always ended text with LINE_BREAKMUSTBREAK, matching
         // Unicode spec, but messing with our text-overflow detection.
@@ -1947,7 +1953,7 @@ wrap_lines_smart(RenderContext *state, double max_text_width)
         unibrks[text_info->length - 1] = is_line_breakable(
             text_info->event_text[text_info->length - 1],
             ' ',
-            render_priv->track->Language
+            ubrk_lang
         );
 #endif
     }
