@@ -33,6 +33,12 @@
 #define __has_builtin 0
 #endif
 
+#if __has_builtin(__builtin_available)
+#define CHECK_AVAILABLE(sym, ...) __builtin_available(__VA_ARGS__)
+#else
+#define CHECK_AVAILABLE(sym, ...) (!!&sym)
+#endif
+
 #define SAFE_CFRelease(x) do { if (x) CFRelease(x); } while (0)
 
 static const ASS_FontMapping font_substitutions[] = {
@@ -252,7 +258,8 @@ cleanup:
 }
 
 static char *get_fallback(void *priv, ASS_Library *lib,
-                          const char *family, uint32_t codepoint)
+                          const char *family, uint32_t codepoint,
+                          ASS_StringView locale)
 {
     CFStringRef name = CFStringCreateWithCString(NULL, family, kCFStringEncodingUTF8);
     if (!name)
@@ -273,7 +280,25 @@ static char *get_fallback(void *priv, ASS_Library *lib,
         return NULL;
     }
 
-    CTFontRef fb = CTFontCreateForString(font, r, CFRangeMake(0, 1));
+    CTFontRef fb = NULL;
+#if defined(__MAC_10_9)
+#ifndef __MAC_10_15
+    // This function was available as early as 10.9, but wasn't exposed in the headers. We'll create our own compatible declaration.
+    CTFontRef CTFontCreateForStringWithLanguage(
+        CTFontRef               currentFont,
+        CFStringRef             string,
+        CFRange                 range,
+        CFStringRef _Nullable   language) __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+#endif
+    if (CHECK_AVAILABLE(CTFontCreateForStringWithLanguage, macOS 10.9, iOS 7.0, watchOS 2.0, tvOS 9.0, *)) {
+        CFStringRef locStr = locale.len ? CFStringCreateWithBytes(NULL, (const UInt8*)locale.str, locale.len, kCFStringEncodingUTF8, false) : NULL;
+        fb = CTFontCreateForStringWithLanguage(font, r, CFRangeMake(0, 1), locStr);
+        SAFE_CFRelease(locStr);
+    } else
+#endif
+    {
+        fb = CTFontCreateForString(font, r, CFRangeMake(0, 1));
+    }
     CFRelease(font);
     CFRelease(r);
     if (!fb)

@@ -32,6 +32,7 @@ typedef struct ass_font_stream ASS_FontStream;
 #include "ass_types.h"
 #include "ass.h"
 #include "ass_font.h"
+#include "ass_utils.h"
 
 typedef struct font_provider ASS_FontProvider;
 
@@ -148,13 +149,15 @@ typedef void    (*SubstituteFontFunc)(void *priv, const char *name,
  * \param lib ASS_Library instance
  * \param family original font family name (try matching a similar font) (never NULL)
  * \param codepoint Unicode codepoint (UTF-32)
+ * \param locale BCP47 locale to use for the lookup, or NULL for system default
  * \return output extended font family, allocated with malloc(), must be freed
  *         by caller.
  */
 typedef char   *(*GetFallbackFunc)(void *priv,
                                    ASS_Library *lib,
                                    const char *family,
-                                   uint32_t codepoint);
+                                   uint32_t codepoint,
+                                   ASS_StringView locale);
 
 typedef struct font_provider_funcs {
     GetDataFunc         get_data;               /* optional/mandatory */
