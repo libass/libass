@@ -1077,6 +1077,8 @@ void ass_reset_render_context(RenderContext *state, ASS_Style *style)
 
     state->family.str = style->FontName;
     state->family.len = strlen(style->FontName);
+    state->locale.str = state->renderer->track->Language ? state->renderer->track->Language : "";
+    state->locale.len = strlen(state->locale.str);
     state->treat_family_as_pattern = style->treat_fontname_as_pattern;
     state->bold = style->Bold;
     state->italic = style->Italic;

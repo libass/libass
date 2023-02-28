@@ -280,6 +280,7 @@ struct render_context {
     int treat_family_as_pattern;
     int wrap_style;
     int font_encoding;
+    ASS_StringView locale;
 
     // combination of ASS_OVERRIDE_BIT_* flags that apply right now
     unsigned overrides;
