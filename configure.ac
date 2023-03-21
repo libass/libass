@@ -275,21 +275,21 @@ AS_IF([test "x$enable_asm" != xno], [
                 AC_MSG_WARN(nasm was not found; ASM functions are disabled.)
                 AC_MSG_WARN(Install nasm for a significantly faster libass build.)
             ], [
-                AS_CASE([$host],
-                    [*darwin*], [
+                AS_CASE([$host_os],
+                    [darwin*], [
                         ASFLAGS="$ASFLAGS -f macho$BITTYPE -DPREFIX -DSTACK_ALIGNMENT=16"
                     ],
-                    [*dragonfly*|*bsd*], [
-                        ASFLAGS="$ASFLAGS -f elf$BITTYPE"
-                    ],
-                    [*cygwin*|*mingw*], [
+                    [cygwin*|mingw*], [
                         ASFLAGS="$ASFLAGS -f win$BITTYPE"
                         AS_IF([test "x$BITS" = x32], [
                             ASFLAGS="$ASFLAGS -DPREFIX"
                         ])
                     ],
-                    [*linux*|*solaris*|*haiku*|*-gnu*], [
+                    [linux*|solaris*|haiku*|gnu*], [
                         ASFLAGS="$ASFLAGS -f elf$BITTYPE -DSTACK_ALIGNMENT=16"
+                    ],
+                    [dragonfly*|*bsd*], [
+                        ASFLAGS="$ASFLAGS -f elf$BITTYPE"
                     ],
                     [ # default
                         AC_MSG_ERROR(m4_text_wrap(m4_normalize([
@@ -297,7 +297,7 @@ AS_IF([test "x$enable_asm" != xno], [
                                 support for your platform can be added.
                                 In the meantime you will need to use --disable-asm.]),
                             [                  ],
-                            [could not identify NASM format for $host !],
+                            [could not identify NASM format for $host_os !],
                             [78]
                         ))
                     ]
