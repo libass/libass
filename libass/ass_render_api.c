@@ -176,6 +176,7 @@ void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style)
     free(user_style->FontName);
     *user_style = *style;
     user_style->FontName = strdup(user_style->FontName);
+    ass_reconfigure(priv);
 }
 
 int ass_fonts_update(ASS_Renderer *render_priv)
