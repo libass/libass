@@ -163,12 +163,8 @@ jobs:
           #        but when SIGILL'ing the lib is not needed
           # ASAN:  Not supported with musl and in Windows
           case "${{ matrix.docker_image || matrix.os }}" in
-            alpine*)
+            alpine*|windows-*)
               flags="$uflags -fsanitize-undefined-trap-on-error" ;;
-            windows-*)
-              # TEMPORARY: MinGW's headers have problematic code in isnan's inline version
-              # triggering UBSAN. Until the fix is available in MSYS2, avoid inlines.
-              flags="$uflags -fsanitize-undefined-trap-on-error -D__CRT__NO_INLINE=1" ;;
             *)
               flags="$aflags $uflags" ;;
           esac
