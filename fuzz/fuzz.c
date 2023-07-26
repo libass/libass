@@ -41,6 +41,7 @@
 
 ASS_Library *ass_library = NULL;
 ASS_Renderer *ass_renderer = NULL;
+bool quiet = false;
 
 uint8_t hval = 0;
 
@@ -60,7 +61,7 @@ static inline void hash(const void *buf, size_t len)
 void msg_callback(int level, const char *fmt, va_list va, void *data)
 {
 #if ASS_FUZZMODE == FUZZMODE_STANDALONE
-    if (level > 6) return;
+    if (level > 6 || quiet) return;
     printf("libass: ");
     vprintf(fmt, va);
     printf("\n");
@@ -205,9 +206,16 @@ int main(int argc, char *argv[])
     ASS_Track *track = NULL;
     int retval = FUZZ_OK;
 
-    if (argc != 2) {
-        printf("usage: %s <subtitle file>\n", argc ? argv[0] : "fuzz");
+    if (argc < 2 || argc > 3 ||
+            (argc == 3 && strcmp(argv[1], "-q")) ) {
+        printf("usage: %s [-q] <subtitle file>\n", argc ? argv[0] : "fuzz");
         return FUZZ_BAD_USAGE;
+    }
+
+    size_t fileidx = 1;
+    if (argc == 3) {
+        quiet = true;
+        fileidx = 2;
     }
 
     if (!init()) {
@@ -216,8 +224,8 @@ int main(int argc, char *argv[])
         goto cleanup;
     }
 
-    if (strcmp(argv[1], "-"))
-        track = ass_read_file(ass_library, argv[1], NULL);
+    if (strcmp(argv[fileidx], "-"))
+        track = ass_read_file(ass_library, argv[fileidx], NULL);
     else
         track = read_track_from_stdin();
 
