@@ -534,6 +534,10 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     info->provider = provider;
 
     selector->n_font++;
+
+    free_font_info(&implicit_meta);
+    free(implicit_meta.postscript_name);
+
     return true;
 
 error:
