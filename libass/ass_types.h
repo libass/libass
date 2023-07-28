@@ -274,7 +274,13 @@ typedef struct ass_track {
     int WrapStyle;
     int ScaledBorderAndShadow; // 0 or 1 (boolean)
     int Kerning; // 0 or 1 (boolean)
-    char *Language; // zero-terminated ISO-639-1 code
+    char *Language; // If non-null, zero-terminated BCP 47 code with restrictions:
+                    // - Must begin with a language code (which, as per BCP 47,
+                    //   must be a two-letter ISO 639-1 code if one is defined
+                    //   for the language being referred to)
+                    // - May optionally be followed by an ISO 3166-1 alpha-2 region code,
+                    //   after a hyphen
+                    // - Must contain no other subtags
     ASS_YCbCrMatrix YCbCrMatrix;
 
     int default_style;      // index of default style

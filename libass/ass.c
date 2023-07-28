@@ -884,7 +884,12 @@ static int process_info_line(ASS_Track *track, char *str)
         char *p = str + 9;
         while (*p && ass_isspace(*p)) p++;
         free(track->Language);
-        track->Language = strndup(p, 2);
+        track->Language = strdup(p);
+        if (track->Language) {
+            char *end = track->Language + strlen(track->Language);
+            rskip_spaces(&end, track->Language);
+            *end = 0;
+        }
     } else if (!strncmp(str, "ScriptType:", 11)) {
         check_duplicate_info_line(track, SINFO_SCRIPTTYPE, "ScriptType");
         parse_script_type(track, str + 11);

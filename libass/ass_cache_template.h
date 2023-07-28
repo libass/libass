@@ -52,6 +52,7 @@
 
 START(font, ass_font_desc )
     STRING(family)
+    STRING(locale)
     GENERIC(unsigned, bold)
     GENERIC(unsigned, italic)
     GENERIC(int, vertical)  // @font vertical layout

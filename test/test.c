@@ -110,6 +110,8 @@ static void init(int frame_w, int frame_h)
     ass_set_storage_size(ass_renderer, frame_w, frame_h);
     ass_set_frame_size(ass_renderer, frame_w, frame_h);
     ass_set_fonts(ass_renderer, NULL, "sans-serif",
+                  getenv("ASS_TEST_FORCE_FONTCONFIG") ?
+                  ASS_FONTPROVIDER_FONTCONFIG :
                   ASS_FONTPROVIDER_AUTODETECT, NULL, 1);
 }
 

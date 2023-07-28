@@ -507,7 +507,7 @@ cleanup:
 }
 
 static char *get_fallback(void *priv, ASS_Library *lib,
-                          const char *base, uint32_t codepoint)
+                          const char *base, uint32_t codepoint, ASS_StringView locale)
 {
     HRESULT hr;
     ProviderPrivate *provider_priv = (ProviderPrivate *)priv;
@@ -516,11 +516,19 @@ static char *get_fallback(void *priv, ASS_Library *lib,
     IDWriteTextLayout *text_layout = NULL;
     FallbackLogTextRenderer renderer;
 
+    // Encode locale as UTF-16
+    wchar_t wlocale[32] = {0};
+    if (locale.len > 0 && locale.len < sizeof(wlocale) / sizeof(wlocale[0])) {
+        // Discard the locale value if we can't convert it to UTF-16 within 32 code units
+        if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, locale.str, (int)locale.len, wlocale, sizeof(wlocale) / sizeof(wlocale[0]) - 1) <= 0)
+            wlocale[0] = 0;
+    }
+
     init_FallbackLogTextRenderer(&renderer, dw_factory);
 
     hr = IDWriteFactory_CreateTextFormat(dw_factory, FALLBACK_DEFAULT_FONT, NULL,
             DWRITE_FONT_WEIGHT_MEDIUM, DWRITE_FONT_STYLE_NORMAL,
-            DWRITE_FONT_STRETCH_NORMAL, 1.0f, L"", &text_format);
+            DWRITE_FONT_STRETCH_NORMAL, 1.0f, wlocale, &text_format);
     if (FAILED(hr)) {
         return NULL;
     }

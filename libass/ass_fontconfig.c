@@ -34,8 +34,6 @@
 
 typedef struct fc_private {
     FcConfig *config;
-    FcFontSet *fallbacks;
-    FcCharSet *fallback_chars;
 } ProviderPrivate;
 
 static bool check_postscript(void *priv)
@@ -75,10 +73,6 @@ static void destroy(void *priv)
 {
     ProviderPrivate *fc = (ProviderPrivate *)priv;
 
-    if (fc->fallback_chars)
-        FcCharSetDestroy(fc->fallback_chars);
-    if (fc->fallbacks)
-        FcFontSetDestroy(fc->fallbacks);
     FcConfigDestroy(fc->config);
     free(fc);
 }
@@ -190,129 +184,78 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
     }
 }
 
-static void cache_fallbacks(ProviderPrivate *fc)
-{
-    FcResult result;
-
-    if (fc->fallbacks)
-        return;
-
-    // Create a suitable pattern
-    FcPattern *pat = FcPatternCreate();
-    FcPatternAddString(pat, FC_FAMILY, (FcChar8 *)"sans-serif");
-    FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
-    FcConfigSubstitute (fc->config, pat, FcMatchPattern);
-    FcDefaultSubstitute (pat);
-
-    // FC_LANG is automatically set according to locale, but this results
-    // in strange sorting sometimes, so remove the attribute completely.
-    FcPatternDel(pat, FC_LANG);
-
-    // Sort installed fonts and eliminate duplicates; this can be very
-    // expensive.
-    fc->fallbacks = FcFontSort(fc->config, pat, FcTrue, &fc->fallback_chars,
-            &result);
-
-    // If this fails, just add an empty set
-    if (result != FcResultMatch)
-        fc->fallbacks = FcFontSetCreate();
-
-    FcPatternDestroy(pat);
-}
-
 static char *get_fallback(void *priv, ASS_Library *lib,
-                          const char *family, uint32_t codepoint)
+                          const char *family, uint32_t codepoint, ASS_StringView locale)
 {
     ProviderPrivate *fc = (ProviderPrivate *)priv;
     FcResult result;
-
-    cache_fallbacks(fc);
-
-    if (!fc->fallbacks || fc->fallbacks->nfont == 0)
-        return NULL;
-
-    if (codepoint == 0) {
-        char *family = NULL;
-        result = FcPatternGetString(fc->fallbacks->fonts[0], FC_FAMILY, 0,
-                (FcChar8 **)&family);
-        if (result == FcResultMatch) {
-            return strdup(family);
-        } else {
-            return NULL;
-        }
-    }
-
-    // fallback_chars is the union of all available charsets, so
-    // if we can't find the glyph in there, the system does not
-    // have any font to render this glyph.
-    if (FcCharSetHasChar(fc->fallback_chars, codepoint) == FcFalse)
-        return NULL;
-
-    for (int j = 0; j < fc->fallbacks->nfont; j++) {
-        FcPattern *pattern = fc->fallbacks->fonts[j];
-
-        FcCharSet *charset;
-        result = FcPatternGetCharSet(pattern, FC_CHARSET, 0, &charset);
-
-        if (result == FcResultMatch && FcCharSetHasChar(charset,
-                    codepoint)) {
-            char *family = NULL;
-            result = FcPatternGetString(pattern, FC_FAMILY, 0,
-                    (FcChar8 **)&family);
-            if (result == FcResultMatch) {
-                return strdup(family);
-            } else {
-                return NULL;
-            }
-        }
-    }
-
-    // we shouldn't get here
-    return NULL;
-}
-
-static void get_substitutions(void *priv, const char *name,
-                              ASS_FontProviderMetaData *meta)
-{
-    ProviderPrivate *fc = (ProviderPrivate *)priv;
+    char *ret = NULL;
 
     FcPattern *pat = FcPatternCreate();
     if (!pat)
-        return;
+        return NULL;
 
-    FcPatternAddString(pat, FC_FAMILY, (FcChar8 *)name);
-    FcPatternAddString(pat, FC_FAMILY, (FcChar8 *)"__libass_delimiter");
+    if (locale.len) {
+        FcLangSet *ls = FcLangSetCreate();
+        if (!ls)
+            goto cleanup;
+
+        FcLangSetAdd(ls, (const FcChar8 *)locale.str);
+        FcPatternAddLangSet(pat, FC_LANG, ls);
+
+        FcLangSetDestroy(ls);
+    }
+
+    if (codepoint) {
+        FcCharSet *cs = FcCharSetCreate();
+        if (!cs)
+            goto cleanup;
+
+        FcCharSetAddChar(cs, codepoint);
+        FcPatternAddCharSet(pat, FC_CHARSET, cs);
+
+        FcCharSetDestroy(cs);
+    }
+
+    FcPatternAddString(pat, FC_FAMILY, (const FcChar8 *)family);
     FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
     if (!FcConfigSubstitute(fc->config, pat, FcMatchPattern))
         goto cleanup;
 
-    // read and strdup fullnames
-    meta->n_fullname = 0;
-    meta->fullnames = calloc(MAX_NAME, sizeof(char *));
-    if (!meta->fullnames)
-        goto cleanup;
+    FcDefaultSubstitute(pat);
 
-    char *alias = NULL;
-    while (FcPatternGetString(pat, FC_FAMILY, meta->n_fullname,
-                (FcChar8 **)&alias) == FcResultMatch
-                && meta->n_fullname < MAX_NAME
-                && strcmp(alias, "__libass_delimiter") != 0) {
-        alias = strdup(alias);
-        if (!alias)
-            goto cleanup;
-        meta->fullnames[meta->n_fullname] = alias;
-        meta->n_fullname++;
+    if (!locale.len) {
+        // FC_LANG is automatically set according to locale, but this results
+        // in locale-specific fonts being used for text from other languages,
+        // which can look pretty bad (e.g. HannotateTC-W5 being used for English).
+        // We remove it here to use language-independent lookup instead if no language
+        // was specified by the file or the caller.
+        // Callers can pass in the system locale as a fallback behind a user setting
+        // if they want to.
+        FcPatternDel(pat, FC_LANG);
+    }
+
+    FcPattern *match = FcFontMatch(fc->config, pat, &result);
+    if (match) {
+        FcChar8 *got_family = NULL;
+        result = FcPatternGetString(match, FC_FAMILY, 0, &got_family);
+        if (got_family)
+            ret = strdup((char *)got_family);
+
+        FcPatternDestroy(match);
     }
 
 cleanup:
-    FcPatternDestroy(pat);
+    if (pat)
+        FcPatternDestroy(pat);
+
+    return ret;
 }
 
 static ASS_FontProviderFuncs fontconfig_callbacks = {
     .check_postscript   = check_postscript,
     .check_glyph        = check_glyph,
     .destroy_provider   = destroy,
-    .get_substitutions  = get_substitutions,
     .get_fallback       = get_fallback,
 };
 
