@@ -816,6 +816,39 @@ void ass_font_clear(ASS_Font *font)
 }
 
 /**
+ * \brief Check if a code point should be treated as fullwidth in a particular encoding,
+ *        matching GDI behavior when possible.
+ **/
+bool ass_codepoint_is_fullwidth(FT_Encoding encoding, uint32_t symbol)
+{
+    static const struct {
+        uint32_t low, high;
+    } ranges[] = {
+        { 0x1100, 0x11ff }, // Hangul Jamo
+        { 0x2000, 0x206f }, // General Punctuation
+        { 0x2100, 0x214f }, // Letterlike Symbols
+        { 0x2460, 0x24ff }, // Enclosed Alphanumerics
+        { 0x25a0, 0x27ff }, // Geometric shapes, misc symbols
+        { 0x3001, 0x319f }, // Various CJK
+        { 0x3200, 0x4dff }, // CJK extensions
+        { 0x4e00, 0x9fff }, // CJK unified ideographs
+        { 0xac00, 0xd7a3 }, // Hangul
+        { 0xe000, 0xfaff }, // PUA, CJK compatibility
+        { 0xfe30, 0xfe4f }, // CJK Compatibility forms
+        { 0xff01, 0xff5e }, // Fullwidth latin + punct
+        { 0xffe0, 0xffee }  // More fullwidth punctuation
+    };
+
+    for (size_t i = 0; i < sizeof(ranges) / sizeof(ranges[0]); i++) {
+        if (symbol >= ranges[i].low &&
+            symbol <= ranges[i].high)
+            return true;
+    }
+
+    return convert_unicode_to_mb(encoding, symbol) > 0xFF;
+}
+
+/**
  * \brief Convert glyph into ASS_Outline according to decoration flags
  **/
 bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
