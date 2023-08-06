@@ -43,6 +43,7 @@ struct ass_font {
     ASS_Library *library;
     FT_Library ftlibrary;
     int faces_uid[ASS_FONT_MAX_FACES];
+    FT_Encoding faces_cp[ASS_FONT_MAX_FACES];
     FT_Face faces[ASS_FONT_MAX_FACES];
     ASS_ShaperFontData *shaper_priv;
     int n_faces;

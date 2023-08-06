@@ -22,6 +22,7 @@
 #include <inttypes.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_SFNT_NAMES_H
 #include FT_SYNTHESIS_H
 #include FT_GLYPH_H
 #include FT_TRUETYPE_TABLES_H
@@ -35,6 +36,7 @@
 #include "ass_fontselect.h"
 #include "ass_utils.h"
 #include "ass_shaper.h"
+#include "ass_string.h"
 
 #if FREETYPE_MAJOR == 2 && FREETYPE_MINOR < 6
 // The lowercase name is still included (as a macro) but deprecated as of 2.6, so avoid using it if we can
@@ -402,6 +404,85 @@ FT_Face ass_face_stream(ASS_Library *lib, FT_Library ftlib, const char *name,
 }
 
 /**
+ * \brief Check if a face needs special GDI compatibility behavior
+ */
+static bool is_type1_conversion(FT_Face face, bool *is_mincho_gothic)
+{
+    static const char* mincho_gothic_ids[] = {
+        "Microsoft:MS Mincho:1995",
+        "Microsoft:MS PMincho:1995",
+        "Microsoft:MS Gothic:1995",
+        "Microsoft:MS PGothic:1995",
+    };
+
+#define TYPE1_VERSION "Converter: Windows Type 1 Installer"
+
+    *is_mincho_gothic = false;
+
+    bool ret = false;
+
+    int num_names = FT_Get_Sfnt_Name_Count(face);
+
+    for (int i = 0; i < num_names; i++) {
+        FT_SfntName name;
+
+        if (FT_Get_Sfnt_Name(face, i, &name))
+            continue;
+
+        if (name.platform_id == TT_PLATFORM_MICROSOFT &&
+            (name.name_id == TT_NAME_ID_UNIQUE_ID ||
+             name.name_id == TT_NAME_ID_VERSION_STRING)) {
+            char buf[64];
+            ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
+                                name.string_len);
+
+            if (name.name_id == TT_NAME_ID_UNIQUE_ID) {
+                for (size_t j = 0; j < sizeof(mincho_gothic_ids) / sizeof(mincho_gothic_ids[0]); j++) {
+                    if (!ass_strcasecmp(mincho_gothic_ids[j], buf))
+                        *is_mincho_gothic = true;
+                }
+            }
+
+            if (name.name_id == TT_NAME_ID_VERSION_STRING) {
+                // See if it starts with the prefix we expect
+                if (!strncmp(buf, TYPE1_VERSION, sizeof(TYPE1_VERSION) - 1))
+                    ret = true;
+            }
+        }
+    }
+
+    return ret;
+}
+
+/**
+ * \brief Get a codepage bitmask for a face, 0 if unknown or invalid
+ */
+static uint32_t get_cp_mask(FT_Face face, bool is_mincho_gothic)
+{
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
+
+    if (!os2 || os2->version < 1 || !os2->ulUnicodeRange1)
+        return 0;
+
+    uint32_t ranges = os2->ulCodePageRange1;
+
+    // Detection for some old MS fonts that GDI special-cases
+    if (!(ranges & (1 << 17)) &&
+        face->charmap && face->charmap->encoding == FT_ENCODING_MS_SJIS &&
+        FT_Get_Char_Index(face, 0xFF71) &&
+        FT_Get_Char_Index(face, 0xFF72) &&
+        FT_Get_Char_Index(face, 0xFF73) &&
+        FT_Get_Char_Index(face, 0xFF74) &&
+        FT_Get_Char_Index(face, 0xFF75))
+        return 0;
+
+    if ((ranges & (1 << 18)) && is_mincho_gothic)
+        return 0;
+
+    return ranges;
+}
+
+/**
  * \brief Select a face with the given charcode and add it to ASS_Font
  * \return index of the new face in font->faces, -1 if failed
  */
@@ -443,6 +524,42 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 
     ass_charmap_magic(font->library, face);
     set_font_metrics(face);
+
+    // Default
+    font->faces_cp[font->n_faces] = FT_ENCODING_ADOBE_LATIN_1;
+
+    bool is_mincho_gothic;
+    if (!is_type1_conversion(face, &is_mincho_gothic)) {
+        uint32_t cp_mask = get_cp_mask(face, is_mincho_gothic);
+        if (cp_mask) {
+            if (cp_mask & (1 << 17))
+                font->faces_cp[font->n_faces] = FT_ENCODING_MS_SJIS;
+            else if (cp_mask & (1 << 20))
+                font->faces_cp[font->n_faces] = FT_ENCODING_MS_GB2312;
+            else if (cp_mask & (1 << 18))
+                font->faces_cp[font->n_faces] = FT_ENCODING_MS_BIG5;
+            else if (cp_mask & (1 << 19))
+                font->faces_cp[font->n_faces] = FT_ENCODING_MS_WANSUNG;
+        } else {
+            if (FT_Get_Char_Index(face, 0xFF71) &&
+                FT_Get_Char_Index(face, 0xFF72) &&
+                FT_Get_Char_Index(face, 0xFF73) &&
+                FT_Get_Char_Index(face, 0xFF74) &&
+                FT_Get_Char_Index(face, 0xFF75))
+                font->faces_cp[font->n_faces] = FT_ENCODING_MS_SJIS;
+            else if (FT_Get_Char_Index(face, 0x61D4) &&
+                     FT_Get_Char_Index(face, 0x9EE2))
+                font->faces_cp[font->n_faces] = FT_ENCODING_MS_GB2312;
+            else if (FT_Get_Char_Index(face, 0x9F98) &&
+                     FT_Get_Char_Index(face, 0x9F79))
+                font->faces_cp[font->n_faces] = FT_ENCODING_MS_BIG5;
+            else if (FT_Get_Char_Index(face, 0xAC00) &&
+                     FT_Get_Char_Index(face, 0xD558))
+                font->faces_cp[font->n_faces] = FT_ENCODING_MS_WANSUNG;
+            else if (FT_Get_Char_Index(face, 0xE000)) // GDI uses the current ANSI code page; we'll guess based on the font's encoding
+                font->faces_cp[font->n_faces] = (face->charmap && face->charmap->platform_id) ? face->charmap->encoding : FT_ENCODING_NONE;
+        }
+    }
 
     font->faces[font->n_faces] = face;
     font->faces_uid[font->n_faces++] = uid;
