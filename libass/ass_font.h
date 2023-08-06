@@ -31,8 +31,6 @@ typedef struct ass_font ASS_Font;
 #include "ass_cache.h"
 #include "ass_outline.h"
 
-#define VERTICAL_LOWER_BOUND 0x02f1
-
 #define ASS_FONT_MAX_FACES 10
 #define DECO_UNDERLINE     1
 #define DECO_STRIKETHROUGH 2
