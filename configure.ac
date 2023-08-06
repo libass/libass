@@ -146,7 +146,7 @@ AS_IF([test "x$enable_coretext" != xno], [
     AC_COMPILE_IFELSE([
         AC_LANG_PROGRAM( dnl# First test for legacy include
             [[#include <ApplicationServices/ApplicationServices.h>]],
-            [[CTFontDescriptorCopyAttribute(NULL, kCTFontURLAttribute);]]
+            [[CTFontDescriptorCopyAttribute(NULL, kCTFontNameAttribute);]]
         )
     ], [
         pkg_libs="$pkg_libs -framework ApplicationServices -framework CoreFoundation"
@@ -158,7 +158,7 @@ AS_IF([test "x$enable_coretext" != xno], [
         AC_COMPILE_IFELSE([
             AC_LANG_PROGRAM( dnl# Otherwise check newer include style
                 [[#include <CoreText/CoreText.h>]],
-                [[CTFontDescriptorCopyAttribute(NULL, kCTFontURLAttribute);]]
+                [[CTFontDescriptorCopyAttribute(NULL, kCTFontNameAttribute);]]
             )
         ], [
             pkg_libs="$pkg_libs -framework CoreText -framework CoreFoundation"

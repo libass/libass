@@ -19,6 +19,7 @@
 #include "config.h"
 #include "ass_compat.h"
 
+#include <Availability.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <TargetConditionals.h>
 #if TARGET_OS_IPHONE
@@ -88,7 +89,28 @@ static bool check_glyph(void *priv, uint32_t code)
 
 static char *get_font_file(CTFontDescriptorRef fontd)
 {
-    CFURLRef url = CTFontDescriptorCopyAttribute(fontd, kCTFontURLAttribute);
+    CFURLRef url = NULL;
+    if (false) {}
+#ifdef __MAC_10_6
+    // Declared in SDKs since 10.6, including iOS SDKs
+    else if (CHECK_AVAILABLE(kCTFontURLAttribute, macOS 10.6, *)) {
+        url = CTFontDescriptorCopyAttribute(fontd, kCTFontURLAttribute);
+    }
+#endif
+#if !TARGET_OS_IPHONE && (!defined(__MAC_10_6) || __MAC_OS_X_VERSION_MIN_REQUIRED < __MAC_10_6)
+    // ATS is declared deprecated in newer macOS SDKs
+    // and not declared at all in iOS SDKs
+    else {
+        CTFontRef font = CTFontCreateWithFontDescriptor(fontd, 0, NULL);
+        if (!font)
+            return NULL;
+        ATSFontRef ats_font = CTFontGetPlatformFont(font, NULL);
+        FSRef fs_ref;
+        if (ATSFontGetFileReference(ats_font, &fs_ref) == noErr)
+            url = CFURLCreateFromFSRef(NULL, &fs_ref);
+        CFRelease(font);
+    }
+#endif
     if (!url)
         return NULL;
     CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
