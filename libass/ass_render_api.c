@@ -20,7 +20,11 @@
 #include "config.h"
 #include "ass_compat.h"
 
+#include <limits.h>
+#include <stdint.h>
+
 #include "ass_render.h"
+#include "ass_utils.h"
 
 static void ass_reconfigure(ASS_Renderer *priv)
 {
@@ -51,7 +55,7 @@ static void ass_reconfigure(ASS_Renderer *priv)
 
 void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
 {
-    if (w < 0 || h < 0)
+    if (w <= 0 || h <= 0 || w > FFMIN(INT_MAX, SIZE_MAX) / h)
         w = h = 0;
     if (priv->settings.frame_width != w || priv->settings.frame_height != h) {
         priv->settings.frame_width = w;
@@ -62,7 +66,7 @@ void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
 
 void ass_set_storage_size(ASS_Renderer *priv, int w, int h)
 {
-    if (w < 0 || h < 0)
+    if (w <= 0 || h <= 0 || w > FFMIN(INT_MAX, SIZE_MAX) / h)
         w = h = 0;
     if (priv->settings.storage_width != w ||
         priv->settings.storage_height != h) {

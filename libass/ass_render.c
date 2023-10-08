@@ -2812,7 +2812,7 @@ static void add_background(RenderContext *state, EventImages *event_images)
     bottom      = FFMINMAX(bottom, 0, render_priv->height);
     int w = right - left;
     int h = bottom - top;
-    if (w < 1 || h < 1 || w > FFMIN(INT_MAX, SIZE_MAX) / h)
+    if (w < 1 || h < 1)
         return;
     void *nbuffer = ass_aligned_alloc(1, w * h, false);
     if (!nbuffer)
