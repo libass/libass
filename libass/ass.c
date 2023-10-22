@@ -56,6 +56,16 @@ static const char *const ssa_style_format =
 static const char *const ssa_event_format =
         "Marked, Start, End, Style, Name, "
         "MarginL, MarginR, MarginV, Effect, Text";
+// Afaict nothing ever wrote or consumed v4++ Format lines, this is purely for our internal parser
+// (still, the new names are corroborated by VSFilter internal names and asa's AS5 wiki page)
+static const char *const v4pp_style_format =
+        "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
+        "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, "
+        "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+        "Alignment, MarginL, MarginR, MarginT, MarginB, Encoding, RelativeTo";
+static const char *const v4pp_event_format =
+        "Layer, Start, End, Style, Name, "
+        "MarginL, MarginR, MarginT, MarginB, Effect, Text";
 
 #define ASS_STYLES_ALLOC 20
 
@@ -71,12 +81,6 @@ void ass_free_track(ASS_Track *track)
     if (!track)
         return;
 
-    if (track->parser_priv) {
-        free(track->parser_priv->read_order_bitmap);
-        free(track->parser_priv->fontname);
-        free(track->parser_priv->fontdata);
-        free(track->parser_priv);
-    }
     free(track->style_format);
     free(track->event_format);
     free(track->Language);
@@ -91,6 +95,14 @@ void ass_free_track(ASS_Track *track)
     }
     free(track->events);
     free(track->name);
+    if (track->parser_priv) {
+        free(track->parser_priv->read_order_bitmap);
+        free(track->parser_priv->fontname);
+        free(track->parser_priv->fontdata);
+        free(track->parser_priv->override_marginbt);
+        free(track->parser_priv->override_marginb);
+        free(track->parser_priv);
+    }
     free(track);
 }
 
@@ -109,11 +121,23 @@ int ass_alloc_style(ASS_Track *track)
         int new_max = track->max_styles + ASS_STYLES_ALLOC;
         if (!ASS_REALLOC_ARRAY(track->styles, new_max))
             return -1;
+
+        // TODO: check especially this block again before merge
+        ASS_ParserPriv *priv = track->parser_priv;
+        size_t new_size = FFMAX(new_max + (size_t) 31, (size_t) new_max) / 32;
+        if (!ASS_REALLOC_ARRAY(priv->override_marginbt, new_size) ||
+                !ASS_REALLOC_ARRAY(priv->override_marginb, new_size))
+            return -1;
+        size_t old_size = FFMAX(track->max_styles + (size_t) 31, (size_t) track->max_styles) / 32;
+        memset(priv->override_marginbt + old_size, 0, new_size - old_size);
+        memset(priv->override_marginb  + old_size, 0, new_size - old_size);
+
         track->max_styles = new_max;
     }
 
     sid = track->n_styles++;
     memset(track->styles + sid, 0, sizeof(ASS_Style));
+    track->styles[sid].RelativeTo = 2;
     return sid;
 }
 
@@ -156,6 +180,9 @@ void ass_free_style(ASS_Track *track, int sid)
 
     free(style->Name);
     free(style->FontName);
+
+    track->parser_priv->override_marginbt[sid / 32] &= ~(1ul << (sid - 32 * (sid / 32)));
+    track->parser_priv->override_marginb[sid / 32] &= ~(1ul << (sid - 32 * (sid / 32)));
 }
 
 static int resize_read_order_bitmap(ASS_Track *track, int max_id)
@@ -223,7 +250,7 @@ static void set_default_style(ASS_Style *style)
     style->Outline          = 2;
     style->Shadow           = 3;
     style->Alignment        = 2;
-    style->MarginL = style->MarginR = style->MarginV = 20;
+    style->MarginL = style->MarginR = style->MarginV = style->MarginB = 20;
 }
 
 static long long string2timecode(ASS_Library *library, char *p)
@@ -467,7 +494,11 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
     int i;
     ASS_Event *target = event;
 
-    char *format = strdup(track->event_format);
+    char *format;
+    if (track->track_type == TRACK_TYPE_V4PP)
+        format = strdup(v4pp_event_format);
+    else
+        format = strdup(track->event_format);
     if (!format)
         return -1;
     char *q = format;           // format scanning pointer
@@ -487,6 +518,8 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
                     *--end = 0;
             }
             event->Duration -= event->Start;
+            if (track->track_type != TRACK_TYPE_V4PP)
+                event->MarginB = event->MarginV;
             free(format);
             return event->Text ? 0 : -1;           // "Text" is always the last
         }
@@ -494,6 +527,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
 
         ALIAS(End, Duration)    // temporarily store end timecode in event->Duration
         ALIAS(Actor, Name)      // both variants are used in files
+        ALIAS(MarginT, MarginV)
         PARSE_START
             INTVAL(Layer)
             STYLEVAL(Style)
@@ -502,6 +536,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
+            INTVAL(MarginB)
             TIMEVAL(Start)
             TIMEVAL(Duration)
         PARSE_END
@@ -596,6 +631,21 @@ void ass_process_force_style(ASS_Track *track)
                     INTVAL(MarginL)
                     INTVAL(MarginR)
                     INTVAL(MarginV)
+                        target->MarginB = target->MarginV;
+                    } else if (ass_strcasecmp(tname, "MarginT") == 0) {
+                        ASS_ParserPriv *priv = track->parser_priv;
+                        size_t idx = sid / 32;
+                        uint32_t bit = 1ul << (sid - 32 * idx);
+
+                        priv->override_marginbt[idx] |= bit;
+                        if (!(priv->override_marginb[idx] & bit))
+                            target->MarginB = target->MarginV;
+                        target->MarginV = atoi(token);
+                    INTVAL(MarginB)
+                        size_t idx = sid / 32;
+                        uint32_t bit = 1ul << (sid - 32 * idx);
+                        track->parser_priv->override_marginbt[idx] |= bit;
+                        track->parser_priv->override_marginb[idx] |= bit;
                     INTVAL(Encoding)
                     FPVAL(ScaleX)
                     FPVAL(ScaleY)
@@ -629,8 +679,8 @@ static int process_style(ASS_Track *track, char *str)
     ASS_Style *style;
     ASS_Style *target;
 
-    if (!track->style_format) {
-        // no style format header
+    if (!track->style_format && track->track_type != TRACK_TYPE_V4PP) {
+        // no style format header and not v4++
         // probably an ancient script version
         if (track->track_type == TRACK_TYPE_SSA)
             track->style_format = strdup(ssa_style_format);
@@ -640,7 +690,10 @@ static int process_style(ASS_Track *track, char *str)
             return -1;
     }
 
-    q = format = strdup(track->style_format);
+    if (track->track_type == TRACK_TYPE_V4PP)
+        q = format = strdup(v4pp_style_format);
+    else
+        q = format = strdup(track->style_format);
     if (!q)
         return -1;
 
@@ -665,6 +718,7 @@ static int process_style(ASS_Track *track, char *str)
         NEXTNAME(q, tname);
         NEXTVAL(p, token);
 
+        ALIAS(MarginT, MarginV)
         PARSE_START
             STARREDSTRVAL(Name)
             STRVAL(FontName)
@@ -697,6 +751,7 @@ static int process_style(ASS_Track *track, char *str)
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
+            INTVAL(MarginB)
             INTVAL(Encoding)
             FPVAL(ScaleX)
             FPVAL(ScaleY)
@@ -717,6 +772,8 @@ static int process_style(ASS_Track *track, char *str)
     style->Italic = !!style->Italic;
     style->Underline = !!style->Underline;
     style->StrikeOut = !!style->StrikeOut;
+    if (track->track_type != TRACK_TYPE_V4PP)
+        target->MarginB = target->MarginV;
     if (!style->Name)
         style->Name = strdup("Default");
     if (!style->FontName)
@@ -797,6 +854,10 @@ static int process_styles_line(ASS_Track *track, char *str)
 {
     int ret = 0;
     if (!strncmp(str, "Format:", 7)) {
+        if (track->track_type == TRACK_TYPE_V4PP) {
+            ass_msg(track->library, MSGL_INFO, "Format lines are ignored in v4++!");
+            return ret;
+        }
         char *p = str + 7;
         skip_spaces(&p);
         free(track->style_format);
@@ -831,6 +892,10 @@ static inline void parse_script_type(ASS_Track *track, const char *str)
     if (*(p-1) == '+') {
         ver = TRACK_TYPE_ASS;
         --len; --p;
+        if (*(p-1) == '+') {
+            ver = TRACK_TYPE_V4PP;
+            --len; --p;
+        }
     }
 
     if (len >= 4 && !strncmp(p-4, "4.00", 4))
@@ -898,7 +963,10 @@ static int process_info_line(ASS_Track *track, char *str)
 static void event_format_fallback(ASS_Track *track)
 {
     track->parser_priv->state = PST_EVENTS;
-    if (track->track_type == TRACK_TYPE_SSA)
+    // v4++ ignores Format lines
+    if (track->track_type == TRACK_TYPE_V4PP)
+        return;
+    else if (track->track_type == TRACK_TYPE_SSA)
         track->event_format = strdup(ssa_event_format);
     else
         track->event_format = strdup(ass_event_format);
@@ -965,6 +1033,11 @@ static bool detect_legacy_conv_subs(ASS_Track *track)
 static int process_events_line(ASS_Track *track, char *str)
 {
     if (!strncmp(str, "Format:", 7)) {
+        if (track->track_type == TRACK_TYPE_V4PP) {
+            ass_msg(track->library, MSGL_INFO, "Format lines are ignored in v4++!");
+            return 0;
+        }
+
         char *p = str + 7;
         skip_spaces(&p);
         free(track->event_format);
@@ -991,8 +1064,8 @@ static int process_events_line(ASS_Track *track, char *str)
         int eid;
         ASS_Event *event;
 
-        // We can't parse events without event_format
-        if (!track->event_format) {
+        // We can't parse v4(+) events without event_format
+        if (track->track_type != TRACK_TYPE_V4PP && !track->event_format) {
             event_format_fallback(track);
             if (!track->event_format)
                 return -1;
@@ -1151,6 +1224,9 @@ static int process_line(ASS_Track *track, char *str)
     } else if (!ass_strncasecmp(str, "[V4+ Styles]", 12)) {
         track->parser_priv->state = PST_STYLES;
         track->track_type = TRACK_TYPE_ASS;
+    } else if (!ass_strncasecmp(str, "[V4++ Styles]", 12)) {
+        track->parser_priv->state = PST_STYLES;
+        track->track_type = TRACK_TYPE_V4PP;
     } else if (!ass_strncasecmp(str, "[Events]", 8)) {
         track->parser_priv->state = PST_EVENTS;
     } else if (!ass_strncasecmp(str, "[Fonts]", 7)) {
@@ -1286,7 +1362,9 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
         }
     }
 
-    if (!track->event_format) {
+    // SSA and ASS set fallback during ass_process_codec_private,
+    // but v4++ overrides Format during process_event_tail anyway
+    if (track->track_type != TRACK_TYPE_V4PP && !track->event_format) {
         ass_msg(track->library, MSGL_WARN, "Event format header missing");
         goto cleanup;
     }
