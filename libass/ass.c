@@ -717,8 +717,10 @@ static int process_style(ASS_Track *track, char *str)
     style->Italic = !!style->Italic;
     style->Underline = !!style->Underline;
     style->StrikeOut = !!style->StrikeOut;
-    if (!style->Name)
+    if (!style->Name || !*style->Name) {
+        free(style->Name);
         style->Name = strdup("Default");
+    }
     if (!style->FontName)
         style->FontName = strdup("Arial");
     if (!style->Name || !style->FontName) {
