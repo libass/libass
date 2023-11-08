@@ -619,7 +619,6 @@ void ass_process_force_style(ASS_Track *track)
 */
 static int process_style(ASS_Track *track, char *str)
 {
-
     char *token;
     char *tname;
     char *p = str;
@@ -667,6 +666,8 @@ static int process_style(ASS_Track *track, char *str)
 
         PARSE_START
             STARREDSTRVAL(Name)
+                if (!target->Name)
+                    goto fail;
             STRVAL(FontName)
             COLORVAL(PrimaryColour)
             COLORVAL(SecondaryColour)
@@ -704,7 +705,10 @@ static int process_style(ASS_Track *track, char *str)
             FPVAL(Shadow)
         PARSE_END
     }
+
     free(format);
+    format = NULL;
+
     // VSF compat: always set BackColour Alpha to 0x80 in SSA
     if (track->track_type == TRACK_TYPE_SSA)
         set_style_alpha(style, ssa_alpha, 0x80);
@@ -723,15 +727,17 @@ static int process_style(ASS_Track *track, char *str)
     }
     if (!style->FontName)
         style->FontName = strdup("Arial");
-    if (!style->Name || !style->FontName) {
-        ass_free_style(track, sid);
-        track->n_styles--;
-        return -1;
-    }
+    if (!style->Name || !style->FontName)
+        goto fail;
     if (strcmp(target->Name, "Default") == 0)
         track->default_style = sid;
     return 0;
 
+fail:
+    free(format);
+    ass_free_style(track, sid);
+    track->n_styles--;
+    return -1;
 }
 
 static bool format_line_compare(const char *fmt1, const char *fmt2)
