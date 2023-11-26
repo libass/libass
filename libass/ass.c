@@ -228,9 +228,9 @@ static void set_default_style(ASS_Style *style)
 
 static long long string2timecode(ASS_Library *library, char *p)
 {
-    int h, m, s, ms;
+    int32_t h, m, s, ms;
     long long tm;
-    int res = sscanf(p, "%d:%d:%d.%d", &h, &m, &s, &ms);
+    int res = sscanf(p, "%" SCNd32 ":%" SCNd32 ":%" SCNd32 ".%" SCNd32, &h, &m, &s, &ms);
     if (res < 4) {
         ass_msg(library, MSGL_WARN, "Bad timestamp");
         return 0;
