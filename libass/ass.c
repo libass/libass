@@ -1021,6 +1021,8 @@ static int process_events_line(ASS_Track *track, char *str)
         ass_free_event(track, eid);
         track->n_events--;
         return ret;
+    } else if (!strncmp(str, "Comment:", 8)) {
+        // Ignore Comments
     } else {
         ass_msg(track->library, MSGL_V, "Not understood: '%.30s'", str);
     }
