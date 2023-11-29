@@ -1447,9 +1447,7 @@ out:
  */
 char *ass_load_file(ASS_Library *library, const char *fname, FileNameSource hint, size_t *bufsize)
 {
-    int res;
-    long sz;
-    long bytes_read;
+    size_t sz;
     char *buf;
 
     FILE *fp = ass_open_file(fname, hint);
@@ -1458,8 +1456,7 @@ char *ass_load_file(ASS_Library *library, const char *fname, FileNameSource hint
                 "ass_read_file(%s): fopen failed", fname);
         return 0;
     }
-    res = fseek(fp, 0, SEEK_END);
-    if (res == -1) {
+    if (fseek(fp, 0, SEEK_END) == -1) {
         ass_msg(library, MSGL_WARN,
                 "ass_read_file(%s): fseek failed", fname);
         fclose(fp);
@@ -1467,6 +1464,10 @@ char *ass_load_file(ASS_Library *library, const char *fname, FileNameSource hint
     }
 
     sz = ftell(fp);
+    if (sz == (size_t)-1) {
+        fclose(fp);
+        return 0;
+    }
     rewind(fp);
 
     ass_msg(library, MSGL_V, "File size: %ld", sz);
@@ -1477,17 +1478,17 @@ char *ass_load_file(ASS_Library *library, const char *fname, FileNameSource hint
         return NULL;
     }
     assert(buf);
-    bytes_read = 0;
+    size_t bytes_read = 0;
     do {
-        res = fread(buf + bytes_read, 1, sz - bytes_read, fp);
-        if (res <= 0) {
+        size_t read = fread(buf + bytes_read, 1, sz - bytes_read, fp);
+        if (read == 0 && ferror(fp)) {
             ass_msg(library, MSGL_INFO, "Read failed, %d: %s", errno,
                     strerror(errno));
             fclose(fp);
             free(buf);
             return 0;
         }
-        bytes_read += res;
+        bytes_read += read;
     } while (sz - bytes_read > 0);
     buf[sz] = '\0';
     fclose(fp);
