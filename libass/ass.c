@@ -1447,55 +1447,54 @@ out:
  */
 char *ass_load_file(ASS_Library *library, const char *fname, FileNameSource hint, size_t *bufsize)
 {
-    size_t sz;
-    char *buf;
 
     FILE *fp = ass_open_file(fname, hint);
     if (!fp) {
         ass_msg(library, MSGL_WARN,
                 "ass_read_file(%s): fopen failed", fname);
-        return 0;
-    }
-    if (fseek(fp, 0, SEEK_END) == -1) {
-        ass_msg(library, MSGL_WARN,
-                "ass_read_file(%s): fseek failed", fname);
-        fclose(fp);
-        return 0;
-    }
-
-    sz = ftell(fp);
-    if (sz == (size_t)-1) {
-        fclose(fp);
-        return 0;
-    }
-    rewind(fp);
-
-    ass_msg(library, MSGL_V, "File size: %ld", sz);
-
-    buf = sz < SIZE_MAX ? malloc(sz + 1) : NULL;
-    if (!buf) {
-        fclose(fp);
         return NULL;
     }
-    assert(buf);
+
+    const size_t CHUNK_SIZE = 16 * 1024;
+    size_t bufmax = 128 * CHUNK_SIZE;
+    char *buf = malloc(bufmax + 1); // one extra for terminating zero
+    if (!buf)
+        goto fail;
+
     size_t bytes_read = 0;
-    do {
-        size_t read = fread(buf + bytes_read, 1, sz - bytes_read, fp);
-        if (read == 0 && ferror(fp)) {
-            ass_msg(library, MSGL_INFO, "Read failed, %d: %s", errno,
-                    strerror(errno));
-            fclose(fp);
-            free(buf);
-            return 0;
-        }
+    while (true) {
+        size_t read = fread(buf + bytes_read, 1, CHUNK_SIZE, fp);
         bytes_read += read;
-    } while (sz - bytes_read > 0);
-    buf[sz] = '\0';
+
+        if (read < CHUNK_SIZE) {
+            if (feof(fp)) {
+                break;
+            } else if (ferror(fp)) {
+                ass_msg(library, MSGL_INFO, "Read failed, %d: %s", errno,
+                        strerror(errno));
+                goto fail;
+            }
+        }
+
+        if (bufmax < bytes_read + CHUNK_SIZE) {
+            if (bufmax > (SIZE_MAX - 1) / 2 ||
+                    !ASS_REALLOC_ARRAY(buf, bufmax * 2 + 1))
+                goto fail;
+            bufmax *= 2;
+        }
+    }
+
+    buf[bytes_read] = '\0';
     fclose(fp);
 
     if (bufsize)
-        *bufsize = sz;
+        *bufsize = bytes_read;
     return buf;
+
+fail:
+    fclose(fp);
+    free(buf);
+    return NULL;
 }
 
 /*
