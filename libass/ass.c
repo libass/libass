@@ -1455,18 +1455,28 @@ char *ass_load_file(ASS_Library *library, const char *fname, FileNameSource hint
         return NULL;
     }
 
-    const size_t CHUNK_SIZE = 16 * 1024;
-    size_t bufmax = 128 * CHUNK_SIZE;
-    char *buf = malloc(bufmax + 1); // one extra for terminating zero
+    char *buf = NULL;
+    size_t bufmax = 2 * 1024 * 1024;
+    int sret = ass_get_file_memory_size(fp, &bufmax);
+    if (sret < 0 || bufmax > SIZE_MAX - 2) {
+        ass_msg(library, MSGL_WARN, "File too large, exceeding %zu bytes! %s", SIZE_MAX, fname);
+        goto fail;
+    }
+    else if (bufmax == 0)
+        goto fail;
+    else if (sret == 0)
+        bufmax++; // request one beyond to ensure feof is set
+    buf = malloc(bufmax + 1); // plus terminating zero after the file content
     if (!buf)
         goto fail;
 
     size_t bytes_read = 0;
     while (true) {
-        size_t read = fread(buf + bytes_read, 1, CHUNK_SIZE, fp);
+        size_t maxread = bufmax - bytes_read;
+        size_t read = fread(buf + bytes_read, 1, maxread, fp);
         bytes_read += read;
 
-        if (read < CHUNK_SIZE) {
+        if (read < maxread) {
             if (feof(fp)) {
                 break;
             } else if (ferror(fp)) {
@@ -1476,7 +1486,7 @@ char *ass_load_file(ASS_Library *library, const char *fname, FileNameSource hint
             }
         }
 
-        if (bufmax < bytes_read + CHUNK_SIZE) {
+        if (bufmax <= bytes_read) {
             if (bufmax > (SIZE_MAX - 1) / 2 ||
                     !ASS_REALLOC_ARRAY(buf, bufmax * 2 + 1))
                 goto fail;
