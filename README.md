@@ -43,7 +43,7 @@ The following projects/companies use libass:
 
 Information about the ASS format:
 =================================
-- [ASS format overview (incomplete and partially incorrect)](http://moodub.free.fr/video/ass-specs.doc)
+- [ASS format overview](https://github.com/libass/libass/wiki/ASS-File-Format-Guide)
 - [ASS override tags (Aegisub manual)](http://docs.aegisub.org/latest/ASS_Tags/)
 - [VSFilter source code (Guliverkli2)](http://sourceforge.net/p/guliverkli2/code/HEAD/tree/src/subtitles/)
 
