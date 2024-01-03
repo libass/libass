@@ -108,8 +108,21 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
                 tail->next = calloc(1, sizeof(ASS_DrawingToken));
                 tail->next->prev = tail;
                 tail = tail->next;
-            } else
+            } else {
+                /* VSFilter compat:
+                 * In guliverkli(2) VSFilter all drawings
+                 * whose first valid command isn't m are rejected.
+                 * xy-VSF and MPC-HC ISR this was (possibly inadvertenly) later relaxed,
+                 * such that all valid commands but n are ignored if there was no m yet.
+                 */
+                if (type == TOKEN_MOVE_NC) {
+                    return NULL;
+                } else if (type != TOKEN_MOVE) {
+                    p++;
+                    continue;
+                }
                 root = tail = calloc(1, sizeof(ASS_DrawingToken));
+            }
             tail->type = type;
             tail->point = point;
             is_set = 0;
