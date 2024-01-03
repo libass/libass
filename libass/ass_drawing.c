@@ -33,7 +33,7 @@
 /*
  * \brief Check whether a number of items on the list is available
  */
-static bool token_check_values(ASS_DrawingToken *token, int i, int type)
+static bool token_check_values(ASS_DrawingToken *token, int i, ASS_TokenType type)
 {
     for (int j = 0; j < i; j++) {
         if (!token || token->type != type) return false;
@@ -50,7 +50,8 @@ static bool token_check_values(ASS_DrawingToken *token, int i, int type)
 static ASS_DrawingToken *drawing_tokenize(const char *str)
 {
     char *p = (char *) str;
-    int type = -1, is_set = 0;
+    ASS_TokenType type = TOKEN_INVALID;
+    int is_set = 0;
     double val;
     ASS_Vector point = {0, 0};
 
@@ -102,7 +103,7 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
         if (!got_coord)
             is_set = 0;
 
-        if (type != -1 && is_set == 2) {
+        if (type != TOKEN_INVALID && is_set == 2) {
             if (root) {
                 tail->next = calloc(1, sizeof(ASS_DrawingToken));
                 tail->next->prev = tail;

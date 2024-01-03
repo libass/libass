@@ -24,6 +24,7 @@
 #include "ass_bitmap.h"
 
 typedef enum {
+    TOKEN_INVALID,
     TOKEN_MOVE,
     TOKEN_MOVE_NC,
     TOKEN_LINE,
