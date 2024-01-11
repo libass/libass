@@ -185,6 +185,12 @@ typedef struct DWRITE_UNDERLINE DWRITE_UNDERLINE;
 #endif
 #endif
 
+#define DWRITE_MAKE_OPENTYPE_TAG(a,b,c,d) ( \
+    ((UINT32)(UINT8)(d) << 24) | \
+    ((UINT32)(UINT8)(c) << 16) | \
+    ((UINT32)(UINT8)(b) <<  8) | \
+     (UINT32)(UINT8)(a))
+
 #undef  INTERFACE
 #define INTERFACE IDWriteFactory
 DECLARE_INTERFACE_(IDWriteFactory,IUnknown)
@@ -479,6 +485,16 @@ DECLARE_INTERFACE_(IDWriteFontFace,IUnknown)
         UINT32 codePointCount,
         UINT16 *glyphIndices) PURE;
 
+    STDMETHOD(TryGetFontTable)(THIS_
+        UINT32 openTypeTableTag,
+        const void **tableData,
+        UINT32 *tableSize,
+        void **tableContext,
+        WINBOOL *exists) PURE;
+
+    STDMETHOD_(void, ReleaseFontTable)(THIS_
+        void *tableContext) PURE;
+
     /* rest dropped */
     END_INTERFACE
 };
@@ -524,8 +540,16 @@ DECLARE_INTERFACE_(IDWriteFontFace3,IDWriteFontFace)
         UINT32 codePointCount,
         UINT16 *glyphIndices) PURE;
 
-    STDMETHOD(dummy6)(THIS);
-    STDMETHOD(dummy7)(THIS);
+    STDMETHOD(TryGetFontTable)(THIS_
+        UINT32 openTypeTableTag,
+        const void **tableData,
+        UINT32 *tableSize,
+        void **tableContext,
+        WINBOOL *exists) PURE;
+
+    STDMETHOD_(void, ReleaseFontTable)(THIS_
+        void *tableContext) PURE;
+
     STDMETHOD(dummy8)(THIS);
     STDMETHOD(dummy9)(THIS);
     STDMETHOD(dummy10)(THIS);

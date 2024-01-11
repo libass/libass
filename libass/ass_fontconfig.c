@@ -98,6 +98,7 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         FcBool outline;
         int index;
         double weight;
+        int slant;
         char *path;
         char *fullnames[MAX_NAME];
         char *families[MAX_NAME];
@@ -108,8 +109,7 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
             continue;
 
         // simple types
-        result  = FcPatternGetInteger(pat, FC_SLANT, 0, &meta.slant);
-        result |= FcPatternGetInteger(pat, FC_WIDTH, 0, &meta.width);
+        result  = FcPatternGetInteger(pat, FC_SLANT, 0, &slant);
         result |= FcPatternGetDouble(pat, FC_WEIGHT, 0, &weight);
         result |= FcPatternGetInteger(pat, FC_INDEX, 0, &index);
         if (result != FcResultMatch)
@@ -158,6 +158,9 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         else
             meta.weight = 1000;
 #endif
+
+        // Take a guess at the italic flag
+        meta.style_flags = (slant >= FC_SLANT_ITALIC) ? FT_STYLE_FLAG_ITALIC : 0;
 
         // path
         result = FcPatternGetString(pat, FC_FILE, 0, (FcChar8 **)&path);

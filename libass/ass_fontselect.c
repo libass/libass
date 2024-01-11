@@ -34,6 +34,7 @@
 #include FT_FREETYPE_H
 #include FT_SFNT_NAMES_H
 #include FT_TRUETYPE_IDS_H
+#include FT_TRUETYPE_TABLES_H
 #include FT_TYPE1_TABLES_H
 
 #include "ass_utils.h"
@@ -60,9 +61,8 @@ struct font_info {
     int n_family;
     int n_fullname;
 
-    int slant;
-    int weight;         // TrueType scale, 100-900
-    int width;
+    unsigned style_flags;
+    int weight;           // TrueType scale, 100-900
 
     // how to access this face
     char *path;            // absolute path
@@ -257,7 +257,6 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     int num_fullname = 0;
     int num_family   = 0;
     int num_names = FT_Get_Sfnt_Name_Count(face);
-    int slant, weight;
     char *fullnames[MAX_FULLNAME];
     char *families[MAX_FULLNAME];
     PS_FontInfoRec postscript_info;
@@ -310,14 +309,9 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     if (num_family == 0)
         goto error;
 
-    // calculate sensible slant and weight from style attributes
-    slant  = 110 * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
-    weight = ass_face_get_weight(face);
-
-    // fill our struct
-    info->slant  = slant;
-    info->weight = weight;
-    info->width  = 100;     // FIXME, should probably query the OS/2 table
+    // calculate sensible weight
+    info->weight = ass_face_get_weight(face);
+    info->style_flags = ass_face_get_style_flags(face);
 
     info->postscript_name = (char *)FT_Get_Postscript_Name(face);
     info->is_postscript = !FT_Get_PS_Font_Info(face, &postscript_info);
@@ -391,13 +385,12 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
                            int index, void *data)
 {
     int i;
-    int weight, slant, width;
     ASS_FontSelector *selector = provider->parent;
     ASS_FontInfo *info = NULL;
     ASS_FontProviderMetaData implicit_meta = {0};
+    FT_Face face;
 
     if (!meta->n_family) {
-        FT_Face face;
         if (provider->funcs.get_font_index)
             index = provider->funcs.get_font_index(data);
         if (!path) {
@@ -447,24 +440,11 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     for (j = 0; j < meta->n_fullname; j++)
         printf("'%s' ", meta->fullnames[j]);
     printf("\n");
-    printf("  slant: %d\n", meta->slant);
+    printf("  style_flags: %x\n", (unsigned)meta->style_flags);
     printf("  weight: %d\n", meta->weight);
-    printf("  width: %d\n", meta->width);
     printf("  path: %s\n", path);
     printf("  index: %d\n", index);
 #endif
-
-    weight = meta->weight;
-    slant  = meta->slant;
-    width  = meta->width;
-
-    // check slant/weight for validity, use defaults if they're invalid
-    if (weight < 100 || weight > 900)
-        weight = 400;
-    if (slant < 0 || slant > 110)
-        slant = 0;
-    if (width < 50 || width > 200)
-        width = 100;
 
     // check size
     if (selector->n_font >= selector->alloc_font) {
@@ -480,9 +460,8 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     // set uid
     info->uid = selector->uid++;
 
-    info->slant         = slant;
-    info->weight        = weight;
-    info->width         = width;
+    info->style_flags   = meta->style_flags;
+    info->weight        = meta->weight;
     info->n_fullname    = meta->n_fullname;
     info->n_family      = meta->n_family;
     info->is_postscript = meta->is_postscript;
@@ -675,12 +654,26 @@ static bool matches_full_or_postscript_name(ASS_FontInfo *f,
  */
 static unsigned font_attributes_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
 {
-    unsigned similarity = 0;
-    similarity += ABS(a->weight - req->weight);
-    similarity += ABS(a->slant - req->slant);
-    similarity += ABS(a->width - req->width);
+    unsigned score = 0;
 
-    return similarity;
+    // Assign score for italics mismatch
+    if ((req->style_flags & FT_STYLE_FLAG_ITALIC) &&
+        !(a->style_flags & FT_STYLE_FLAG_ITALIC))
+        score += 1;
+    else if (!(req->style_flags & FT_STYLE_FLAG_ITALIC) &&
+             (a->style_flags & FT_STYLE_FLAG_ITALIC))
+        score += 4;
+
+    int a_weight = a->weight;
+
+    // Offset effective weight for faux-bold (only if font isn't flagged as bold)
+    if ((req->weight > a->weight + 150) && !(a->style_flags & FT_STYLE_FLAG_BOLD))
+        a_weight += 120;
+
+    // Assign score for weight mismatch
+    score += (73 * ABS(a_weight - req->weight)) / 256;
+
+    return score;
 }
 
 #if 0
@@ -701,7 +694,6 @@ static void font_info_dump(ASS_FontInfo *font_infos, size_t len)
         printf("\n");
         printf("  slant: %d\n", font_infos[i].slant);
         printf("  weight: %d\n", font_infos[i].weight);
-        printf("  width: %d\n", font_infos[i].width);
         printf("  path: %s\n", font_infos[i].path);
         printf("  index: %d\n", font_infos[i].index);
         printf("  score: %d\n", font_infos[i].score);
@@ -733,9 +725,8 @@ find_font(ASS_FontSelector *priv,
         return NULL;
 
     // fill font request
-    req.slant   = italic;
-    req.weight  = bold;
-    req.width   = 100;
+    req.style_flags = (italic ? FT_STYLE_FLAG_ITALIC : 0);
+    req.weight      = bold;
 
     // Match font family name against font list
     unsigned score_min = UINT_MAX;
