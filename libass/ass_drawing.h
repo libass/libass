@@ -24,12 +24,10 @@
 #include "ass_bitmap.h"
 
 typedef enum {
-    TOKEN_INVALID,
     TOKEN_MOVE,
     TOKEN_MOVE_NC,
     TOKEN_LINE,
     TOKEN_CUBIC_BEZIER,
-    TOKEN_CONIC_BEZIER,
     TOKEN_B_SPLINE,
     TOKEN_EXTEND_SPLINE,
     TOKEN_CLOSE
