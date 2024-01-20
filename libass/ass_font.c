@@ -199,23 +199,35 @@ static uint32_t convert_unicode_to_mb(FT_Encoding encoding, uint32_t codepoint) 
 void ass_charmap_magic(ASS_Library *library, FT_Face face)
 {
     int i;
-    int ms_cmap = -1;
+    int ms_cmap = -1, ms_unicode_cmap = -1;
 
     // Search for a Microsoft Unicode cmap
     for (i = 0; i < face->num_charmaps; ++i) {
         FT_CharMap cmap = face->charmaps[i];
         unsigned pid = cmap->platform_id;
         unsigned eid = cmap->encoding_id;
-        if (pid == 3 /*microsoft */
-            && (eid == 1 /*unicode bmp */
-                || eid == 10 /*full unicode */ )) {
-            FT_Set_Charmap(face, cmap);
-            return;
-        } else if (pid == 3 && ms_cmap < 0)
-            ms_cmap = i;
+        if (pid == TT_PLATFORM_MICROSOFT) {
+            switch (eid) {
+            case TT_MS_ID_UCS_4:
+                // Full Unicode cmap: select this immediately
+                FT_Set_Charmap(face, cmap);
+                return;
+            case TT_MS_ID_UNICODE_CS:
+                // BMP-only Unicode cmap: select this
+                // if no fuller Unicode cmap exists
+                if (ms_unicode_cmap < 0)
+                    ms_unicode_cmap = ms_cmap = i;
+                break;
+            default:
+                // Non-Unicode cmap: select this if no Unicode cmap exists
+                if (ms_cmap < 0)
+                    ms_cmap = i;
+            }
+        }
     }
 
-    // Try the first Microsoft cmap if no Microsoft Unicode cmap was found
+    // Try the first Microsoft BMP cmap if no MS cmap had full Unicode,
+    // or the first MS cmap of any kind if none of them had Unicode at all
     if (ms_cmap >= 0) {
         FT_CharMap cmap = face->charmaps[ms_cmap];
         FT_Set_Charmap(face, cmap);
