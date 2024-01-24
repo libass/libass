@@ -158,7 +158,7 @@ typedef enum {
      */
     ASS_OVERRIDE_BIT_FONT_SIZE_FIELDS = 1 << 2,
     /**
-     * On dialogue events override: FontName, treat_fontname_as_pattern
+     * On dialogue events override: FontName
      */
     ASS_OVERRIDE_BIT_FONT_NAME = 1 << 3,
     /**

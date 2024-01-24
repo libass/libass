@@ -949,7 +949,6 @@ static ASS_Style *handle_selective_style_overrides(RenderContext *state,
 
     if (requested & ASS_OVERRIDE_BIT_FONT_NAME) {
         new->FontName = user->FontName;
-        new->treat_fontname_as_pattern = user->treat_fontname_as_pattern;
     }
 
     if (requested & ASS_OVERRIDE_BIT_COLORS) {
@@ -1077,7 +1076,6 @@ void ass_reset_render_context(RenderContext *state, ASS_Style *style)
 
     state->family.str = style->FontName;
     state->family.len = strlen(style->FontName);
-    state->treat_family_as_pattern = style->treat_fontname_as_pattern;
     state->bold = style->Bold;
     state->italic = style->Italic;
     ass_update_font(state);

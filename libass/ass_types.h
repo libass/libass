@@ -122,7 +122,6 @@ typedef struct ass_style {
     int MarginR;
     int MarginV;
     int Encoding;
-    int treat_fontname_as_pattern; // does nothing (left in place for ABI-compatibility)
     double Blur; // sets a default \blur for the event; same values as \blur
     int Justify; // sets text justification independent of event alignment; use ASS_JUSTIFY_*
 } ASS_Style;

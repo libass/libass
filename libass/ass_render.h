@@ -277,7 +277,6 @@ struct render_context {
     ASS_StringView family;
     unsigned bold;
     unsigned italic;
-    int treat_family_as_pattern;
     int wrap_style;
     int font_encoding;
 
