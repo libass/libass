@@ -114,6 +114,10 @@ int ass_alloc_style(ASS_Track *track)
 
     sid = track->n_styles++;
     memset(track->styles + sid, 0, sizeof(ASS_Style));
+
+    // Explicitly flag newer values as unset
+    track->styles[sid].MarginB = INT_MIN;
+
     return sid;
 }
 
@@ -224,6 +228,7 @@ static void set_default_style(ASS_Style *style)
     style->Shadow           = 3;
     style->Alignment        = 2;
     style->MarginL = style->MarginR = style->MarginV = 20;
+    style->MarginB = INT_MIN;
 }
 
 static long long string2timecode(ASS_Library *library, char *p)
@@ -502,6 +507,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
+            INTVAL(MarginB)
             TIMEVAL(Start)
             TIMEVAL(Duration)
         PARSE_END
@@ -698,6 +704,7 @@ static int process_style(ASS_Track *track, char *str)
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
+            INTVAL(MarginB)
             INTVAL(Encoding)
             FPVAL(ScaleX)
             FPVAL(ScaleY)

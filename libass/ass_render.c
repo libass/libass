@@ -980,8 +980,12 @@ static ASS_Style *handle_selective_style_overrides(RenderContext *state,
     if (requested & ASS_OVERRIDE_BIT_MARGINS) {
         new->MarginL = user->MarginL;
         new->MarginR = user->MarginR;
-        new->MarginV = user->MarginV;
+        new->MarginT = user->MarginT;
+        new->MarginB = user->MarginB;
     }
+
+    // Never override RelativeTo; there are separate mechanisms for that
+    new->RelativeTo = rstyle->RelativeTo;
 
     if (!new->FontName)
         new->FontName = rstyle->FontName;
@@ -2880,8 +2884,13 @@ ass_render_event(RenderContext *state, ASS_Event *event,
         (event->MarginL) ? event->MarginL : state->style->MarginL;
     int MarginR =
         (event->MarginR) ? event->MarginR : state->style->MarginR;
-    int MarginV =
-        (event->MarginV) ? event->MarginV : state->style->MarginV;
+    int MarginT =
+        (event->MarginT) ? event->MarginT : state->style->MarginT;
+    int MarginB =
+        (event->MarginB) ? event->MarginB : state->style->MarginB;
+
+    if (MarginB == INT_MIN)
+        MarginB = MarginT;
 
     // calculate max length of a line
     double max_text_width =
@@ -2953,7 +2962,7 @@ ass_render_event(RenderContext *state, ASS_Event *event,
         if (valign == VALIGN_TOP) {     // toptitle
             device_y =
                 y2scr_top(state,
-                          MarginV) + text_info->lines[0].asc;
+                          MarginT) + text_info->lines[0].asc;
         } else if (valign == VALIGN_CENTER) {   // midtitle
             double scr_y =
                 y2scr(state, render_priv->track->PlayResY / 2.0);
@@ -2967,7 +2976,7 @@ ass_render_event(RenderContext *state, ASS_Event *event,
                        "Invalid valign, assuming 0 (subtitle)");
             scr_bottom =
                 y2scr_sub(state,
-                          render_priv->track->PlayResY - MarginV);
+                          render_priv->track->PlayResY - MarginB);
             scr_top = y2scr_top(state, 0); //xxx not always 0?
             device_y = scr_bottom + (scr_top - scr_bottom) * line_pos / 100.0;
             device_y -= text_info->height;

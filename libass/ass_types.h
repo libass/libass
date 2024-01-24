@@ -120,7 +120,11 @@ typedef struct ass_style {
     int Alignment; // use `VALIGN_* | HALIGN_*` as value
     int MarginL;
     int MarginR;
-    int MarginV;
+    union {
+        int MarginV;
+        int MarginT;
+    };
+    int MarginB; // Applies only if set to a non-INT_MIN value
     int Encoding;
     double Blur; // sets a default \blur for the event; same values as \blur
     int Justify; // sets text justification independent of event alignment; use ASS_JUSTIFY_*
@@ -141,7 +145,11 @@ typedef struct ass_event {
     char *Name;
     int MarginL;
     int MarginR;
-    int MarginV;
+    union {
+        int MarginV;
+        int MarginT;
+    };
+    int MarginB;
     char *Effect;
     char *Text;
 
