@@ -117,6 +117,7 @@ int ass_alloc_style(ASS_Track *track)
 
     // Explicitly flag newer values as unset
     track->styles[sid].MarginB = INT_MIN;
+    track->styles[sid].RelativeTo = 2;
 
     return sid;
 }
@@ -229,6 +230,7 @@ static void set_default_style(ASS_Style *style)
     style->Alignment        = 2;
     style->MarginL = style->MarginR = style->MarginV = 20;
     style->MarginB = INT_MIN;
+    style->RelativeTo = 2;
 }
 
 static long long string2timecode(ASS_Library *library, char *p)
@@ -706,6 +708,7 @@ static int process_style(ASS_Track *track, char *str)
             INTVAL(MarginV)
             INTVAL(MarginB)
             INTVAL(Encoding)
+            INTVAL(RelativeTo)
             FPVAL(ScaleX)
             FPVAL(ScaleY)
             FPVAL(Outline)

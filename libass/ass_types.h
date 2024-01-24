@@ -128,6 +128,7 @@ typedef struct ass_style {
     int Encoding;
     double Blur; // sets a default \blur for the event; same values as \blur
     int Justify; // sets text justification independent of event alignment; use ASS_JUSTIFY_*
+    int RelativeTo; // 0 for dialogue, 1 for typesetting, 2 for auto
 } ASS_Style;
 
 
