@@ -272,7 +272,8 @@ typedef struct ass_track {
     enum {
         TRACK_TYPE_UNKNOWN = 0,
         TRACK_TYPE_ASS,
-        TRACK_TYPE_SSA
+        TRACK_TYPE_SSA,
+        TRACK_TYPE_ASS2,
     } track_type;
 
     // Script header fields
