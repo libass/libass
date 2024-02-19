@@ -638,19 +638,8 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
     ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
 
 cleanup:
-    if (meta.families) {
-        for (int k = 0; k < meta.n_family; k++)
-            free(meta.families[k]);
-        free(meta.families);
-    }
-
-    if (meta.fullnames) {
-        for (int k = 0; k < meta.n_fullname; k++)
-            free(meta.fullnames[k]);
-        free(meta.fullnames);
-    }
-
     free(meta.postscript_name);
+    free(meta.extended_family);
 
     if (face)
         IDWriteFontFace_Release(face);
@@ -828,19 +817,8 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
     ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
 
 cleanup:
-    if (meta.families) {
-        for (int k = 0; k < meta.n_family; k++)
-            free(meta.families[k]);
-        free(meta.families);
-    }
-
-    if (meta.fullnames) {
-        for (int k = 0; k < meta.n_fullname; k++)
-            free(meta.fullnames[k]);
-        free(meta.fullnames);
-    }
-
     free(meta.postscript_name);
+    free(meta.extended_family);
 
     if (font)
         IDWriteFont_Release(font);
