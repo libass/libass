@@ -43,19 +43,32 @@ static bool token_check_values(ASS_DrawingToken *token, int i, ASS_TokenType typ
     return true;
 }
 
-static inline void add_node(ASS_DrawingToken **tail, ASS_TokenType type, ASS_Vector point)
+/*
+ * \brief Free a list of tokens
+ */
+static void drawing_free_tokens(ASS_DrawingToken *token)
+{
+    while (token) {
+        ASS_DrawingToken *at = token;
+        token = token->next;
+        free(at);
+    }
+}
+
+static inline bool add_node(ASS_DrawingToken **tail, ASS_TokenType type, ASS_Vector point)
 {
     assert(tail && *tail);
 
     ASS_DrawingToken *new_tail = malloc(sizeof(**tail));
     if (!new_tail)
-        return;
+        return false;
     (*tail)->next = new_tail;
     new_tail->prev = *tail;
     new_tail->next = NULL;
     new_tail->type = type;
     new_tail->point = point;
     *tail = new_tail;
+    return true;
 }
 
 static inline bool get_point(const char **str, ASS_Vector *point)
@@ -72,9 +85,10 @@ static inline bool get_point(const char **str, ASS_Vector *point)
  * Parses and advances the string for exactly 3 points.
  * If the string contains fewer than 3 points,
  * any initial matching coordinates are still consumed.
+ * If an allocation fails, error will be set to true.
  * \return whether three valid points were added
  */
-static bool add_3_points(const char **str, ASS_DrawingToken **tail, ASS_TokenType type)
+static bool add_3_points(const char **str, ASS_DrawingToken **tail, ASS_TokenType type, bool *error)
 {
     ASS_Vector buf[3];
 
@@ -88,9 +102,13 @@ static bool add_3_points(const char **str, ASS_DrawingToken **tail, ASS_TokenTyp
     if (!valid)
         return false;
 
-    add_node(tail, type, buf[0]);
-    add_node(tail, type, buf[1]);
-    add_node(tail, type, buf[2]);
+    valid = add_node(tail, type, buf[0]);
+    valid = valid && add_node(tail, type, buf[1]);
+    valid = valid && add_node(tail, type, buf[2]);
+    if (!valid) {
+        *error = true;
+        return false;
+    }
 
     return true;
 }
@@ -99,10 +117,11 @@ static bool add_3_points(const char **str, ASS_DrawingToken **tail, ASS_TokenTyp
  * Parses and advances the string while it matches points.
  * Each set of batch_size points will be turned into tokens and appended to tail.
  * Partial matches (i.e. an insufficient amount of coordinates) are still consumed.
+ * If an allocation fails, error will be set to true.
  * \return count of added points
  */
 static size_t add_many_points(const char **str, ASS_DrawingToken **tail,
-                              ASS_TokenType type, size_t batch_size)
+                              ASS_TokenType type, size_t batch_size, bool *error)
 {
     ASS_Vector buf[3];
     size_t max_buf = sizeof(buf) / sizeof(*buf);
@@ -125,7 +144,10 @@ static size_t add_many_points(const char **str, ASS_DrawingToken **tail,
             continue;
 
         for (size_t i = 0; i < count_batch; i++)
-            add_node(tail, type, buf[i]);
+            if (!add_node(tail, type, buf[i])) {
+                *error = true;
+                return count_total - count_batch + i;
+            }
         count_batch = 0;
     }
 
@@ -154,6 +176,7 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
     ASS_DrawingToken *root = NULL, *tail = NULL, *spline_start = NULL;
     size_t points = 0;
     bool m_seen = false;
+    bool error = false;
 
     while (p && *p) {
         char cmd = *p;
@@ -177,9 +200,9 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
                 if (!get_point(&p, &point))
                     continue;
                 if (!add_root_node(&root, &tail, &points, point, TOKEN_MOVE))
-                    continue;
+                    return NULL;
             }
-            points += add_many_points(&p, &tail, TOKEN_MOVE, 1);
+            points += add_many_points(&p, &tail, TOKEN_MOVE, 1, &error);
             break;
         case 'n':
             if (!root) {
@@ -189,19 +212,19 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
                 if (!m_seen)
                     return NULL;
                 if (!add_root_node(&root, &tail, &points, point, TOKEN_MOVE_NC))
-                    continue;
+                    return NULL;
             }
-            points += add_many_points(&p, &tail, TOKEN_MOVE_NC, 1);
+            points += add_many_points(&p, &tail, TOKEN_MOVE_NC, 1, &error);
             break;
         case 'l':
             if (!root)
                 continue;
-            points += add_many_points(&p, &tail, TOKEN_LINE, 1);
+            points += add_many_points(&p, &tail, TOKEN_LINE, 1, &error);
             break;
         case 'b':
             if (!root)
                 continue;
-            points += add_many_points(&p, &tail, TOKEN_CUBIC_BEZIER, 3);
+            points += add_many_points(&p, &tail, TOKEN_CUBIC_BEZIER, 3, &error);
             break;
         case 's':
             if (!root)
@@ -209,9 +232,9 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
             // Only the initial 3 points are TOKEN_B_SPLINE,
             // all following ones are TOKEN_EXTEND_SPLINE
             spline_start = tail;
-            if (!add_3_points(&p, &tail, TOKEN_B_SPLINE)) {
+            if (!add_3_points(&p, &tail, TOKEN_B_SPLINE, &error)) {
                 spline_start = NULL;
-                continue;
+                break;
             }
             points += 3;
             //-fallthrough
@@ -219,7 +242,7 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
             if (points < 3)
                 continue;
             // XXX: use TOKEN_EXTEND_SPLINE
-            points += add_many_points(&p, &tail, TOKEN_B_SPLINE, 1);
+            points += add_many_points(&p, &tail, TOKEN_B_SPLINE, 1, &error);
             break;
         case 'c':
             if (!spline_start)
@@ -227,7 +250,10 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
             // Close b-splines: add the first three points of the b-spline back to the end
             for (int i = 0; i < 3; i++) {
                 // XXX: use TOKEN_EXTEND_SPLINE
-                add_node(&tail, TOKEN_B_SPLINE, spline_start->point);
+                if (!add_node(&tail, TOKEN_B_SPLINE, spline_start->point)) {
+                    error = true;
+                    break;
+                }
                 spline_start = spline_start->next;
             }
             spline_start = NULL;
@@ -236,21 +262,15 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
             // Ignore, just search for next valid command
             break;
         }
+        if (error)
+            goto fail;
     }
 
     return root;
-}
 
-/*
- * \brief Free a list of tokens
- */
-static void drawing_free_tokens(ASS_DrawingToken *token)
-{
-    while (token) {
-        ASS_DrawingToken *at = token;
-        token = token->next;
-        free(at);
-    }
+fail:
+    drawing_free_tokens(root);
+    return NULL;
 }
 
 /*
