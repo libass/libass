@@ -2177,8 +2177,6 @@ static bool parse_events(RenderContext *state, ASS_Event *event)
         info->bold = state->bold;
         info->italic = state->italic;
         info->flags = state->flags;
-        if (info->font->desc.vertical && code >= VERTICAL_LOWER_BOUND)
-            info->flags |= DECO_ROTATE;
         info->frx = state->frx;
         info->fry = state->fry;
         info->frz = state->frz;

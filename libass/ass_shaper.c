@@ -76,7 +76,6 @@ struct ass_shaper {
 struct ass_shaper_metrics_data {
     Cache *metrics_cache;
     GlyphMetricsHashKey hash_key;
-    int vertical;
 };
 
 struct ass_shaper_font_data {
@@ -228,15 +227,8 @@ static FT_Glyph_Metrics *
 get_cached_metrics(struct ass_shaper_metrics_data *metrics,
                    hb_codepoint_t unicode, hb_codepoint_t glyph)
 {
-    bool rotate = false;
-    // if @font rendering is enabled and the glyph should be rotated,
-    // make cached_h_advance pick up the right advance later
-    if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
-        rotate = true;
-
     metrics->hash_key.glyph_index = glyph;
-    FT_Glyph_Metrics *val = ass_cache_get(metrics->metrics_cache, &metrics->hash_key,
-                                          rotate ? metrics : NULL);
+    FT_Glyph_Metrics *val = ass_cache_get(metrics->metrics_cache, &metrics->hash_key, NULL);
     if (!val)
         return NULL;
     if (val->width >= 0)
@@ -261,7 +253,9 @@ size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
 
     memcpy(v, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
 
-    if (priv)  // rotate
+    // if @font rendering is enabled and the glyph should be rotated,
+    // make cached_h_advance pick up the right advance later
+    if (k->vertical)
         v->horiAdvance = v->vertAdvance;
 
     return 1;
@@ -478,7 +472,6 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
         if (!metrics)
             return NULL;
         metrics->metrics_cache = shaper->metrics_cache;
-        metrics->vertical = info->font->desc.vertical;
 
         hb_font_funcs_t *funcs = hb_font_funcs_create();
         if (!funcs)
@@ -513,6 +506,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
     // update hash key for cached metrics
     struct ass_shaper_metrics_data *metrics =
         font->shaper_priv->metrics_data[info->face_index];
+    metrics->hash_key.vertical = !!(info->flags & DECO_ROTATE);
     metrics->hash_key.font = info->font;
     metrics->hash_key.face_index = info->face_index;
     metrics->hash_key.size = info->font_size;
@@ -894,6 +888,10 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
             // get font face and glyph index
             ass_font_get_index(render_priv->fontselect, info->font,
                     info->symbol, &info->face_index, &info->glyph_index);
+
+            if (info->font->desc.vertical &&
+                ass_codepoint_is_fullwidth(info->font->faces_cp[info->face_index], info->symbol))
+                info->flags |= DECO_ROTATE;
         }
         if (i > 0) {
             GlyphInfo *last = glyphs + i - 1;
