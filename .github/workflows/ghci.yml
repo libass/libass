@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     name: build(${{ matrix.msystem || matrix.docker_image || matrix.os }},
-      ${{ matrix.cc }}${{ matrix.api && ', ' }}${{ matrix.api }})
+      ${{ matrix.cc }}${{ matrix.api && ', ' }}${{ matrix.api }}${{ matrix.jobname_postfix && ', ' }}${{ matrix.jobname_postfix }})
     strategy:
       fail-fast: false
       matrix:
@@ -44,6 +44,12 @@ jobs:
           # MacOS build
           - os: macos-latest
             cc: clang
+            omit_asan: no
+          - os: macos-latest
+            cc: clang
+            omit_asan: yes
+            art_binwrap: 'leaks --atExit --'
+            jobname_postfix: leaks
           # Add a Windows build (MinGW-gcc via MSYS2) with no extras
           - os: windows-2019
             msystem: MINGW32
@@ -64,6 +70,7 @@ jobs:
 
     env:
       ART_SAMPLES: ext_art-samples
+      ART_BINWRAP: ${{ matrix.art_binwrap }}
 
     steps:
       - name: checkout code
@@ -157,6 +164,11 @@ jobs:
             # This options will instead force an SIGILL, but remove a report being printed
             # see https://reviews.llvm.org/D35085
             uflags="$uflags -fsanitize-undefined-trap-on-error"
+          fi
+
+          # ASAN is incompatible with other tools so some jobs want to opt-out
+          if [ "${{ matrix.omit_asan }}" = "yes" ] ; then
+            aflags=""
           fi
 
           # UBSAN: Alpine and MSys2 doesn't ship the UBSAN library,
