@@ -67,10 +67,10 @@ jobs:
 
     steps:
       - name: checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: download test samples
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: libass/libass-tests
           path: ${{ env.ART_SAMPLES }}
