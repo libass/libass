@@ -726,7 +726,21 @@ static int CALLBACK font_enum_proc(const ENUMLOGFONTW *lpelf,
     if (FontType & RASTER_FONTTYPE)
         goto cleanup;
 
-    hFont = CreateFontIndirectW(&lpelf->elfLogFont);
+    LOGFONTW lf = lpelf->elfLogFont;
+    // lf.lfFaceName currently holds the font family name.
+    // The family may contain several fonts with equal numerical parameters
+    // but distinct full names. If we pass lf to CreateFontIndirect as is,
+    // we will miss this variety and merely get the same one font multiple
+    // times. Try to increase our chances of seeing all the right fonts
+    // by replacing the family name by the full name. There's some chance
+    // that this in turn selects some *other* family's fonts and misses
+    // the requested family, but we would rather take this chance than
+    // add every font twice (via the family name and via the full name).
+    // lfFaceName can hold up to LF_FACESIZE wchars; truncate longer names.
+    wcsncpy(lf.lfFaceName, lpelf->elfFullName, LF_FACESIZE - 1);
+    lf.lfFaceName[LF_FACESIZE - 1] = L'\0';
+
+    hFont = CreateFontIndirectW(&lf);
     if (!hFont)
         goto cleanup;
 
@@ -737,7 +751,7 @@ static int CALLBACK font_enum_proc(const ENUMLOGFONTW *lpelf,
     wchar_t selected_name[LF_FACESIZE];
     if (!GetTextFaceW(hdc, LF_FACESIZE, selected_name))
         goto cleanup;
-    if (wcsncmp(selected_name, lpelf->elfLogFont.lfFaceName, LF_FACESIZE)) {
+    if (wcsncmp(selected_name, lf.lfFaceName, LF_FACESIZE)) {
         // A different font was selected. This can happen if the requested
         // name is subject to charset-specific font substitution while
         // EnumFont... enumerates additional charsets contained in the font.
