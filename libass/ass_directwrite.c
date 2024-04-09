@@ -751,7 +751,7 @@ static int CALLBACK font_enum_proc(const ENUMLOGFONTW *lpelf,
     wchar_t selected_name[LF_FACESIZE];
     if (!GetTextFaceW(hdc, LF_FACESIZE, selected_name))
         goto cleanup;
-    if (wcsncmp(selected_name, lf.lfFaceName, LF_FACESIZE)) {
+    if (_wcsnicmp(selected_name, lf.lfFaceName, LF_FACESIZE)) {
         // A different font was selected. This can happen if the requested
         // name is subject to charset-specific font substitution while
         // EnumFont... enumerates additional charsets contained in the font.
