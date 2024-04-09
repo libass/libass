@@ -39,6 +39,8 @@
 "ScriptType"
 "PlayResX"
 "PlayResY"
+"LayoutResX"
+"LayoutResY"
 "Timer"
 "WrapStyle"
 "ScaledBorderAndShadow"
