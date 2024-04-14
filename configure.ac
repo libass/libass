@@ -260,7 +260,7 @@ AS_IF([test "x$enable_asm" != xno], [
             ASFLAGS="$ASFLAGS -DARCH_X86_64=1"
         ],
         [aarch64-*|aarch64_be-*], [
-            cpu_family="arm64"
+            cpu_family="aarch64"
             BITS=64
             BITTYPE=64
         ],
@@ -316,7 +316,7 @@ AS_IF([test "x$enable_asm" != xno], [
                 rm conftest.asm conftest.o > /dev/null 2>&1
             ])
         ],
-        [arm64], [
+        [aarch64], [
             AS_CASE([$host],
                 [*darwin*], [
                     CCASFLAGS="$CCASFLAGS -DPREFIX"
@@ -356,7 +356,7 @@ AS_IF([test "x$enable_shared" != xno], [
 AM_CONDITIONAL([ASM], [test "x$can_asm" = xtrue])
 AM_CONDITIONAL([X86], [test "x$cpu_family" = xx86])
 AM_CONDITIONAL([X86_64], [test "x$cpu_family" = xx86 && test "x$BITS" = x64])
-AM_CONDITIONAL([AARCH64], [test "x$cpu_family" = xarm64])
+AM_CONDITIONAL([AARCH64], [test "x$cpu_family" = xaarch64])
 
 AM_CONDITIONAL([ENABLE_LARGE_TILES], [test "x$enable_large_tiles" = xyes])
 
