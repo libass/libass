@@ -51,6 +51,18 @@
 
 #define FEATURE_MASK(feat) (((uint32_t) 1) << (feat))
 
+#ifndef __has_builtin
+    #define __has_builtin(x) 0
+#endif
+
+#if __has_builtin(__builtin_unreachable)
+    #define ASSUME(x) if (!(x)) __builtin_unreachable()
+#elif defined(_MSC_VER)
+    #define ASSUME(x) __assume(x)
+#else
+    #define ASSUME(x) (void)0
+#endif
+
 typedef struct {
     const char *str;
     size_t len;
