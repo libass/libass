@@ -18,6 +18,7 @@
 
 #include "config.h"
 #include "ass_compat.h"
+#include "ass_utils.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -38,6 +39,8 @@ static inline uint16_t sliding_sum(uint16_t *prev, uint16_t next)
 void ass_be_blur_c(uint8_t *restrict buf, ptrdiff_t stride,
                    size_t width, size_t height, uint16_t *restrict tmp)
 {
+    ASSUME(!(stride % 16) && width > 1 && height > 1);
+
     uint16_t *col_pix_buf = tmp;
     uint16_t *col_sum_buf = tmp + stride;
 

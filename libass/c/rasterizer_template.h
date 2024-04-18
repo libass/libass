@@ -35,6 +35,8 @@
 
 void SUFFIX(ass_fill_solid_tile)(uint8_t *buf, ptrdiff_t stride, int set)
 {
+    ASSUME(!(stride % 16));
+
     uint8_t value = set ? 255 : 0;
     for (int y = 0; y < TILE_SIZE; y++) {
         for (int x = 0; x < TILE_SIZE; x++)
@@ -69,6 +71,8 @@ void SUFFIX(ass_fill_solid_tile)(uint8_t *buf, ptrdiff_t stride, int set)
 void SUFFIX(ass_fill_halfplane_tile)(uint8_t *buf, ptrdiff_t stride,
                                      int32_t a, int32_t b, int64_t c, int32_t scale)
 {
+    ASSUME(!(stride % 16));
+
     int16_t aa = RESCALE_AB(a, scale), bb = RESCALE_AB(b, scale);
     int16_t cc = RESCALE_C(c, scale) + FULL_VALUE / 2 - ((aa + bb) >> 1);
 
@@ -138,6 +142,8 @@ void SUFFIX(ass_fill_generic_tile)(uint8_t *restrict buf, ptrdiff_t stride,
                                    const struct segment *restrict line, size_t n_lines,
                                    int winding)
 {
+    ASSUME(!(stride % 16));
+
     int16_t res[TILE_SIZE][TILE_SIZE] = {0};
     int16_t delta[TILE_SIZE + 2] = {0};
 
@@ -221,6 +227,8 @@ void SUFFIX(ass_fill_generic_tile)(uint8_t *restrict buf, ptrdiff_t stride,
 void SUFFIX(ass_merge_tile)(uint8_t *restrict buf, ptrdiff_t stride,
                             const uint8_t *restrict tile)
 {
+    ASSUME(!(stride % 16));
+
     for (int y = 0; y < TILE_SIZE; y++) {
         for (int x = 0; x < TILE_SIZE; x++)
             buf[x] = FFMAX(buf[x], tile[x]);

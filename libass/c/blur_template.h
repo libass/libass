@@ -37,6 +37,8 @@ inline static void SUFFIX(copy_line)(int16_t *buf, const int16_t *ptr, size_t of
 void SUFFIX(ass_stripe_unpack)(int16_t *restrict dst, const uint8_t *restrict src,
                                ptrdiff_t src_stride, size_t width, size_t height)
 {
+    ASSUME(!(src_stride % 16) && width > 0 && height > 0);
+
     for (size_t y = 0; y < height; y++) {
         int16_t *ptr = dst;
         for (size_t x = 0; x < width; x += STRIPE_WIDTH) {
@@ -53,6 +55,8 @@ void SUFFIX(ass_stripe_unpack)(int16_t *restrict dst, const uint8_t *restrict sr
 void SUFFIX(ass_stripe_pack)(uint8_t *restrict dst, ptrdiff_t dst_stride,
                              const int16_t *restrict src, size_t width, size_t height)
 {
+    ASSUME(!(dst_stride % 16) && width > 0 && height > 0);
+
     for (size_t x = 0; x < width; x += STRIPE_WIDTH) {
         uint8_t *ptr = dst;
         for (size_t y = 0; y < height; y++) {
@@ -82,6 +86,8 @@ void SUFFIX(ass_stripe_pack)(uint8_t *restrict dst, ptrdiff_t dst_stride,
 void SUFFIX(ass_shrink_horz)(int16_t *restrict dst, const int16_t *restrict src,
                              size_t src_width, size_t src_height)
 {
+    ASSUME(src_width > 0 && src_height > 0);
+
     size_t dst_width = (src_width + 5) >> 1;
     size_t size = ((src_width + STRIPE_MASK) & ~STRIPE_MASK) * src_height;
     size_t step = STRIPE_WIDTH * src_height;
@@ -108,6 +114,8 @@ void SUFFIX(ass_shrink_horz)(int16_t *restrict dst, const int16_t *restrict src,
 void SUFFIX(ass_shrink_vert)(int16_t *restrict dst, const int16_t *restrict src,
                              size_t src_width, size_t src_height)
 {
+    ASSUME(src_width > 0 && src_height > 0);
+
     size_t dst_height = (src_height + 5) >> 1;
     size_t step = STRIPE_WIDTH * src_height;
 
@@ -138,6 +146,8 @@ void SUFFIX(ass_shrink_vert)(int16_t *restrict dst, const int16_t *restrict src,
 void SUFFIX(ass_expand_horz)(int16_t *restrict dst, const int16_t *restrict src,
                              size_t src_width, size_t src_height)
 {
+    ASSUME(src_width > 0 && src_height > 0);
+
     size_t dst_width = 2 * src_width + 4;
     size_t size = ((src_width + STRIPE_MASK) & ~STRIPE_MASK) * src_height;
     size_t step = STRIPE_WIDTH * src_height;
@@ -178,6 +188,8 @@ void SUFFIX(ass_expand_horz)(int16_t *restrict dst, const int16_t *restrict src,
 void SUFFIX(ass_expand_vert)(int16_t *restrict dst, const int16_t *restrict src,
                              size_t src_width, size_t src_height)
 {
+    ASSUME(src_width > 0 && src_height > 0);
+
     size_t dst_height = 2 * src_height + 4;
     size_t step = STRIPE_WIDTH * src_height;
 
@@ -209,6 +221,8 @@ static inline void SUFFIX(blur_horz)(int16_t *restrict dst, const int16_t *restr
                                      size_t src_width, size_t src_height,
                                      const int16_t *restrict param, const int n)
 {
+    ASSUME(src_width > 0 && src_height > 0);
+
     size_t dst_width = src_width + 2 * n;
     size_t size = ((src_width + STRIPE_MASK) & ~STRIPE_MASK) * src_height;
     size_t step = STRIPE_WIDTH * src_height;
@@ -240,6 +254,8 @@ static inline void SUFFIX(blur_vert)(int16_t *restrict dst, const int16_t *restr
                                      size_t src_width, size_t src_height,
                                      const int16_t *restrict param, const int n)
 {
+    ASSUME(src_width > 0 && src_height > 0);
+
     size_t dst_height = src_height + 2 * n;
     size_t step = STRIPE_WIDTH * src_height;
 
