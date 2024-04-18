@@ -33,6 +33,8 @@ void ass_add_bitmaps_c(uint8_t *restrict dst, ptrdiff_t dst_stride,
                        const uint8_t *restrict src, ptrdiff_t src_stride,
                        size_t width, size_t height)
 {
+    ASSUME(!(dst_stride % 16) && !(src_stride % 16) && width > 0 && height > 0);
+
     uint8_t *end = dst + dst_stride * height;
     while (dst < end) {
         for (size_t x = 0; x < width; x++) {
@@ -48,6 +50,8 @@ void ass_imul_bitmaps_c(uint8_t *restrict dst, ptrdiff_t dst_stride,
                         const uint8_t *restrict src, ptrdiff_t src_stride,
                         size_t width, size_t height)
 {
+    ASSUME(!(dst_stride % 16) && !(src_stride % 16) && width > 0 && height > 0);
+
     uint8_t *end = dst + dst_stride * height;
     while (dst < end) {
         for (size_t x = 0; x < width; x++) {
@@ -63,6 +67,9 @@ void ass_mul_bitmaps_c(uint8_t *restrict dst, ptrdiff_t dst_stride,
                        const uint8_t *restrict src2, ptrdiff_t src2_stride,
                        size_t width, size_t height)
 {
+    ASSUME(!(dst_stride % 16) && !(src1_stride % 16) && !(src2_stride % 16) &&
+           width > 0 && height > 0);
+
     uint8_t *end = dst + dst_stride * height;
     while (dst < end) {
         for (size_t x = 0; x < width; x++) {
