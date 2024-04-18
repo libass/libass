@@ -134,8 +134,8 @@ static inline void SUFFIX(update_border_line)(int16_t res[TILE_SIZE],
     }
 }
 
-void SUFFIX(ass_fill_generic_tile)(uint8_t *buf, ptrdiff_t stride,
-                                   const struct segment *line, size_t n_lines,
+void SUFFIX(ass_fill_generic_tile)(uint8_t *restrict buf, ptrdiff_t stride,
+                                   const struct segment *restrict line, size_t n_lines,
                                    int winding)
 {
     int16_t res[TILE_SIZE][TILE_SIZE] = {0};
@@ -218,7 +218,8 @@ void SUFFIX(ass_fill_generic_tile)(uint8_t *buf, ptrdiff_t stride,
 }
 
 
-void SUFFIX(ass_merge_tile)(uint8_t *buf, ptrdiff_t stride, const uint8_t *tile)
+void SUFFIX(ass_merge_tile)(uint8_t *restrict buf, ptrdiff_t stride,
+                            const uint8_t *restrict tile)
 {
     for (int y = 0; y < TILE_SIZE; y++) {
         for (int x = 0; x < TILE_SIZE; x++)
