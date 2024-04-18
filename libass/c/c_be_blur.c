@@ -35,8 +35,8 @@ static inline uint16_t sliding_sum(uint16_t *prev, uint16_t next)
  * This blur is the same as the one employed by vsfilter.
  * Pure C implementation.
  */
-void ass_be_blur_c(uint8_t *buf, ptrdiff_t stride,
-                   size_t width, size_t height, uint16_t *tmp)
+void ass_be_blur_c(uint8_t *restrict buf, ptrdiff_t stride,
+                   size_t width, size_t height, uint16_t *restrict tmp)
 {
     uint16_t *col_pix_buf = tmp;
     uint16_t *col_sum_buf = tmp + stride;

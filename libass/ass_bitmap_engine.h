@@ -26,32 +26,32 @@ struct segment;
 typedef void FillSolidTileFunc(uint8_t *buf, ptrdiff_t stride, int set);
 typedef void FillHalfplaneTileFunc(uint8_t *buf, ptrdiff_t stride,
                                    int32_t a, int32_t b, int64_t c, int32_t scale);
-typedef void FillGenericTileFunc(uint8_t *buf, ptrdiff_t stride,
-                                 const struct segment *line, size_t n_lines,
+typedef void FillGenericTileFunc(uint8_t *restrict buf, ptrdiff_t stride,
+                                 const struct segment *restrict line, size_t n_lines,
                                  int winding);
-typedef void MergeTileFunc(uint8_t *buf, ptrdiff_t stride, const uint8_t *tile);
+typedef void MergeTileFunc(uint8_t *restrict buf, ptrdiff_t stride, const uint8_t *restrict tile);
 
-typedef void BitmapBlendFunc(uint8_t *dst, ptrdiff_t dst_stride,
-                             const uint8_t *src, ptrdiff_t src_stride,
+typedef void BitmapBlendFunc(uint8_t *restrict dst, ptrdiff_t dst_stride,
+                             const uint8_t *restrict src, ptrdiff_t src_stride,
                              size_t width, size_t height);
-typedef void BitmapMulFunc(uint8_t *dst, ptrdiff_t dst_stride,
-                           const uint8_t *src1, ptrdiff_t src1_stride,
-                           const uint8_t *src2, ptrdiff_t src2_stride,
+typedef void BitmapMulFunc(uint8_t *restrict dst, ptrdiff_t dst_stride,
+                           const uint8_t *restrict src1, ptrdiff_t src1_stride,
+                           const uint8_t *restrict src2, ptrdiff_t src2_stride,
                            size_t width, size_t height);
 
-typedef void BeBlurFunc(uint8_t *buf, ptrdiff_t stride,
-                        size_t width, size_t height, uint16_t *tmp);
+typedef void BeBlurFunc(uint8_t *restrict buf, ptrdiff_t stride,
+                        size_t width, size_t height, uint16_t *restrict tmp);
 
 // intermediate bitmaps represented as sets of vertical stripes of int16_t[alignment / 2]
-typedef void Convert8to16Func(int16_t *dst, const uint8_t *src, ptrdiff_t src_stride,
-                              size_t width, size_t height);
-typedef void Convert16to8Func(uint8_t *dst, ptrdiff_t dst_stride, const int16_t *src,
-                              size_t width, size_t height);
-typedef void FilterFunc(int16_t *dst, const int16_t *src,
+typedef void Convert8to16Func(int16_t *restrict dst, const uint8_t *restrict src,
+                              ptrdiff_t src_stride, size_t width, size_t height);
+typedef void Convert16to8Func(uint8_t *restrict dst, ptrdiff_t dst_stride,
+                              const int16_t *restrict src, size_t width, size_t height);
+typedef void FilterFunc(int16_t *restrict dst, const int16_t *restrict src,
                         size_t src_width, size_t src_height);
-typedef void ParamFilterFunc(int16_t *dst, const int16_t *src,
+typedef void ParamFilterFunc(int16_t *restrict dst, const int16_t *restrict src,
                              size_t src_width, size_t src_height,
-                             const int16_t *param);
+                             const int16_t *restrict param);
 
 typedef struct {
     int align_order;  // log2(alignment)
