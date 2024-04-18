@@ -34,8 +34,8 @@ inline static void SUFFIX(copy_line)(int16_t *buf, const int16_t *ptr, size_t of
  * Each pixel is represented as 16-bit integer in range of [0-0x4000].
  */
 
-void SUFFIX(ass_stripe_unpack)(int16_t *dst, const uint8_t *src, ptrdiff_t src_stride,
-                               size_t width, size_t height)
+void SUFFIX(ass_stripe_unpack)(int16_t *restrict dst, const uint8_t *restrict src,
+                               ptrdiff_t src_stride, size_t width, size_t height)
 {
     for (size_t y = 0; y < height; y++) {
         int16_t *ptr = dst;
@@ -50,8 +50,8 @@ void SUFFIX(ass_stripe_unpack)(int16_t *dst, const uint8_t *src, ptrdiff_t src_s
     }
 }
 
-void SUFFIX(ass_stripe_pack)(uint8_t *dst, ptrdiff_t dst_stride, const int16_t *src,
-                             size_t width, size_t height)
+void SUFFIX(ass_stripe_pack)(uint8_t *restrict dst, ptrdiff_t dst_stride,
+                             const int16_t *restrict src, size_t width, size_t height)
 {
     for (size_t x = 0; x < width; x += STRIPE_WIDTH) {
         uint8_t *ptr = dst;
@@ -79,7 +79,7 @@ void SUFFIX(ass_stripe_pack)(uint8_t *dst, ptrdiff_t dst_stride, const int16_t *
  * Contract image by factor 2 with kernel [1, 5, 10, 10, 5, 1].
  */
 
-void SUFFIX(ass_shrink_horz)(int16_t *dst, const int16_t *src,
+void SUFFIX(ass_shrink_horz)(int16_t *restrict dst, const int16_t *restrict src,
                              size_t src_width, size_t src_height)
 {
     size_t dst_width = (src_width + 5) >> 1;
@@ -105,7 +105,7 @@ void SUFFIX(ass_shrink_horz)(int16_t *dst, const int16_t *src,
     }
 }
 
-void SUFFIX(ass_shrink_vert)(int16_t *dst, const int16_t *src,
+void SUFFIX(ass_shrink_vert)(int16_t *restrict dst, const int16_t *restrict src,
                              size_t src_width, size_t src_height)
 {
     size_t dst_height = (src_height + 5) >> 1;
@@ -135,7 +135,7 @@ void SUFFIX(ass_shrink_vert)(int16_t *dst, const int16_t *src,
  * Expand image by factor 2 with kernel [5, 10, 1], [1, 10, 5].
  */
 
-void SUFFIX(ass_expand_horz)(int16_t *dst, const int16_t *src,
+void SUFFIX(ass_expand_horz)(int16_t *restrict dst, const int16_t *restrict src,
                              size_t src_width, size_t src_height)
 {
     size_t dst_width = 2 * src_width + 4;
@@ -175,7 +175,7 @@ void SUFFIX(ass_expand_horz)(int16_t *dst, const int16_t *src,
     }
 }
 
-void SUFFIX(ass_expand_vert)(int16_t *dst, const int16_t *src,
+void SUFFIX(ass_expand_vert)(int16_t *restrict dst, const int16_t *restrict src,
                              size_t src_width, size_t src_height)
 {
     size_t dst_height = 2 * src_height + 4;
@@ -205,9 +205,9 @@ void SUFFIX(ass_expand_vert)(int16_t *dst, const int16_t *src,
  * number of parameters is part of the function name.
  */
 
-static inline void SUFFIX(blur_horz)(int16_t *dst, const int16_t *src,
+static inline void SUFFIX(blur_horz)(int16_t *restrict dst, const int16_t *restrict src,
                                      size_t src_width, size_t src_height,
-                                     const int16_t *param, const int n)
+                                     const int16_t *restrict param, const int n)
 {
     size_t dst_width = src_width + 2 * n;
     size_t size = ((src_width + STRIPE_MASK) & ~STRIPE_MASK) * src_height;
@@ -236,9 +236,9 @@ static inline void SUFFIX(blur_horz)(int16_t *dst, const int16_t *src,
     }
 }
 
-static inline void SUFFIX(blur_vert)(int16_t *dst, const int16_t *src,
+static inline void SUFFIX(blur_vert)(int16_t *restrict dst, const int16_t *restrict src,
                                      size_t src_width, size_t src_height,
-                                     const int16_t *param, const int n)
+                                     const int16_t *restrict param, const int n)
 {
     size_t dst_height = src_height + 2 * n;
     size_t step = STRIPE_WIDTH * src_height;
@@ -267,23 +267,23 @@ static inline void SUFFIX(blur_vert)(int16_t *dst, const int16_t *src,
     }
 }
 
-void SUFFIX(ass_blur4_horz)(int16_t *dst, const int16_t *src,
+void SUFFIX(ass_blur4_horz)(int16_t *restrict dst, const int16_t *restrict src,
                             size_t src_width, size_t src_height,
-                            const int16_t *param)
+                            const int16_t *restrict param)
 {
     SUFFIX(blur_horz)(dst, src, src_width, src_height, param, 4);
 }
 
-void SUFFIX(ass_blur4_vert)(int16_t *dst, const int16_t *src,
+void SUFFIX(ass_blur4_vert)(int16_t *restrict dst, const int16_t *restrict src,
                             size_t src_width, size_t src_height,
-                            const int16_t *param)
+                            const int16_t *restrict param)
 {
     SUFFIX(blur_vert)(dst, src, src_width, src_height, param, 4);
 }
 
-void SUFFIX(ass_blur5_horz)(int16_t *dst, const int16_t *src,
+void SUFFIX(ass_blur5_horz)(int16_t *restrict dst, const int16_t *restrict src,
                             size_t src_width, size_t src_height,
-                            const int16_t *param)
+                            const int16_t *restrict param)
 {
     SUFFIX(blur_horz)(dst, src, src_width, src_height, param, 5);
 }
