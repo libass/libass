@@ -54,6 +54,7 @@ checkasm_checkasm_SOURCES = \
     checkasm/blend_bitmaps.c \
     checkasm/be_blur.c \
     checkasm/blur.c \
+    checkasm/shift_bitmap.c \
     checkasm/checkasm.h checkasm/checkasm.c \
     libass/ass_rasterizer.h libass/ass_utils.h
 

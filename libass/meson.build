@@ -46,6 +46,7 @@ libass_src = files(
     'c/c_blend_bitmaps.c',
     'c/c_blur.c',
     'c/c_rasterizer.c',
+    'c/c_shift_bitmap.c',
     'ass.c',
     'ass_bitmap.c',
     'ass_bitmap_engine.c',

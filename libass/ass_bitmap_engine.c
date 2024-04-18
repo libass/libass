@@ -58,6 +58,12 @@
     GENERIC_FUNCTION(mul_bitmaps,  suffix) \
     GENERIC_FUNCTION(be_blur,      suffix)
 
+#define SHIFT_PROTOYPES(suffix) \
+    BitmapShiftFunc ass_shift_bitmap_ ## suffix;
+
+#define SHIFT_FUNCTIONS(suffix) \
+    GENERIC_FUNCTION(shift_bitmap, suffix)
+
 
 #define PARAM_BLUR_SET(suffix) \
     ass_blur4_ ## suffix, \
@@ -102,6 +108,7 @@
     RASTERIZER_PROTOTYPES(16, suffix) \
     RASTERIZER_PROTOTYPES(32, suffix) \
     GENERIC_PROTOTYPES(suffix) \
+    SHIFT_PROTOYPES(suffix) \
     BLUR_PROTOTYPES(alignment, suffix)
 
 #define BASE_FUNCTIONS(align_order_, alignment, suffix) \
@@ -110,7 +117,8 @@
     BLUR_FUNCTIONS(align_order_, alignment, suffix)
 
 #define ALL_FUNCTIONS(align_order_, alignment, suffix) \
-    BASE_FUNCTIONS(align_order_, alignment, suffix)
+    BASE_FUNCTIONS(align_order_, alignment, suffix) \
+    SHIFT_FUNCTIONS(suffix)
 
 
 unsigned ass_get_cpu_flags(unsigned mask)
