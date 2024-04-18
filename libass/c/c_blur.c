@@ -18,6 +18,7 @@
 
 #include "config.h"
 #include "ass_compat.h"
+#include "ass_utils.h"
 
 #include <stddef.h>
 #include <stdint.h>
