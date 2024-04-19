@@ -80,21 +80,18 @@ PKG_CHECK_MODULES([FREETYPE], [freetype2 >= 9.17.3], [
     pkg_requires="freetype2 >= 9.17.3"
     CFLAGS="$CFLAGS $FREETYPE_CFLAGS"
     LIBS="$LIBS $FREETYPE_LIBS"
-    AC_DEFINE(CONFIG_FREETYPE, 1, [found freetype2 via pkg-config])
 ])
 
 PKG_CHECK_MODULES([FRIBIDI], [fribidi >= 0.19.1], [
     pkg_requires="fribidi >= 0.19.1, ${pkg_requires}"
     CFLAGS="$CFLAGS $FRIBIDI_CFLAGS"
     LIBS="$LIBS $FRIBIDI_LIBS"
-    AC_DEFINE(CONFIG_FRIBIDI, 1, [found fribidi via pkg-config])
 ])
 
 PKG_CHECK_MODULES([HARFBUZZ], [harfbuzz >= 1.2.3], [
     pkg_requires="harfbuzz >= 1.2.3, ${pkg_requires}"
     CFLAGS="$CFLAGS $HARFBUZZ_CFLAGS"
     LIBS="$LIBS $HARFBUZZ_LIBS"
-    AC_DEFINE(CONFIG_HARFBUZZ, 1, [found harfbuzz via pkg-config])
 ])
 
 libpng=false

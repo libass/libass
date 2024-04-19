@@ -81,25 +81,17 @@ if iconv_dep.found()
     conf.set('CONFIG_ICONV', 1)
 endif
 
-freetype_dep = dependency(
+deps += dependency(
     'freetype2',
     version: '>= 9.17.3',
     default_options: ['harfbuzz=disabled'],
 )
-if freetype_dep.found()
-    deps += freetype_dep
-    conf.set('CONFIG_FREETYPE', 1)
-endif
 
-fribidi_dep = dependency(
+deps += dependency(
     'fribidi',
     version: '>= 0.19.1',
     default_options: ['docs=false', 'tests=false'],
 )
-if fribidi_dep.found()
-    deps += fribidi_dep
-    conf.set('CONFIG_FRIBIDI', 1)
-endif
 
 harfbuzz_options = [
     'tests=disabled',
@@ -108,15 +100,11 @@ harfbuzz_options = [
     'glib=disabled',
     'freetype=disabled',
 ]
-harfbuzz_dep = dependency(
+deps += dependency(
     'harfbuzz',
     version: '>= 1.2.3',
     default_options: harfbuzz_options,
 )
-if harfbuzz_dep.found()
-    deps += harfbuzz_dep
-    conf.set('CONFIG_HARFBUZZ', 1)
-endif
 
 libunibreak_dep = dependency(
     'libunibreak',
