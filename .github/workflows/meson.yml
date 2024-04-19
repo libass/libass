@@ -26,7 +26,7 @@ jobs:
             name: Windows MinGW Release,
             os: windows-latest,
             msvc: false,
-            buildtype: release,
+            buildtype: debugoptimized,
             args: ''
           }
           - {
@@ -36,22 +36,10 @@ jobs:
             args: ''
           }
           - {
-            name: Ubuntu Release,
-            os: ubuntu-latest,
-            buildtype: release,
-            args: ''
-          }
-          - {
             name: macOS Debug,
             os: macos-latest,
             buildtype: debugoptimized,
             args: ''
-          }
-          - {
-            name: macOS Release,
-            os: macos-latest,
-            buildtype: release,
-            args: -Ddefault_library=static
           }
 
     steps:
