@@ -5,7 +5,7 @@ AM_CFLAGS = -std=gnu99 -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter \
             -Wpointer-arith -Wredundant-decls -Wno-missing-field-initializers\
             -D_GNU_SOURCE
 
-EXTRA_DIST = libass.pc.in Changelog MAINTAINERS ltnasm.sh
+EXTRA_DIST = libass.pc.in Changelog MAINTAINERS RELEASEVERSION ltnasm.sh
 
 # Meson build setup
 EXTRA_DIST += gen_defs.py meson_options.txt meson.build \

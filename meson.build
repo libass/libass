@@ -9,7 +9,7 @@ project(
         'warning_level=2',
         'default_library=static',
     ],
-    version: '0.17.1',
+    version: files('RELEASEVERSION'),
 )
 
 conf = configuration_data()
