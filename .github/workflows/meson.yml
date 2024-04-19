@@ -162,3 +162,41 @@ jobs:
           # our test build above doesn't hit all conditional paths
           # for now ignore warnings, only fail on errors
           muon analyze
+
+  build-from-tarball:
+    runs-on: ubuntu-latest
+    container:
+      # currently GHA’s ubuntu-latest still has a too old meson
+      image: debian:stable
+
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc]
+
+    steps:
+      - name: install dependencies
+        run: |
+          apt-get update #&& sudo apt-get upgrade
+          apt-get install -y --no-install-recommends \
+                  autoconf automake make libtool \
+                  libfontconfig1-dev libfreetype6-dev libfribidi-dev \
+                  libharfbuzz-dev nasm ${{ matrix.cc }} \
+                  libpng-dev meson ninja-build
+
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: setup distdir
+        run: |
+          autoreconf -ivf .
+          ./configure
+          make distdir
+          ls -ld libass-*
+
+      - name: meson build in distdir
+        run: |
+          cd libass-*/
+          meson setup build
+          ninja -C build
+          DESTIDR="$PWD/TEST_INSTALL" ninja -C build install
