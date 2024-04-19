@@ -1,6 +1,21 @@
-libass_lt_current = 11
-libass_lt_revision = 1
-libass_lt_age = 2
+# Read library versioning from Automake
+# (should we ever reorder those in Automake, it will correctly fail
+#  due to undefined variables rather than using bogus versions)
+fs = import('fs')
+am_lib_file = fs.read('Makefile_library.am').split('\n')
+foreach line : am_lib_file
+    args = line.split('=')
+    name = args[0].strip()
+    val = args[1].strip()
+    if name == 'LIBASS_LT_CURRENT'
+        libass_lt_current = val.to_int()
+    elif name == 'LIBASS_LT_REVISION'
+        libass_lt_revision = val.to_int()
+    elif name == 'LIBASS_LT_AGE'
+        libass_lt_age = val.to_int()
+		break
+    endif
+endforeach
 
 libass_so_version = '@0@.@1@.@2@'.format(
     libass_lt_current - libass_lt_age,
