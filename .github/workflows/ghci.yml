@@ -41,8 +41,11 @@ jobs:
             # Crash Tests detect (false?) leaks in Fontconfig, and
             # various regression test fail, assumed due to older deps
             skip_tests: yes
-          # MacOS build
-          - os: macos-latest
+          # MacOS Intel
+          - os: macos-13
+            cc: clang
+          # MacOS arm64
+          - os: macos-14
             cc: clang
           # Add a Windows build (MinGW-gcc via MSYS2) with no extras
           - os: windows-2019
