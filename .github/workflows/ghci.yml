@@ -69,6 +69,26 @@ jobs:
       ART_SAMPLES: ext_art-samples
 
     steps:
+      # Available core count changes on runner type and over time, but GHA
+      # doesn’t easily expose this, so we’ll have to query this ourselves. Based on:
+      # https://github.com/orgs/community/discussions/25057#discussioncomment-5957241
+      - name: determine logical cpu core count
+        id: cpus
+        shell: python
+        run: |
+          import os
+          import multiprocessing
+
+          try:
+            num_cpus = len(os.sched_getaffinity(0))
+          except AttributeError:
+            num_cpus = multiprocessing.cpu_count()
+          print(f"num_cpus={num_cpus}")
+
+          output_file = os.environ["GITHUB_OUTPUT"]
+          with open(output_file, "a", encoding="utf-8") as output_stream:
+            output_stream.write(f"count={num_cpus}\n")
+
       - name: checkout code
         uses: actions/checkout@v4
 
@@ -205,10 +225,10 @@ jobs:
 
       - name: distcheck
         if: matrix.do_distc == 'yes'
-        run: make -j 2 distcheck
+        run: make -j '${{ steps.cpus.outputs.count }}' distcheck
 
       - name: compile
-        run: make -j 2
+        run: make -j '${{ steps.cpus.outputs.count }}'
 
       - name: ensure internal functions are namespaced
         if: startsWith(matrix.os, 'ubuntu-')
@@ -295,7 +315,7 @@ jobs:
           # Coverity Build
           echo "Starting Coverity build..."
           #mkdir "$RES_DIR" # already done by cov-build
-          COVERITY_UNSUPPORTED=1 cov-build --dir "$RES_DIR" make -j 2
+          COVERITY_UNSUPPORTED=1 cov-build --dir "$RES_DIR" make -j '${{ steps.cpus.outputs.count }}'
           cov-import-scm --dir "$RES_DIR" --scm git --log "$RES_DIR/scm_log.txt" 2>&1
 
           # Submit results to Coverity's server
