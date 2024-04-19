@@ -90,3 +90,75 @@ jobs:
       - name: Dump Meson Debug Info
         if: failure()
         run: cat build/meson-logs/meson-log.txt
+
+  build-muon:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc]
+
+    steps:
+      - name: install deps
+        run: |
+          # muon is in edge but not yet in 3.19 (last line are muon build and test deps)
+          apk add nasm ${{ matrix.cc }} musl-dev samurai \
+                  fontconfig-dev freetype-dev fribidi-dev harfbuzz-dev \
+                  libpng-dev \
+                  git pkgconf-dev pkgconf g++
+
+      - name: build muon
+        run: |
+          git clone --depth=1 https://git.sr.ht/~lattis/muon
+          cd muon
+          sh ./bootstrap.sh build_bootstrap
+          build_bootstrap/muon setup build
+          build_bootstrap/muon -C build samu
+          build_bootstrap/muon -C build test
+          build_bootstrap/muon -C build install
+
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: configure
+        run: |
+          muon setup -Dtest=true build
+
+      - name: build
+        run: |
+          samu -C build
+
+      - name: check binary works
+        run: |
+          build/test/libass_test /tmp/out.png compare/test/sub1.ass 0.5
+
+      - name: lint style (informational)
+        run: |
+          # `muon fmt -q` already lets us check _if_ there’d be changes, but
+          # doesn’t show what would change. `git diff` doesn’t want to work
+          # (even with increased fetch-depth) either, possibly due to container env
+          LINT_FILES="$(find . -name "meson.build" | sort)"
+          for f in $LINT_FILES ; do
+            cp "$f" "${f}.org"
+          done
+
+          if muon fmt -q $LINT_FILES ; then
+            echo "ok"
+          else
+            muon fmt -i $LINT_FILES
+            for f in $LINT_FILES ; do
+              git diff --no-index "${f}.org" "$f" || :
+            done
+            # currently formatting rules are being tweaked;
+            # maybe reformat and fail here after muon 0.3.0 is released
+            exit 0
+          fi
+
+      - name: validate meson.build
+        run: |
+          # our test build above doesn't hit all conditional paths
+          # for now ignore warnings, only fail on errors
+          muon analyze
