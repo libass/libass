@@ -46,7 +46,6 @@ struct ass_font {
     FT_Face faces[ASS_FONT_MAX_FACES];
     ASS_ShaperFontData *shaper_priv;
     int n_faces;
-    double size;
 };
 
 void ass_charmap_magic(ASS_Library *library, FT_Face face);
