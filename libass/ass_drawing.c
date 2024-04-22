@@ -124,8 +124,7 @@ static size_t add_many_points(const char **str, ASS_DrawingToken **tail,
                               ASS_TokenType type, size_t batch_size, bool *error)
 {
     ASS_Vector buf[3];
-    size_t max_buf = sizeof(buf) / sizeof(*buf);
-    assert(batch_size <= max_buf);
+    assert(batch_size <= (sizeof(buf) / sizeof(*buf)));
 
     if (!*str)
         return 0;
