@@ -458,7 +458,6 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 
     font->faces[font->n_faces] = face;
     font->faces_uid[font->n_faces++] = uid;
-    ass_face_set_size(face, font->size);
     return font->n_faces - 1;
 }
 
@@ -490,8 +489,6 @@ size_t ass_font_construct(void *key, void *value, void *priv)
     font->desc.bold = desc->bold;
     font->desc.italic = desc->italic;
     font->desc.vertical = desc->vertical;
-
-    font->size = 0.;
 
     int error = add_face(render_priv->fontselect, font, 0);
     if (error == -1)
