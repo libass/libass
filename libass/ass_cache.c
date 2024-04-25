@@ -313,9 +313,6 @@ struct cache {
     const CacheDesc *desc;
 
     size_t cache_size;
-    unsigned hits;
-    unsigned misses;
-    unsigned items;
 };
 
 #define CACHE_ALIGN 8
@@ -370,14 +367,12 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
                 cache->queue_last = &item->queue_next;
                 item->queue_next = NULL;
             }
-            cache->hits++;
             desc->key_move_func(NULL, key);
             item->ref_count++;
             return (char *) item + CACHE_ITEM_SIZE;
         }
         item = item->next;
     }
-    cache->misses++;
 
     item = malloc(key_offs + desc->key_size);
     if (!item) {
@@ -409,7 +404,6 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
     item->ref_count = 2;
 
     cache->cache_size += item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
-    cache->items++;
     return value;
 }
 
@@ -451,7 +445,6 @@ void ass_cache_dec_ref(void *value)
             item->next->prev = item->prev;
         *item->prev = item->next;
 
-        cache->items--;
         cache->cache_size -= item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
     }
     destroy_item(item->desc, item);
@@ -478,7 +471,6 @@ void ass_cache_cut(Cache *cache, size_t max_size)
             item->next->prev = item->prev;
         *item->prev = item->next;
 
-        cache->items--;
         cache->cache_size -= item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
         destroy_item(cache->desc, item);
     } while (cache->cache_size > max_size);
@@ -486,19 +478,6 @@ void ass_cache_cut(Cache *cache, size_t max_size)
         cache->queue_first->queue_prev = &cache->queue_first;
     else
         cache->queue_last = &cache->queue_first;
-}
-
-void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
-                     unsigned *misses, unsigned *count)
-{
-    if (size)
-        *size = cache->cache_size;
-    if (hits)
-        *hits = cache->hits;
-    if (misses)
-        *misses = cache->misses;
-    if (count)
-        *count = cache->items;
 }
 
 void ass_cache_empty(Cache *cache)
@@ -521,7 +500,7 @@ void ass_cache_empty(Cache *cache)
 
     cache->queue_first = NULL;
     cache->queue_last = &cache->queue_first;
-    cache->items = cache->hits = cache->misses = cache->cache_size = 0;
+    cache->cache_size = 0;
 }
 
 void ass_cache_done(Cache *cache)

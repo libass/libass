@@ -100,8 +100,6 @@ void *ass_cache_key(void *value);
 void ass_cache_inc_ref(void *value);
 void ass_cache_dec_ref(void *value);
 void ass_cache_cut(Cache *cache, size_t max_size);
-void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
-                     unsigned *misses, unsigned *count);
 void ass_cache_empty(Cache *cache);
 void ass_cache_done(Cache *cache);
 Cache *ass_font_cache_create(void);
