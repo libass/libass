@@ -31,8 +31,6 @@ typedef struct ass_font ASS_Font;
 #include "ass_cache.h"
 #include "ass_outline.h"
 
-#define VERTICAL_LOWER_BOUND 0x02f1
-
 #define ASS_FONT_MAX_FACES 10
 #define DECO_UNDERLINE     1
 #define DECO_STRIKETHROUGH 2
@@ -43,6 +41,7 @@ struct ass_font {
     ASS_Library *library;
     FT_Library ftlibrary;
     int faces_uid[ASS_FONT_MAX_FACES];
+    FT_Encoding faces_cp[ASS_FONT_MAX_FACES];
     FT_Face faces[ASS_FONT_MAX_FACES];
     ASS_ShaperFontData *shaper_priv;
     int n_faces;
@@ -60,6 +59,7 @@ uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol);
 bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
                         ASS_Hinting hinting);
 void ass_font_clear(ASS_Font *font);
+bool ass_codepoint_is_fullwidth(FT_Encoding encoding, uint32_t symbol);
 
 bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
                            FT_Face face, unsigned flags);
