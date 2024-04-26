@@ -228,7 +228,6 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics,
         return NULL;
     if (val->width >= 0)
         return val;
-    ass_cache_dec_ref(val);
     return NULL;
 }
 
@@ -293,8 +292,7 @@ get_glyph_nominal(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
         return false;
 
     // rotate glyph advances for @fonts while we still know the Unicode codepoints
-    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, unicode, *glyph);
-    ass_cache_dec_ref(metrics);
+    get_cached_metrics(metrics_priv, unicode, *glyph);
     return true;
 }
 
@@ -312,8 +310,7 @@ get_glyph_variation(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
         return false;
 
     // rotate glyph advances for @fonts while we still know the Unicode codepoints
-    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, unicode, *glyph);
-    ass_cache_dec_ref(metrics);
+    get_cached_metrics(metrics_priv, unicode, *glyph);
     return true;
 }
 
@@ -327,7 +324,6 @@ cached_h_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
         return 0;
 
     hb_position_t advance = metrics->horiAdvance;
-    ass_cache_dec_ref(metrics);
     return advance;
 }
 
@@ -341,7 +337,6 @@ cached_v_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
         return 0;
 
     hb_position_t advance = metrics->vertAdvance;
-    ass_cache_dec_ref(metrics);
     return advance;
 }
 
@@ -363,7 +358,6 @@ cached_v_origin(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
 
     *x = metrics->horiBearingX - metrics->vertBearingX;
     *y = metrics->horiBearingY + metrics->vertBearingY;
-    ass_cache_dec_ref(metrics);
     return true;
 }
 
@@ -401,7 +395,6 @@ cached_extents(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
     extents->y_bearing =  metrics->horiBearingY;
     extents->width     =  metrics->width;
     extents->height    = -metrics->height;
-    ass_cache_dec_ref(metrics);
     return true;
 }
 
@@ -614,7 +607,6 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
             info->next = malloc(sizeof(GlyphInfo));
             if (info->next) {
                 memcpy(info->next, info, sizeof(GlyphInfo));
-                ass_cache_inc_ref(info->font);
                 info = info->next;
                 info->next = NULL;
             }

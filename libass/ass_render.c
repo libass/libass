@@ -719,7 +719,6 @@ static void blend_vector_clip(RenderContext *state, ASS_Image *head)
     key.outline = ass_cache_get(render_priv->cache.outline_cache, &ol_key, render_priv);
     if (!key.outline || !key.outline->valid ||
             !quantize_transform(m, &pos, NULL, true, &key)) {
-        ass_cache_dec_ref(key.outline);
         return;
     }
     Bitmap *clip_bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
@@ -808,8 +807,6 @@ static void blend_vector_clip(RenderContext *state, ASS_Image *head)
         ass_cache_dec_ref(priv->source);
         priv->source = NULL;
     }
-
-    ass_cache_dec_ref(clip_bm);
 }
 
 /**
@@ -875,9 +872,6 @@ static ASS_Image *render_text(RenderContext *state)
                 render_glyph(state, info->bm, info->x, info->y, info->c[0],
                              0, 1000000, tail, IMAGE_TYPE_CHARACTER, info->image);
     }
-
-    for (unsigned i = 0; i < n_bitmaps; i++)
-        ass_cache_dec_ref(bitmaps[i].image);
 
     *tail = 0;
     blend_vector_clip(state, head);
@@ -1153,8 +1147,6 @@ init_render_context(RenderContext *state, ASS_Event *event)
 
 static void free_render_context(RenderContext *state)
 {
-    ass_cache_dec_ref(state->font);
-
     state->font = NULL;
     state->family.str = NULL;
     state->family.len = 0;
@@ -1184,7 +1176,6 @@ get_outline_glyph(RenderContext *state, GlyphInfo *info)
         key.u.drawing.text = info->drawing_text;
         val = ass_cache_get(priv->cache.outline_cache, &key, priv);
         if (!val || !val->valid) {
-            ass_cache_dec_ref(val);
             return;
         }
 
@@ -1209,7 +1200,6 @@ get_outline_glyph(RenderContext *state, GlyphInfo *info)
 
         val = ass_cache_get(priv->cache.outline_cache, &key, priv);
         if (!val || !val->valid) {
-            ass_cache_dec_ref(val);
             return;
         }
 
@@ -1394,7 +1384,6 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
     ASS_Renderer *render_priv = state->renderer;
 
     if (!info->outline || info->symbol == '\n' || info->symbol == 0 || info->skip) {
-        ass_cache_dec_ref(info->outline);
         return;
     }
 
@@ -1414,12 +1403,10 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
     BitmapHashKey key;
     key.outline = info->outline;
     if (!quantize_transform(m, pos, offset, first, &key)) {
-        ass_cache_dec_ref(info->outline);
         return;
     }
     info->bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
     if (!info->bm || !info->bm->buffer) {
-        ass_cache_dec_ref(info->bm);
         info->bm = NULL;
     }
     *pos_o = *pos;
@@ -1526,7 +1513,6 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
         k->border.x = lrint(bord_x / STROKER_PRECISION);
         k->border.y = lrint(bord_y / STROKER_PRECISION);
         if (!k->border.x && !k->border.y) {
-            ass_cache_inc_ref(info->bm);
             info->bm_o = info->bm;
             return;
         }
@@ -1541,12 +1527,10 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
     key.outline = ass_cache_get(render_priv->cache.outline_cache, &ol_key, render_priv);
     if (!key.outline || !key.outline->valid ||
             !quantize_transform(m, pos_o, offset, false, &key)) {
-        ass_cache_dec_ref(key.outline);
         return;
     }
     info->bm_o = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
     if (!info->bm_o || !info->bm_o->buffer) {
-        ass_cache_dec_ref(info->bm_o);
         info->bm_o = NULL;
         *pos_o = *pos;
     } else if (!info->bm)
@@ -2157,8 +2141,6 @@ static bool parse_events(RenderContext *state, ASS_Event *event)
         // Fill glyph information
         info->symbol = code;
         info->font = state->font;
-        if (!drawing_text.str)
-            ass_cache_inc_ref(info->font);
         for (int i = 0; i < 4; i++) {
             uint32_t clr = state->c[i];
             info->a_pre_fade[i] = _a(clr);
@@ -2502,8 +2484,6 @@ static void render_and_combine_glyphs(RenderContext *state,
         GlyphInfo *info = text_info->glyphs + i;
         if (info->starts_new_run) new_run = true;
         if (info->skip) {
-            for (; info; info = info->next)
-                ass_cache_dec_ref(info->outline);
             continue;
         }
         for (; info; info = info->next) {
@@ -2534,7 +2514,6 @@ static void render_and_combine_glyphs(RenderContext *state,
                 if (nb_bitmaps >= text_info->max_bitmaps) {
                     size_t new_size = 2 * text_info->max_bitmaps;
                     if (!ASS_REALLOC_ARRAY(text_info->combined_bitmaps, new_size)) {
-                        ass_cache_dec_ref(info->outline);
                         continue;
                     }
                     text_info->max_bitmaps = new_size;
@@ -2572,7 +2551,6 @@ static void render_and_combine_glyphs(RenderContext *state,
                 current_info->bitmap_count = current_info->max_bitmap_count = 0;
                 current_info->bitmaps = malloc(MAX_SUB_BITMAPS_INITIAL * sizeof(BitmapRef));
                 if (!current_info->bitmaps) {
-                    ass_cache_dec_ref(info->outline);
                     continue;
                 }
                 current_info->max_bitmap_count = MAX_SUB_BITMAPS_INITIAL;
@@ -2589,16 +2567,12 @@ static void render_and_combine_glyphs(RenderContext *state,
                              &offset, !current_info->bitmap_count, flags);
 
             if (!info->bm && !info->bm_o) {
-                ass_cache_dec_ref(info->bm);
-                ass_cache_dec_ref(info->bm_o);
                 continue;
             }
 
             if (current_info->bitmap_count >= current_info->max_bitmap_count) {
                 size_t new_size = 2 * current_info->max_bitmap_count;
                 if (!ASS_REALLOC_ARRAY(current_info->bitmaps, new_size)) {
-                    ass_cache_dec_ref(info->bm);
-                    ass_cache_dec_ref(info->bm_o);
                     continue;
                 }
                 current_info->max_bitmap_count = new_size;
