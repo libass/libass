@@ -224,12 +224,10 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics,
     metrics->hash_key.glyph_index = glyph;
     FT_Glyph_Metrics *val = ass_cache_get(metrics->metrics_cache, &metrics->hash_key,
                                           rotate ? metrics : NULL);
-    if (!val)
+    if (!val || val->width < 0)
         return NULL;
-    if (val->width >= 0)
-        return val;
-    ass_cache_dec_ref(val);
-    return NULL;
+
+    return val;
 }
 
 size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
@@ -293,8 +291,7 @@ get_glyph_nominal(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
         return false;
 
     // rotate glyph advances for @fonts while we still know the Unicode codepoints
-    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, unicode, *glyph);
-    ass_cache_dec_ref(metrics);
+    get_cached_metrics(metrics_priv, unicode, *glyph);
     return true;
 }
 
@@ -312,8 +309,7 @@ get_glyph_variation(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
         return false;
 
     // rotate glyph advances for @fonts while we still know the Unicode codepoints
-    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, unicode, *glyph);
-    ass_cache_dec_ref(metrics);
+    get_cached_metrics(metrics_priv, unicode, *glyph);
     return true;
 }
 
@@ -326,9 +322,7 @@ cached_h_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
     if (!metrics)
         return 0;
 
-    hb_position_t advance = metrics->horiAdvance;
-    ass_cache_dec_ref(metrics);
-    return advance;
+    return metrics->horiAdvance;
 }
 
 static hb_position_t
@@ -340,9 +334,7 @@ cached_v_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
     if (!metrics)
         return 0;
 
-    hb_position_t advance = metrics->vertAdvance;
-    ass_cache_dec_ref(metrics);
-    return advance;
+    return metrics->vertAdvance;
 }
 
 static hb_bool_t
@@ -363,7 +355,6 @@ cached_v_origin(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
 
     *x = metrics->horiBearingX - metrics->vertBearingX;
     *y = metrics->horiBearingY + metrics->vertBearingY;
-    ass_cache_dec_ref(metrics);
     return true;
 }
 
@@ -401,7 +392,6 @@ cached_extents(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
     extents->y_bearing =  metrics->horiBearingY;
     extents->width     =  metrics->width;
     extents->height    = -metrics->height;
-    ass_cache_dec_ref(metrics);
     return true;
 }
 
@@ -614,7 +604,6 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
             info->next = malloc(sizeof(GlyphInfo));
             if (info->next) {
                 memcpy(info->next, info, sizeof(GlyphInfo));
-                ass_cache_inc_ref(info->font);
                 info = info->next;
                 info->next = NULL;
             }

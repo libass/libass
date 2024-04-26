@@ -111,7 +111,6 @@ void ass_update_font(RenderContext *state)
         val = 0;                // normal
     desc.italic = val;
 
-    ass_cache_dec_ref(state->font);
     state->font = ass_font_new(state->renderer, &desc);
 }
 
