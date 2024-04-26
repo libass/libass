@@ -481,7 +481,6 @@ ASS_Font *ass_font_new(ASS_Renderer *render_priv, ASS_FontDesc *desc)
         return NULL;
     if (font->library)
         return font;
-    ass_cache_dec_ref(font);
     return NULL;
 }
 

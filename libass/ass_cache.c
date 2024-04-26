@@ -83,10 +83,10 @@ const CacheDesc font_cache_desc = {
 static bool bitmap_key_move(void *dst, void *src)
 {
     BitmapHashKey *d = dst, *s = src;
-    if (d)
+    if (d) {
         *d = *s;
-    else
-        ass_cache_dec_ref(s->outline);
+        ass_cache_inc_ref(d->outline);
+    }
     return true;
 }
 
@@ -139,13 +139,13 @@ static bool composite_key_move(void *dst, void *src)
     CompositeHashKey *d = dst, *s = src;
     if (d) {
         *d = *s;
+        for (size_t i = 0; i < d->bitmap_count; i++) {
+            ass_cache_inc_ref(d->bitmaps[i].bm);
+            ass_cache_inc_ref(d->bitmaps[i].bm_o);
+        }
         return true;
     }
 
-    for (size_t i = 0; i < s->bitmap_count; i++) {
-        ass_cache_dec_ref(s->bitmaps[i].bm);
-        ass_cache_dec_ref(s->bitmaps[i].bm_o);
-    }
     free(s->bitmaps);
     return true;
 }
@@ -214,11 +214,8 @@ static bool outline_compare(void *a, void *b)
 static bool outline_key_move(void *dst, void *src)
 {
     OutlineHashKey *d = dst, *s = src;
-    if (!d) {
-        if (s->type == OUTLINE_GLYPH)
-            ass_cache_dec_ref(s->u.glyph.font);
+    if (!d)
         return true;
-    }
 
     *d = *s;
     if (s->type == OUTLINE_DRAWING) {
@@ -227,6 +224,8 @@ static bool outline_key_move(void *dst, void *src)
     }
     if (s->type == OUTLINE_BORDER)
         ass_cache_inc_ref(s->u.border.outline);
+    else if (s->type == OUTLINE_GLYPH)
+        ass_cache_inc_ref(s->u.glyph.font);
     return true;
 }
 
@@ -347,6 +346,10 @@ Cache *ass_cache_create(const CacheDesc *desc)
     return cache;
 }
 
+// Retrieve a value corresponding to a particular cache key,
+// creating one if it does not already exist.
+// The returned item is guaranteed to be valid until the next ass_cache_cut call;
+// to extend its lifetime further, call ass_cache_inc_ref().
 void *ass_cache_get(Cache *cache, void *key, void *priv)
 {
     const CacheDesc *desc = cache->desc;
@@ -368,7 +371,7 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
                 item->queue_next = NULL;
             }
             desc->key_move_func(NULL, key);
-            item->ref_count++;
+
             return (char *) item + CACHE_ITEM_SIZE;
         }
         item = item->next;
@@ -401,7 +404,7 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
     item->queue_prev = cache->queue_last;
     cache->queue_last = &item->queue_next;
     item->queue_next = NULL;
-    item->ref_count = 2;
+    item->ref_count = 1;
 
     cache->cache_size += item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
     return value;
