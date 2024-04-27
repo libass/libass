@@ -118,7 +118,6 @@ void ass_close_dir(ASS_Dir *dir)
 #else  // Windows
 
 #include <windows.h>
-#include "ass_directwrite.h"  // for ASS_WINAPI_DESKTOP
 
 
 static const uint8_t wtf8_len_table[256] = {
