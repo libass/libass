@@ -9,6 +9,7 @@ AC_CONFIG_HEADERS([config.h])
 AC_PROG_CC
 AM_PROG_CC_C_O
 AM_PROG_AS
+AC_PROG_EGREP
 
 # Checks for header files.
 AC_CHECK_HEADERS_ONCE([iconv.h])
@@ -47,6 +48,8 @@ AC_ARG_VAR([FUZZ_LDFLAGS],
 AC_ARG_VAR([FUZZ_CPPFLAGS],
     [If fuzzing program is enabled, set this to select alternative modes; see fuzzer source for options.])
 FUZZ_CPPFLAGS="${FUZZ_CPPFLAGS:--DASS_FUZZMODE=0}"
+
+AM_CONDITIONAL([WITH_GNU_LD], [test "$with_gnu_ld" = yes])
 
 # Checks for available libraries and define corresponding C Macros
 # Start with system libs, then check everything else via pkg-config

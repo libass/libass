@@ -65,7 +65,16 @@ libass_libass_la_SOURCES += libass/ass_coretext.h libass/ass_coretext.c
 endif
 
 libass_libass_la_LDFLAGS = -no-undefined -version-info $(LIBASS_LT_CURRENT):$(LIBASS_LT_REVISION):$(LIBASS_LT_AGE)
-libass_libass_la_LDFLAGS += -export-symbols $(top_srcdir)/libass/libass.sym
+if WITH_GNU_LD
+libass_libass_la_LDFLAGS += -Wl,--version-script=$(top_srcdir)/libass/libass.sym
+libass_libass_la_DEPENDENCIES = $(top_srcdir)/libass/libass.sym
+else
+libass_libass_la_LDFLAGS += -export-symbols libass_redux.sym
+libass_libass_la_DEPENDENCIES = libass_redux.sym
+endif
+
+libass_redux.sym: libass.sym
+	$(EGREP) -Eo 'ass([[:alnum:]]|_)+' $@
 
 assheadersdir = $(includedir)/ass
 dist_assheaders_HEADERS = libass/ass_types.h libass/ass.h
