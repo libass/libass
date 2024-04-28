@@ -263,6 +263,37 @@ const CacheDesc outline_cache_desc = {
 };
 
 
+// font-face size metric cache
+static bool face_size_metrics_key_move(void *dst, void *src)
+{
+    FaceSizeMetricsHashKey *d = dst, *s = src;
+    if (!d)
+        return true;
+
+    *d = *s;
+    ass_cache_inc_ref(s->font);
+    return true;
+}
+
+static void face_size_metrics_destruct(void *key, void *value)
+{
+    FaceSizeMetricsHashKey *k = key;
+    ass_cache_dec_ref(k->font);
+}
+
+size_t ass_face_size_metrics_construct(void *key, void *value, void *priv);
+
+const CacheDesc face_size_metrics_cache_desc = {
+    .hash_func = face_size_metrics_hash,
+    .compare_func = face_size_metrics_compare,
+    .key_move_func = face_size_metrics_key_move,
+    .construct_func = ass_face_size_metrics_construct,
+    .destruct_func = face_size_metrics_destruct,
+    .key_size = sizeof(FaceSizeMetricsHashKey),
+    .value_size = sizeof(FT_Size_Metrics)
+};
+
+
 // glyph metric cache
 static bool glyph_metrics_key_move(void *dst, void *src)
 {
@@ -527,6 +558,11 @@ Cache *ass_outline_cache_create(void)
 Cache *ass_glyph_metrics_cache_create(void)
 {
     return ass_cache_create(&glyph_metrics_cache_desc);
+}
+
+Cache *ass_face_size_metrics_cache_create(void)
+{
+    return ass_cache_create(&face_size_metrics_cache_desc);
 }
 
 Cache *ass_bitmap_cache_create(void)

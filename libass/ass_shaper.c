@@ -62,7 +62,8 @@ struct ass_shaper {
     hb_feature_t *features;
     hb_language_t language;
 
-    // Glyph metrics cache, to speed up shaping
+    // Glyph and face-size metrics caches, to speed up shaping
+    Cache *face_size_metrics_cache;
     Cache *metrics_cache;
 
     hb_font_funcs_t *font_funcs;
@@ -191,13 +192,12 @@ static void set_run_features(ASS_Shaper *shaper, GlyphInfo *info)
  * \param hb_font HarfBuzz font
  * \param face associated FreeType font face
  */
-static void update_hb_size(hb_font_t *hb_font, FT_Face face)
+static void update_hb_size(hb_font_t *hb_font, FT_Face face, FT_Size_Metrics *m)
 {
     hb_font_set_scale (hb_font,
-            ((uint64_t) face->size->metrics.x_scale * (uint64_t) face->units_per_EM) >> 16,
-            ((uint64_t) face->size->metrics.y_scale * (uint64_t) face->units_per_EM) >> 16);
-    hb_font_set_ppem (hb_font, face->size->metrics.x_ppem,
-            face->size->metrics.y_ppem);
+            ((uint64_t) m->x_scale * (uint64_t) face->units_per_EM) >> 16,
+            ((uint64_t) m->y_scale * (uint64_t) face->units_per_EM) >> 16);
+    hb_font_set_ppem (hb_font, m->x_ppem, m->y_ppem);
 }
 
 
@@ -234,6 +234,20 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics,
     return val;
 }
 
+size_t ass_face_size_metrics_construct(void *key, void *value, void *priv)
+{
+    FaceSizeMetricsHashKey *k = key;
+    FT_Size_Metrics *v = value;
+
+    FT_Face face = k->font->faces[k->face_index];
+
+    ass_face_set_size(face, k->size);
+
+    memcpy(v, &face->size->metrics, sizeof(FT_Size_Metrics));
+
+    return 1;
+}
+
 size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
 {
     GlyphMetricsHashKey *k = key;
@@ -243,6 +257,9 @@ size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
         | FT_LOAD_IGNORE_TRANSFORM;
 
     FT_Face face = k->font->faces[k->face_index];
+
+    ass_face_set_size(face, k->size);
+
     if (FT_Load_Glyph(face, k->glyph_index, load_flags)) {
         v->width = -1;
         return 1;
@@ -450,21 +467,31 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
 {
     ASS_Font *font = info->font;
     hb_font_t *hb_font = font->hb_fonts[info->face_index];
+
     if (!hb_font)
+        return NULL;
+
+    FaceSizeMetricsHashKey key = {
+        .font = info->font,
+        .face_index = info->face_index,
+        .size = info->font_size,
+    };
+    FT_Size_Metrics *m = ass_cache_get(shaper->face_size_metrics_cache, &key, NULL);
+    if (!m)
         return NULL;
 
     // set up cached metrics access
     struct ass_shaper_metrics_data *metrics = calloc(1, sizeof(struct ass_shaper_metrics_data));
     if (!metrics)
         return NULL;
-    ass_face_set_size(font->faces[info->face_index], info->font_size);
-    update_hb_size(hb_font, font->faces[info->face_index]);
     metrics->metrics_cache = shaper->metrics_cache;
     metrics->hash_key.font = info->font;
     metrics->hash_key.face_index = info->face_index;
     metrics->hash_key.size = info->font_size;
 
     hb_font_set_funcs(hb_font, shaper->font_funcs, metrics, free);
+
+    update_hb_size(hb_font, font->faces[info->face_index], m);
 
     return hb_font;
 }
@@ -989,7 +1016,7 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
 /**
  * \brief Create a new shaper instance
  */
-ASS_Shaper *ass_shaper_new(Cache *metrics_cache)
+ASS_Shaper *ass_shaper_new(Cache *metrics_cache, Cache *face_size_metrics_cache)
 {
     assert(metrics_cache);
 
@@ -1001,6 +1028,7 @@ ASS_Shaper *ass_shaper_new(Cache *metrics_cache)
 
     if (!init_features(shaper))
         goto error;
+    shaper->face_size_metrics_cache = face_size_metrics_cache;
     shaper->metrics_cache = metrics_cache;
 
     hb_font_funcs_t *funcs = shaper->font_funcs = hb_font_funcs_create();
