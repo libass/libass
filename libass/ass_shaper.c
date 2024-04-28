@@ -240,11 +240,15 @@ size_t ass_face_size_metrics_construct(void *key, void *value, void *priv)
     FaceSizeMetricsHashKey *k = key;
     FT_Size_Metrics *v = value;
 
+    ass_font_lock(k->font);
+
     FT_Face face = k->font->faces[k->face_index];
 
     ass_face_set_size(face, k->size);
 
     memcpy(v, &face->size->metrics, sizeof(FT_Size_Metrics));
+
+    ass_font_unlock(k->font);
 
     return 1;
 }
@@ -257,13 +261,15 @@ size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
     int load_flags = FT_LOAD_DEFAULT | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
         | FT_LOAD_IGNORE_TRANSFORM;
 
+    ass_font_lock(k->font);
+
     FT_Face face = k->font->faces[k->face_index];
 
     ass_face_set_size(face, k->size);
 
     if (FT_Load_Glyph(face, k->glyph_index, load_flags)) {
         v->width = -1;
-        return 1;
+        goto fail;
     }
 
     memcpy(v, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
@@ -271,31 +277,46 @@ size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
     if (priv)  // rotate
         v->horiAdvance = v->vertAdvance;
 
+fail:
+    ass_font_unlock(k->font);
+
     return 1;
 }
+
+struct font_ref {
+    ASS_Font *font;
+    int face_index;
+};
 
 static hb_blob_t*
 get_reference_table(hb_face_t *hbface, hb_tag_t tag, void *font_data)
 {
-  FT_Face face = font_data;
+  struct font_ref *key = font_data;
   FT_ULong len = 0;
+  hb_blob_t *blob = NULL;
+
+  ass_font_lock(key->font);
+
+  FT_Face face = key->font->faces[key->face_index];
 
   if (FT_Load_Sfnt_Table(face, tag, 0, NULL, &len) != FT_Err_Ok)
-    return NULL;
+    goto fail;
 
   char *buf = malloc(len);
   if (!buf)
-    return NULL;
+    goto fail;
 
   if (FT_Load_Sfnt_Table(face, tag, 0, (FT_Byte*)buf, &len) != FT_Err_Ok) {
     free(buf);
-    return NULL;
+    goto fail;
   }
 
-  hb_blob_t *blob = hb_blob_create(buf, len, HB_MEMORY_MODE_WRITABLE, buf, free);
+  blob = hb_blob_create(buf, len, HB_MEMORY_MODE_WRITABLE, buf, free);
   if (!blob)
       free(buf);
 
+fail:
+  ass_font_unlock(key->font);
   return blob;
 }
 
@@ -390,8 +411,14 @@ get_h_kerning(hb_font_t *font, void *font_data, hb_codepoint_t first,
     FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index];
     FT_Vector kern;
 
+    ass_font_lock(metrics_priv->hash_key.font);
+
+    ass_face_set_size(face, metrics_priv->hash_key.size);
+
     if (FT_Get_Kerning(face, first, second, FT_KERNING_DEFAULT, &kern))
-        return 0;
+        kern.x = 0;
+
+    ass_font_unlock(metrics_priv->hash_key.font);
 
     return kern.x;
 }
@@ -428,24 +455,42 @@ get_contour_point(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
     FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index];
     int load_flags = FT_LOAD_DEFAULT | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
         | FT_LOAD_IGNORE_TRANSFORM;
+    bool ret = false;
+
+    ass_font_lock(metrics_priv->hash_key.font);
+
+    ass_face_set_size(face, metrics_priv->hash_key.size);
 
     if (FT_Load_Glyph(face, glyph, load_flags))
-        return false;
+        goto fail;
 
     if (point_index >= (unsigned)face->glyph->outline.n_points)
-        return false;
+        goto fail;
 
     *x = face->glyph->outline.points[point_index].x;
     *y = face->glyph->outline.points[point_index].y;
-    return true;
+    ret = true;
+
+fail:
+    ass_font_unlock(metrics_priv->hash_key.font);
+    return ret;
 }
 
 bool ass_create_hb_font(ASS_Font *font, int index)
 {
-    FT_Face face = font->faces[index];
-    hb_face_t *hb_face = hb_face_create_for_tables(get_reference_table, face, NULL);
-    if (!hb_face)
+    struct font_ref *key = malloc(sizeof(struct font_ref));
+    if (!key)
         return false;
+
+    key->font = font;
+    key->face_index = index;
+
+    FT_Face face = font->faces[index];
+    hb_face_t *hb_face = hb_face_create_for_tables(get_reference_table, key, free);
+    if (!hb_face) {
+        free(key);
+        return false;
+    }
 
     hb_face_set_index(hb_face, face->face_index);
     hb_face_set_upem(hb_face, face->units_per_EM);
