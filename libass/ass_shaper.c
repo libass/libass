@@ -79,7 +79,6 @@ struct ass_shaper {
 struct ass_shaper_metrics_data {
     Cache *metrics_cache;
     GlyphMetricsHashKey hash_key;
-    int vertical;
 };
 
 /**
@@ -218,7 +217,7 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics,
     bool rotate = false;
     // if @font rendering is enabled and the glyph should be rotated,
     // make cached_h_advance pick up the right advance later
-    if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
+    if (metrics->hash_key.font->desc.vertical && unicode >= VERTICAL_LOWER_BOUND)
         rotate = true;
 
     GlyphMetricsHashKey key = {
@@ -467,7 +466,6 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
     metrics->hash_key.font = info->font;
     metrics->hash_key.face_index = info->face_index;
     metrics->hash_key.size = info->font_size;
-    metrics->vertical = info->font->desc.vertical;
 
     hb_font_set_funcs(hb_font, shaper->font_funcs, metrics, free);
 
