@@ -303,6 +303,7 @@ typedef struct {
     Cache *outline_cache;
     Cache *bitmap_cache;
     Cache *composite_cache;
+    Cache *face_size_metrics_cache;
     Cache *metrics_cache;
     size_t glyph_max;
     size_t bitmap_max_size;
