@@ -221,8 +221,13 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics,
     if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
         rotate = true;
 
-    metrics->hash_key.glyph_index = glyph;
-    FT_Glyph_Metrics *val = ass_cache_get(metrics->metrics_cache, &metrics->hash_key,
+    GlyphMetricsHashKey key = {
+        .font = metrics->hash_key.font,
+        .face_index = metrics->hash_key.face_index,
+        .size = metrics->hash_key.size,
+        .glyph_index = glyph,
+    };
+    FT_Glyph_Metrics *val = ass_cache_get(metrics->metrics_cache, &key,
                                           rotate ? metrics : NULL);
     if (!val)
         return NULL;
