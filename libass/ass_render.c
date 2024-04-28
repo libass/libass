@@ -83,7 +83,7 @@ static bool render_context_init(RenderContext *state, ASS_Renderer *priv)
     if (!text_info_init(&state->text_info))
         return false;
 
-    if (!(state->shaper = ass_shaper_new(priv->cache.metrics_cache)))
+    if (!(state->shaper = ass_shaper_new(priv->cache.metrics_cache, priv->cache.face_size_metrics_cache)))
         return false;
 
     return ass_rasterizer_init(&priv->engine, &state->rasterizer, RASTERIZER_PRECISION);
@@ -139,8 +139,11 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->cache.bitmap_cache = ass_bitmap_cache_create();
     priv->cache.composite_cache = ass_composite_cache_create();
     priv->cache.outline_cache = ass_outline_cache_create();
+    priv->cache.face_size_metrics_cache = ass_face_size_metrics_cache_create();
     priv->cache.metrics_cache = ass_glyph_metrics_cache_create();
-    if (!priv->cache.font_cache || !priv->cache.bitmap_cache || !priv->cache.composite_cache || !priv->cache.outline_cache || !priv->cache.metrics_cache)
+    if (!priv->cache.font_cache || !priv->cache.bitmap_cache ||
+        !priv->cache.composite_cache || !priv->cache.outline_cache ||
+        !priv->cache.face_size_metrics_cache || !priv->cache.metrics_cache)
         goto fail;
 
     priv->cache.glyph_max = GLYPH_CACHE_MAX;
@@ -180,6 +183,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     ass_cache_done(render_priv->cache.composite_cache);
     ass_cache_done(render_priv->cache.bitmap_cache);
     ass_cache_done(render_priv->cache.outline_cache);
+    ass_cache_done(render_priv->cache.face_size_metrics_cache);
     ass_cache_done(render_priv->cache.metrics_cache);
     ass_cache_done(render_priv->cache.font_cache);
 
