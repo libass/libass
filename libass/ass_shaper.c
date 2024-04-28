@@ -299,8 +299,8 @@ static hb_bool_t
 get_glyph_nominal(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
                   hb_codepoint_t *glyph, void *user_data)
 {
-    FT_Face face = font_data;
-    struct ass_shaper_metrics_data *metrics_priv = user_data;
+    struct ass_shaper_metrics_data *metrics_priv = font_data;
+    FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index];
 
     *glyph = ass_font_index_magic(face, unicode);
     if (*glyph)
@@ -318,8 +318,8 @@ static hb_bool_t
 get_glyph_variation(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
                     hb_codepoint_t variation, hb_codepoint_t *glyph, void *user_data)
 {
-    FT_Face face = font_data;
-    struct ass_shaper_metrics_data *metrics_priv = user_data;
+    struct ass_shaper_metrics_data *metrics_priv = font_data;
+    FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index];
 
     *glyph = ass_font_index_magic(face, unicode);
     if (*glyph)
@@ -337,7 +337,7 @@ static hb_position_t
 cached_h_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                  void *user_data)
 {
-    struct ass_shaper_metrics_data *metrics_priv = user_data;
+    struct ass_shaper_metrics_data *metrics_priv = font_data;
     FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, 0, glyph);
     if (!metrics)
         return 0;
@@ -351,7 +351,7 @@ static hb_position_t
 cached_v_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                  void *user_data)
 {
-    struct ass_shaper_metrics_data *metrics_priv = user_data;
+    struct ass_shaper_metrics_data *metrics_priv = font_data;
     FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, 0, glyph);
     if (!metrics)
         return 0;
@@ -372,7 +372,7 @@ static hb_bool_t
 cached_v_origin(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                 hb_position_t *x, hb_position_t *y, void *user_data)
 {
-    struct ass_shaper_metrics_data *metrics_priv = user_data;
+    struct ass_shaper_metrics_data *metrics_priv = font_data;
     FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, 0, glyph);
     if (!metrics)
         return false;
@@ -387,7 +387,8 @@ static hb_position_t
 get_h_kerning(hb_font_t *font, void *font_data, hb_codepoint_t first,
                  hb_codepoint_t second, void *user_data)
 {
-    FT_Face face = font_data;
+    struct ass_shaper_metrics_data *metrics_priv = font_data;
+    FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index];
     FT_Vector kern;
 
     if (FT_Get_Kerning(face, first, second, FT_KERNING_DEFAULT, &kern))
@@ -407,7 +408,7 @@ static hb_bool_t
 cached_extents(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                hb_glyph_extents_t *extents, void *user_data)
 {
-    struct ass_shaper_metrics_data *metrics_priv = user_data;
+    struct ass_shaper_metrics_data *metrics_priv = font_data;
     FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, 0, glyph);
     if (!metrics)
         return false;
@@ -425,7 +426,8 @@ get_contour_point(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                      unsigned int point_index, hb_position_t *x,
                      hb_position_t *y, void *user_data)
 {
-    FT_Face face = font_data;
+    struct ass_shaper_metrics_data *metrics_priv = font_data;
+    FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index];
     int load_flags = FT_LOAD_DEFAULT | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
         | FT_LOAD_IGNORE_TRANSFORM;
 
@@ -487,27 +489,17 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
         if (!funcs)
             return NULL;
         font->shaper_priv->font_funcs[info->face_index] = funcs;
-        hb_font_funcs_set_nominal_glyph_func(funcs, get_glyph_nominal,
-                metrics, NULL);
-        hb_font_funcs_set_variation_glyph_func(funcs, get_glyph_variation,
-                metrics, NULL);
-        hb_font_funcs_set_glyph_h_advance_func(funcs, cached_h_advance,
-                metrics, NULL);
-        hb_font_funcs_set_glyph_v_advance_func(funcs, cached_v_advance,
-                metrics, NULL);
-        hb_font_funcs_set_glyph_h_origin_func(funcs, cached_h_origin,
-                metrics, NULL);
-        hb_font_funcs_set_glyph_v_origin_func(funcs, cached_v_origin,
-                metrics, NULL);
-        hb_font_funcs_set_glyph_h_kerning_func(funcs, get_h_kerning,
-                metrics, NULL);
-        hb_font_funcs_set_glyph_v_kerning_func(funcs, get_v_kerning,
-                metrics, NULL);
-        hb_font_funcs_set_glyph_extents_func(funcs, cached_extents,
-                metrics, NULL);
-        hb_font_funcs_set_glyph_contour_point_func(funcs, get_contour_point,
-                metrics, NULL);
-        hb_font_set_funcs(hb_font, funcs, face, NULL);
+        hb_font_funcs_set_nominal_glyph_func(funcs, get_glyph_nominal, NULL, NULL);
+        hb_font_funcs_set_variation_glyph_func(funcs, get_glyph_variation, NULL, NULL);
+        hb_font_funcs_set_glyph_h_advance_func(funcs, cached_h_advance, NULL, NULL);
+        hb_font_funcs_set_glyph_v_advance_func(funcs, cached_v_advance, NULL, NULL);
+        hb_font_funcs_set_glyph_h_origin_func(funcs, cached_h_origin, NULL, NULL);
+        hb_font_funcs_set_glyph_v_origin_func(funcs, cached_v_origin, NULL, NULL);
+        hb_font_funcs_set_glyph_h_kerning_func(funcs, get_h_kerning, NULL, NULL);
+        hb_font_funcs_set_glyph_v_kerning_func(funcs, get_v_kerning, NULL, NULL);
+        hb_font_funcs_set_glyph_extents_func(funcs, cached_extents, NULL, NULL);
+        hb_font_funcs_set_glyph_contour_point_func(funcs, get_contour_point, NULL, NULL);
+        hb_font_set_funcs(hb_font, funcs, metrics, NULL);
     }
 
     ass_face_set_size(font->faces[info->face_index], info->font_size);
