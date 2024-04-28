@@ -33,6 +33,7 @@ typedef struct ass_shaper ASS_Shaper;
 void ass_shaper_info(ASS_Library *lib);
 ASS_Shaper *ass_shaper_new(Cache *metrics_cache);
 void ass_shaper_free(ASS_Shaper *shaper);
+bool ass_create_hb_font(ASS_Font *font, int index);
 void ass_shaper_set_kerning(ASS_Shaper *shaper, bool kern);
 void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
                           GlyphInfo *glyphs, size_t len);
@@ -48,7 +49,5 @@ void ass_shaper_cleanup(ASS_Shaper *shaper, TextInfo *text_info);
 FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info);
 FriBidiStrIndex *ass_shaper_get_reorder_map(ASS_Shaper *shaper);
 FriBidiParType ass_resolve_base_direction(int font_encoding);
-
-void ass_shaper_font_data_free(ASS_ShaperFontData *priv);
 
 #endif

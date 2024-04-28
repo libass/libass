@@ -44,7 +44,7 @@ struct ass_font {
     FT_Library ftlibrary;
     int faces_uid[ASS_FONT_MAX_FACES];
     FT_Face faces[ASS_FONT_MAX_FACES];
-    ASS_ShaperFontData *shaper_priv;
+    struct hb_font_t *hb_fonts[ASS_FONT_MAX_FACES];
     int n_faces;
 };
 
