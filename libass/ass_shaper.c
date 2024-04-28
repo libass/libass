@@ -82,11 +82,6 @@ struct ass_shaper_metrics_data {
     int vertical;
 };
 
-struct ass_shaper_font_data {
-    hb_font_t *fonts[ASS_FONT_MAX_FACES];
-    struct ass_shaper_metrics_data *metrics_data[ASS_FONT_MAX_FACES];
-};
-
 /**
  * \brief Print version information
  */
@@ -147,17 +142,6 @@ void ass_shaper_free(ASS_Shaper *shaper)
     hb_font_funcs_destroy(shaper->font_funcs);
     hb_buffer_destroy(shaper->buf);
     free(shaper);
-}
-
-void ass_shaper_font_data_free(ASS_ShaperFontData *priv)
-{
-    int i;
-    for (i = 0; i < ASS_FONT_MAX_FACES; i++)
-        if (priv->fonts[i]) {
-            free(priv->metrics_data[i]);
-            hb_font_destroy(priv->fonts[i]);
-        }
-    free(priv);
 }
 
 /**
@@ -442,6 +426,26 @@ get_contour_point(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
     return true;
 }
 
+bool ass_create_hb_font(ASS_Font *font, int index)
+{
+    FT_Face face = font->faces[index];
+    hb_face_t *hb_face = hb_face_create_for_tables(get_reference_table, face, NULL);
+    if (!hb_face)
+        return false;
+
+    hb_face_set_index(hb_face, face->face_index);
+    hb_face_set_upem(hb_face, face->units_per_EM);
+
+    hb_font_t *hb_font = hb_font_create(hb_face);
+    hb_face_destroy(hb_face);
+    if (!hb_font)
+        return false;
+
+    font->hb_fonts[index] = hb_font;
+
+    return true;
+}
+
 /**
  * \brief Retrieve HarfBuzz font from cache.
  * Create it from FreeType font, if needed.
@@ -451,54 +455,25 @@ get_contour_point(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
 static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
 {
     ASS_Font *font = info->font;
-    hb_font_t **hb_fonts;
-
-    if (!font->shaper_priv)
-        font->shaper_priv = calloc(sizeof(ASS_ShaperFontData), 1);
-    if (!font->shaper_priv)
+    hb_font_t *hb_font = font->hb_fonts[info->face_index];
+    if (!hb_font)
         return NULL;
 
-    hb_fonts = font->shaper_priv->fonts;
-    if (!hb_fonts[info->face_index]) {
-        FT_Face face = font->faces[info->face_index];
-        hb_face_t *hb_face = hb_face_create_for_tables(get_reference_table, face, NULL);
-        if (!hb_face)
-            return NULL;
-        hb_face_set_index(hb_face, face->face_index);
-        hb_face_set_upem(hb_face, face->units_per_EM);
-
-        hb_font_t *hb_font = hb_fonts[info->face_index] = hb_font_create(hb_face);
-        hb_face_destroy(hb_face);
-        if (!hb_font)
-            return NULL;
-
-        hb_font_set_scale(hb_font,
-            (int)(((uint64_t)face->size->metrics.x_scale * face->units_per_EM + (1<<15)) >> 16),
-            (int)(((uint64_t)face->size->metrics.y_scale * face->units_per_EM + (1<<15)) >> 16));
-
-        // set up cached metrics access
-        struct ass_shaper_metrics_data *metrics =
-            font->shaper_priv->metrics_data[info->face_index] =
-                calloc(sizeof(struct ass_shaper_metrics_data), 1);
-        if (!metrics)
-            return NULL;
-        metrics->metrics_cache = shaper->metrics_cache;
-        metrics->vertical = info->font->desc.vertical;
-
-        hb_font_set_funcs(hb_font, shaper->font_funcs, metrics, NULL);
-    }
-
+    // set up cached metrics access
+    struct ass_shaper_metrics_data *metrics = calloc(sizeof(struct ass_shaper_metrics_data), 1);
+    if (!metrics)
+        return NULL;
     ass_face_set_size(font->faces[info->face_index], info->font_size);
-    update_hb_size(hb_fonts[info->face_index], font->faces[info->face_index]);
-
-    // update hash key for cached metrics
-    struct ass_shaper_metrics_data *metrics =
-        font->shaper_priv->metrics_data[info->face_index];
+    update_hb_size(hb_font, font->faces[info->face_index]);
+    metrics->metrics_cache = shaper->metrics_cache;
     metrics->hash_key.font = info->font;
     metrics->hash_key.face_index = info->face_index;
     metrics->hash_key.size = info->font_size;
+    metrics->vertical = info->font->desc.vertical;
 
-    return hb_fonts[info->face_index];
+    hb_font_set_funcs(hb_font, shaper->font_funcs, metrics, free);
+
+    return hb_font;
 }
 
 /**

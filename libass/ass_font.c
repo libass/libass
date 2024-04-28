@@ -424,6 +424,7 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     int i, index, uid;
     ASS_FontStream stream = { NULL, NULL };
     FT_Face face;
+    int ret = -1;
 
     if (font->n_faces == ASS_FONT_MAX_FACES)
         return -1;
@@ -457,8 +458,16 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     set_font_metrics(face);
 
     font->faces[font->n_faces] = face;
-    font->faces_uid[font->n_faces++] = uid;
-    return font->n_faces - 1;
+    font->faces_uid[font->n_faces] = uid;
+    if (!ass_create_hb_font(font, font->n_faces)) {
+        FT_Done_Face(face);
+        goto fail;
+    }
+
+    ret = font->n_faces++;
+
+fail:
+    return ret;
 }
 
 /**
@@ -483,7 +492,6 @@ size_t ass_font_construct(void *key, void *value, void *priv)
 
     font->library = render_priv->library;
     font->ftlibrary = render_priv->ftlibrary;
-    font->shaper_priv = NULL;
     font->n_faces = 0;
     font->desc.family = desc->family;
     font->desc.bold = desc->bold;
@@ -698,11 +706,11 @@ bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
 void ass_font_clear(ASS_Font *font)
 {
     int i;
-    if (font->shaper_priv)
-        ass_shaper_font_data_free(font->shaper_priv);
     for (i = 0; i < font->n_faces; ++i) {
         if (font->faces[i])
             FT_Done_Face(font->faces[i]);
+        if (font->hb_fonts[i])
+            hb_font_destroy(font->hb_fonts[i]);
     }
     free((char *) font->desc.family.str);
 }

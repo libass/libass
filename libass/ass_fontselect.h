@@ -24,7 +24,6 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-typedef struct ass_shaper_font_data ASS_ShaperFontData;
 typedef struct font_selector ASS_FontSelector;
 typedef struct font_info ASS_FontInfo;
 typedef struct ass_font_stream ASS_FontStream;
