@@ -469,10 +469,6 @@ bool ass_create_hb_font(ASS_Font *font, int index)
 static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
 {
     ASS_Font *font = info->font;
-    hb_font_t *hb_font = font->hb_fonts[info->face_index];
-
-    if (!hb_font)
-        return NULL;
 
     FaceSizeMetricsHashKey key = {
         .font = info->font,
@@ -483,10 +479,16 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
     if (!m)
         return NULL;
 
+    hb_font_t *hb_font = hb_font_create_sub_font(font->hb_fonts[info->face_index]);
+    if (!hb_font)
+        return NULL;
+
     // set up cached metrics access
     struct ass_shaper_metrics_data *metrics = calloc(1, sizeof(struct ass_shaper_metrics_data));
-    if (!metrics)
+    if (!metrics) {
+        hb_font_destroy(hb_font);
         return NULL;
+    }
     metrics->metrics_cache = shaper->metrics_cache;
     metrics->hash_key.font = info->font;
     metrics->hash_key.face_index = info->face_index;
@@ -721,6 +723,8 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         shape_harfbuzz_process_run(glyphs, buf,
                 shaper->whole_text_layout ? 0 : offset - lead_context);
         hb_buffer_reset(buf);
+
+        hb_font_destroy(font);
     }
 
     return true;
