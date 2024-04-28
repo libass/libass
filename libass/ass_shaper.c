@@ -65,6 +65,7 @@ struct ass_shaper {
     // Glyph metrics cache, to speed up shaping
     Cache *metrics_cache;
 
+    hb_font_funcs_t *font_funcs;
     hb_buffer_t *buf;
 
 #ifdef USE_FRIBIDI_EX_API
@@ -83,7 +84,6 @@ struct ass_shaper_metrics_data {
 
 struct ass_shaper_font_data {
     hb_font_t *fonts[ASS_FONT_MAX_FACES];
-    hb_font_funcs_t *font_funcs[ASS_FONT_MAX_FACES];
     struct ass_shaper_metrics_data *metrics_data[ASS_FONT_MAX_FACES];
 };
 
@@ -144,6 +144,7 @@ void ass_shaper_free(ASS_Shaper *shaper)
     free(shaper->emblevels);
     free(shaper->cmap);
     free(shaper->pbase_dir);
+    hb_font_funcs_destroy(shaper->font_funcs);
     hb_buffer_destroy(shaper->buf);
     free(shaper);
 }
@@ -155,7 +156,6 @@ void ass_shaper_font_data_free(ASS_ShaperFontData *priv)
         if (priv->fonts[i]) {
             free(priv->metrics_data[i]);
             hb_font_destroy(priv->fonts[i]);
-            hb_font_funcs_destroy(priv->font_funcs[i]);
         }
     free(priv);
 }
@@ -485,21 +485,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
         metrics->metrics_cache = shaper->metrics_cache;
         metrics->vertical = info->font->desc.vertical;
 
-        hb_font_funcs_t *funcs = hb_font_funcs_create();
-        if (!funcs)
-            return NULL;
-        font->shaper_priv->font_funcs[info->face_index] = funcs;
-        hb_font_funcs_set_nominal_glyph_func(funcs, get_glyph_nominal, NULL, NULL);
-        hb_font_funcs_set_variation_glyph_func(funcs, get_glyph_variation, NULL, NULL);
-        hb_font_funcs_set_glyph_h_advance_func(funcs, cached_h_advance, NULL, NULL);
-        hb_font_funcs_set_glyph_v_advance_func(funcs, cached_v_advance, NULL, NULL);
-        hb_font_funcs_set_glyph_h_origin_func(funcs, cached_h_origin, NULL, NULL);
-        hb_font_funcs_set_glyph_v_origin_func(funcs, cached_v_origin, NULL, NULL);
-        hb_font_funcs_set_glyph_h_kerning_func(funcs, get_h_kerning, NULL, NULL);
-        hb_font_funcs_set_glyph_v_kerning_func(funcs, get_v_kerning, NULL, NULL);
-        hb_font_funcs_set_glyph_extents_func(funcs, cached_extents, NULL, NULL);
-        hb_font_funcs_set_glyph_contour_point_func(funcs, get_contour_point, NULL, NULL);
-        hb_font_set_funcs(hb_font, funcs, metrics, NULL);
+        hb_font_set_funcs(hb_font, shaper->font_funcs, metrics, NULL);
     }
 
     ass_face_set_size(font->faces[info->face_index], info->font_size);
@@ -1049,6 +1035,22 @@ ASS_Shaper *ass_shaper_new(Cache *metrics_cache)
     if (!init_features(shaper))
         goto error;
     shaper->metrics_cache = metrics_cache;
+
+    hb_font_funcs_t *funcs = shaper->font_funcs = hb_font_funcs_create();
+    if (!funcs)
+        goto error;
+    hb_font_funcs_set_nominal_glyph_func(funcs, get_glyph_nominal, NULL, NULL);
+    hb_font_funcs_set_variation_glyph_func(funcs, get_glyph_variation, NULL, NULL);
+    hb_font_funcs_set_glyph_h_advance_func(funcs, cached_h_advance, NULL, NULL);
+    hb_font_funcs_set_glyph_v_advance_func(funcs, cached_v_advance, NULL, NULL);
+    hb_font_funcs_set_glyph_h_origin_func(funcs, cached_h_origin, NULL, NULL);
+    hb_font_funcs_set_glyph_v_origin_func(funcs, cached_v_origin, NULL, NULL);
+    hb_font_funcs_set_glyph_h_kerning_func(funcs, get_h_kerning, NULL, NULL);
+    hb_font_funcs_set_glyph_v_kerning_func(funcs, get_v_kerning, NULL, NULL);
+    hb_font_funcs_set_glyph_extents_func(funcs, cached_extents, NULL, NULL);
+    hb_font_funcs_set_glyph_contour_point_func(funcs, get_contour_point, NULL, NULL);
+
+    hb_font_funcs_make_immutable(funcs);
 
     shaper->buf = hb_buffer_create();
     if (!shaper->buf)
