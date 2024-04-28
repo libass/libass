@@ -65,6 +65,8 @@ struct ass_shaper {
     // Glyph metrics cache, to speed up shaping
     Cache *metrics_cache;
 
+    hb_buffer_t *buf;
+
 #ifdef USE_FRIBIDI_EX_API
     FriBidiBracketType *btypes;
     bool bidi_brackets;
@@ -142,6 +144,7 @@ void ass_shaper_free(ASS_Shaper *shaper)
     free(shaper->emblevels);
     free(shaper->cmap);
     free(shaper->pbase_dir);
+    hb_buffer_destroy(shaper->buf);
     free(shaper);
 }
 
@@ -686,7 +689,7 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
 static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 {
     int i;
-    hb_buffer_t *buf = hb_buffer_create();
+    hb_buffer_t *buf = shaper->buf;
     hb_segment_properties_t props = HB_SEGMENT_PROPERTIES_DEFAULT;
 
     // Initialize: skip all glyphs, this is undone later as needed
@@ -744,8 +747,6 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
                 shaper->whole_text_layout ? 0 : offset - lead_context);
         hb_buffer_reset(buf);
     }
-
-    hb_buffer_destroy(buf);
 
     return true;
 }
@@ -1056,6 +1057,10 @@ ASS_Shaper *ass_shaper_new(Cache *metrics_cache)
     if (!init_features(shaper))
         goto error;
     shaper->metrics_cache = metrics_cache;
+
+    shaper->buf = hb_buffer_create();
+    if (!shaper->buf)
+        goto error;
 
     return shaper;
 
