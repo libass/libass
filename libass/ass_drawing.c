@@ -303,8 +303,7 @@ static bool drawing_add_curve(ASS_Outline *outline, ASS_Rect *cbox,
         p[2].y -= y12;
     }
 
-    return (started ||
-        ass_outline_add_point(outline, p[0], 0)) &&
+    return (started || ass_outline_add_point(outline, p[0], 0)) &&
         ass_outline_add_point(outline, p[1], 0) &&
         ass_outline_add_point(outline, p[2], 0) &&
         ass_outline_add_point(outline, p[3], OUTLINE_CUBIC_SPLINE);
