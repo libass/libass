@@ -240,16 +240,14 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
         case 'p':
             if (points < 3)
                 continue;
-            // XXX: use TOKEN_EXTEND_SPLINE
-            points += add_many_points(&p, &tail, TOKEN_B_SPLINE, 1, &error);
+            points += add_many_points(&p, &tail, TOKEN_EXTEND_SPLINE, 1, &error);
             break;
         case 'c':
             if (!spline_start)
                 continue;
             // Close b-splines: add the first three points of the b-spline back to the end
             for (int i = 0; i < 3; i++) {
-                // XXX: use TOKEN_EXTEND_SPLINE
-                if (!add_node(&tail, TOKEN_B_SPLINE, spline_start->point)) {
+                if (!add_node(&tail, TOKEN_EXTEND_SPLINE, spline_start->point)) {
                     error = true;
                     break;
                 }
@@ -310,6 +308,20 @@ static bool drawing_add_curve(ASS_Outline *outline, ASS_Rect *cbox,
 }
 
 /*
+ * Anything produced by our tokenizer is already supposed to fullfil these requirements
+ * where relevant, but let's check with an assert in builds without NDEBUG
+ */
+static inline void assert_3_forward(ASS_DrawingToken *token)
+{
+    assert(token && token->prev && token->next && token->next->next);
+}
+
+static inline void assert_4_back(ASS_DrawingToken *token)
+{
+    assert(token && token->prev && token->prev->prev && token->prev->prev->prev);
+}
+
+/*
  * \brief Convert token list to outline.  Calls the line and curve evaluators.
  */
 bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
@@ -367,14 +379,20 @@ bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
                 token = token->next;
             break;
         case TOKEN_B_SPLINE:
-            if (token_check_values(token, 3, TOKEN_B_SPLINE) &&
-                token->prev) {
-                if (!drawing_add_curve(outline, cbox, token->prev, true, started))
-                    goto error;
-                token = token->next;
-                started = true;
-            } else
-                token = token->next;
+            assert_3_forward(token);
+            if (!drawing_add_curve(outline, cbox, token->prev, true, started))
+                goto error;
+            token = token->next;
+            token = token->next;
+            token = token->next;
+            started = true;
+            break;
+        case TOKEN_EXTEND_SPLINE:
+            assert_4_back(token);
+            if (!drawing_add_curve(outline, cbox, token->prev->prev->prev, true, started))
+                goto error;
+            token = token->next;
+            started = true;
             break;
         default:
             token = token->next;
