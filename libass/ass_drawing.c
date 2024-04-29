@@ -31,19 +31,6 @@
 #define DRAWING_INITIAL_SEGMENTS 100
 
 /*
- * \brief Check whether a number of items on the list is available
- */
-static bool token_check_values(ASS_DrawingToken *token, int i, ASS_TokenType type)
-{
-    for (int j = 0; j < i; j++) {
-        if (!token || token->type != type) return false;
-        token = token->next;
-    }
-
-    return true;
-}
-
-/*
  * \brief Free a list of tokens
  */
 static void drawing_free_tokens(ASS_DrawingToken *token)
@@ -367,16 +354,13 @@ bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
             break;
         }
         case TOKEN_CUBIC_BEZIER:
-            if (token_check_values(token, 3, TOKEN_CUBIC_BEZIER) &&
-                token->prev) {
-                if (!drawing_add_curve(outline, cbox, token->prev, false, started))
-                    goto error;
-                token = token->next;
-                token = token->next;
-                token = token->next;
-                started = true;
-            } else
-                token = token->next;
+            assert_3_forward(token);
+            if (!drawing_add_curve(outline, cbox, token->prev, false, started))
+                goto error;
+            token = token->next;
+            token = token->next;
+            token = token->next;
+            started = true;
             break;
         case TOKEN_B_SPLINE:
             assert_3_forward(token);
