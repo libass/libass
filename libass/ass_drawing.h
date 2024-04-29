@@ -29,8 +29,7 @@ typedef enum {
     TOKEN_LINE,
     TOKEN_CUBIC_BEZIER,
     TOKEN_B_SPLINE,
-    TOKEN_EXTEND_SPLINE,
-    TOKEN_CLOSE
+    TOKEN_EXTEND_SPLINE
 } ASS_TokenType;
 
 typedef struct ass_drawing_token {

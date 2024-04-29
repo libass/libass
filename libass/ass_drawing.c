@@ -378,9 +378,6 @@ bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
             token = token->next;
             started = true;
             break;
-        default:
-            token = token->next;
-            break;
         }
     }
 
