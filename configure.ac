@@ -234,6 +234,12 @@ AS_IF([test "x$enable_require_system_font_provider" != xno  dnl
 can_asm=false
 cpu_family="other"
 AS_IF([test "x$enable_asm" != xno], [
+    # For the library itself, libtool already adds this automatically
+    # but checkasm can also needs this, thus set explicitly
+    AS_IF([test "x$with_pic" = xyes], [
+        ASFLAGS="$ASFLAGS -DPIC=1"
+    ])
+
     AS_CASE([$host],
         [i?86-*], [
             AS=nasm
