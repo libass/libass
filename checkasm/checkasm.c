@@ -736,6 +736,7 @@ int checkasm_bench_func(void) {
 
 /* Indicate that the current test has failed, return whether verbose printing
  * is requested. */
+ASM_CALLABLE
 int checkasm_fail_func(const char *const msg, ...) {
     if (state.current_func_ver && state.current_func_ver->cpu &&
         state.current_func_ver->ok)

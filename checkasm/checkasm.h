@@ -335,4 +335,10 @@ void checkasm_stack_clobber(uint64_t clobber, ...);
     line __attribute__((aligned(align)))
 #endif
 
+#ifdef _MSC_VER
+#define ASM_CALLABLE
+#else
+#define ASM_CALLABLE __attribute__((visibility("hidden")))
+#endif
+
 #endif /* CHECKASM_CHECKASM_H */
