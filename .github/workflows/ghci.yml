@@ -255,7 +255,8 @@ jobs:
       - name: run tests
         if: matrix.skip_tests != 'yes'
         run: |
-          ART_REG_SKIP="${{ matrix.art_reg_skip }}" make -j 1 check
+          ART_REG_SKIP="${{ matrix.art_reg_skip }}" make -j 1 check \
+          || (cat test-suite.log; exit 1;)
 
 
       - name: Coverity scan
