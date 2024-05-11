@@ -35,7 +35,6 @@
 #include FT_SFNT_NAMES_H
 #include FT_TRUETYPE_IDS_H
 #include FT_TRUETYPE_TABLES_H
-#include FT_TYPE1_TABLES_H
 
 #include "ass_utils.h"
 #include "ass.h"
@@ -259,7 +258,6 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     int num_names = FT_Get_Sfnt_Name_Count(face);
     char *fullnames[MAX_FULLNAME];
     char *families[MAX_FULLNAME];
-    PS_FontInfoRec postscript_info;
 
     // we're only interested in outlines
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
@@ -314,7 +312,7 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     info->style_flags = ass_face_get_style_flags(face);
 
     info->postscript_name = (char *)FT_Get_Postscript_Name(face);
-    info->is_postscript = !FT_Get_PS_Font_Info(face, &postscript_info);
+    info->is_postscript = ass_face_is_postscript(face);
 
     if (num_family) {
         info->families = calloc(sizeof(char *), num_family);

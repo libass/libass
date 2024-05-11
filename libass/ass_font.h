@@ -53,6 +53,7 @@ ASS_Font *ass_font_new(ASS_Renderer *render_priv, ASS_FontDesc *desc);
 void ass_face_set_size(FT_Face face, double size);
 int ass_face_get_weight(FT_Face face);
 FT_Long ass_face_get_style_flags(FT_Face face);
+bool ass_face_is_postscript(FT_Face face);
 void ass_font_get_asc_desc(ASS_Font *font, int face_index,
                            int *asc, int *desc);
 int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,

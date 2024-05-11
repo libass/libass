@@ -27,6 +27,7 @@
 #include FT_TRUETYPE_TABLES_H
 #include FT_OUTLINE_H
 #include FT_TRUETYPE_IDS_H
+#include FT_TYPE1_TABLES_H
 #include <limits.h>
 
 #include "ass.h"
@@ -515,6 +516,12 @@ void ass_face_set_size(FT_Face face, double size)
     FT_Request_Size(face, &rq);
 }
 
+bool ass_face_is_postscript(FT_Face face)
+{
+    PS_FontInfoRec postscript_info;
+    return !FT_Get_PS_Font_Info(face, &postscript_info);
+}
+
 /**
  * \brief Get face weight
  **/
@@ -602,16 +609,18 @@ static void ass_glyph_embolden(FT_GlyphSlot slot)
 /**
  * Slightly italicize a glyph
  */
-static void ass_glyph_italicize(FT_GlyphSlot slot)
+static void ass_glyph_italicize(FT_Face face)
 {
     FT_Matrix xfrm = {
         .xx = 0x10000L,
         .yx = 0x00000L,
-        .xy = 0x05700L,
+        .xy = ass_face_is_postscript(face)
+            ? 0x02d24L /* tan(10 deg) */
+            : 0x05700L /* matches GDI; effectively tan(18.77 deg) */,
         .yy = 0x10000L,
     };
 
-    FT_Outline_Transform(&slot->outline, &xfrm);
+    FT_Outline_Transform(&face->glyph->outline, &xfrm);
 }
 
 /**
@@ -719,7 +728,7 @@ bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
 
     FT_Long style_flags = ass_face_get_style_flags(face);
     if (!(style_flags & FT_STYLE_FLAG_ITALIC) && (font->desc.italic > 55))
-        ass_glyph_italicize(face->glyph);
+        ass_glyph_italicize(face);
     if (!(style_flags & FT_STYLE_FLAG_BOLD) &&
         font->desc.bold > ass_face_get_weight(face) + 150)
         ass_glyph_embolden(face->glyph);
