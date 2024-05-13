@@ -120,11 +120,15 @@ typedef struct ass_style {
     int Alignment; // use `VALIGN_* | HALIGN_*` as value
     int MarginL;
     int MarginR;
-    int MarginV;
+    union {
+        int MarginV;
+        int MarginT;
+    };
+    int MarginB; // Applies only if set to a non-INT_MIN value
     int Encoding;
-    int treat_fontname_as_pattern; // does nothing (left in place for ABI-compatibility)
     double Blur; // sets a default \blur for the event; same values as \blur
     int Justify; // sets text justification independent of event alignment; use ASS_JUSTIFY_*
+    int RelativeTo; // 0 for dialogue, 1 for typesetting, 2 for auto
 } ASS_Style;
 
 
@@ -142,7 +146,11 @@ typedef struct ass_event {
     char *Name;
     int MarginL;
     int MarginR;
-    int MarginV;
+    union {
+        int MarginV;
+        int MarginT;
+    };
+    int MarginB;
     char *Effect;
     char *Text;
 
@@ -275,7 +283,8 @@ typedef struct ass_track {
     enum {
         TRACK_TYPE_UNKNOWN = 0,
         TRACK_TYPE_ASS,
-        TRACK_TYPE_SSA
+        TRACK_TYPE_SSA,
+        TRACK_TYPE_ASS2,
     } track_type;
 
     // Script header fields

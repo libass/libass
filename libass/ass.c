@@ -56,6 +56,14 @@ static const char *const ssa_style_format =
 static const char *const ssa_event_format =
         "Marked, Start, End, Style, Name, "
         "MarginL, MarginR, MarginV, Effect, Text";
+static const char *const ass2_style_format =
+        "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
+        "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, "
+        "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+        "Alignment, MarginL, MarginR, MarginV, MarginB, Encoding, RelativeTo";
+static const char *const ass2_event_format =
+        "Layer, Start, End, Style, Name, "
+        "MarginL, MarginR, MarginV, MarginB, Effect, Text";
 
 #define ASS_STYLES_ALLOC 20
 
@@ -114,6 +122,11 @@ int ass_alloc_style(ASS_Track *track)
 
     sid = track->n_styles++;
     memset(track->styles + sid, 0, sizeof(ASS_Style));
+
+    // Explicitly flag newer values as unset
+    track->styles[sid].MarginB = INT_MIN;
+    track->styles[sid].RelativeTo = 2;
+
     return sid;
 }
 
@@ -224,6 +237,8 @@ static void set_default_style(ASS_Style *style)
     style->Shadow           = 3;
     style->Alignment        = 2;
     style->MarginL = style->MarginR = style->MarginV = 20;
+    style->MarginB = INT_MIN;
+    style->RelativeTo = 2;
 }
 
 static long long string2timecode(ASS_Library *library, char *p)
@@ -502,6 +517,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
+            INTVAL(MarginB)
             TIMEVAL(Start)
             TIMEVAL(Duration)
         PARSE_END
@@ -633,6 +649,8 @@ static int process_style(ASS_Track *track, char *str)
         // probably an ancient script version
         if (track->track_type == TRACK_TYPE_SSA)
             track->style_format = strdup(ssa_style_format);
+        else if (track->track_type == TRACK_TYPE_ASS2)
+            track->style_format = strdup(ass2_style_format);
         else
             track->style_format = strdup(ass_style_format);
         if (!track->style_format)
@@ -688,7 +706,8 @@ static int process_style(ASS_Track *track, char *str)
             FPVAL(Angle)
             INTVAL(BorderStyle)
             INTVAL(Alignment)
-                if (track->track_type == TRACK_TYPE_ASS)
+                if (track->track_type == TRACK_TYPE_ASS ||
+                    track->track_type == TRACK_TYPE_ASS2)
                     target->Alignment = numpad2align(target->Alignment);
                 // VSFilter compatibility
                 else if (target->Alignment == 8)
@@ -698,7 +717,9 @@ static int process_style(ASS_Track *track, char *str)
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
+            INTVAL(MarginB)
             INTVAL(Encoding)
+            INTVAL(RelativeTo)
             FPVAL(ScaleX)
             FPVAL(ScaleY)
             FPVAL(Outline)
@@ -804,7 +825,7 @@ static void custom_format_line_compatibility(ASS_Track *const track,
 static int process_styles_line(ASS_Track *track, char *str)
 {
     int ret = 0;
-    if (!strncmp(str, "Format:", 7)) {
+    if (!strncmp(str, "Format:", 7) && track->track_type != TRACK_TYPE_ASS2) {
         char *p = str + 7;
         skip_spaces(&p);
         free(track->style_format);
@@ -838,6 +859,10 @@ static inline void parse_script_type(ASS_Track *track, const char *str)
     int ver = TRACK_TYPE_SSA;
     if (*(p-1) == '+') {
         ver = TRACK_TYPE_ASS;
+        --len; --p;
+    }
+    if (*(p-1) == '+') {
+        ver = TRACK_TYPE_ASS2;
         --len; --p;
     }
 
@@ -908,6 +933,8 @@ static void event_format_fallback(ASS_Track *track)
     track->parser_priv->state = PST_EVENTS;
     if (track->track_type == TRACK_TYPE_SSA)
         track->event_format = strdup(ssa_event_format);
+    else if (track->track_type == TRACK_TYPE_ASS2)
+        track->event_format = strdup(ass2_event_format);
     else
         track->event_format = strdup(ass_event_format);
     ass_msg(track->library, MSGL_V,
@@ -972,7 +999,7 @@ static bool detect_legacy_conv_subs(ASS_Track *track)
 
 static int process_events_line(ASS_Track *track, char *str)
 {
-    if (!strncmp(str, "Format:", 7)) {
+    if (!strncmp(str, "Format:", 7) && track->track_type != TRACK_TYPE_ASS2) {
         char *p = str + 7;
         skip_spaces(&p);
         free(track->event_format);
@@ -1161,6 +1188,9 @@ static int process_line(ASS_Track *track, char *str)
     } else if (!ass_strncasecmp(str, "[V4+ Styles]", 12)) {
         track->parser_priv->state = PST_STYLES;
         track->track_type = TRACK_TYPE_ASS;
+    } else if (!ass_strncasecmp(str, "[V4++ Styles]", 12)) {
+        track->parser_priv->state = PST_STYLES;
+        track->track_type = TRACK_TYPE_ASS2;
     } else if (!ass_strncasecmp(str, "[Events]", 8)) {
         track->parser_priv->state = PST_EVENTS;
     } else if (!ass_strncasecmp(str, "[Fonts]", 7)) {
