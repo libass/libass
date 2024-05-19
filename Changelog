@@ -1,3 +1,44 @@
+libass (0.17.2)
+ * Fix rendering of \h in certain cases
+ * Fix a minor memory leak in the CoreText and DirectWrite font provider
+ * Fix wrong ASS_Image dimensions for huge BorderStyle=4 backgrounds
+   potentially leading to out of bound reads by API users
+
+ * Improve quality of animated rectangular clips
+ * Improve accuracy of cache limits
+ * Full-Unicode cmaps are now always preferred
+ * Improve font selection compatibility in the DirectWrite font provider
+ * Improved documentation
+   * Color mangling notes in ass_types.h were updated for tone mapping and HDR video
+   * Guidelines for producing portable ASS files can now be found in our wiki
+
+ * Updating selective overrides now forces a cache clear to avoid issues with outdated caches
+ * Frame and storage resolutions are now limited to what a single ASS_Image can represent
+ * make check now runs checkasm if assembly is enabled
+ * CoreText can now be used on Mac OS X 10.5
+ * Meson/muon is now offered as a secondary build system bringing back first-party MSVC support
+   Note however it is not at feature parity with autotools in all cases
+
+ * aarch64: add optimized assembly routines covering the same set as on x86;
+   they work on both little and big endian systems
+ * x86: add SSSE3 versions of some assembly routines to help CPUs without AVX2
+ * x86: it is now possible to build binaries with optimized assembly and SHSTK support
+
+ * Improve VSFilter compatibility:
+   * Trailing spaces are no longer trimmed from style and
+     event string fields (this does not affect Text)
+   * All BiDi paragraph separators now delimit BiDi runs
+   * Fix treatment of font weights < 10
+   * Match GDI's faux italic slant
+   * Employ faux italics and faux bolding in the same cases as GDI
+   * Better match font selection with regard to italic and weight
+   * Treat empty Style name as "Default"
+   * Various drawing fixes
+     * Reject drawings not starting with a valid m command or invalid m followed by valid n
+     * Drop coordinates following invalid commands rather than appending them to the prior command
+     * Ignore p commands without enough preceding nodes
+     * Partially fix s and p commands used outside of a properly closed b-spline sequence
+
 libass (0.17.1)
  * Fix buffer overread if soft-wrapping occurred and
    ASS_FEATURE_WHOLE_TEXT_LAYOUT was enabled via API or due to Encoding -1
