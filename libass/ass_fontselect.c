@@ -315,7 +315,7 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     info->is_postscript = ass_face_is_postscript(face);
 
     if (num_family) {
-        info->families = calloc(sizeof(char *), num_family);
+        info->families = calloc(num_family, sizeof(char *));
         if (info->families == NULL)
             goto error;
         memcpy(info->families, &families, sizeof(char *) * num_family);
@@ -323,7 +323,7 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     }
 
     if (num_fullname) {
-        info->fullnames = calloc(sizeof(char *), num_fullname);
+        info->fullnames = calloc(num_fullname, sizeof(char *));
         if (info->fullnames == NULL)
             goto error;
         memcpy(info->fullnames, &fullnames, sizeof(char *) * num_fullname);

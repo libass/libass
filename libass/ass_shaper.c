@@ -150,7 +150,7 @@ void ass_shaper_free(ASS_Shaper *shaper)
  */
 static bool init_features(ASS_Shaper *shaper)
 {
-    shaper->features = calloc(sizeof(hb_feature_t), NUM_FEATURES);
+    shaper->features = calloc(NUM_FEATURES, sizeof(hb_feature_t));
     if (!shaper->features)
         return false;
 
@@ -460,7 +460,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
         return NULL;
 
     // set up cached metrics access
-    struct ass_shaper_metrics_data *metrics = calloc(sizeof(struct ass_shaper_metrics_data), 1);
+    struct ass_shaper_metrics_data *metrics = calloc(1, sizeof(struct ass_shaper_metrics_data));
     if (!metrics)
         return NULL;
     ass_face_set_size(font->faces[info->face_index], info->font_size);
@@ -762,7 +762,7 @@ void ass_shaper_determine_script(ASS_Shaper *shaper, GlyphInfo *glyphs,
 static void shape_fribidi(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 {
     int i;
-    FriBidiJoiningType *joins = calloc(sizeof(*joins), len);
+    FriBidiJoiningType *joins = calloc(len, sizeof(*joins));
 
     // shape on codepoint level
     fribidi_get_joining_types(shaper->event_text, len, joins);
@@ -1001,7 +1001,7 @@ ASS_Shaper *ass_shaper_new(Cache *metrics_cache)
 {
     assert(metrics_cache);
 
-    ASS_Shaper *shaper = calloc(sizeof(*shaper), 1);
+    ASS_Shaper *shaper = calloc(1, sizeof(*shaper));
     if (!shaper)
         return NULL;
 

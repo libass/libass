@@ -1090,7 +1090,7 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
         goto cleanup;
     }
 
-    priv = calloc(sizeof(*priv), 1);
+    priv = calloc(1, sizeof(*priv));
     if (!priv)
         goto cleanup;
 
