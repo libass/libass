@@ -60,14 +60,22 @@ bool read_png(const char *path, Image16 *img)
 
     uint32_t w = png_get_image_width(png, info);
     uint32_t h = png_get_image_height(png, info);
+    uint32_t a = png_get_valid(png, info, PNG_INFO_tRNS);
     int type   = png_get_color_type(png, info);
     int depth  = png_get_bit_depth(png, info);
 
-    if (w > 0xFFFF || h > 0xFFFF || type != PNG_COLOR_TYPE_RGBA) {
+    if (w > 0xFFFF || h > 0xFFFF) {
         png_destroy_read_struct(&png, &info, NULL);
         fclose(fp);
         return false;
     }
+
+    if (!(type & PNG_COLOR_MASK_COLOR))
+        png_set_gray_to_rgb(png);
+    if ((type & PNG_COLOR_MASK_PALETTE) || a)
+        png_set_expand(png);
+    if (!a && !(type & PNG_COLOR_MASK_ALPHA))
+        png_set_filler(png, -1, PNG_FILLER_AFTER);
 
     ptrdiff_t stride = 8 * w;
     buf = malloc(stride * h);
@@ -82,7 +90,7 @@ bool read_png(const char *path, Image16 *img)
 
     png_byte *ptr = buf;
     ptrdiff_t half = 4 * w;
-    if (depth == 8)
+    if (depth < 16)
         ptr += half;
     else if (is_little_endian())
         png_set_swap(png);
@@ -100,7 +108,7 @@ bool read_png(const char *path, Image16 *img)
     fclose(fp);
 
     // convert to premultiplied with inverted alpha
-    if (depth == 8) {
+    if (depth < 16) {
         uint8_t *ptr = (uint8_t *) buf;
         for (uint32_t y = 0; y < h; y++) {
             for (uint32_t x = 0; x < w; x++) {
