@@ -46,8 +46,9 @@ Other ASS/SSA implementations:
   - [xy-VSFilter/XySubFilter](https://github.com/Cyberbeing/xy-VSFilter/)
     - [pfmod](https://github.com/pinterf/xy-VSFilter/)
   - VSFilter in [MPC-HC](https://github.com/clsid2/mpc-hc/tree/develop/src/filters/transform/VSFilter/)
-  - [VSFilterMod](https://code.google.com/archive/p/vsfiltermod/) (with custom format extensions)
-    - [sorayuki fork](https://github.com/sorayuki/VSFilterMod/) with some bugfixes
+  - [VSFilterMod](https://code.google.com/archive/p/vsfiltermod/) with custom format extensions (defunct, subsumed by forks)
+    - [sorayuki fork](https://github.com/sorayuki/VSFilterMod/) with some bugfixes (defunct)
+    - various forks focussing on internal use
   - [Threaded VSFilter](https://code.google.com/p/threaded-vsfilter/) (defunct)
   - VSFilter in [Guliverkli2](http://sourceforge.net/projects/guliverkli2/) (defunct, subsumed by all of the above)
   - VSFilter in [guliverkli](http://sourceforge.net/projects/guliverkli/) (defunct, forked as Guliverkli2)
