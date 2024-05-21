@@ -78,6 +78,7 @@ void ass_set_extract_fonts(ASS_Library *priv, int extract)
 
 void ass_set_style_overrides(ASS_Library *priv, char **list)
 {
+    // Documentation promises input lists gets copied without modifications
     char **p;
     char **q;
     int cnt;

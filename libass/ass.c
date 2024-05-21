@@ -1222,7 +1222,7 @@ static int process_text(ASS_Track *track, char *str)
  * \param data string to parse
  * \param size length of data
 */
-void ass_process_data(ASS_Track *track, char *data, int size)
+void ass_process_data(ASS_Track *track, const char *data, int size)
 {
     char *str = malloc(size + 1);
     if (!str)
@@ -1243,7 +1243,7 @@ void ass_process_data(ASS_Track *track, char *data, int size)
  * \param size length of data
  CodecPrivate section contains [Stream Info] and [V4+ Styles] ([V4 Styles] for SSA) sections
 */
-void ass_process_codec_private(ASS_Track *track, char *data, int size)
+void ass_process_codec_private(ASS_Track *track, const char *data, int size)
 {
     ass_process_data(track, data, size);
 
@@ -1279,7 +1279,7 @@ void ass_set_check_readorder(ASS_Track *track, int check_readorder)
  * \param timecode starting time of the event (milliseconds)
  * \param duration duration of the event (milliseconds)
 */
-void ass_process_chunk(ASS_Track *track, char *data, int size,
+void ass_process_chunk(ASS_Track *track, const char *data, int size,
                        long long timecode, long long duration)
 {
     char *str = NULL;
@@ -1367,7 +1367,7 @@ void ass_flush_events(ASS_Track *track)
  * \return a pointer to recoded buffer, caller is responsible for freeing it
 **/
 static char *sub_recode(ASS_Library *library, char *data, size_t size,
-                        char *codepage)
+                        const char *codepage)
 {
     iconv_t icdsc;
     char *tocp = "UTF-8";
@@ -1535,7 +1535,7 @@ static ASS_Track *parse_memory(ASS_Library *library, char *buf)
  * \return newly allocated track
 */
 ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
-                           size_t bufsize, char *codepage)
+                           size_t bufsize, const char *codepage)
 {
     ASS_Track *track;
     int copied = 0;
@@ -1571,8 +1571,8 @@ ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
     return track;
 }
 
-static char *read_file_recode(ASS_Library *library, char *fname,
-                              char *codepage, size_t *size)
+static char *read_file_recode(ASS_Library *library, const char *fname,
+                              const char *codepage, size_t *size)
 {
     char *buf;
     size_t bufsize;
@@ -1600,8 +1600,8 @@ static char *read_file_recode(ASS_Library *library, char *fname,
  * \param codepage recode buffer contents from given codepage
  * \return newly allocated track
 */
-ASS_Track *ass_read_file(ASS_Library *library, char *fname,
-                         char *codepage)
+ASS_Track *ass_read_file(ASS_Library *library, const char *fname,
+                         const char *codepage)
 {
     char *buf;
     ASS_Track *track;
@@ -1627,7 +1627,7 @@ ASS_Track *ass_read_file(ASS_Library *library, char *fname,
 /**
  * \brief read styles from file into already initialized track
  */
-int ass_read_styles(ASS_Track *track, char *fname, char *codepage)
+int ass_read_styles(ASS_Track *track, const char *fname, const char *codepage)
 {
     char *buf;
     ParserState old_state;

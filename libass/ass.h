@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01702000
+#define LIBASS_VERSION 0x01702010
 
 #ifdef __cplusplus
 extern "C" {
@@ -324,9 +324,14 @@ void ass_set_extract_fonts(ASS_Library *priv, int extract);
  *   ScaledBorderAndShadow=yes
  *
  * \param priv library handle
- * \param list NULL-terminated list of strings
+ * \param list NULL-terminated list of strings,
+ *             copied and never modified by libass
  */
+#ifdef __cplusplus
+void ass_set_style_overrides(ASS_Library *priv, const char *const *list);
+#else
 void ass_set_style_overrides(ASS_Library *priv, char **list);
+#endif
 
 /**
  * \brief Explicitly process style overrides for a track.
@@ -690,7 +695,7 @@ void ass_free_event(ASS_Track *track, int eid);
  * \param data string to parse
  * \param size length of data
  */
-void ass_process_data(ASS_Track *track, char *data, int size);
+void ass_process_data(ASS_Track *track, const char *data, int size);
 
 /**
  * \brief Parse Codec Private section of the subtitle stream, in Matroska
@@ -699,7 +704,7 @@ void ass_process_data(ASS_Track *track, char *data, int size);
  * \param data string to parse
  * \param size length of data
  */
-void ass_process_codec_private(ASS_Track *track, char *data, int size);
+void ass_process_codec_private(ASS_Track *track, const char *data, int size);
 
 /**
  * \brief Parse a chunk of subtitle stream data. A chunk contains exactly one
@@ -715,7 +720,7 @@ void ass_process_codec_private(ASS_Track *track, char *data, int size);
  * \param timecode starting time of the event (milliseconds)
  * \param duration duration of the event (milliseconds)
  */
-void ass_process_chunk(ASS_Track *track, char *data, int size,
+void ass_process_chunk(ASS_Track *track, const char *data, int size,
                        long long timecode, long long duration);
 
 /**
@@ -747,8 +752,8 @@ void ass_flush_events(ASS_Track *track);
  * if both versions are valid and exist.
  * On all other systems there is no need for special considerations like that.
 */
-ASS_Track *ass_read_file(ASS_Library *library, char *fname,
-                         char *codepage);
+ASS_Track *ass_read_file(ASS_Library *library, const char *fname,
+                         const char *codepage);
 
 /**
  * \brief Read subtitles from memory.
@@ -759,7 +764,7 @@ ASS_Track *ass_read_file(ASS_Library *library, char *fname,
  * \return newly allocated track or NULL on failure
 */
 ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
-                           size_t bufsize, char *codepage);
+                           size_t bufsize, const char *codepage);
 /**
  * \brief Read styles from file into already initialized track.
  * \param fname file name
@@ -771,7 +776,7 @@ ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
  * if both versions are valid and exist.
  * On all other systems there is no need for special considerations like that.
  */
-int ass_read_styles(ASS_Track *track, char *fname, char *codepage);
+int ass_read_styles(ASS_Track *track, const char *fname, const char *codepage);
 
 /**
  * \brief Add a memory font.
