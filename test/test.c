@@ -43,27 +43,40 @@ void msg_callback(int level, const char *fmt, va_list va, void *data)
 
 static void write_png(char *fname, image_t *img)
 {
-    FILE *fp;
-    png_structp png_ptr;
-    png_infop info_ptr;
-    png_byte **row_pointers;
-    int k;
+    png_structp png_ptr = NULL;
+    png_infop info_ptr = NULL;
+    png_byte **volatile row_pointers = NULL;
 
-    png_ptr =
-        png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    info_ptr = png_create_info_struct(png_ptr);
-    fp = NULL;
-
-    if (setjmp(png_jmpbuf(png_ptr))) {
-        png_destroy_write_struct(&png_ptr, &info_ptr);
-        fclose(fp);
-        return;
-    }
-
-    fp = fopen(fname, "wb");
+    FILE *fp = fopen(fname, "wb");
     if (fp == NULL) {
         printf("PNG Error opening %s for writing!\n", fname);
-        return;
+        goto fail;
+    }
+
+    png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!png_ptr) {
+        printf("PNG Error creating write struct!\n");
+        goto fail;
+    }
+
+    info_ptr = png_create_info_struct(png_ptr);
+    if (!info_ptr) {
+        printf("PNG Error creating info struct!\n");
+        goto fail;
+    }
+
+    row_pointers = malloc(img->height * sizeof(png_byte *));
+    if (!row_pointers) {
+        printf("PNG Failed to allocate row pointers!\n");
+        goto fail;
+    }
+    for (int k = 0; k < img->height; k++)
+        row_pointers[k] = img->buffer + img->stride * k;
+
+
+    if (setjmp(png_jmpbuf(png_ptr))) {
+        printf("PNG unknown error!\n");
+        goto fail;
     }
 
     png_init_io(png_ptr, fp);
@@ -77,17 +90,19 @@ static void write_png(char *fname, image_t *img)
 
     png_set_bgr(png_ptr);
 
-    row_pointers = malloc(img->height * sizeof(png_byte *));
-    for (k = 0; k < img->height; k++)
-        row_pointers[k] = img->buffer + img->stride * k;
-
     png_write_image(png_ptr, row_pointers);
     png_write_end(png_ptr, info_ptr);
-    png_destroy_write_struct(&png_ptr, &info_ptr);
 
+fail:
     free(row_pointers);
 
-    fclose(fp);
+    if (png_ptr && !info_ptr)
+        png_destroy_write_struct(&png_ptr, NULL);
+    else if (png_ptr && info_ptr)
+        png_destroy_write_struct(&png_ptr, &info_ptr);
+
+    if (fp)
+        fclose(fp);
 }
 
 static void init(int frame_w, int frame_h)
