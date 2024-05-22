@@ -80,7 +80,7 @@ static void write_png(char *fname, image_t *img)
     }
 
     png_init_io(png_ptr, fp);
-    png_set_compression_level(png_ptr, 0);
+    png_set_compression_level(png_ptr, 9);
 
     png_set_IHDR(png_ptr, info_ptr, img->width, img->height,
                  8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,

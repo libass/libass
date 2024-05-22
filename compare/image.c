@@ -194,6 +194,8 @@ static bool write_png(const char *path, uint32_t width, uint32_t height,
     }
 
     png_init_io(png, fp);
+    png_set_compression_level(png, 9);
+
     png_set_IHDR(png, info, width, height, depth,
                  PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE,
                  PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
