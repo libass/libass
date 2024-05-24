@@ -26,7 +26,7 @@
 
 typedef struct image_s {
     int width, height, stride;
-    unsigned char *buffer;      // RGB24
+    unsigned char *buffer;      // RGBA32
 } image_t;
 
 ASS_Library *ass_library;
@@ -83,12 +83,10 @@ static void write_png(char *fname, image_t *img)
     png_set_compression_level(png_ptr, 9);
 
     png_set_IHDR(png_ptr, info_ptr, img->width, img->height,
-                 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+                 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE,
                  PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
     png_write_info(png_ptr, info_ptr);
-
-    png_set_bgr(png_ptr);
 
     png_write_image(png_ptr, row_pointers);
     png_write_end(png_ptr, info_ptr);
@@ -133,39 +131,33 @@ static image_t *gen_image(int width, int height)
     image_t *img = malloc(sizeof(image_t));
     img->width = width;
     img->height = height;
-    img->stride = width * 3;
-    img->buffer = calloc(1, height * width * 3);
-    memset(img->buffer, 63, img->stride * img->height);
-    //for (int i = 0; i < height * width * 3; ++i)
-    // img->buffer[i] = (i/3/50) % 100;
+    img->stride = width * 4;
+    img->buffer = calloc(1, height * width * 4);
     return img;
 }
 
-#define _r(c)  ((c)>>24)
-#define _g(c)  (((c)>>16)&0xFF)
-#define _b(c)  (((c)>>8)&0xFF)
-#define _a(c)  ((c)&0xFF)
-
 static void blend_single(image_t * frame, ASS_Image *img)
 {
-    int x, y;
-    unsigned char opacity = 255 - _a(img->color);
-    unsigned char r = _r(img->color);
-    unsigned char g = _g(img->color);
-    unsigned char b = _b(img->color);
+    unsigned char r = img->color >> 24;
+    unsigned char g = (img->color >> 16) & 0xFF;
+    unsigned char b = (img->color >> 8) & 0xFF;
+    unsigned char a = 255 - (img->color & 0xFF);
 
-    unsigned char *src;
-    unsigned char *dst;
+    unsigned char *src = img->bitmap;
+    unsigned char *dst = frame->buffer + img->dst_y * frame->stride + img->dst_x * 4;
 
-    src = img->bitmap;
-    dst = frame->buffer + img->dst_y * frame->stride + img->dst_x * 3;
-    for (y = 0; y < img->h; ++y) {
-        for (x = 0; x < img->w; ++x) {
-            unsigned k = ((unsigned) src[x]) * opacity / 255;
-            // possible endianness problems
-            dst[x * 3] = (k * b + (255 - k) * dst[x * 3]) / 255;
-            dst[x * 3 + 1] = (k * g + (255 - k) * dst[x * 3 + 1]) / 255;
-            dst[x * 3 + 2] = (k * r + (255 - k) * dst[x * 3 + 2]) / 255;
+    for (int y = 0; y < img->h; ++y) {
+        for (int x = 0; x < img->w; ++x) {
+            unsigned k = ((unsigned) src[x]) * a;
+            // For high-quality output consider using dithering instead;
+            // this static offset results in biased rounding but is faster
+            unsigned rounding_offset = 255 * 255 / 2;
+            // If the original frame is not in premultiplied alpha, convert it beforehand or adjust
+            // the blending code. For fully-opaque output frames there's no difference either way.
+            dst[x * 4 + 0] = (k *   r + (255 * 255 - k) * dst[x * 4 + 0] + rounding_offset) / (255 * 255);
+            dst[x * 4 + 1] = (k *   g + (255 * 255 - k) * dst[x * 4 + 1] + rounding_offset) / (255 * 255);
+            dst[x * 4 + 2] = (k *   b + (255 * 255 - k) * dst[x * 4 + 2] + rounding_offset) / (255 * 255);
+            dst[x * 4 + 3] = (k * 255 + (255 * 255 - k) * dst[x * 4 + 3] + rounding_offset) / (255 * 255);
         }
         src += img->stride;
         dst += frame->stride;
@@ -181,6 +173,25 @@ static void blend(image_t * frame, ASS_Image *img)
         img = img->next;
     }
     printf("%d images blended\n", cnt);
+
+    // Convert from pre-multiplied to straight alpha
+    // (not needed for fully-opaque output)
+    for (int y = 0; y < frame->height; y++) {
+        unsigned char *row = frame->buffer + y * frame->stride;
+        for (int x = 0; x < frame->width; x++) {
+            const unsigned char alpha = row[4 * x + 3];
+            if (alpha) {
+                // For each color channel c:
+                //   c = c / (255.0 / alpha)
+                // but only using integers and a biased rounding offset
+                const uint32_t offs = (uint32_t) 1 << 15;
+                uint32_t inv = ((uint32_t) 255 << 16) / alpha + 1;
+                row[x * 4 + 0] = (row[x * 4 + 0] * inv + offs) >> 16;
+                row[x * 4 + 1] = (row[x * 4 + 1] * inv + offs) >> 16;
+                row[x * 4 + 2] = (row[x * 4 + 2] * inv + offs) >> 16;
+            }
+        }
+    }
 }
 
 char *font_provider_labels[] = {
