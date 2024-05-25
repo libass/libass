@@ -56,6 +56,18 @@ char *ass_strndup_fallback(const char *s, size_t n)
 }
 #endif
 
+char *ass_strchrnul(const char *s, int c)
+{
+#ifdef HAVE_STRCHRNUL
+    return strchrnul(s, c);
+#else // HAVE_STRCHRNUL
+    while (*s && *s != c)
+        s++;
+
+    return (char*)s;
+#endif // HAVE_STRCHRNUL
+}
+
 void *ass_aligned_alloc(size_t alignment, size_t size, bool zero)
 {
     assert(!(alignment & (alignment - 1))); // alignment must be power of 2
