@@ -19,10 +19,10 @@ jobs:
             name: Windows MSVC Release,
             os: windows-latest,
             msvc: true,
-            pkgmanager: choco,
+            msystem: MINGW64,
             shell: 'powershell',
             buildtype: release,
-            args: '-Ddefault_library=static --wrap-mode=forcefallback'
+            args: '-Ddefault_library=static'
           }
           - {
             name: Windows MinGW Release,
@@ -57,7 +57,7 @@ jobs:
           fetch-depth: '0'
 
       - name: Setup MSys2
-        if: matrix.config.pkgmanager == 'msys'
+        if: startsWith(matrix.config.os, 'windows')
         uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.config.msystem }}
@@ -67,16 +67,28 @@ jobs:
         if: matrix.config.os == 'windows-latest' && matrix.config.msvc == true
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install dependecies with choco
-        if: matrix.config.pkgmanager == 'choco'
+      - name: Install MSVC dependecies with choco
+        if: matrix.config.msvc
         run: |
           # for whatever reason choco insist on a reboot if it installs meson
-          choco install ninja nasm python
+          choco install ninja nasm python pkgconfiglite
           python -m pip install --upgrade pip
           pip install meson
 
-      - name: Install dependencies
-        if: matrix.config.pkgmanager != 'choco'
+      - name: Install more MSVC dependecies with msys
+        if: matrix.config.msvc
+        shell: 'msys2 {0}'
+        run: |
+            pre="$MINGW_PACKAGE_PREFIX"
+            mkdir pacman-root
+            ln -s /var pacman-root/var
+            pacman -r ./pacman-root --noconfirm -S \
+              $pre-fribidi $pre-freetype $pre-harfbuzz \
+              $pre-fontconfig $pre-libpng
+            echo "PKG_CONFIG_PATH=$(cygpath -w "$PWD/pacman-root/mingw64/lib/pkgconfig")" >> "$GITHUB_ENV"
+
+      - name: Install dependencies (not MSVC)
+        if: ${{ !matrix.config.msvc }}
         run: |
           case "${{ matrix.config.pkgmanager || matrix.config.os }}" in
             msys)
