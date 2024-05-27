@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01702010
+#define LIBASS_VERSION 0x01702020
 
 #ifdef __cplusplus
 extern "C" {
@@ -806,6 +806,22 @@ void ass_clear_fonts(ASS_Library *library);
  * \return timeshift in milliseconds
  */
 long long ass_step_sub(ASS_Track *track, long long now, int movement);
+
+/**
+ * \brief Allocates memory that can be safely freed by libass later.
+ * Use this to allocate buffers you'll use to manually modify ASS_Track events
+ * or related structures.
+ * \param size number of bytes to allocate
+ * \return pointer to the allocated buffer, or NULL on failure
+ */
+void *ass_malloc(size_t size);
+
+/**
+ * \brief Releases memory previously allocated within libass.
+ * Use this to free memory allocated using ass_malloc.
+ * \param ptr pointer to the buffer to release; passing NULL is a no-op
+ */
+void ass_free(void *ptr);
 
 #undef ASS_DEPRECATED
 #undef ASS_DEPRECATED_ENUM
