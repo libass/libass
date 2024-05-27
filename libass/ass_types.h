@@ -38,6 +38,11 @@
  * By nature of direct struct modifications working closer to library internals,
  * workflows that make use of this possibility are also more likely to be
  * affected by future API breaks than those which do not.
+ * If modifying a libass struct to contain a pointer to a user-allocated buffer,
+ * the buffer should be allocated using ass_malloc(). Failing to do so may result
+ * in undefined behavior if the buffer is later freed within libass, and the caller
+ * is linked against a different libc instance than libass itself. Similarly, any
+ * existing buffer being replaced or removed should be released using ass_free().
  *
  * To avoid desynchronisation with internal states, there are some restrictions
  * on when and how direct struct modification can be performed.

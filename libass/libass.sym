@@ -44,3 +44,5 @@ ass_set_selective_style_override_enabled
 ass_set_selective_style_override
 ass_set_check_readorder
 ass_track_set_feature
+ass_malloc
+ass_free
