@@ -83,6 +83,68 @@ static void destroy(void *priv)
     free(fc);
 }
 
+static int compare_patterns(const FcPattern *p1, const FcPattern *p2)
+{
+    // Temporary workaround for fontconfig family name matching being too lenient.
+    // Ensure regular variants come first, so if the score is tied, they'll be selected.
+    // Weight and slant already factor into scoring for regular selection and fallback
+    // selection uses a different list already sorted by FcFontSort; thus just width suffices.
+    FcResult res;
+    int wi1, wi2;
+    res = FcPatternGetInteger(p1, FC_WIDTH, 0, &wi1);
+    res |= FcPatternGetInteger(p2, FC_WIDTH, 0, &wi2);
+    if (res != FcResultMatch)
+        return 0;
+    wi1 = abs(wi1 - FC_WIDTH_NORMAL);
+    wi2 = abs(wi2 - FC_WIDTH_NORMAL);
+    return wi1 - wi2;
+}
+
+static void merge_sorted_segments(FcPattern **data, FcPattern **insert,
+                                  size_t start, size_t mid, size_t end)
+{
+    size_t s1 = start;
+    size_t s2 = mid;
+
+    for (size_t i = start; i < end; i++) {
+        if (s1 < mid && (s2 >= end || compare_patterns(data[s1], data[s2]) <= 0))
+            insert[i] = data[s1++];
+        else
+            insert[i] = data[s2++];
+    }
+}
+
+// stable sort to preserve original order for equally regular fonts
+static void sort_fonts(FcPattern **fonts, size_t n)
+{
+    // loop var and malloc arg overflows
+    if (n > SIZE_MAX / FFMAX(sizeof(*fonts), 2))
+        return;
+
+    FcPattern **insert_buf = malloc(n * sizeof(*fonts));
+    if (!insert_buf)
+        return;
+
+    FcPattern **data_buf = fonts;
+
+    for (size_t w = 1; w < n; w <<= 1) {
+        for (size_t i = 0; i < n; i += w << 1)
+            merge_sorted_segments(data_buf, insert_buf, i,
+                    FFMIN(n, i + w), FFMIN(n, i + (w<<1)));
+
+        FcPattern **tmp = data_buf;
+        data_buf = insert_buf;
+        insert_buf = tmp;
+    }
+
+    if (data_buf != fonts) {
+        memcpy(fonts, data_buf, n * sizeof(*fonts));
+        free(data_buf);
+    } else {
+        free(insert_buf);
+    }
+}
+
 static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
 {
     int i;
@@ -91,6 +153,9 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
 
     // get list of fonts
     fonts = FcConfigGetFonts(config, FcSetSystem);
+
+    // sort list to prefer regular variants
+    sort_fonts(fonts->fonts, fonts->nfont);
 
     // fill font_info list
     for (i = 0; i < fonts->nfont; i++) {
