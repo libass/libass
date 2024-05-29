@@ -196,6 +196,8 @@ ASS_FontProvider *
 ass_font_provider_new(ASS_FontSelector *selector, ASS_FontProviderFuncs *funcs,
                       void *data)
 {
+    assert(funcs->check_glyph && funcs->destroy_font);
+
     ASS_FontProvider *provider = calloc(1, sizeof(ASS_FontProvider));
     if (provider == NULL)
         return NULL;
