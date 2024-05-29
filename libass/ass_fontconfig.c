@@ -71,6 +71,11 @@ static bool check_glyph(void *priv, uint32_t code)
     return false;
 }
 
+static void destroy_font(void *priv)
+{
+    FcPatternDestroy((FcPattern *) priv);
+}
+
 static void destroy(void *priv)
 {
     ProviderPrivate *fc = (ProviderPrivate *)priv;
@@ -189,6 +194,7 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         if (result != FcResultMatch)
             meta.postscript_name = NULL;
 
+        FcPatternReference(pat);
         ass_font_provider_add_font(provider, &meta, path, index, (void *)pat);
     }
 }
@@ -314,6 +320,7 @@ cleanup:
 static ASS_FontProviderFuncs fontconfig_callbacks = {
     .check_postscript   = check_postscript,
     .check_glyph        = check_glyph,
+    .destroy_font       = destroy_font,
     .destroy_provider   = destroy,
     .get_substitutions  = get_substitutions,
     .get_fallback       = get_fallback,
