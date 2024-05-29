@@ -521,9 +521,7 @@ error:
 
     free_font_info(&implicit_meta);
     free(implicit_meta.postscript_name);
-
-    if (provider->funcs.destroy_font)
-        provider->funcs.destroy_font(data);
+    provider->funcs.destroy_font(data);
 
     return false;
 }
@@ -565,10 +563,7 @@ void ass_font_provider_free(ASS_FontProvider *provider)
 
         if (info->provider == provider) {
             ass_font_provider_free_fontinfo(info);
-
-            if (info->provider->funcs.destroy_font)
-                info->provider->funcs.destroy_font(info->priv);
-
+            info->provider->funcs.destroy_font(info->priv);
             info->provider = NULL;
         }
 

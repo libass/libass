@@ -159,7 +159,7 @@ typedef struct font_provider_funcs {
     GetDataFunc         get_data;               /* optional/mandatory */
     CheckPostscriptFunc check_postscript;       /* optional */
     CheckGlyphFunc      check_glyph;            /* mandatory */
-    DestroyFontFunc     destroy_font;           /* optional */
+    DestroyFontFunc     destroy_font;           /* mandatory */
     DestroyProviderFunc destroy_provider;       /* optional */
     MatchFontsFunc      match_fonts;            /* optional */
     SubstituteFontFunc  get_substitutions;      /* optional */
