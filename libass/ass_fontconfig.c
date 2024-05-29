@@ -94,9 +94,18 @@ static bool scan_fonts(FcConfig *config, ASS_FontProvider *provider)
     FcFontSet *fonts;
     ASS_FontProviderMetaData meta = {0};
 
-    // get list of fonts
-    fonts = FcConfigGetFonts(config, FcSetSystem);
-    if (!fonts)
+    // get list of fonts;
+    // sorting by default pattern prefers regular variants
+    FcPattern *pat = FcPatternCreate();
+    if (!pat)
+        return false;
+
+    FcDefaultSubstitute(pat);
+    FcResult res;
+    // trim=FcFalse returns all system fonts
+    fonts = FcFontSort(config, pat, FcFalse, NULL, &res);
+    FcPatternDestroy(pat);
+    if (res != FcResultMatch)
         return false;
 
     // fill font_info list
@@ -200,6 +209,7 @@ static bool scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         ass_font_provider_add_font(provider, &meta, path, index, (void *)pat);
     }
 
+    FcFontSetDestroy(fonts);
     return true;
 }
 
