@@ -117,7 +117,7 @@ jobs:
   build-muon:
     runs-on: ubuntu-latest
     container:
-      image: alpine:latest
+      image: alpine:3.19
 
     strategy:
       fail-fast: false
