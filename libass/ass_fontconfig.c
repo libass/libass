@@ -88,7 +88,7 @@ static void destroy(void *priv)
     free(fc);
 }
 
-static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
+static bool scan_fonts(FcConfig *config, ASS_FontProvider *provider)
 {
     int i;
     FcFontSet *fonts;
@@ -96,6 +96,8 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
 
     // get list of fonts
     fonts = FcConfigGetFonts(config, FcSetSystem);
+    if (!fonts)
+        return false;
 
     // fill font_info list
     for (i = 0; i < fonts->nfont; i++) {
@@ -197,6 +199,8 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         FcPatternReference(pat);
         ass_font_provider_add_font(provider, &meta, path, index, (void *)pat);
     }
+
+    return true;
 }
 
 static void cache_fallbacks(ProviderPrivate *fc)
@@ -208,6 +212,8 @@ static void cache_fallbacks(ProviderPrivate *fc)
 
     // Create a suitable pattern
     FcPattern *pat = FcPatternCreate();
+    if (!pat)
+        return;
     FcPatternAddString(pat, FC_FAMILY, (FcChar8 *)"sans-serif");
     FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
     FcConfigSubstitute (fc->config, pat, FcMatchPattern);
@@ -223,6 +229,7 @@ static void cache_fallbacks(ProviderPrivate *fc)
             &result);
 
     // If this fails, just add an empty set
+    // (if it fails, cache_fallbacks will just be reattempted later)
     if (result != FcResultMatch)
         fc->fallbacks = FcFontSetCreate();
 
@@ -330,7 +337,7 @@ ASS_FontProvider *
 ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
                             const char *config, FT_Library ftlib)
 {
-    int rc;
+    int rc = FcResultNoMatch;
     ProviderPrivate *fc = NULL;
     ASS_FontProvider *provider = NULL;
 
@@ -340,13 +347,16 @@ ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
 
     // build and load fontconfig configuration
     fc->config = FcConfigCreate();
-    rc = FcConfigParseAndLoad(fc->config, (unsigned char *) config, FcTrue);
+
+    if (fc->config)
+        rc = FcConfigParseAndLoad(fc->config, (unsigned char *) config, FcTrue);
     if (!rc) {
         ass_msg(lib, MSGL_WARN, "No usable fontconfig configuration "
                 "file found, using fallback.");
         FcConfigDestroy(fc->config);
         fc->config = FcInitLoadConfig();
     }
+
     if (fc->config)
         rc = FcConfigBuildFonts(fc->config);
 
@@ -362,7 +372,8 @@ ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
     provider = ass_font_provider_new(selector, &fontconfig_callbacks, fc);
 
     // build database from system fonts
-    scan_fonts(fc->config, provider);
+    if (!scan_fonts(fc->config, provider))
+        ass_msg(lib, MSGL_ERR, "Failed to load fonctconfig fonts!");
 
     return provider;
 }
