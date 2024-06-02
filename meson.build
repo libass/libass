@@ -26,7 +26,7 @@ cc_warnings = []
 cc_features = []
 
 if cc.get_id() != 'msvc'
-    cc_features += '-D_POSIX_C_SOURCE=200809L'
+    cc_features += ['-D_POSIX_C_SOURCE=200809L', '-fno-math-errno']
 endif
 
 if cc.get_argument_syntax() == 'gcc'
