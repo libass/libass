@@ -48,6 +48,9 @@ AC_ARG_VAR([FUZZ_CPPFLAGS],
     [If fuzzing program is enabled, set this to select alternative modes; see fuzzer source for options.])
 FUZZ_CPPFLAGS="${FUZZ_CPPFLAGS:--DASS_FUZZMODE=0}"
 
+# Checks for flags support
+AX_APPEND_COMPILE_FLAGS([-fno-math-errno])
+
 # Checks for available libraries and define corresponding C Macros
 # Start with system libs, then check everything else via pkg-config
 AS_IF([test "x$ac_cv_header_iconv_h" = xyes], [
