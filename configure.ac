@@ -1,9 +1,11 @@
 AC_INIT(libass, m4_normalize(m4_include([RELEASEVERSION])))
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AC_CONFIG_MACRO_DIR([m4])
-LT_INIT
 AC_CONFIG_SRCDIR([libass/ass.c])
 AC_CONFIG_HEADERS([config.h])
+AC_CANONICAL_HOST
+
+LT_INIT
 
 # Checks for programs.
 AC_PROG_CC
