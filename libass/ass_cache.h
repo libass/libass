@@ -24,6 +24,7 @@
 #include "ass_font.h"
 #include "ass_outline.h"
 #include "ass_bitmap.h"
+#include "ass_threading.h"
 
 typedef struct cache Cache;
 typedef struct cache_client CacheClient;
@@ -104,6 +105,10 @@ typedef struct
 typedef struct
 {
     struct cache_client *first_client;
+
+#if ENABLE_THREADS
+    pthread_mutex_t mutex;
+#endif
 } CacheClientSet;
 
 Cache *ass_cache_create(const CacheDesc *desc);
@@ -115,6 +120,7 @@ void *ass_cache_get(Cache *cache, CacheClient *client, void *key, void *priv);
 void *ass_cache_key(void *value);
 void ass_cache_inc_ref(void *value);
 void ass_cache_dec_ref(void *value);
+void ass_cache_promote(CacheClientSet *set);
 void ass_cache_cut(Cache *cache, size_t max_size);
 void ass_cache_empty(Cache *cache);
 void ass_cache_done(Cache *cache);
