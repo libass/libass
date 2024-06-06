@@ -16,7 +16,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "ass_utils.h"
 #include "checkasm.h"
+
+#include <string.h>
 
 #define HEIGHT 13
 #define STRIDE 64

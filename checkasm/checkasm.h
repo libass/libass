@@ -30,7 +30,7 @@
 
 #include "config.h"
 
-#include "ass_bitmap.h"
+#include "ass_bitmap_engine.h"
 
 #include <stdint.h>
 #include <stdlib.h>

@@ -18,6 +18,8 @@
 
 #include "checkasm.h"
 
+#include <string.h>
+
 #define HEIGHT 8
 #define STRIDE 64
 #define MIN_WIDTH 2
