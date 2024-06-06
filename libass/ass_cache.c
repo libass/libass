@@ -61,7 +61,13 @@ static bool font_key_move(void *dst, void *src)
     return d->family.str;
 }
 
-static void font_destruct(void *key, void *value)
+static void font_key_destruct(void *k)
+{
+    ASS_FontDesc *key = k;
+    free((void *) key->family.str);
+}
+
+static void font_destruct(void *value)
 {
     ass_font_clear(value);
 }
@@ -72,8 +78,9 @@ const CacheDesc font_cache_desc = {
     .hash_func = font_hash,
     .compare_func = font_compare,
     .key_move_func = font_key_move,
+    .key_destruct_func = font_key_destruct,
     .construct_func = ass_font_construct,
-    .destruct_func = font_destruct,
+    .value_destruct_func = font_destruct,
     .key_size = sizeof(ASS_FontDesc),
     .value_size = sizeof(ASS_Font)
 };
@@ -90,11 +97,15 @@ static bool bitmap_key_move(void *dst, void *src)
     return true;
 }
 
-static void bitmap_destruct(void *key, void *value)
+static void bitmap_key_destruct(void *key)
 {
     BitmapHashKey *k = key;
-    ass_free_bitmap(value);
     ass_cache_dec_ref(k->outline);
+}
+
+static void bitmap_destruct(void *value)
+{
+    ass_free_bitmap(value);
 }
 
 size_t ass_bitmap_construct(void *key, void *value, void *priv);
@@ -103,8 +114,9 @@ const CacheDesc bitmap_cache_desc = {
     .hash_func = bitmap_hash,
     .compare_func = bitmap_compare,
     .key_move_func = bitmap_key_move,
+    .key_destruct_func = bitmap_key_destruct,
     .construct_func = ass_bitmap_construct,
-    .destruct_func = bitmap_destruct,
+    .value_destruct_func = bitmap_destruct,
     .key_size = sizeof(BitmapHashKey),
     .value_size = sizeof(Bitmap)
 };
@@ -150,18 +162,22 @@ static bool composite_key_move(void *dst, void *src)
     return true;
 }
 
-static void composite_destruct(void *key, void *value)
+static void composite_key_destruct(void *key)
 {
-    CompositeHashValue *v = value;
     CompositeHashKey *k = key;
-    ass_free_bitmap(&v->bm);
-    ass_free_bitmap(&v->bm_o);
-    ass_free_bitmap(&v->bm_s);
     for (size_t i = 0; i < k->bitmap_count; i++) {
         ass_cache_dec_ref(k->bitmaps[i].bm);
         ass_cache_dec_ref(k->bitmaps[i].bm_o);
     }
     free(k->bitmaps);
+}
+
+static void composite_destruct(void *value)
+{
+    CompositeHashValue *v = value;
+    ass_free_bitmap(&v->bm);
+    ass_free_bitmap(&v->bm_o);
+    ass_free_bitmap(&v->bm_s);
 }
 
 size_t ass_composite_construct(void *key, void *value, void *priv);
@@ -170,8 +186,9 @@ const CacheDesc composite_cache_desc = {
     .hash_func = composite_hash,
     .compare_func = composite_compare,
     .key_move_func = composite_key_move,
+    .key_destruct_func = composite_key_destruct,
     .construct_func = ass_composite_construct,
-    .destruct_func = composite_destruct,
+    .value_destruct_func = composite_destruct,
     .key_size = sizeof(CompositeHashKey),
     .value_size = sizeof(CompositeHashValue)
 };
@@ -229,12 +246,9 @@ static bool outline_key_move(void *dst, void *src)
     return true;
 }
 
-static void outline_destruct(void *key, void *value)
+static void outline_key_destruct(void *key)
 {
-    OutlineHashValue *v = value;
     OutlineHashKey *k = key;
-    ass_outline_free(&v->outline[0]);
-    ass_outline_free(&v->outline[1]);
     switch (k->type) {
     case OUTLINE_GLYPH:
         ass_cache_dec_ref(k->u.glyph.font);
@@ -250,14 +264,22 @@ static void outline_destruct(void *key, void *value)
     }
 }
 
+static void outline_destruct(void *value)
+{
+    OutlineHashValue *v = value;
+    ass_outline_free(&v->outline[0]);
+    ass_outline_free(&v->outline[1]);
+}
+
 size_t ass_outline_construct(void *key, void *value, void *priv);
 
 const CacheDesc outline_cache_desc = {
     .hash_func = outline_hash,
     .compare_func = outline_compare,
     .key_move_func = outline_key_move,
+    .key_destruct_func = outline_key_destruct,
     .construct_func = ass_outline_construct,
-    .destruct_func = outline_destruct,
+    .value_destruct_func = outline_destruct,
     .key_size = sizeof(OutlineHashKey),
     .value_size = sizeof(OutlineHashValue)
 };
@@ -275,7 +297,7 @@ static bool face_size_metrics_key_move(void *dst, void *src)
     return true;
 }
 
-static void face_size_metrics_destruct(void *key, void *value)
+static void face_size_metrics_key_destruct(void *key)
 {
     FaceSizeMetricsHashKey *k = key;
     ass_cache_dec_ref(k->font);
@@ -287,8 +309,8 @@ const CacheDesc face_size_metrics_cache_desc = {
     .hash_func = face_size_metrics_hash,
     .compare_func = face_size_metrics_compare,
     .key_move_func = face_size_metrics_key_move,
+    .key_destruct_func = face_size_metrics_key_destruct,
     .construct_func = ass_face_size_metrics_construct,
-    .destruct_func = face_size_metrics_destruct,
     .key_size = sizeof(FaceSizeMetricsHashKey),
     .value_size = sizeof(FT_Size_Metrics)
 };
@@ -306,7 +328,7 @@ static bool glyph_metrics_key_move(void *dst, void *src)
     return true;
 }
 
-static void glyph_metrics_destruct(void *key, void *value)
+static void glyph_metrics_key_destruct(void *key)
 {
     GlyphMetricsHashKey *k = key;
     ass_cache_dec_ref(k->font);
@@ -318,8 +340,8 @@ const CacheDesc glyph_metrics_cache_desc = {
     .hash_func = glyph_metrics_hash,
     .compare_func = glyph_metrics_compare,
     .key_move_func = glyph_metrics_key_move,
+    .key_destruct_func = glyph_metrics_key_destruct,
     .construct_func = ass_glyph_metrics_construct,
-    .destruct_func = glyph_metrics_destruct,
     .key_size = sizeof(GlyphMetricsHashKey),
     .value_size = sizeof(FT_Glyph_Metrics)
 };
@@ -497,7 +519,10 @@ static inline void destroy_item(const CacheDesc *desc, CacheItem *item)
 {
     assert(item->desc == desc);
     char *value = (char *) item + CACHE_ITEM_SIZE;
-    desc->destruct_func(value + align_cache(desc->value_size), value);
+    if (desc->key_destruct_func)
+        desc->key_destruct_func(value + align_cache(desc->value_size));
+    if (desc->value_destruct_func)
+        desc->value_destruct_func(value);
     free(item);
 }
 
