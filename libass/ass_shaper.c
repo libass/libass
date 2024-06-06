@@ -65,6 +65,7 @@ struct ass_shaper {
     // Glyph and face-size metrics caches, to speed up shaping
     Cache *face_size_metrics_cache;
     Cache *metrics_cache;
+    CacheClient *cache_client;
 
     hb_font_funcs_t *font_funcs;
     hb_buffer_t *buf;
@@ -78,7 +79,7 @@ struct ass_shaper {
 };
 
 struct ass_shaper_metrics_data {
-    Cache *metrics_cache;
+    ASS_Shaper *shaper;
     FaceSizeMetricsHashKey hash_key;
 };
 
@@ -226,7 +227,7 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics,
         .size = metrics->hash_key.size,
         .glyph_index = glyph,
     };
-    FT_Glyph_Metrics *val = ass_cache_get(metrics->metrics_cache, &key,
+    FT_Glyph_Metrics *val = ass_cache_get(metrics->shaper->metrics_cache, metrics->shaper->cache_client, &key,
                                           rotate ? metrics : NULL);
     if (!val || val->width < 0)
         return NULL;
@@ -515,7 +516,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
         .face_index = info->face_index,
         .size = info->font_size,
     };
-    FT_Size_Metrics *m = ass_cache_get(shaper->face_size_metrics_cache, &key, NULL);
+    FT_Size_Metrics *m = ass_cache_get(shaper->face_size_metrics_cache, shaper->cache_client, &key, NULL);
     if (!m)
         return NULL;
 
@@ -529,7 +530,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
         hb_font_destroy(hb_font);
         return NULL;
     }
-    metrics->metrics_cache = shaper->metrics_cache;
+    metrics->shaper = shaper;
     metrics->hash_key = key;
 
     hb_font_set_funcs(hb_font, shaper->font_funcs, metrics, free);
@@ -1061,7 +1062,7 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
 /**
  * \brief Create a new shaper instance
  */
-ASS_Shaper *ass_shaper_new(Cache *metrics_cache, Cache *face_size_metrics_cache)
+ASS_Shaper *ass_shaper_new(Cache *metrics_cache, Cache *face_size_metrics_cache, CacheClient *cache_client)
 {
     assert(metrics_cache);
 
@@ -1075,6 +1076,7 @@ ASS_Shaper *ass_shaper_new(Cache *metrics_cache, Cache *face_size_metrics_cache)
         goto error;
     shaper->face_size_metrics_cache = face_size_metrics_cache;
     shaper->metrics_cache = metrics_cache;
+    shaper->cache_client = cache_client;
 
     hb_font_funcs_t *funcs = shaper->font_funcs = hb_font_funcs_create();
     if (hb_font_funcs_is_immutable(funcs))
