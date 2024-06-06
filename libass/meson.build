@@ -13,7 +13,7 @@ foreach line : am_lib_file
         libass_lt_revision = val.to_int()
     elif name == 'LIBASS_LT_AGE'
         libass_lt_age = val.to_int()
-		break
+        break
     endif
 endforeach
 
