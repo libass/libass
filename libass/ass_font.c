@@ -769,7 +769,6 @@ void ass_font_clear(ASS_Font *font)
         if (font->hb_fonts[i])
             hb_font_destroy(font->hb_fonts[i]);
     }
-    free((char *) font->desc.family.str);
 
 #if ENABLE_THREADS
     pthread_mutex_destroy(&font->mutex);
