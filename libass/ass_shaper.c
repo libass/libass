@@ -79,7 +79,7 @@ struct ass_shaper {
 
 struct ass_shaper_metrics_data {
     Cache *metrics_cache;
-    GlyphMetricsHashKey hash_key;
+    FaceSizeMetricsHashKey hash_key;
 };
 
 /**
@@ -490,9 +490,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
         return NULL;
     }
     metrics->metrics_cache = shaper->metrics_cache;
-    metrics->hash_key.font = info->font;
-    metrics->hash_key.face_index = info->face_index;
-    metrics->hash_key.size = info->font_size;
+    memcpy(&metrics->hash_key, &key, sizeof(key));
 
     hb_font_set_funcs(hb_font, shaper->font_funcs, metrics, free);
 
