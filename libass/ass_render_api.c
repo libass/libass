@@ -31,6 +31,7 @@ static void ass_reconfigure(ASS_Renderer *priv)
     ASS_Settings *settings = &priv->settings;
 
     priv->render_id++;
+    ass_cache_promote(&priv->cache.client_set); // Just in case
     ass_cache_empty(priv->cache.composite_cache);
     ass_cache_empty(priv->cache.bitmap_cache);
     ass_cache_empty(priv->cache.outline_cache);
