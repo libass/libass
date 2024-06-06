@@ -52,7 +52,8 @@ typedef ass_hashcode (*HashFunction)(void *key, ass_hashcode hval);
 typedef bool (*HashCompare)(void *a, void *b);
 typedef bool (*CacheKeyMove)(void *dst, void *src);
 typedef size_t (*CacheValueConstructor)(void *key, void *value, void *priv);
-typedef void (*CacheItemDestructor)(void *key, void *value);
+typedef void (*CacheValueDestructor)(void *value);
+typedef void (*CacheKeyDestructor)(void *key);
 
 // cache hash keys
 
@@ -90,7 +91,8 @@ typedef struct
     HashCompare compare_func;
     CacheKeyMove key_move_func;
     CacheValueConstructor construct_func;
-    CacheItemDestructor destruct_func;
+    CacheKeyDestructor key_destruct_func;
+    CacheValueDestructor value_destruct_func;
     size_t key_size;
     size_t value_size;
 } CacheDesc;
