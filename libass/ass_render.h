@@ -213,6 +213,7 @@ struct render_context {
     TextInfo text_info;
     ASS_Shaper *shaper;
     RasterizerData rasterizer;
+    CacheClient *cache_client;
 
     ASS_Event *event;
     ASS_Style *style;
@@ -305,6 +306,7 @@ typedef struct {
     Cache *composite_cache;
     Cache *face_size_metrics_cache;
     Cache *metrics_cache;
+    CacheClientSet client_set;
     size_t glyph_max;
     size_t bitmap_max_size;
     size_t composite_max_size;
