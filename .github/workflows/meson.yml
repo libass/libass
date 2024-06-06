@@ -117,7 +117,7 @@ jobs:
   build-muon:
     runs-on: ubuntu-latest
     container:
-      image: alpine:3.19
+      image: alpine:edge
 
     strategy:
       fail-fast: false
@@ -125,29 +125,24 @@ jobs:
         cc: [gcc]
 
     steps:
+      - name: add testing repo
+        run: |
+          echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
+          apk update
+
       - name: install deps
         run: |
-          # muon is in edge but not yet in 3.19 (last line are muon build and test deps)
-          apk add nasm ${{ matrix.cc }} musl-dev samurai \
-                  fontconfig-dev freetype-dev fribidi-dev harfbuzz-dev \
-                  libpng-dev \
-                  git pkgconf-dev pkgconf g++
-
-      - name: build muon
-        run: |
-          git clone --depth=1 https://git.sr.ht/~lattis/muon
-          cd muon
-          sh ./bootstrap.sh build_bootstrap
-          build_bootstrap/muon setup build
-          build_bootstrap/muon -C build samu
-          build_bootstrap/muon -C build test
-          build_bootstrap/muon -C build install
+          # muon's style lint uses git
+          apk add nasm ${{ matrix.cc }} musl-dev muon samurai \
+                  freetype-dev fribidi-dev harfbuzz-dev \
+                  fontconfig-dev libpng-dev git
 
       - name: checkout code
         uses: actions/checkout@v4
 
       - name: configure
         run: |
+          muon version
           muon setup -Dtest=true build
 
       - name: build
