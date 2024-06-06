@@ -26,6 +26,7 @@
 #include "ass_bitmap.h"
 
 typedef struct cache Cache;
+typedef struct cache_client CacheClient;
 typedef uint64_t ass_hashcode;
 
 // cache values
@@ -94,8 +95,17 @@ typedef struct
     size_t value_size;
 } CacheDesc;
 
+typedef struct
+{
+    struct cache_client *first_client;
+} CacheClientSet;
+
 Cache *ass_cache_create(const CacheDesc *desc);
-void *ass_cache_get(Cache *cache, void *key, void *priv);
+bool ass_cache_client_set_init(CacheClientSet *set);
+void ass_cache_client_set_clear(CacheClientSet *set);
+void ass_cache_client_set_done(CacheClientSet *set);
+CacheClient *ass_cache_client_create(CacheClientSet *set);
+void *ass_cache_get(Cache *cache, CacheClient *client, void *key, void *priv);
 void *ass_cache_key(void *value);
 void ass_cache_inc_ref(void *value);
 void ass_cache_dec_ref(void *value);

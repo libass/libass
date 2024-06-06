@@ -346,6 +346,10 @@ struct cache {
     size_t cache_size;
 };
 
+struct cache_client {
+    struct cache_client *next;
+};
+
 #define CACHE_ALIGN 8
 #define CACHE_ITEM_SIZE ((sizeof(CacheItem) + (CACHE_ALIGN - 1)) & ~(CACHE_ALIGN - 1))
 
@@ -378,7 +382,51 @@ Cache *ass_cache_create(const CacheDesc *desc)
     return cache;
 }
 
-void *ass_cache_get(Cache *cache, void *key, void *priv)
+bool ass_cache_client_set_init(CacheClientSet *set)
+{
+    memset(set, 0, sizeof(*set));
+
+    return true;
+}
+
+static void cache_client_done(CacheClient *client)
+{
+    free(client);
+}
+
+void ass_cache_client_set_clear(CacheClientSet *set)
+{
+    CacheClient *client = set->first_client;
+
+    while (client) {
+        CacheClient *next = client->next;
+        cache_client_done(client);
+        client = next;
+    }
+
+    set->first_client = NULL;
+}
+
+void ass_cache_client_set_done(CacheClientSet *set)
+{
+    ass_cache_client_set_clear(set);
+}
+
+CacheClient *ass_cache_client_create(CacheClientSet *set)
+{
+    CacheClient *client = NULL;
+
+    client = calloc(1, sizeof(*client));
+    if (!client)
+        return NULL;
+
+    client->next = set->first_client;
+    set->first_client = client;
+
+    return client;
+}
+
+void *ass_cache_get(Cache *cache, CacheClient *client, void *key, void *priv)
 {
     const CacheDesc *desc = cache->desc;
     size_t key_offs = CACHE_ITEM_SIZE + align_cache(desc->value_size);
