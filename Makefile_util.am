@@ -58,7 +58,7 @@ checkasm_checkasm_SOURCES = \
     libass/ass_rasterizer.h libass/ass_utils.h
 
 checkasm_checkasm_CPPFLAGS = -I$(top_srcdir)/libass
-checkasm_checkasm_LDADD = libass/libass.la
+checkasm_checkasm_LDADD = libass/libass_internal.la
 checkasm_checkasm_LDFLAGS = $(AM_LDFLAGS) -static
 
 if X86

@@ -5,8 +5,8 @@ LIBASS_LT_AGE = 2
 .asm.lo:
 	$(nasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(top_srcdir)/ltnasm.sh $(AS) $(ASFLAGS) -I$(top_srcdir)/libass/ -Dprivate_prefix=ass -o $@ $<
 
-lib_LTLIBRARIES += libass/libass.la
-libass_libass_la_SOURCES = \
+noinst_LTLIBRARIES += libass/libass_internal.la
+libass_libass_internal_la_SOURCES = \
     libass/ass_utils.h libass/ass_utils.c \
     libass/ass_string.h libass/ass_string.c \
     libass/ass_compat.h libass/ass_strtod.c \
@@ -32,7 +32,7 @@ libass_libass_la_SOURCES = \
 
 if ASM
 if X86
-libass_libass_la_SOURCES += \
+libass_libass_internal_la_SOURCES += \
     libass/x86/rasterizer.asm \
     libass/x86/blend_bitmaps.asm \
     libass/x86/be_blur.asm \
@@ -40,7 +40,7 @@ libass_libass_la_SOURCES += \
     libass/x86/cpuid.h libass/x86/cpuid.asm
 endif
 if AARCH64
-libass_libass_la_SOURCES += \
+libass_libass_internal_la_SOURCES += \
     libass/aarch64/rasterizer.S \
     libass/aarch64/blend_bitmaps.S \
     libass/aarch64/be_blur.S \
@@ -50,20 +50,23 @@ endif
 endif
 
 if FONTCONFIG
-libass_libass_la_SOURCES += libass/ass_fontconfig.h libass/ass_fontconfig.c
+libass_libass_internal_la_SOURCES += libass/ass_fontconfig.h libass/ass_fontconfig.c
 endif
 
 if DIRECTWRITE
-libass_libass_la_SOURCES += \
+libass_libass_internal_la_SOURCES += \
     libass/dwrite_c.h \
     libass/ass_directwrite_info_template.h \
     libass/ass_directwrite.h libass/ass_directwrite.c
 endif
 
 if CORETEXT
-libass_libass_la_SOURCES += libass/ass_coretext.h libass/ass_coretext.c
+libass_libass_internal_la_SOURCES += libass/ass_coretext.h libass/ass_coretext.c
 endif
 
+lib_LTLIBRARIES += libass/libass.la
+libass_libass_la_LIBADD = libass/libass_internal.la
+libass_libass_la_SOURCES =
 libass_libass_la_LDFLAGS = -no-undefined -version-info $(LIBASS_LT_CURRENT):$(LIBASS_LT_REVISION):$(LIBASS_LT_AGE)
 libass_libass_la_LDFLAGS += -export-symbols $(top_srcdir)/libass/libass.sym
 

@@ -20,6 +20,7 @@ nasm_verbose_ = $(nasm_verbose_$(AM_DEFAULT_VERBOSITY))
 nasm_verbose_0 = @echo "  NASM    " $@;
 
 lib_LTLIBRARIES =
+noinst_LTLIBRARIES =
 noinst_PROGRAMS =
 check_PROGRAMS =
 TESTS =
