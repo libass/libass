@@ -54,7 +54,8 @@ checkasm_checkasm_SOURCES = \
     checkasm/blend_bitmaps.c \
     checkasm/be_blur.c \
     checkasm/blur.c \
-    checkasm/checkasm.h checkasm/checkasm.c
+    checkasm/checkasm.h checkasm/checkasm.c \
+    libass/ass_rasterizer.h libass/ass_utils.h
 
 checkasm_checkasm_CPPFLAGS = -I$(top_srcdir)/libass
 checkasm_checkasm_LDADD = libass/libass.la
