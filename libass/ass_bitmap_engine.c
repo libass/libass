@@ -47,7 +47,8 @@
     BitmapBlendFunc ass_add_bitmaps_  ## suffix; \
     BitmapBlendFunc ass_imul_bitmaps_ ## suffix; \
     BitmapMulFunc   ass_mul_bitmaps_  ## suffix; \
-    BeBlurFunc      ass_be_blur_      ## suffix;
+    BeBlurFunc      ass_be_blur_      ## suffix; \
+    BitmapShiftFunc ass_shift_bitmap_ ## suffix;
 
 #define GENERIC_FUNCTION(name, suffix) \
     engine.name = ass_ ## name ## _ ## suffix;
@@ -56,7 +57,8 @@
     GENERIC_FUNCTION(add_bitmaps,  suffix) \
     GENERIC_FUNCTION(imul_bitmaps, suffix) \
     GENERIC_FUNCTION(mul_bitmaps,  suffix) \
-    GENERIC_FUNCTION(be_blur,      suffix)
+    GENERIC_FUNCTION(be_blur,      suffix) \
+    GENERIC_FUNCTION(shift_bitmap, suffix)
 
 
 #define PARAM_BLUR_SET(suffix) \
