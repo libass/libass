@@ -271,7 +271,7 @@ get_reference_table(hb_face_t *hbface, hb_tag_t tag, void *font_data)
   }
 
   hb_blob_t *blob = hb_blob_create(buf, len, HB_MEMORY_MODE_WRITABLE, buf, free);
-  if (!blob)
+  if (len > 0 && hb_blob_is_immutable(blob))
       free(buf);
 
   return blob;
@@ -420,7 +420,7 @@ bool ass_create_hb_font(ASS_Font *font, int index)
 {
     FT_Face face = font->faces[index];
     hb_face_t *hb_face = hb_face_create_for_tables(get_reference_table, face, NULL);
-    if (!hb_face)
+    if (hb_face_is_immutable(hb_face))
         return false;
 
     hb_face_set_index(hb_face, face->face_index);
@@ -428,7 +428,7 @@ bool ass_create_hb_font(ASS_Font *font, int index)
 
     hb_font_t *hb_font = hb_font_create(hb_face);
     hb_face_destroy(hb_face);
-    if (!hb_font)
+    if (hb_font_is_immutable(hb_font))
         return false;
 
     font->hb_fonts[index] = hb_font;
@@ -1001,7 +1001,7 @@ ASS_Shaper *ass_shaper_new(Cache *metrics_cache)
     shaper->metrics_cache = metrics_cache;
 
     hb_font_funcs_t *funcs = shaper->font_funcs = hb_font_funcs_create();
-    if (!funcs)
+    if (hb_font_funcs_is_immutable(funcs))
         goto error;
     hb_font_funcs_set_nominal_glyph_func(funcs, get_glyph_nominal, NULL, NULL);
     hb_font_funcs_set_variation_glyph_func(funcs, get_glyph_variation, NULL, NULL);
@@ -1017,7 +1017,7 @@ ASS_Shaper *ass_shaper_new(Cache *metrics_cache)
     hb_font_funcs_make_immutable(funcs);
 
     shaper->buf = hb_buffer_create();
-    if (!shaper->buf)
+    if (!hb_buffer_allocation_successful(shaper->buf))
         goto error;
 
     return shaper;
