@@ -284,8 +284,10 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
         if (info->fullnames == NULL)
             goto error;
         memcpy(info->fullnames, &fullnames, sizeof(char *) * num_fullname);
-        info->n_fullname = num_fullname;
+    } else {
+        info->fullnames = NULL;
     }
+    info->n_fullname = num_fullname;
 
     return true;
 
