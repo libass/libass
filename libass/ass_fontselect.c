@@ -55,22 +55,9 @@
 struct font_info {
     int uid;            // unique font face id
 
-    char **families;    // family name
-    char **fullnames;   // list of localized fullnames (e.g. Arial Bold Italic)
-    int n_family;
-    int n_fullname;
-
-    FT_Long style_flags;
-    int weight;           // TrueType scale, 100-900
-
     // how to access this face
     char *path;            // absolute path
     int index;             // font index inside font collections
-
-    char *postscript_name; // can be used as an alternative to index to
-                           // identify a font inside a collection
-
-    char *extended_family;
 
     // font source
     ASS_FontProvider *provider;
@@ -78,8 +65,8 @@ struct font_info {
     // private data for callbacks
     void *priv;
 
-    // unused if the provider has a check_postscript function
-    bool is_postscript;
+    // Match properties
+    ASS_FontProviderMetaData meta;
 };
 
 struct font_selector {
@@ -207,38 +194,6 @@ ass_font_provider_new(ASS_FontSelector *selector, ASS_FontProviderFuncs *funcs,
     provider->priv     = data;
 
     return provider;
-}
-
-/**
- * Free all data associated with a FontInfo struct. Handles FontInfo structs
- * with incomplete allocations well.
- *
- * \param info FontInfo struct to free associated data from
- */
-static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
-{
-    int j;
-
-    if (info->fullnames) {
-        for (j = 0; j < info->n_fullname; j++)
-            free(info->fullnames[j]);
-        free(info->fullnames);
-    }
-
-    if (info->families) {
-        for (j = 0; j < info->n_family; j++)
-            free(info->families[j]);
-        free(info->families);
-    }
-
-    if (info->path)
-        free(info->path);
-
-    if (info->postscript_name)
-        free(info->postscript_name);
-
-    if (info->extended_family)
-        free(info->extended_family);
 }
 
 /**
@@ -371,6 +326,21 @@ static void free_font_info(ASS_FontProviderMetaData *meta)
 }
 
 /**
+ * \brief Free all data associated with a FontInfo struct.
+ * Handles FontInfo structs with incomplete allocations well.
+ *
+ * \param info FontInfo struct to free associated data from
+ */
+static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
+{
+    free_font_info(&info->meta);
+    free(info->meta.postscript_name);
+    free(info->meta.extended_family);
+
+    free(info->path);
+}
+
+/**
  * \brief Add a font to a font provider.
  * \param provider the font provider
  * \param meta basic metadata of the font
@@ -460,43 +430,31 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     // set uid
     info->uid = selector->uid++;
 
-    info->style_flags   = meta->style_flags;
-    info->weight        = meta->weight;
-    info->n_fullname    = meta->n_fullname;
-    info->n_family      = meta->n_family;
-    info->is_postscript = meta->is_postscript;
+    memcpy(&info->meta, meta, sizeof(*meta));
 
-    info->families = calloc(meta->n_family, sizeof(char *));
-    if (info->families == NULL)
+    info->meta.families = calloc(meta->n_family, sizeof(char *));
+    info->meta.fullnames = meta->n_fullname > 0 ? calloc(meta->n_fullname, sizeof(char *)) : NULL;
+    info->meta.postscript_name = meta->postscript_name ? strdup(meta->postscript_name) : NULL;
+    info->meta.extended_family = meta->extended_family ? strdup(meta->extended_family) : NULL;
+
+    if (!info->meta.families)
+        goto error;
+    if (meta->n_fullname > 0 && !info->meta.fullnames)
+        goto error;
+    if (meta->postscript_name && !info->meta.postscript_name)
+        goto error;
+    if (meta->extended_family && !info->meta.extended_family)
         goto error;
 
-    if (meta->n_fullname) {
-        info->fullnames = calloc(meta->n_fullname, sizeof(char *));
-        if (info->fullnames == NULL)
+    for (i = 0; i < meta->n_family; i++) {
+        info->meta.families[i] = strdup(meta->families[i]);
+        if (info->meta.families[i] == NULL)
             goto error;
     }
 
-    for (i = 0; i < info->n_family; i++) {
-        info->families[i] = strdup(meta->families[i]);
-        if (info->families[i] == NULL)
-            goto error;
-    }
-
-    for (i = 0; i < info->n_fullname; i++) {
-        info->fullnames[i] = strdup(meta->fullnames[i]);
-        if (info->fullnames[i] == NULL)
-            goto error;
-    }
-
-    if (meta->postscript_name) {
-        info->postscript_name = strdup(meta->postscript_name);
-        if (info->postscript_name == NULL)
-            goto error;
-    }
-
-    if (meta->extended_family) {
-        info->extended_family = strdup(meta->extended_family);
-        if (info->extended_family == NULL)
+    for (i = 0; i < meta->n_fullname; i++) {
+        info->meta.fullnames[i] = strdup(meta->fullnames[i]);
+        if (info->meta.fullnames[i] == NULL)
             goto error;
     }
 
@@ -589,7 +547,7 @@ static bool check_postscript(ASS_FontInfo *fi)
     if (provider->funcs.check_postscript)
         return provider->funcs.check_postscript(fi->priv);
     else
-        return fi->is_postscript;
+        return fi->meta.is_postscript;
 }
 
 /**
@@ -598,12 +556,12 @@ static bool check_postscript(ASS_FontInfo *fi)
 static bool matches_family_name(ASS_FontInfo *f, const char *family,
                                 bool match_extended_family)
 {
-    for (int i = 0; i < f->n_family; i++) {
-        if (ass_strcasecmp(f->families[i], family) == 0)
+    for (int i = 0; i < f->meta.n_family; i++) {
+        if (ass_strcasecmp(f->meta.families[i], family) == 0)
             return true;
     }
-    if (match_extended_family && f->extended_family) {
-        if (ass_strcasecmp(f->extended_family, family) == 0)
+    if (match_extended_family && f->meta.extended_family) {
+        if (ass_strcasecmp(f->meta.extended_family, family) == 0)
             return true;
     }
     return false;
@@ -619,15 +577,15 @@ static bool matches_full_or_postscript_name(ASS_FontInfo *f,
     bool matches_fullname = false;
     bool matches_postscript_name = false;
 
-    for (int i = 0; i < f->n_fullname; i++) {
-        if (ass_strcasecmp(f->fullnames[i], fullname) == 0) {
+    for (int i = 0; i < f->meta.n_fullname; i++) {
+        if (ass_strcasecmp(f->meta.fullnames[i], fullname) == 0) {
             matches_fullname = true;
             break;
         }
     }
 
-    if (f->postscript_name != NULL &&
-        ass_strcasecmp(f->postscript_name, fullname) == 0)
+    if (f->meta.postscript_name != NULL &&
+        ass_strcasecmp(f->meta.postscript_name, fullname) == 0)
         matches_postscript_name = true;
 
     if (matches_fullname == matches_postscript_name)
@@ -647,7 +605,7 @@ static bool matches_full_or_postscript_name(ASS_FontInfo *f,
  * \param b font request
  * \return matching score
  */
-static unsigned font_attributes_similarity(ASS_FontInfo *a, ASS_FontInfo *req)
+static unsigned font_attributes_similarity(ASS_FontProviderMetaData *a, ASS_FontProviderMetaData *req)
 {
     unsigned score = 0;
 
@@ -712,7 +670,7 @@ find_font(ASS_FontSelector *priv,
           int *index, char **postscript_name, int *uid, ASS_FontStream *stream,
           uint32_t code, bool *name_match)
 {
-    ASS_FontInfo req = {0};
+    ASS_FontProviderMetaData req = {0};
     ASS_FontInfo *selected = NULL;
 
     // do we actually have any fonts?
@@ -735,7 +693,7 @@ find_font(ASS_FontSelector *priv,
             if (matches_family_name(font, fullname, match_extended_family)) {
                 // If there's a family match, compare font attributes
                 // to determine best match in that particular family
-                score = font_attributes_similarity(font, &req);
+                score = font_attributes_similarity(&font->meta, &req);
                 *name_match = true;
             } else if (matches_full_or_postscript_name(font, fullname)) {
                 // If we don't have any match, compare fullnames against request
@@ -781,7 +739,7 @@ find_font(ASS_FontSelector *priv,
         ASS_FontProvider *provider = selected->provider;
 
         // successfully matched, set up return values
-        *postscript_name = selected->postscript_name;
+        *postscript_name = selected->meta.postscript_name;
         *uid   = selected->uid;
 
         // use lazy evaluation for index if applicable
@@ -797,10 +755,10 @@ find_font(ASS_FontSelector *priv,
             // Prefer PostScript name because it is unique. This is only
             // used for display purposes so it doesn't matter that much,
             // though.
-            if (selected->postscript_name)
-                result = selected->postscript_name;
+            if (selected->meta.postscript_name)
+                result = selected->meta.postscript_name;
             else
-                result = selected->families[0];
+                result = selected->meta.families[0];
         } else
             result = selected->path;
 
