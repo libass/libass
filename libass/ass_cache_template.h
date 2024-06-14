@@ -58,6 +58,7 @@ START(font, ass_font_desc )
 END(ASS_FontDesc)
 
 // describes an outline bitmap
+// outline is refed when inserted and unrefed when dropped
 START(bitmap, bitmap_hash_key)
     GENERIC(OutlineHashValue *, outline)
     // quantized transform matrix
@@ -67,12 +68,14 @@ START(bitmap, bitmap_hash_key)
     VECTOR(matrix_z)
 END(BitmapHashKey)
 
+// font is refed when inserted and unrefed when dropped
 START(face_size_metrics, face_size_metrics_hash_key)
     GENERIC(ASS_Font *, font)
     GENERIC(double, size)
     GENERIC(int, face_index)
 END(FaceSizeMetricsHashKey)
 
+// font is refed when inserted and unrefed when dropped
 START(glyph_metrics, glyph_metrics_hash_key)
     GENERIC(ASS_Font *, font)
     GENERIC(double, size)
@@ -81,6 +84,7 @@ START(glyph_metrics, glyph_metrics_hash_key)
 END(GlyphMetricsHashKey)
 
 // describes an outline glyph
+// font is refed when inserted and unrefed when dropped
 START(glyph, glyph_hash_key)
     GENERIC(ASS_Font *, font)
     GENERIC(double, size) // font size
@@ -92,11 +96,14 @@ START(glyph, glyph_hash_key)
 END(GlyphHashKey)
 
 // describes an outline drawing
+// on call to ass_cache_get(), text is a non-owning view;
+// its content is duplicated when inserted; the copy is freed when dropped
 START(drawing, drawing_hash_key)
     STRING(text)
 END(DrawingHashKey)
 
 // describes an offset outline
+// outline is refed when inserted and unrefed when dropped
 START(border, border_hash_key)
     GENERIC(OutlineHashValue *, outline)
     // outline is scaled by 2^scale_ord_x|y before stroking
@@ -116,6 +123,7 @@ START(filter, filter_desc)
 END(FilterDesc)
 
 // describes glyph bitmap reference
+// bm and bm_o are refed when inserted and unrefed when dropped
 START(bitmap_ref, bitmap_ref_key)
     GENERIC(Bitmap *, bm)
     GENERIC(Bitmap *, bm_o)
