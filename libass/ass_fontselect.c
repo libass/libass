@@ -67,6 +67,9 @@ struct font_info {
 
     // Match properties
     ASS_FontProviderMetaData meta;
+
+    // whether attempting to load properties of this font has failed previously
+    bool failed;
 };
 
 struct font_selector {
@@ -289,6 +292,8 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     }
     info->n_fullname = num_fullname;
 
+    info->loaded_from_file = true;
+
     return true;
 
 error:
@@ -345,7 +350,8 @@ static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
 /**
  * \brief Fill a partly-populated ASS_FontInfo with GDI-compatible metadata.
  * Opens the font file, reads in its metadata, and populates font->meta appropriately.
- * On failure, font is unmodified.
+ * On success, font->meta.loaded_from_file is set to true.
+ * On failure, font->failed is set to true and font->meta is unmodified.
  *
  * \param font FontInfo struct to fill
  * \return whether the operation completed successfully
@@ -389,6 +395,7 @@ static bool fill_font_info(ASS_FontInfo *font)
                        &local_meta))
         goto cleanup;
 
+    free_font_info(meta);
     free(meta->postscript_name);
     local_meta.postscript_name = local_meta.postscript_name ? strdup(local_meta.postscript_name) : NULL;
 
@@ -398,6 +405,7 @@ static bool fill_font_info(ASS_FontInfo *font)
 
 cleanup:
     FT_Done_Face(face);
+    font->failed = !success;
     return success;
 }
 
@@ -693,20 +701,33 @@ find_font(ASS_FontSelector *priv,
 
         for (int x = 0; x < priv->n_font; x++) {
             ASS_FontInfo *font = &priv->font_infos[x];
-            unsigned score = UINT_MAX;
+            bool do_score;
 
+            if (font->failed)
+                continue;
+
+retry:
             if (matches_family_name(font, fullname, match_extended_family)) {
                 // If there's a family match, compare font attributes
                 // to determine best match in that particular family
-                score = font_attributes_similarity(&font->meta, &req);
-                *name_match = true;
+                do_score = true;
             } else if (matches_full_or_postscript_name(font, fullname)) {
                 // If we don't have any match, compare fullnames against request
                 // if there is a match now, assign lowest score possible. This means
                 // the font should be chosen instantly, without further search.
-                score = 0;
-                *name_match = true;
+                do_score = false;
+            } else {
+                continue;
             }
+
+            if (!font->meta.loaded_from_file) {
+                if (!fill_font_info(font))
+                    continue;
+                goto retry;
+            }
+
+            *name_match = true;
+            unsigned score = do_score ? font_attributes_similarity(&font->meta, &req) : 0;
 
             // Consider updating idx if score is better than current minimum
             if (score < score_min) {

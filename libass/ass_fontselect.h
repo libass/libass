@@ -214,6 +214,12 @@ struct ass_font_provider_meta_data {
      * Unused if the font provider has a check_postscript function.
      */
     bool is_postscript;
+
+    /*
+     * whether the font's properties have been loaded in directly from the file
+     * (as opposed to filled by a potentially-non-GDI-compatible provider)
+     */
+    bool loaded_from_file;
 };
 
 struct ass_font_stream {
