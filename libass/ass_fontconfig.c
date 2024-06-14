@@ -128,7 +128,7 @@ static bool scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         result  = FcPatternGetInteger(pat, FC_SLANT, 0, &slant);
         result |= FcPatternGetDouble(pat, FC_WEIGHT, 0, &weight);
         result |= FcPatternGetInteger(pat, FC_INDEX, 0, &index);
-        if (result != FcResultMatch)
+        if (result != FcResultMatch || index > 0xFFFF)
             continue;
 
         // fontconfig uses its own weight scale, apparently derived
