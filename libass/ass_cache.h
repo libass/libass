@@ -55,6 +55,7 @@ typedef void (*CacheItemDestructor)(void *key, void *value);
 
 // cache hash keys
 
+// ownership of members of the types in the union is documented in ass_cache_template.h
 typedef struct outline_hash_key {
     enum {
         OUTLINE_GLYPH,
@@ -77,6 +78,9 @@ enum {
     FILTER_FILL_IN_BORDER = 0x10,
 };
 
+// ass_cache_get() takes ownership of the bitmaps array and either frees it
+// or persists it in the item key; individual bitmaps in the array behave
+// as documented in ass_cache_template.h
 typedef struct {
     FilterDesc filter;
     size_t bitmap_count;
