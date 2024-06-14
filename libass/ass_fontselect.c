@@ -343,6 +343,65 @@ static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
 }
 
 /**
+ * \brief Fill a partly-populated ASS_FontInfo with GDI-compatible metadata.
+ * Opens the font file, reads in its metadata, and populates font->meta appropriately.
+ * On failure, font is unmodified.
+ *
+ * \param font FontInfo struct to fill
+ * \return whether the operation completed successfully
+ */
+static bool fill_font_info(ASS_FontInfo *font)
+{
+    int index = font->index;
+    ASS_FontProviderMetaData *meta = &font->meta;
+    ASS_FontProvider *provider = font->provider;
+    ASS_FontSelector *selector = provider->parent;
+    FT_Face face;
+    bool success = false;
+
+    if (provider->funcs.get_font_index)
+        index = provider->funcs.get_font_index(font->priv);
+
+    if (!font->path) {
+        assert(provider->funcs.get_data);
+        ASS_FontStream stream = {
+            .func = provider->funcs.get_data,
+            .priv = font->priv,
+        };
+        // This name is only used in an error message, so use
+        // our best name but don't panic if we don't have any.
+        // Prefer PostScript name because it is unique.
+        const char *name = meta->postscript_name ?
+            meta->postscript_name : meta->extended_family;
+        face = ass_face_stream(selector->library, selector->ftlibrary,
+                               name, &stream, index);
+    } else {
+        face = ass_face_open(selector->library, selector->ftlibrary,
+                             font->path, meta->postscript_name, index);
+    }
+
+    if (!face)
+        return false;
+
+    ASS_FontProviderMetaData local_meta = *meta;
+
+    if (!get_font_info(selector->ftlibrary, face, meta->extended_family,
+                       &local_meta))
+        goto cleanup;
+
+    free(meta->postscript_name);
+    local_meta.postscript_name = local_meta.postscript_name ? strdup(local_meta.postscript_name) : NULL;
+
+    *meta = local_meta;
+
+    success = true;
+
+cleanup:
+    FT_Done_Face(face);
+    return success;
+}
+
+/**
  * \brief Add a font to a font provider.
  * \param provider the font provider
  * \param meta basic metadata of the font
@@ -359,64 +418,6 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     int i;
     ASS_FontSelector *selector = provider->parent;
     ASS_FontInfo *info = NULL;
-    ASS_FontProviderMetaData implicit_meta = {0};
-
-    if (!meta->n_family) {
-        FT_Face face;
-        if (provider->funcs.get_font_index)
-            index = provider->funcs.get_font_index(data);
-        if (!path) {
-            ASS_FontStream stream = {
-                .func = provider->funcs.get_data,
-                .priv = data,
-            };
-            // This name is only used in an error message, so use
-            // our best name but don't panic if we don't have any.
-            // Prefer PostScript name because it is unique.
-            const char *name = meta->postscript_name ?
-                meta->postscript_name : meta->extended_family;
-            face = ass_face_stream(selector->library, selector->ftlibrary,
-                                   name, &stream, index);
-        } else {
-            face = ass_face_open(selector->library, selector->ftlibrary,
-                                 path, meta->postscript_name, index);
-        }
-        if (!face)
-            goto error;
-        if (!get_font_info(selector->ftlibrary, face, meta->extended_family,
-                           &implicit_meta)) {
-            FT_Done_Face(face);
-            goto error;
-        }
-        if (implicit_meta.postscript_name) {
-            implicit_meta.postscript_name =
-                strdup(implicit_meta.postscript_name);
-            if (!implicit_meta.postscript_name) {
-                FT_Done_Face(face);
-                goto error;
-            }
-        }
-        FT_Done_Face(face);
-        implicit_meta.extended_family = meta->extended_family;
-        meta = &implicit_meta;
-    }
-
-#if 0
-    int j;
-    printf("new font:\n");
-    printf("  families: ");
-    for (j = 0; j < meta->n_family; j++)
-        printf("'%s' ", meta->families[j]);
-    printf("\n");
-    printf("  fullnames: ");
-    for (j = 0; j < meta->n_fullname; j++)
-        printf("'%s' ", meta->fullnames[j]);
-    printf("\n");
-    printf("  style_flags: %lx\n", meta->style_flags);
-    printf("  weight: %d\n", meta->weight);
-    printf("  path: %s\n", path);
-    printf("  index: %d\n", index);
-#endif
 
     // check size
     if (selector->n_font >= selector->alloc_font) {
@@ -434,12 +435,16 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
 
     memcpy(&info->meta, meta, sizeof(*meta));
 
-    info->meta.families = calloc(meta->n_family, sizeof(char *));
+    info->index = index;
+    info->priv  = data;
+    info->provider = provider;
+
+    info->meta.families = meta->n_family > 0 ? calloc(meta->n_family, sizeof(char *)) : NULL;
     info->meta.fullnames = meta->n_fullname > 0 ? calloc(meta->n_fullname, sizeof(char *)) : NULL;
     info->meta.postscript_name = meta->postscript_name ? strdup(meta->postscript_name) : NULL;
     info->meta.extended_family = meta->extended_family ? strdup(meta->extended_family) : NULL;
 
-    if (!info->meta.families)
+    if (meta->n_family > 0 && !info->meta.families)
         goto error;
     if (meta->n_fullname > 0 && !info->meta.fullnames)
         goto error;
@@ -448,32 +453,32 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     if (meta->extended_family && !info->meta.extended_family)
         goto error;
 
-    for (i = 0; i < meta->n_family; i++) {
-        info->meta.families[i] = strdup(meta->families[i]);
-        if (info->meta.families[i] == NULL)
-            goto error;
-    }
-
-    for (i = 0; i < meta->n_fullname; i++) {
-        info->meta.fullnames[i] = strdup(meta->fullnames[i]);
-        if (info->meta.fullnames[i] == NULL)
-            goto error;
-    }
-
     if (path) {
         info->path = strdup(path);
         if (info->path == NULL)
             goto error;
     }
 
-    info->index = index;
-    info->priv  = data;
-    info->provider = provider;
+    if (meta->n_family) {
+        for (i = 0; i < meta->n_family; i++) {
+            info->meta.families[i] = strdup(meta->families[i]);
+            if (info->meta.families[i] == NULL)
+                goto error;
+        }
+
+        for (i = 0; i < meta->n_fullname; i++) {
+            info->meta.fullnames[i] = strdup(meta->fullnames[i]);
+            if (info->meta.fullnames[i] == NULL)
+                goto error;
+        }
+    } else {
+        assert(!meta->n_fullname);
+
+        if (!fill_font_info(info))
+            goto error;
+    }
 
     selector->n_font++;
-
-    free_font_info(&implicit_meta);
-    free(implicit_meta.postscript_name);
 
     return true;
 
@@ -481,8 +486,6 @@ error:
     if (info)
         ass_font_provider_free_fontinfo(info);
 
-    free_font_info(&implicit_meta);
-    free(implicit_meta.postscript_name);
     provider->funcs.destroy_font(data);
 
     return false;
