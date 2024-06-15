@@ -658,6 +658,7 @@ int main(int argc, char *argv[])
         printf("ass_renderer_init failed!\n");
         goto end;
     }
+    ass_set_threads(renderer, 0);
     ass_set_fonts(renderer, NULL, NULL, ASS_FONTPROVIDER_NONE, NULL, 0);
 
     result = 0;
