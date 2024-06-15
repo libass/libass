@@ -317,7 +317,7 @@ error:
  * created by get_font_info.
  * \param meta metadata created by get_font_info
  */
-static void free_font_info(ASS_FontProviderMetaData *meta)
+static void free_font_name_arrays(ASS_FontProviderMetaData *meta)
 {
     if (meta->families) {
         for (int i = 0; i < meta->n_family; i++)
@@ -340,7 +340,7 @@ static void free_font_info(ASS_FontProviderMetaData *meta)
  */
 static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
 {
-    free_font_info(&info->meta);
+    free_font_name_arrays(&info->meta);
     free(info->meta.postscript_name);
     free(info->meta.extended_family);
 
@@ -395,7 +395,7 @@ static bool fill_font_info(ASS_FontInfo *font)
                        &local_meta))
         goto cleanup;
 
-    free_font_info(meta);
+    free_font_name_arrays(meta);
     free(meta->postscript_name);
     local_meta.postscript_name = local_meta.postscript_name ? strdup(local_meta.postscript_name) : NULL;
 
@@ -972,7 +972,7 @@ static void process_fontdata(ASS_FontProvider *priv, int idx)
         ft = calloc(1, sizeof(FontDataFT));
 
         if (ft == NULL) {
-            free_font_info(&info);
+            free_font_name_arrays(&info);
             FT_Done_Face(face);
             continue;
         }
@@ -987,7 +987,7 @@ static void process_fontdata(ASS_FontProvider *priv, int idx)
             free(ft);
         }
 
-        free_font_info(&info);
+        free_font_name_arrays(&info);
     }
 }
 
