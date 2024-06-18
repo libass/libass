@@ -24,6 +24,7 @@
 #include FT_FREETYPE_H
 
 typedef struct ass_font ASS_Font;
+typedef struct ass_face ASS_Face;
 
 #include "ass.h"
 #include "ass_types.h"
@@ -38,13 +39,17 @@ typedef struct ass_font ASS_Font;
 #define DECO_STRIKETHROUGH 2
 #define DECO_ROTATE        4
 
+struct ass_face {
+    FT_Face face;
+    struct hb_font_t *hb_font;
+    int uid;
+};
+
 struct ass_font {
     ASS_FontDesc desc;
     ASS_Library *library;
     FT_Library ftlibrary;
-    int faces_uid[ASS_FONT_MAX_FACES];
-    FT_Face faces[ASS_FONT_MAX_FACES];
-    struct hb_font_t *hb_fonts[ASS_FONT_MAX_FACES];
+    ASS_Face faces[ASS_FONT_MAX_FACES];
     int n_faces;
 };
 

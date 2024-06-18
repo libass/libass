@@ -437,7 +437,7 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
         return -1;
 
     for (i = 0; i < font->n_faces; i++) {
-        if (font->faces_uid[i] == uid) {
+        if (font->faces[i].uid == uid) {
             ass_msg(font->library, MSGL_INFO,
                     "Got a font face that already is available! Skipping.");
             return i;
@@ -458,8 +458,10 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     ass_charmap_magic(font->library, face);
     set_font_metrics(face);
 
-    font->faces[font->n_faces] = face;
-    font->faces_uid[font->n_faces] = uid;
+    font->faces[font->n_faces] = (ASS_Face){
+        .face = face,
+        .uid = uid,
+    };
     if (!ass_create_hb_font(font, font->n_faces)) {
         FT_Done_Face(face);
         goto fail;
@@ -583,7 +585,7 @@ FT_Long ass_face_get_style_flags(FT_Face face)
 void ass_font_get_asc_desc(ASS_Font *font, int face_index,
                            int *asc, int *desc)
 {
-    FT_Face face = font->faces[face_index];
+    FT_Face face = font->faces[face_index].face;
     int y_scale = face->size->metrics.y_scale;
     *asc  = FT_MulFix(face->ascender, y_scale);
     *desc = FT_MulFix(-face->descender, y_scale);
@@ -646,7 +648,7 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
     }
 
     for (i = 0; i < font->n_faces && index == 0; ++i) {
-        face = font->faces[i];
+        face = font->faces[i].face;
         index = ass_font_index_magic(face, symbol);
         if (index)
             index = FT_Get_Char_Index(face, index);
@@ -662,7 +664,7 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
                 font->desc.bold, font->desc.italic);
         face_idx = *face_index = add_face(fontsel, font, symbol);
         if (face_idx >= 0) {
-            face = font->faces[face_idx];
+            face = font->faces[face_idx].face;
             index = ass_font_index_magic(face, symbol);
             if (index)
                 index = FT_Get_Char_Index(face, index);
@@ -717,7 +719,7 @@ bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
         break;
     }
 
-    FT_Face face = font->faces[face_index];
+    FT_Face face = font->faces[face_index].face;
     FT_Error error = FT_Load_Glyph(face, index, flags);
     if (error) {
         ass_msg(font->library, MSGL_WARN, "Error loading glyph, index %d",
@@ -741,10 +743,10 @@ void ass_font_clear(ASS_Font *font)
 {
     int i;
     for (i = 0; i < font->n_faces; ++i) {
-        if (font->faces[i])
-            FT_Done_Face(font->faces[i]);
-        if (font->hb_fonts[i])
-            hb_font_destroy(font->hb_fonts[i]);
+        if (font->faces[i].face)
+            FT_Done_Face(font->faces[i].face);
+        if (font->faces[i].hb_font)
+            hb_font_destroy(font->faces[i].hb_font);
     }
     free((char *) font->desc.family.str);
 }
