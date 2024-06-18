@@ -43,6 +43,8 @@ struct ass_face {
     FT_Face face;
     struct hb_font_t *hb_font;
     int uid;
+    unsigned weight;
+    FT_Long style_flags;
 };
 
 struct ass_font {

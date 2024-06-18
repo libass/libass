@@ -568,7 +568,7 @@ static bool check_glyph(ASS_FontInfo *fi, uint32_t code)
 static char *
 find_font(ASS_FontSelector *priv,
           ASS_FontProviderMetaData meta, bool match_extended_family,
-          unsigned bold, unsigned italic,
+          unsigned *bold, FT_Long *style_flags,
           int *index, char **postscript_name, int *uid, ASS_FontStream *stream,
           uint32_t code, bool *name_match)
 {
@@ -580,8 +580,8 @@ find_font(ASS_FontSelector *priv,
         return NULL;
 
     // fill font request
-    req.style_flags = (italic ? FT_STYLE_FLAG_ITALIC : 0);
-    req.weight      = bold;
+    req.style_flags = *style_flags;
+    req.weight      = *bold;
 
     // Match font family name against font list
     unsigned score_min = UINT_MAX;
@@ -638,6 +638,8 @@ find_font(ASS_FontSelector *priv,
         *postscript_name = selected->postscript_name;
         *uid   = selected->uid;
         *index = selected->index;
+        *bold  = selected->weight;
+        *style_flags = selected->style_flags;
 
         // set up memory stream if there is no path
         if (selected->path == NULL) {
@@ -662,7 +664,7 @@ find_font(ASS_FontSelector *priv,
 
 static char *select_font(ASS_FontSelector *priv,
                          const char *family, bool match_extended_family,
-                         unsigned bold, unsigned italic,
+                         unsigned *bold, FT_Long *style_flags,
                          int *index, char **postscript_name, int *uid,
                          ASS_FontStream *stream, uint32_t code)
 {
@@ -680,7 +682,7 @@ static char *select_font(ASS_FontSelector *priv,
     };
 
     result = find_font(priv, meta, match_extended_family,
-                       bold, italic, index, postscript_name, uid,
+                       bold, style_flags, index, postscript_name, uid,
                        stream, code, &name_match);
     if (result && name_match)
         return result;
@@ -691,7 +693,7 @@ static char *select_font(ASS_FontSelector *priv,
                                             family);
 
         result = find_font(priv, meta, match_extended_family,
-                           bold, italic, index, postscript_name, uid,
+                           bold, style_flags, index, postscript_name, uid,
                            stream, code, &name_match);
 
         if (result && name_match)
@@ -710,7 +712,7 @@ static char *select_font(ASS_FontSelector *priv,
     }
 
     result = find_font(priv, meta, true,
-                       bold, italic, index, postscript_name, uid,
+                       bold, style_flags, index, postscript_name, uid,
                        stream, code, &name_match);
 
     // If no matching font was found, it might not exist in the font list
@@ -726,7 +728,7 @@ static char *select_font(ASS_FontSelector *priv,
                                                 meta.fullnames[i]);
         }
         result = find_font(priv, meta, true,
-                           bold, italic, index, postscript_name, uid,
+                           bold, style_flags, index, postscript_name, uid,
                            stream, code, &name_match);
     }
 
@@ -753,25 +755,26 @@ static char *select_font(ASS_FontSelector *priv,
 */
 char *ass_font_select(ASS_FontSelector *priv,
                       const ASS_Font *font, int *index, char **postscript_name,
+                      unsigned *bold, FT_Long *style_flags,
                       int *uid, ASS_FontStream *data, uint32_t code)
 {
     char *res = 0;
     const char *family = font->desc.family.str;  // always zero-terminated
-    unsigned bold = font->desc.bold;
-    unsigned italic = font->desc.italic;
+    *bold = font->desc.bold;
+    *style_flags = (font->desc.italic ? FT_STYLE_FLAG_ITALIC : 0);
     ASS_FontProvider *default_provider = priv->default_provider;
 
     if (family && *family)
-        res = select_font(priv, family, false, bold, italic, index,
+        res = select_font(priv, family, false, bold, style_flags, index,
                 postscript_name, uid, data, code);
 
     if (!res && priv->family_default) {
         res = select_font(priv, priv->family_default, false, bold,
-                italic, index, postscript_name, uid, data, code);
+                style_flags, index, postscript_name, uid, data, code);
         if (res)
             ass_msg(priv->library, MSGL_WARN, "fontselect: Using default "
-                    "font family: (%s, %d, %d) -> %s, %d, %s",
-                    family, bold, italic, res, *index,
+                    "font family: (%s, %d, %lx) -> %s, %d, %s",
+                    family, *bold, *style_flags, res, *index,
                     *postscript_name ? *postscript_name : "(none)");
     }
 
@@ -783,7 +786,7 @@ char *ass_font_select(ASS_FontSelector *priv,
                 default_provider->priv, priv->library, search_family, code);
 
         if (fallback_family) {
-            res = select_font(priv, fallback_family, true, bold, italic,
+            res = select_font(priv, fallback_family, true, bold, style_flags,
                     index, postscript_name, uid, data, code);
             free(fallback_family);
         }
@@ -793,19 +796,19 @@ char *ass_font_select(ASS_FontSelector *priv,
         res = priv->path_default;
         *index = priv->index_default;
         ass_msg(priv->library, MSGL_WARN, "fontselect: Using default font: "
-                "(%s, %d, %d) -> %s, %d, %s", family, bold, italic,
+                "(%s, %d, %lx) -> %s, %d, %s", family, *bold, *style_flags,
                 priv->path_default, *index,
                 *postscript_name ? *postscript_name : "(none)");
     }
 
     if (res)
         ass_msg(priv->library, MSGL_INFO,
-                "fontselect: (%s, %d, %d) -> %s, %d, %s", family, bold,
-                italic, res, *index, *postscript_name ? *postscript_name : "(none)");
+                "fontselect: (%s, %d, %lx) -> %s, %d, %s", family, *bold,
+                *style_flags, res, *index, *postscript_name ? *postscript_name : "(none)");
     else
         ass_msg(priv->library, MSGL_WARN,
                 "fontselect: failed to find any fallback with glyph 0x%X for font: "
-                "(%s, %d, %d)", code, family, bold, italic);
+                "(%s, %d, %lx)", code, family, *bold, *style_flags);
 
     return res;
 }

@@ -426,12 +426,14 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     ASS_FontStream stream = { NULL, NULL };
     FT_Face face;
     int ret = -1;
+    unsigned weight;
+    FT_Long style_flags;
 
     if (font->n_faces == ASS_FONT_MAX_FACES)
         return -1;
 
     path = ass_font_select(fontsel, font, &index,
-            &postscript_name, &uid, &stream, ch);
+            &postscript_name, &weight, &style_flags, &uid, &stream, ch);
 
     if (!path)
         return -1;
@@ -461,6 +463,8 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     font->faces[font->n_faces] = (ASS_Face){
         .face = face,
         .uid = uid,
+        .weight = weight,
+        .style_flags = style_flags,
     };
     if (!ass_create_hb_font(font, font->n_faces)) {
         FT_Done_Face(face);
@@ -727,11 +731,11 @@ bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
         return false;
     }
 
-    FT_Long style_flags = ass_face_get_style_flags(face);
+    FT_Long style_flags = font->faces[face_index].style_flags;
     if (!(style_flags & FT_STYLE_FLAG_ITALIC) && (font->desc.italic > 55))
         ass_glyph_italicize(face);
     if (!(style_flags & FT_STYLE_FLAG_BOLD) &&
-        font->desc.bold > ass_face_get_weight(face) + 150)
+        font->desc.bold > font->faces[face_index].weight + 150)
         ass_glyph_embolden(face->glyph);
     return true;
 }
