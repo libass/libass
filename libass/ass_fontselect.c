@@ -545,7 +545,7 @@ static void ass_fontselect_cleanup(ASS_FontSelector *selector)
             // rewrite, if needed
             if (w != i)
                 memcpy(selector->font_infos + w, selector->font_infos + i,
-                        sizeof(ASS_FontInfo));
+                       sizeof(ASS_FontInfo));
             w++;
         }
 
