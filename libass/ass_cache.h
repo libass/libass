@@ -25,6 +25,10 @@
 #include "ass_outline.h"
 #include "ass_bitmap.h"
 
+#ifdef CONFIG_FONTCONFIG
+#include <fontconfig/fontconfig.h>
+#endif
+
 typedef struct cache Cache;
 typedef uint64_t ass_hashcode;
 
@@ -41,6 +45,13 @@ typedef struct {
     int advance;    // 26.6, advance distance to the next outline in line
     int asc, desc;  // ascender/descender
 } OutlineHashValue;
+
+#ifdef CONFIG_FONTCONFIG
+typedef struct {
+    size_t size, capacity;
+    FcPattern **patterns;
+} FontconfigNameHashValue;
+#endif // CONFIG_FONTCONFIG
 
 // Create definitions for bitmap, outline and composite hash keys
 #define CREATE_STRUCT_DEFINITIONS
@@ -112,5 +123,8 @@ Cache *ass_face_size_metrics_cache_create(void);
 Cache *ass_glyph_metrics_cache_create(void);
 Cache *ass_bitmap_cache_create(void);
 Cache *ass_composite_cache_create(void);
+#ifdef CONFIG_FONTCONFIG
+Cache *ass_fontconfig_name_cache_create(void);
+#endif
 
 #endif                          /* LIBASS_CACHE_H */
