@@ -828,6 +828,25 @@ static char *select_font(ASS_FontSelector *priv,
         .fullnames  = (char **)&family,
     };
 
+    result = find_font(priv, meta, match_extended_family,
+                       bold, italic, index, postscript_name, uid,
+                       stream, code, &name_match);
+    if (result && name_match)
+        return result;
+
+    if (default_provider && default_provider->funcs.match_fonts) {
+        default_provider->funcs.match_fonts(default_provider->priv,
+                                            priv->library, default_provider,
+                                            family);
+
+        result = find_font(priv, meta, match_extended_family,
+                           bold, italic, index, postscript_name, uid,
+                           stream, code, &name_match);
+
+        if (result && name_match)
+            return result;
+    }
+
     // Get a list of substitutes if applicable, and use it for matching.
     if (default_provider && default_provider->funcs.get_substitutions) {
         default_provider->funcs.get_substitutions(default_provider->priv,
@@ -839,7 +858,7 @@ static char *select_font(ASS_FontSelector *priv,
         meta = default_meta;
     }
 
-    result = find_font(priv, meta, match_extended_family,
+    result = find_font(priv, meta, true,
                        bold, italic, index, postscript_name, uid,
                        stream, code, &name_match);
 
@@ -855,7 +874,7 @@ static char *select_font(ASS_FontSelector *priv,
                                                 priv->library, default_provider,
                                                 meta.fullnames[i]);
         }
-        result = find_font(priv, meta, match_extended_family,
+        result = find_font(priv, meta, true,
                            bold, italic, index, postscript_name, uid,
                            stream, code, &name_match);
     }
