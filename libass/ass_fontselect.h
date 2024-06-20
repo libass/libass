@@ -109,7 +109,7 @@ typedef void    (*DestroyProviderFunc)(void *priv);
 typedef void    (*MatchFontsFunc)(void *priv,
                                   ASS_Library *lib,
                                   ASS_FontProvider *provider,
-                                  char *name);
+                                  const char *name);
 
 /**
  * Substitute font name by another. This implements generic font family

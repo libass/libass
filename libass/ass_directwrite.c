@@ -844,7 +844,7 @@ cleanup:
  * When a new font name is requested, called to load that font from Windows
  */
 static void match_fonts(void *priv, ASS_Library *lib,
-                        ASS_FontProvider *provider, char *name)
+                        ASS_FontProvider *provider, const char *name)
 {
     ProviderPrivate *provider_priv = (ProviderPrivate *)priv;
     LOGFONTW lf = {0};
