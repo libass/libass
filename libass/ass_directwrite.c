@@ -365,22 +365,6 @@ static size_t get_data(void *data, unsigned char *buf, size_t offset,
 }
 
 /*
- * Check whether the font contains PostScript outlines.
- */
-static bool check_postscript(void *data)
-{
-    FontPrivate *priv = (FontPrivate *) data;
-
-    if (!init_font_private_face(priv))
-        return false;
-
-    DWRITE_FONT_FACE_TYPE type = IDWriteFontFace_GetType(priv->face);
-    return type == DWRITE_FONT_FACE_TYPE_CFF ||
-           type == DWRITE_FONT_FACE_TYPE_RAW_CFF ||
-           type == DWRITE_FONT_FACE_TYPE_TYPE1;
-}
-
-/*
  * Check if the passed font has a specific unicode character.
  */
 static bool check_glyph(void *data, uint32_t code)
@@ -1009,7 +993,6 @@ static void get_substitutions(void *priv, const char *name,
  */
 static ASS_FontProviderFuncs directwrite_callbacks = {
     .get_data           = get_data,
-    .check_postscript   = check_postscript,
     .check_glyph        = check_glyph,
     .destroy_font       = destroy_font,
     .destroy_provider   = destroy_provider,
