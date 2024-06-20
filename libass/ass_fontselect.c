@@ -35,6 +35,7 @@
 #include FT_SFNT_NAMES_H
 #include FT_TRUETYPE_IDS_H
 #include FT_TRUETYPE_TABLES_H
+#include FT_MULTIPLE_MASTERS_H
 
 #include "ass_utils.h"
 #include "ass.h"
@@ -75,6 +76,9 @@ struct font_info {
 
     // private data for callbacks
     void *priv;
+
+    // whether this font is a duplicate (its priv data should not be freed)
+    bool dupe;
 };
 
 struct font_selector {
@@ -257,6 +261,403 @@ static ASS_FontInfo *allocate_font_info(ASS_FontSelector *selector)
 }
 
 /**
+ * \brief Read up to 4 bytes of big-endian data at a given address.
+ *
+ * \param addr address to read from
+ * \param size bytes to read
+ * \return value read
+ */
+static uint32_t read_be(FT_Byte *addr, size_t size)
+{
+    assert(size <= 4);
+
+    uint32_t ret = 0;
+    for (size_t i = 0; i < size; i++)
+        ret = (ret << 8) | addr[i];
+
+    return ret;
+}
+
+struct Axis {
+    uint16_t index;
+    uint32_t tag;
+    uint16_t ordering;
+    uint16_t fvar_idx;
+};
+
+struct AxisValue {
+    uint16_t axis_index;
+    int32_t value;
+    int32_t minValue;
+    int32_t maxValue;
+};
+
+struct NamedValueGroup {
+    uint16_t flags;
+    uint16_t name_id;
+    uint16_t nb_values;
+    struct AxisValue *values;
+};
+
+struct STAT {
+    size_t nb_axes;
+    size_t nb_value_groups;
+    struct Axis *axes;
+    struct Axis *sorted_axes;
+    struct NamedValueGroup *value_groups;
+    int elidedFallbackNameID;
+};
+
+static int compare_axes(const void *pa, const void *pb)
+{
+    const struct Axis *a = pa;
+    const struct Axis *b = pb;
+
+    return (int)a->ordering - (int)b->ordering;
+}
+
+#define STAT_FLAG_ELIDABLE_ALL 0x02
+#define STAT_FLAG_ELIDABLE_FAMILY 0x04 // libass-internal
+
+/**
+ * \brief Parse an OpenType STAT table.
+ *
+ * \param stat structure to fill
+ * \param data pointer to raw table data
+ * \param data_size size of data
+ * \param variants FreeType fvar data
+ * \return success
+ */
+static bool parse_stat(struct STAT *stat, FT_Byte *data, FT_ULong data_size, FT_MM_Var* variants)
+{
+    if (data_size < 20)
+        return false;
+
+    uint16_t majorVersion = read_be(data, 2);
+    uint16_t minorVersion = read_be(data + 2, 2);
+
+    uint16_t axis_size = read_be(data + 4, 2);
+    stat->nb_axes = read_be(data + 6, 2);
+    uint32_t axes_offset = read_be(data + 8, 4);
+
+    stat->nb_value_groups = read_be(data + 12, 2);
+    uint32_t values_offset = read_be(data + 14, 4);
+
+    if (majorVersion > 1 || (majorVersion == 1 && minorVersion >= 1))
+        stat->elidedFallbackNameID = read_be(data + 18, 2);
+    else
+        stat->elidedFallbackNameID = -1;
+
+    if (axis_size < 8)
+        return false;
+
+    if (axes_offset + stat->nb_axes * axis_size > data_size)
+        return false;
+
+    if (values_offset + stat->nb_value_groups * 2 > data_size)
+        return false;
+
+    stat->axes = calloc(stat->nb_axes, sizeof(struct Axis));
+    stat->value_groups = calloc(stat->nb_value_groups, sizeof(struct NamedValueGroup));
+    if (!stat->axes)
+        return false;
+    if (!stat->value_groups)
+        return false;
+
+    int i, j;
+
+    for (i = 0; i < stat->nb_axes; i++) {
+        FT_Byte *p = data + axes_offset + i * axis_size;
+        struct Axis *a = &stat->axes[i];
+
+        a->index = i;
+        a->tag = read_be(p, 4);
+        a->ordering = read_be(p + 6, 2);
+
+        bool matched = false;
+
+        for (j = 0; j < variants->num_axis; j++) {
+            if (a->tag == variants->axis[j].tag) {
+                a->fvar_idx = j;
+                matched = true;
+                break;
+            }
+        }
+
+        if (!matched)
+            return false;
+    }
+
+    for (i = 0; i < stat->nb_value_groups; i++) {
+        uint16_t axis_offset = read_be(data + values_offset + i * 2, 2);
+        size_t group_offset = values_offset + axis_offset;
+        FT_Byte *p = data + group_offset;
+        struct NamedValueGroup *g = &stat->value_groups[i];
+
+        // Min size for any supported format
+        if (group_offset + 12 > data_size)
+            return false;
+
+        uint16_t format = read_be(p, 2);
+        g->flags = read_be(p + 4, 2) & STAT_FLAG_ELIDABLE_ALL;
+        g->name_id = read_be(p + 6, 2);
+
+        g->nb_values = 1;
+
+        size_t size;
+        switch (format) {
+        case 1:
+            size = 12;
+            break;
+        case 2:
+            size = 20;
+            break;
+        case 3:
+            size = 16;
+            break;
+        case 4:
+            g->nb_values = read_be(p + 2, 2);
+            size = 8 + 6 * g->nb_values;
+            if (g->nb_values < 1)
+                return false;
+            break;
+        default:
+            return false;
+        }
+
+        if (group_offset + size > data_size)
+            return false;
+
+        g->values = calloc(g->nb_values, sizeof(struct AxisValue));
+        if (!g->values)
+            return false;
+
+        switch (format) {
+        case 1:
+        case 2:
+        case 3:
+            g->values[0].axis_index = read_be(p + 2, 2);
+            g->values[0].value = read_be(p + 8, 4);
+            if (format == 3) {
+                g->values[0].minValue = read_be(p + 12, 4);
+                g->values[0].maxValue = read_be(p + 16, 4);
+            } else {
+                g->values[0].minValue = g->values[0].value;
+                g->values[0].maxValue = g->values[0].value;
+            }
+            break;
+        case 4:
+            for (j = 0; j < g->nb_values; j++) {
+                g->values[j].axis_index = read_be(p + 8 + j * 6, 2);
+                g->values[j].value = read_be(p + 8 + j * 6 + 2, 4);
+                g->values[j].minValue = g->values[j].value;
+                g->values[j].maxValue = g->values[j].value;
+            }
+            break;
+        }
+
+        bool fully_elidable = true;
+        for (j = 0; j < g->nb_values; j++) {
+            if (g->values[j].axis_index >= stat->nb_axes)
+                return false;
+
+            uint32_t tag = stat->axes[g->values[j].axis_index].tag;
+            int32_t value = g->values[j].value;
+
+            if (tag == FT_MAKE_TAG('w','g','h','t')) {
+                if (value != (400 << 16) &&
+                    value != (700 << 16)) {
+                    fully_elidable = false;
+                    break;
+                }
+            } else if (tag == FT_MAKE_TAG('i','t','a','l')) {
+                if (value != (1 << 16) &&
+                    value != (0)) {
+                    fully_elidable = false;
+                    break;
+                }
+            } else {
+                fully_elidable = false;
+                break;
+            }
+        }
+
+        if (fully_elidable)
+            g->flags |= STAT_FLAG_ELIDABLE_FAMILY;
+    }
+
+    stat->sorted_axes = calloc(stat->nb_axes, sizeof(struct Axis));
+    if (!stat->sorted_axes)
+        return false;
+
+    memcpy(stat->sorted_axes, stat->axes, stat->nb_axes * sizeof(struct Axis));
+    qsort(stat->sorted_axes, stat->nb_axes, sizeof(struct Axis), compare_axes);
+
+    return true;
+}
+
+/**
+ * \brief Free arrays in a STAT structure.
+ *
+ * \param stat structure to free
+ */
+static void free_stat(struct STAT *stat)
+{
+    free(stat->axes);
+    free(stat->sorted_axes);
+
+    if (stat->value_groups) {
+        for (size_t i = 0; i < stat->nb_value_groups; i++)
+            free(stat->value_groups[i].values);
+    }
+
+    free(stat->value_groups);
+}
+
+struct AppendedName {
+    uint16_t id;
+    FT_UInt index;
+    bool include_in_family;
+};
+
+struct VariantData {
+    bool *axis_satisfied;
+    struct AppendedName *appended_names;
+    FT_Long style_flags;
+    int weight;
+    uint16_t nb_appended_names;
+    bool all_in_family;
+};
+
+/**
+ * \brief Allocate arrays required to describe a named instance we'll insert.
+ *
+ * \param data structure to fill
+ * \param nb_axes number of axes to allocate data for
+ * \return success
+ */
+static bool alloc_variant_data(struct VariantData *data, size_t nb_axes)
+{
+    data->axis_satisfied = calloc(nb_axes, sizeof(bool));
+    data->appended_names = calloc(FFMAX(nb_axes, 1), sizeof(struct AppendedName));
+
+    return data->axis_satisfied && data->appended_names;
+}
+
+/**
+ * \brief Free arrays in a VariantData structure.
+ *
+ * \param stat structure to free
+ */
+static void free_variant_data(struct VariantData *data)
+{
+    free(data->axis_satisfied);
+    free(data->appended_names);
+}
+
+/**
+ * \brief Compute GDI-compatible configuration for a given named instance of a font.
+ *
+ * \param data structure to fill
+ * \param variant FreeType fvar data for the variant
+ * \param stat parsed OpenType STAT table
+ */
+static void
+compute_variant_data(struct VariantData *data, const FT_Var_Named_Style *variant,
+                     const struct STAT *stat)
+{
+    int i, j, k;
+
+    data->nb_appended_names = 0;
+    data->all_in_family = true;
+    memset(data->axis_satisfied, 0, sizeof(bool) * stat->nb_axes);
+    memset(data->appended_names, 0, sizeof(struct AppendedName) * stat->nb_axes);
+
+    for (i = 0; i < stat->nb_axes; i++) {
+        if (data->axis_satisfied[stat->sorted_axes[i].index])
+            continue;
+
+        uint32_t searching_tag = stat->sorted_axes[i].tag;
+        uint16_t best_count = 0;
+        uint16_t best;
+
+        for (j = 0; j < stat->nb_value_groups; j++) {
+            struct NamedValueGroup *g = &stat->value_groups[j];
+            bool found = false;
+            bool match = true;
+            for (k = 0; k < g->nb_values; k++) {
+                struct AxisValue *v = &g->values[k];
+                int32_t val = variant->coords[stat->axes[v->axis_index].fvar_idx];
+                if (!(val >= v->minValue && val <= v->maxValue)) {
+                    match = false;
+                    break;
+                }
+
+                if (stat->axes[v->axis_index].tag == searching_tag)
+                    found = true;
+            }
+
+            if (!found || !match)
+                continue;
+
+            if (g->nb_values <= best_count)
+                continue;
+
+            best_count = g->nb_values;
+            best = j;
+
+            if (best_count == stat->nb_axes)
+                break;
+        }
+
+        if (best_count > 0) {
+            struct NamedValueGroup *g = &stat->value_groups[best];
+            for (k = 0; k < g->nb_values; k++) {
+                struct AxisValue *v = &g->values[k];
+                struct Axis *a = &stat->axes[v->axis_index];
+                int32_t val = variant->coords[stat->axes[v->axis_index].fvar_idx];
+                data->axis_satisfied[v->axis_index] = true;
+                if (a->tag == FT_MAKE_TAG('w','g','h','t')) {
+                    data->weight = val >> 16;
+                    if (val > (400 << 16))
+                        data->style_flags |= FT_STYLE_FLAG_BOLD;
+                    else
+                        data->style_flags &= ~FT_STYLE_FLAG_BOLD;
+                }
+                if (a->tag == FT_MAKE_TAG('i','t','a','l')) {
+                    if (val == (1 << 16))
+                        data->style_flags |= FT_STYLE_FLAG_ITALIC;
+                    else
+                        data->style_flags &= ~FT_STYLE_FLAG_ITALIC;
+                }
+            }
+
+            if (!(g->flags & STAT_FLAG_ELIDABLE_ALL)) {
+                bool elide_from_family = (g->flags & STAT_FLAG_ELIDABLE_FAMILY);
+                data->all_in_family &= !elide_from_family;
+                struct AppendedName *append = &data->appended_names[data->nb_appended_names++];
+                append->include_in_family = !elide_from_family;
+                append->id = g->name_id;
+                append->index = (FT_UInt)-1;
+            }
+        }
+    }
+
+    if (!data->nb_appended_names && stat->elidedFallbackNameID >= 0) {
+        struct AppendedName *append = &data->appended_names[data->nb_appended_names++];
+        append->include_in_family = false;
+        append->id = stat->elidedFallbackNameID;
+        append->index = (FT_UInt)-1;
+    }
+}
+
+#define DEFAULT_FULLNAME_SUFFIX " Regular"
+
+#ifndef TT_NAME_ID_TYPOGRAPHIC_FAMILY
+#define TT_NAME_ID_TYPOGRAPHIC_FAMILY TT_NAME_ID_PREFERRED_FAMILY
+#endif
+
+/**
  * \brief Initialize ASS_FontInfo with string metadata (names, path) from a FreeType face.
  * \param info the FontInfo struct to set up
  * \param face FreeType face
@@ -266,9 +667,9 @@ static ASS_FontInfo *allocate_font_info(ASS_FontSelector *selector)
  */
 static bool
 init_font_info(ASS_FontInfo *info, FT_Face face, const char *fallback_family_name,
-               const char *path)
+               const char *path, struct VariantData *variant_data)
 {
-    int i, j;
+    int i, j, k, l;
     int num_names = FT_Get_Sfnt_Name_Count(face);
     bool is_ps = ass_face_is_postscript(face);
 
@@ -278,10 +679,16 @@ init_font_info(ASS_FontInfo *info, FT_Face face, const char *fallback_family_nam
         if (FT_Get_Sfnt_Name(face, i, &name))
             continue;
 
-        if (name.platform_id == TT_PLATFORM_MICROSOFT &&
-            (name.name_id == TT_NAME_ID_FONT_FAMILY ||
-             name.name_id == (is_ps ? TT_NAME_ID_PS_NAME : TT_NAME_ID_FULL_NAME)))
-            info->n_family++;
+        if (variant_data) {
+            if (name.platform_id == TT_PLATFORM_MICROSOFT &&
+                name.name_id == TT_NAME_ID_TYPOGRAPHIC_FAMILY)
+                info->n_family += 1 + !variant_data->all_in_family;
+        } else {
+            if (name.platform_id == TT_PLATFORM_MICROSOFT &&
+                (name.name_id == TT_NAME_ID_FONT_FAMILY ||
+                 name.name_id == (is_ps ? TT_NAME_ID_PS_NAME : TT_NAME_ID_FULL_NAME)))
+                info->n_family++;
+        }
     }
 
     if (info->n_family) {
@@ -298,17 +705,99 @@ init_font_info(ASS_FontInfo *info, FT_Face face, const char *fallback_family_nam
         if (FT_Get_Sfnt_Name(face, i, &name))
             continue;
 
-        if (name.platform_id == TT_PLATFORM_MICROSOFT &&
-            (name.name_id == TT_NAME_ID_FONT_FAMILY ||
-             name.name_id == (is_ps ? TT_NAME_ID_PS_NAME : TT_NAME_ID_FULL_NAME))) {
-            size_t strsize = name.string_len * 3 + 1;
-            info->families[j] = malloc(strsize);
-            if (!info->families[j])
-                goto error;
+        if (variant_data) {
+            if (name.platform_id == TT_PLATFORM_MICROSOFT &&
+                name.name_id == TT_NAME_ID_TYPOGRAPHIC_FAMILY) {
+                size_t strsize = name.string_len * 3 + 1;
+                for (k = 0; k < variant_data->nb_appended_names; k++) {
+                    struct AppendedName *append = &variant_data->appended_names[k];
+                    append->index = (FT_UInt)-1;
+                    for (l = 0; l < num_names; l++) {
+                        FT_SfntName aname;
 
-            ass_utf16be_to_utf8(info->families[j], strsize, (uint8_t *)name.string,
-                                name.string_len);
-            j++;
+                        if (FT_Get_Sfnt_Name(face, l, &aname))
+                            continue;
+
+                        if (aname.platform_id == TT_PLATFORM_MICROSOFT &&
+                            aname.language_id == name.language_id &&
+                            aname.name_id == append->id) {
+                            append->index = l;
+                            strsize += aname.string_len * 3 + 1;
+                            break;
+                        }
+                    }
+                }
+
+                if (!variant_data->nb_appended_names)
+                    strsize += sizeof(DEFAULT_FULLNAME_SUFFIX) - 1;
+
+                info->families[j] = malloc(strsize);
+                if (!info->families[j])
+                    goto error;
+
+                if (!variant_data->all_in_family) {
+                    info->families[j + 1] = malloc(strsize);
+                    if (!info->families[j + 1])
+                        goto error;
+                }
+
+                char *full_dst = info->families[j];
+                char *family_dst = variant_data->all_in_family ? NULL : info->families[j + 1];
+
+                j += 1 + !variant_data->all_in_family;
+
+                size_t len = ass_utf16be_to_utf8(full_dst, strsize, (uint8_t *)name.string,
+                                                 name.string_len);
+
+                if (family_dst) {
+                    memcpy(family_dst, full_dst, len + 1);
+                    family_dst += len;
+                }
+
+                full_dst += len;
+                strsize -= len;
+
+                for (k = 0; k < variant_data->nb_appended_names; k++) {
+                    struct AppendedName *append = &variant_data->appended_names[k];
+                    if (append->index == (FT_UInt)-1)
+                        continue;
+
+                    FT_SfntName aname;
+
+                    if (FT_Get_Sfnt_Name(face, append->index, &aname))
+                        goto error;
+
+                    *full_dst = ' ';
+
+                    len = ass_utf16be_to_utf8(full_dst + 1, strsize - 1, (uint8_t *)aname.string,
+                                              aname.string_len) + 1;
+                    if (family_dst && append->include_in_family) {
+                        memcpy(family_dst, full_dst, len + 1);
+                        family_dst += len;
+                    }
+
+                    full_dst += len;
+                    strsize -= len;
+                }
+
+                if (!variant_data->nb_appended_names) {
+                    assert(strsize <= sizeof(DEFAULT_FULLNAME_SUFFIX));
+                    memcpy(full_dst, DEFAULT_FULLNAME_SUFFIX, sizeof(DEFAULT_FULLNAME_SUFFIX));
+                }
+            }
+        } else {
+            if (name.platform_id == TT_PLATFORM_MICROSOFT &&
+                (name.name_id == TT_NAME_ID_FONT_FAMILY ||
+                 name.name_id == (is_ps ? TT_NAME_ID_PS_NAME : TT_NAME_ID_FULL_NAME))) {
+                size_t strsize = name.string_len * 3 + 1;
+                info->families[j] = malloc(strsize);
+                if (!info->families[j])
+                    goto error;
+
+                ass_utf16be_to_utf8(info->families[j], strsize, (uint8_t *)name.string,
+                                    name.string_len);
+                j++;
+            }
         }
     }
 
@@ -337,6 +826,10 @@ error:
     return false;
 }
 
+#if !(FREETYPE_MAJOR > 2 || (FREETYPE_MAJOR >= 2 && FREETYPE_MINOR >= 9))
+#define FT_Done_MM_Var(lib, var) free(var)
+#endif
+
 /**
  * \brief Read basic metadata (names, weight, slant) from a FreeType face
  * and insert them into a provider's FontInfo list.
@@ -347,6 +840,7 @@ error:
  * \param data private data for the font
  * \return success
  */
+
 static bool
 insert_ft_font(ASS_FontProvider *provider, FT_Face face, const char *fallback_family_name,
                const char *path, void *data)
@@ -357,28 +851,83 @@ insert_ft_font(ASS_FontProvider *provider, FT_Face face, const char *fallback_fa
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
         return false;
 
-    ASS_FontInfo *info = allocate_font_info(provider->parent);
-    if (!info)
-        goto cleanup;
+    bool added_one = false;
+    FT_Byte *stat_data = NULL;
+    FT_ULong stat_size = 0;
+    bool is_variable = false;
+    bool valid_stat = false;
 
-    if (!init_font_info(info, face, fallback_family_name, path))
-        goto cleanup;
+    FT_MM_Var* variants = NULL;
+    FT_UInt variant_count = 1;
+    FT_Get_MM_Var(face, &variants);
 
-    // set non-allocated metadata
-    info->weight = ass_face_get_weight(face);
-    info->style_flags = ass_face_get_style_flags(face);
-    info->index = (face->face_index & 0xFFFF);
-    info->priv = data;
-    info->provider = provider;
+    struct STAT stat = {.elidedFallbackNameID = -1};
+    struct VariantData variant_data = {0};
 
-    // set uid
-    info->uid = provider->parent->uid++;
-    provider->parent->n_font++;
+    if (variants && variants->num_namedstyles > 0 && variants->num_axis <= UINT16_MAX) {
+        FT_Load_Sfnt_Table(face, FT_MAKE_TAG('S','T','A','T'), 0, NULL, &stat_size);
+
+        if (stat_size) {
+            stat_data = malloc(stat_size);
+            if (!stat_data)
+                goto cleanup;
+            if (FT_Load_Sfnt_Table(face, FT_MAKE_TAG('S','T','A','T'), 0, stat_data, &stat_size))
+                goto cleanup;
+            valid_stat = parse_stat(&stat, stat_data, stat_size, variants);
+        }
+
+        is_variable = true;
+    }
+
+    if (valid_stat) {
+        if (!alloc_variant_data(&variant_data, stat.nb_axes))
+            goto cleanup;
+        variant_count = variants->num_namedstyles;
+    }
+
+    int face_weight = ass_face_get_weight(face);
+    FT_Long face_style_flags = ass_face_get_style_flags(face);
+
+    for (FT_UInt v = 0; v < variant_count; v++) {
+        ASS_FontInfo *info = allocate_font_info(provider->parent);
+        if (!info)
+            goto cleanup;
+
+        // Compute per-variant information
+        variant_data.weight = face_weight;
+        variant_data.style_flags = face_style_flags;
+        if (valid_stat)
+            compute_variant_data(&variant_data, &variants->namedstyle[v], &stat);
+
+        if (!init_font_info(info, face, fallback_family_name, path, is_variable ? &variant_data : NULL))
+            goto cleanup;
+
+        // set non-allocated metadata
+        info->weight = variant_data.weight;
+        info->style_flags = variant_data.style_flags;
+        info->index = (face->face_index & 0xFFFF) | ((is_variable ? (v + 1) : 0) << 16);
+        info->dupe = added_one;
+        info->priv = data;
+        info->provider = provider;
+
+        // set uid
+        info->uid = provider->parent->uid++;
+        provider->parent->n_font++;
+
+        added_one = true;
+    }
 
     success = true;
 
 cleanup:
-    if (!success)
+    if (variants)
+        FT_Done_MM_Var(provider->parent->ftlibrary, variants);
+
+    free(stat_data);
+    free_stat(&stat);
+    free_variant_data(&variant_data);
+
+    if (!added_one)
         provider->funcs.destroy_font(data);
 
     return success;
@@ -466,7 +1015,9 @@ void ass_font_provider_free(ASS_FontProvider *provider)
 
         if (info->provider == provider) {
             ass_font_provider_free_fontinfo(info);
-            info->provider->funcs.destroy_font(info->priv);
+            if (!info->dupe)
+                info->provider->funcs.destroy_font(info->priv);
+            info->priv = NULL;
             info->provider = NULL;
         }
 
@@ -688,15 +1239,27 @@ static char *select_font(ASS_FontSelector *priv,
         return result;
 
     if (default_provider && default_provider->funcs.match_fonts) {
-        default_provider->funcs.match_fonts(default_provider->priv,
-                                            priv->library, default_provider,
-                                            family);
+        char *family_dup = strdup(family);
+        if (!family_dup)
+            return NULL;
+
+        for (int len = strlen(family_dup); len > 0; len--) {
+            if (family_dup[len] == ' ')
+                family_dup[len] = 0;
+
+            if (!family_dup[len]) {
+                default_provider->funcs.match_fonts(default_provider->priv,
+                                                    priv->library, default_provider,
+                                                    family_dup);
+            }
+        }
+
+        free(family_dup);
 
         result = find_font(priv, meta, match_extended_family,
                            bold, style_flags, index, postscript_name, uid,
                            stream, code, &name_match);
-
-        if (result && name_match)
+        if (name_match)
             return result;
     }
 
