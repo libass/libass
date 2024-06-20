@@ -166,19 +166,9 @@ typedef struct font_provider_funcs {
 } ASS_FontProviderFuncs;
 
 /*
- * Basic font metadata. All strings must be encoded with UTF-8.
- * At minimum one family is required.
- * If no family names are present, ass_font_provider_add_font
- * will open the font file and read metadata from there,
- * replacing everything but extended_family.
+ * Basic font metadata. All fields are optional.
  */
 struct ass_font_provider_meta_data {
-    /**
-     * List of localized font family names,
-     * e.g. "Arial", "Arial Narrow" or "Arial Black".
-     */
-    char **families;
-
     /**
      * List of localized full names, e.g. "Arial Bold",
      * "Arial Narrow Bold", "Arial Black" or "Arial Black Normal".
@@ -200,18 +190,7 @@ struct ass_font_provider_meta_data {
      */
     char *extended_family;
 
-    int n_family;       // Number of localized family names
     int n_fullname;     // Number of localized full names
-
-    FT_Long style_flags; // Computed from OS/2 table, or equivalent
-    int weight;         // Font weight in TrueType scale, 100-900
-                        // See FONT_WEIGHT_*
-
-    /**
-     * Whether the font contains PostScript outlines.
-     * Unused if the font provider has a check_postscript function.
-     */
-    bool is_postscript;
 };
 
 struct ass_font_stream {
