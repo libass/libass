@@ -56,9 +56,7 @@ struct font_info {
     int uid;            // unique font face id
 
     char **families;    // family name
-    char **fullnames;   // list of localized fullnames (e.g. Arial Bold Italic)
     int n_family;
-    int n_fullname;
 
     FT_Long style_flags;
     int weight;           // TrueType scale, 100-900
@@ -77,9 +75,6 @@ struct font_info {
 
     // private data for callbacks
     void *priv;
-
-    // unused if the provider has a check_postscript function
-    bool is_postscript;
 };
 
 struct font_selector {
@@ -218,12 +213,6 @@ ass_font_provider_new(ASS_FontSelector *selector, ASS_FontProviderFuncs *funcs,
 static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
 {
     int j;
-
-    if (info->fullnames) {
-        for (j = 0; j < info->n_fullname; j++)
-            free(info->fullnames[j]);
-        free(info->fullnames);
-    }
 
     if (info->families) {
         for (j = 0; j < info->n_family; j++)
@@ -496,17 +485,6 @@ void ass_font_provider_free(ASS_FontProvider *provider)
     free(provider);
 }
 
-static bool check_postscript(ASS_FontInfo *fi)
-{
-    ASS_FontProvider *provider = fi->provider;
-    assert(provider);
-
-    if (provider->funcs.check_postscript)
-        return provider->funcs.check_postscript(fi->priv);
-    else
-        return fi->is_postscript;
-}
-
 /**
  * \brief Return whether the given font is in the given family.
  */
@@ -522,36 +500,6 @@ static bool matches_family_name(ASS_FontInfo *f, const char *family,
             return true;
     }
     return false;
-}
-
-/**
- * \brief Return whether the given font has the given fullname or
- * PostScript name depending on whether it has PostScript outlines.
- */
-static bool matches_full_or_postscript_name(ASS_FontInfo *f,
-                                            const char *fullname)
-{
-    bool matches_fullname = false;
-    bool matches_postscript_name = false;
-
-    for (int i = 0; i < f->n_fullname; i++) {
-        if (ass_strcasecmp(f->fullnames[i], fullname) == 0) {
-            matches_fullname = true;
-            break;
-        }
-    }
-
-    if (f->postscript_name != NULL &&
-        ass_strcasecmp(f->postscript_name, fullname) == 0)
-        matches_postscript_name = true;
-
-    if (matches_fullname == matches_postscript_name)
-        return matches_fullname;
-
-    if (check_postscript(f))
-        return matches_postscript_name;
-    else
-        return matches_fullname;
 }
 
 /**
@@ -651,12 +599,6 @@ find_font(ASS_FontSelector *priv,
                 // If there's a family match, compare font attributes
                 // to determine best match in that particular family
                 score = font_attributes_similarity(font, &req);
-                *name_match = true;
-            } else if (matches_full_or_postscript_name(font, fullname)) {
-                // If we don't have any match, compare fullnames against request
-                // if there is a match now, assign lowest score possible. This means
-                // the font should be chosen instantly, without further search.
-                score = 0;
                 *name_match = true;
             }
 
