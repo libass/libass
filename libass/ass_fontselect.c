@@ -401,9 +401,6 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     ASS_FontSelector *selector = provider->parent;
     FT_Face face;
 
-    if (provider->funcs.get_font_index)
-        index = provider->funcs.get_font_index(data);
-
     if (!path) {
         assert(provider->funcs.get_data);
         ASS_FontStream stream = {
@@ -640,12 +637,7 @@ find_font(ASS_FontSelector *priv,
         // successfully matched, set up return values
         *postscript_name = selected->postscript_name;
         *uid   = selected->uid;
-
-        // use lazy evaluation for index if applicable
-        if (provider->funcs.get_font_index) {
-            *index = provider->funcs.get_font_index(selected->priv);
-        } else
-            *index = selected->index;
+        *index = selected->index;
 
         // set up memory stream if there is no path
         if (selected->path == NULL) {
