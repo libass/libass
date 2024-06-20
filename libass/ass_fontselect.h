@@ -157,14 +157,12 @@ typedef char   *(*GetFallbackFunc)(void *priv,
 
 typedef struct font_provider_funcs {
     GetDataFunc         get_data;               /* optional/mandatory */
-    CheckPostscriptFunc check_postscript;       /* optional */
     CheckGlyphFunc      check_glyph;            /* mandatory */
     DestroyFontFunc     destroy_font;           /* mandatory */
     DestroyProviderFunc destroy_provider;       /* optional */
     MatchFontsFunc      match_fonts;            /* optional */
     SubstituteFontFunc  get_substitutions;      /* optional */
     GetFallbackFunc     get_fallback;           /* optional */
-    GetFontIndex        get_font_index;         /* optional */
 } ASS_FontProviderFuncs;
 
 /*
