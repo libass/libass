@@ -40,20 +40,6 @@ typedef struct fc_private {
     Cache *cache;
 } ProviderPrivate;
 
-static bool check_postscript(void *priv)
-{
-    FcPattern *pat = (FcPattern *)priv;
-    char *format;
-
-    FcResult result =
-        FcPatternGetString(pat, FC_FONTFORMAT, 0, (FcChar8 **)&format);
-    if (result != FcResultMatch)
-        return false;
-
-    return !strcmp(format, "Type 1") || !strcmp(format, "Type 42") ||
-           !strcmp(format, "CID Type 1") || !strcmp(format, "CFF");
-}
-
 static bool check_glyph(void *priv, uint32_t code)
 {
     FcPattern *pat = (FcPattern *)priv;
@@ -354,7 +340,6 @@ static void match_fonts(void *priv, ASS_Library *lib, ASS_FontProvider *provider
 }
 
 static ASS_FontProviderFuncs fontconfig_callbacks = {
-    .check_postscript   = check_postscript,
     .check_glyph        = check_glyph,
     .destroy_font       = destroy_font,
     .destroy_provider   = destroy,
