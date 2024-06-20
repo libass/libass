@@ -381,19 +381,6 @@ static bool check_postscript(void *data)
 }
 
 /*
- * Lazily return index of font. It requires the FontFace to be present, which is expensive to initialize.
- */
-static unsigned get_font_index(void *data)
-{
-    FontPrivate *priv = (FontPrivate *)data;
-
-    if (!init_font_private_face(priv))
-        return 0;
-
-    return IDWriteFontFace_GetIndex(priv->face);
-}
-
-/*
  * Check if the passed font has a specific unicode character.
  */
 static bool check_glyph(void *data, uint32_t code)
@@ -624,6 +611,8 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
         }
     }
 
+    int index = IDWriteFontFace_GetIndex(face);
+
     FontPrivate *font_priv = calloc(1, sizeof(*font_priv));
     if (!font_priv)
         goto cleanup;
@@ -635,7 +624,7 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
     font_priv->shared_hdc = hdc_retain(shared_hdc);
 #endif
 
-    ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
+    ass_font_provider_add_font(provider, &meta, NULL, index, font_priv);
 
 cleanup:
     free(meta.postscript_name);
@@ -1027,7 +1016,6 @@ static ASS_FontProviderFuncs directwrite_callbacks = {
     .match_fonts        = match_fonts,
     .get_substitutions  = get_substitutions,
     .get_fallback       = get_fallback,
-    .get_font_index     = get_font_index,
 };
 
 #if ASS_WINAPI_DESKTOP
