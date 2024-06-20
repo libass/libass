@@ -242,28 +242,46 @@ static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
 }
 
 /**
- * \brief Read basic metadata (names, weight, slant) from a FreeType face,
- * as required for the FontSelector for matching and sorting.
- * \param lib FreeType library
+ * \brief Ensure space is available for a new FontInfo struct to be inserted,
+ * and zero its contents.
+ * The new item is only actually considered inserted when n_font is incremented.
+ * \param selector font selector to insert into
+ * \return zeroed FontInfo pointer, or NULL if allocation failed
+ */
+static ASS_FontInfo *allocate_font_info(ASS_FontSelector *selector)
+{
+    // check size
+    if (selector->n_font >= selector->alloc_font) {
+        size_t new_alloc = FFMAX(1, 2 * selector->alloc_font);
+        ASS_FontInfo *new_infos = realloc(selector->font_infos, new_alloc * sizeof(ASS_FontInfo));
+        if (!new_infos)
+            return NULL;
+
+        selector->alloc_font = new_alloc;
+        selector->font_infos = new_infos;
+    }
+
+    ASS_FontInfo *info = selector->font_infos + selector->n_font;
+    memset(info, 0, sizeof(ASS_FontInfo));
+
+    return info;
+}
+
+/**
+ * \brief Initialize ASS_FontInfo with string metadata (names, path) from a FreeType face.
+ * \param info the FontInfo struct to set up
  * \param face FreeType face
  * \param fallback_family_name family name from outside source, used as last resort
- * \param info metadata, returned here
+ * \param path path to the font file, or NULL
  * \return success
  */
 static bool
-get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
-              ASS_FontProviderMetaData *info)
+init_font_info(ASS_FontInfo *info, FT_Face face, const char *fallback_family_name,
+               const char *path)
 {
-    int i;
-    int num_fullname = 0;
-    int num_family   = 0;
+    int i, j;
     int num_names = FT_Get_Sfnt_Name_Count(face);
-    char *fullnames[MAX_FULLNAME];
-    char *families[MAX_FULLNAME];
-
-    // we're only interested in outlines
-    if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
-        return false;
+    bool is_ps = ass_face_is_postscript(face);
 
     for (i = 0; i < num_names; i++) {
         FT_SfntName name;
@@ -272,102 +290,109 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
             continue;
 
         if (name.platform_id == TT_PLATFORM_MICROSOFT &&
-                (name.name_id == TT_NAME_ID_FULL_NAME ||
-                 name.name_id == TT_NAME_ID_FONT_FAMILY)) {
-            char buf[1024];
-            ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
-                                name.string_len);
-
-            if (name.name_id == TT_NAME_ID_FULL_NAME && num_fullname < MAX_FULLNAME) {
-                fullnames[num_fullname] = strdup(buf);
-                if (fullnames[num_fullname] == NULL)
-                    goto error;
-                num_fullname++;
-            }
-
-            if (name.name_id == TT_NAME_ID_FONT_FAMILY && num_family < MAX_FULLNAME) {
-                families[num_family] = strdup(buf);
-                if (families[num_family] == NULL)
-                    goto error;
-                num_family++;
-            }
-        }
-
+            (name.name_id == TT_NAME_ID_FONT_FAMILY ||
+             name.name_id == (is_ps ? TT_NAME_ID_PS_NAME : TT_NAME_ID_FULL_NAME)))
+            info->n_family++;
     }
 
-    // check if we got a valid family - if not, use
-    // whatever the font provider or FreeType gives us
-    if (num_family == 0 && (fallback_family_name || face->family_name)) {
-        families[0] =
-            strdup(fallback_family_name ? fallback_family_name : face->family_name);
-        if (families[0] == NULL)
+    if (info->n_family) {
+        info->families = calloc(info->n_family, sizeof(char*));
+        if (!info->families)
             goto error;
-        num_family++;
+    } else if (!fallback_family_name) {
+        goto error; // If we don't have any names at all, this is useless
     }
 
-    // we absolutely need a name
-    if (num_family == 0)
+    for (i = 0, j = 0; i < num_names && j < info->n_family; i++) {
+        FT_SfntName name;
+
+        if (FT_Get_Sfnt_Name(face, i, &name))
+            continue;
+
+        if (name.platform_id == TT_PLATFORM_MICROSOFT &&
+            (name.name_id == TT_NAME_ID_FONT_FAMILY ||
+             name.name_id == (is_ps ? TT_NAME_ID_PS_NAME : TT_NAME_ID_FULL_NAME))) {
+            size_t strsize = name.string_len * 3 + 1;
+            info->families[j] = malloc(strsize);
+            if (!info->families[j])
+                goto error;
+
+            ass_utf16be_to_utf8(info->families[j], strsize, (uint8_t *)name.string,
+                                name.string_len);
+            j++;
+        }
+    }
+
+    if (j != info->n_family)
         goto error;
 
-    // calculate sensible weight
-    info->weight = ass_face_get_weight(face);
-    info->style_flags = ass_face_get_style_flags(face);
+    if (fallback_family_name)
+        info->extended_family = strdup(fallback_family_name);
 
-    info->postscript_name = (char *)FT_Get_Postscript_Name(face);
-    info->is_postscript = ass_face_is_postscript(face);
-
-    if (num_family) {
-        info->families = calloc(num_family, sizeof(char *));
-        if (info->families == NULL)
+    if (path) {
+        info->path = strdup(path);
+        if (!info->path)
             goto error;
-        memcpy(info->families, &families, sizeof(char *) * num_family);
-        info->n_family = num_family;
-    }
-
-    if (num_fullname) {
-        info->fullnames = calloc(num_fullname, sizeof(char *));
-        if (info->fullnames == NULL)
-            goto error;
-        memcpy(info->fullnames, &fullnames, sizeof(char *) * num_fullname);
-        info->n_fullname = num_fullname;
     }
 
     return true;
 
 error:
-    for (i = 0; i < num_family; i++)
-        free(families[i]);
-
-    for (i = 0; i < num_fullname; i++)
-        free(fullnames[i]);
+    for (i = 0; i < info->n_family; i++)
+        free(info->families[i]);
 
     free(info->families);
-    free(info->fullnames);
-
-    info->families = info->fullnames = NULL;
-    info->n_family = info->n_fullname = 0;
+    free(info->extended_family);
+    free(info->path);
 
     return false;
 }
 
 /**
- * \brief Free the dynamically allocated fields of metadata
- * created by get_font_info.
- * \param meta metadata created by get_font_info
+ * \brief Read basic metadata (names, weight, slant) from a FreeType face
+ * and insert them into a provider's FontInfo list.
+ * \param provider the font provider
+ * \param face FreeType face
+ * \param fallback_family_name family name from outside source, used as last resort
+ * \param path path to the font file, or NULL
+ * \param data private data for the font
+ * \return success
  */
-static void free_font_info(ASS_FontProviderMetaData *meta)
+static bool
+insert_ft_font(ASS_FontProvider *provider, FT_Face face, const char *fallback_family_name,
+               const char *path, void *data)
 {
-    if (meta->families) {
-        for (int i = 0; i < meta->n_family; i++)
-            free(meta->families[i]);
-        free(meta->families);
-    }
+    bool success = false;
 
-    if (meta->fullnames) {
-        for (int i = 0; i < meta->n_fullname; i++)
-            free(meta->fullnames[i]);
-        free(meta->fullnames);
-    }
+    // we're only interested in outlines
+    if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
+        return false;
+
+    ASS_FontInfo *info = allocate_font_info(provider->parent);
+    if (!info)
+        goto cleanup;
+
+    if (!init_font_info(info, face, fallback_family_name, path))
+        goto cleanup;
+
+    // set non-allocated metadata
+    info->weight = ass_face_get_weight(face);
+    info->style_flags = ass_face_get_style_flags(face);
+    info->index = (face->face_index & 0xFFFF);
+    info->priv = data;
+    info->provider = provider;
+
+    // set uid
+    info->uid = provider->parent->uid++;
+    provider->parent->n_font++;
+
+    success = true;
+
+cleanup:
+    if (!success)
+        provider->funcs.destroy_font(data);
+
+    return success;
 }
 
 /**
@@ -384,148 +409,38 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
                            int index, void *data)
 {
-    int i;
     ASS_FontSelector *selector = provider->parent;
-    ASS_FontInfo *info = NULL;
-    ASS_FontProviderMetaData implicit_meta = {0};
+    FT_Face face;
 
-    if (!meta->n_family) {
-        FT_Face face;
-        if (provider->funcs.get_font_index)
-            index = provider->funcs.get_font_index(data);
-        if (!path) {
-            ASS_FontStream stream = {
-                .func = provider->funcs.get_data,
-                .priv = data,
-            };
-            // This name is only used in an error message, so use
-            // our best name but don't panic if we don't have any.
-            // Prefer PostScript name because it is unique.
-            const char *name = meta->postscript_name ?
-                meta->postscript_name : meta->extended_family;
-            face = ass_face_stream(selector->library, selector->ftlibrary,
-                                   name, &stream, index);
-        } else {
-            face = ass_face_open(selector->library, selector->ftlibrary,
-                                 path, meta->postscript_name, index);
-        }
-        if (!face)
-            goto error;
-        if (!get_font_info(selector->ftlibrary, face, meta->extended_family,
-                           &implicit_meta)) {
-            FT_Done_Face(face);
-            goto error;
-        }
-        if (implicit_meta.postscript_name) {
-            implicit_meta.postscript_name =
-                strdup(implicit_meta.postscript_name);
-            if (!implicit_meta.postscript_name) {
-                FT_Done_Face(face);
-                goto error;
-            }
-        }
-        FT_Done_Face(face);
-        implicit_meta.extended_family = meta->extended_family;
-        meta = &implicit_meta;
+    if (provider->funcs.get_font_index)
+        index = provider->funcs.get_font_index(data);
+
+    if (!path) {
+        assert(provider->funcs.get_data);
+        ASS_FontStream stream = {
+            .func = provider->funcs.get_data,
+            .priv = data,
+        };
+        // This name is only used in an error message, so use
+        // our best name but don't panic if we don't have any.
+        // Prefer PostScript name because it is unique.
+        const char *name = meta->postscript_name ?
+            meta->postscript_name : meta->extended_family;
+        face = ass_face_stream(selector->library, selector->ftlibrary,
+                               name, &stream, index);
+    } else {
+        face = ass_face_open(selector->library, selector->ftlibrary,
+                             path, meta->postscript_name, index);
     }
 
-#if 0
-    int j;
-    printf("new font:\n");
-    printf("  families: ");
-    for (j = 0; j < meta->n_family; j++)
-        printf("'%s' ", meta->families[j]);
-    printf("\n");
-    printf("  fullnames: ");
-    for (j = 0; j < meta->n_fullname; j++)
-        printf("'%s' ", meta->fullnames[j]);
-    printf("\n");
-    printf("  style_flags: %lx\n", meta->style_flags);
-    printf("  weight: %d\n", meta->weight);
-    printf("  path: %s\n", path);
-    printf("  index: %d\n", index);
-#endif
+    if (!face)
+        return false;
 
-    // check size
-    if (selector->n_font >= selector->alloc_font) {
-        selector->alloc_font = FFMAX(1, 2 * selector->alloc_font);
-        selector->font_infos = realloc(selector->font_infos,
-                selector->alloc_font * sizeof(ASS_FontInfo));
-    }
+    bool ret = insert_ft_font(provider, face, meta->extended_family, path, data);
 
-    // copy over metadata
-    info = selector->font_infos + selector->n_font;
-    memset(info, 0, sizeof(ASS_FontInfo));
+    FT_Done_Face(face);
 
-    // set uid
-    info->uid = selector->uid++;
-
-    info->style_flags   = meta->style_flags;
-    info->weight        = meta->weight;
-    info->n_fullname    = meta->n_fullname;
-    info->n_family      = meta->n_family;
-    info->is_postscript = meta->is_postscript;
-
-    info->families = calloc(meta->n_family, sizeof(char *));
-    if (info->families == NULL)
-        goto error;
-
-    if (meta->n_fullname) {
-        info->fullnames = calloc(meta->n_fullname, sizeof(char *));
-        if (info->fullnames == NULL)
-            goto error;
-    }
-
-    for (i = 0; i < info->n_family; i++) {
-        info->families[i] = strdup(meta->families[i]);
-        if (info->families[i] == NULL)
-            goto error;
-    }
-
-    for (i = 0; i < info->n_fullname; i++) {
-        info->fullnames[i] = strdup(meta->fullnames[i]);
-        if (info->fullnames[i] == NULL)
-            goto error;
-    }
-
-    if (meta->postscript_name) {
-        info->postscript_name = strdup(meta->postscript_name);
-        if (info->postscript_name == NULL)
-            goto error;
-    }
-
-    if (meta->extended_family) {
-        info->extended_family = strdup(meta->extended_family);
-        if (info->extended_family == NULL)
-            goto error;
-    }
-
-    if (path) {
-        info->path = strdup(path);
-        if (info->path == NULL)
-            goto error;
-    }
-
-    info->index = index;
-    info->priv  = data;
-    info->provider = provider;
-
-    selector->n_font++;
-
-    free_font_info(&implicit_meta);
-    free(implicit_meta.postscript_name);
-
-    return true;
-
-error:
-    if (info)
-        ass_font_provider_free_fontinfo(info);
-
-    free_font_info(&implicit_meta);
-    free(implicit_meta.postscript_name);
-    provider->funcs.destroy_font(data);
-
-    return false;
+    return ret;
 }
 
 /**
@@ -799,8 +714,10 @@ find_font(ASS_FontSelector *priv,
             // though.
             if (selected->postscript_name)
                 result = selected->postscript_name;
-            else
+            else if (selected->n_family)
                 result = selected->families[0];
+            else
+                result = selected->extended_family;
         } else
             result = selected->path;
 
@@ -981,7 +898,6 @@ static void process_fontdata(ASS_FontProvider *priv, int idx)
     int face_index, num_faces = 1;
 
     for (face_index = 0; face_index < num_faces; ++face_index) {
-        ASS_FontProviderMetaData info;
         FontDataFT *ft;
 
         rc = FT_New_Memory_Face(selector->ftlibrary, (unsigned char *) data,
@@ -996,18 +912,9 @@ static void process_fontdata(ASS_FontProvider *priv, int idx)
 
         ass_charmap_magic(library, face);
 
-        memset(&info, 0, sizeof(ASS_FontProviderMetaData));
-        if (!get_font_info(selector->ftlibrary, face, NULL, &info)) {
-            ass_msg(library, MSGL_WARN,
-                    "Error getting metadata for embedded font '%s'", name);
-            FT_Done_Face(face);
-            continue;
-        }
-
         ft = calloc(1, sizeof(FontDataFT));
 
         if (ft == NULL) {
-            free_font_info(&info);
             FT_Done_Face(face);
             continue;
         }
@@ -1016,13 +923,9 @@ static void process_fontdata(ASS_FontProvider *priv, int idx)
         ft->face = face;
         ft->idx  = idx;
 
-        if (!ass_font_provider_add_font(priv, &info, NULL, face_index, ft)) {
-            ass_msg(library, MSGL_WARN, "Failed to add embedded font '%s'",
-                    name);
-            free(ft);
+        if (!insert_ft_font(priv, face, NULL, NULL, ft)) {
+            ass_msg(library, MSGL_WARN, "Error loading embedded font '%s'", name);
         }
-
-        free_font_info(&info);
     }
 }
 
