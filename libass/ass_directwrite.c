@@ -253,6 +253,145 @@ static void init_FallbackLogTextRenderer(FallbackLogTextRenderer *r,
     };
 }
 
+typedef struct FallbackLogTextAnalysisSource {
+    IDWriteTextAnalysisSource iface;
+    IDWriteTextAnalysisSourceVtbl vtbl;
+    wchar_t* locale;
+    UINT locale_len;
+    wchar_t* text;
+    UINT text_len;
+    LONG ref_count;
+} FallbackLogTextAnalysisSource;
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextAnalysisSource_GetTextAtPosition(
+    IDWriteTextAnalysisSource* This,
+    UINT32 textPosition,
+    WCHAR const** textString,
+    UINT32* textLength
+    )
+{
+    FallbackLogTextAnalysisSource* this = (FallbackLogTextAnalysisSource*)This;
+    if (textPosition >= this->text_len) {
+        *textString = NULL;
+        *textLength = 0;
+    } else {
+        *textString = &this->text[textPosition];
+        *textLength = this->text_len - textPosition;
+    }
+    return S_OK;
+}
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextAnalysisSource_GetTextBeforePosition(
+    IDWriteTextAnalysisSource* This,
+    UINT32 textPosition,
+    WCHAR const** textString,
+    UINT32* textLength
+    )
+{
+    return E_NOTIMPL;
+}
+
+static DWRITE_READING_DIRECTION STDMETHODCALLTYPE FallbackLogTextAnalysisSource_GetParagraphReadingDirection(
+    IDWriteTextAnalysisSource *This)
+{
+    // The return change nothing about the font fallback
+    return DWRITE_READING_DIRECTION_LEFT_TO_RIGHT;
+}
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextAnalysisSource_GetLocaleName(
+    IDWriteTextAnalysisSource *This,
+    UINT32 textPosition,
+    UINT32* textLength,
+    WCHAR const** localeName
+    )
+{
+    FallbackLogTextAnalysisSource *this = (FallbackLogTextAnalysisSource *)This;
+
+    *localeName = this->locale;
+    *textLength = this->locale_len;
+    return S_OK;
+}
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextAnalysisSource_GetNumberSubstitution(
+    IDWriteTextAnalysisSource *This,
+    UINT32 textPosition,
+    UINT32* textLength,
+    IDWriteNumberSubstitution** numberSubstitution
+    )
+{
+    return E_NOTIMPL;
+}
+
+// IUnknown methods
+
+static ULONG STDMETHODCALLTYPE FallbackLogTextAnalysisSource_AddRef(
+    IDWriteTextAnalysisSource *This
+    )
+{
+    FallbackLogTextAnalysisSource *this = (FallbackLogTextAnalysisSource *)This;
+    return InterlockedIncrement(&this->ref_count);
+}
+
+static ULONG STDMETHODCALLTYPE FallbackLogTextAnalysisSource_Release(
+    IDWriteTextAnalysisSource *This
+    )
+{
+    FallbackLogTextAnalysisSource *this = (FallbackLogTextAnalysisSource *)This;
+    unsigned long new_count = InterlockedDecrement(&this->ref_count);
+    if (new_count == 0) {
+        free(this);
+        return 0;
+    }
+
+    return new_count;
+}
+
+static HRESULT STDMETHODCALLTYPE FallbackLogTextAnalysisSource_QueryInterface(
+    IDWriteTextAnalysisSource *This,
+    REFIID riid,
+    void **ppvObject
+    )
+{
+    if (IsEqualGUID(riid, &IID_IDWriteTextAnalysisSource)
+        || IsEqualGUID(riid, &IID_IUnknown)) {
+        *ppvObject = This;
+    } else {
+        *ppvObject = NULL;
+        return E_FAIL;
+    }
+
+    This->lpVtbl->AddRef(This);
+    return S_OK;
+}
+
+static void init_FallbackLogTextAnalysisSource(FallbackLogTextAnalysisSource *a,
+    wchar_t* text,
+    UINT text_len,
+    wchar_t* locale,
+    UINT locale_len
+    )
+{
+    *a = (FallbackLogTextAnalysisSource) {
+        .iface = {
+            .lpVtbl = &a->vtbl,
+        },
+        .vtbl = {
+            FallbackLogTextAnalysisSource_QueryInterface,
+            FallbackLogTextAnalysisSource_AddRef,
+            FallbackLogTextAnalysisSource_Release,
+            FallbackLogTextAnalysisSource_GetTextAtPosition,
+            FallbackLogTextAnalysisSource_GetTextBeforePosition,
+            FallbackLogTextAnalysisSource_GetParagraphReadingDirection,
+            FallbackLogTextAnalysisSource_GetLocaleName,
+            FallbackLogTextAnalysisSource_GetNumberSubstitution,
+        },
+        .text = text,
+        .text_len = text_len,
+        .locale = locale,
+        .locale_len = locale_len,
+    };
+}
+
 /*
  * This function is called whenever a font is accessed for the
  * first time. It will create a FontFace for metadata access and
@@ -510,56 +649,98 @@ static char *get_fallback(void *priv, ASS_Library *lib,
                           const char *base, uint32_t codepoint)
 {
     HRESULT hr;
+    BOOL exists = FALSE;
     ProviderPrivate *provider_priv = (ProviderPrivate *)priv;
     IDWriteFactory *dw_factory = provider_priv->factory;
-    IDWriteTextFormat *text_format = NULL;
-    IDWriteTextLayout *text_layout = NULL;
-    FallbackLogTextRenderer renderer;
-
-    init_FallbackLogTextRenderer(&renderer, dw_factory);
-
-    hr = IDWriteFactory_CreateTextFormat(dw_factory, FALLBACK_DEFAULT_FONT, NULL,
-            DWRITE_FONT_WEIGHT_MEDIUM, DWRITE_FONT_STYLE_NORMAL,
-            DWRITE_FONT_STRETCH_NORMAL, 1.0f, L"", &text_format);
-    if (FAILED(hr)) {
-        return NULL;
-    }
+    IDWriteFont *font = NULL;
 
     // Encode codepoint as UTF-16
     wchar_t char_string[2];
     int char_len = encode_utf16(char_string, codepoint);
 
-    // Create a text_layout, a high-level text rendering facility, using
-    // the given codepoint and dummy format.
-    hr = IDWriteFactory_CreateTextLayout(dw_factory, char_string, char_len, text_format,
-        0.0f, 0.0f, &text_layout);
-    if (FAILED(hr)) {
-        IDWriteTextFormat_Release(text_format);
-        return NULL;
-    }
+    IDWriteFactory2 *factory2;
+    hr = IDWriteFactory_QueryInterface(dw_factory,
+                                       &IID_IDWriteFactory2, (void **) &factory2);
 
-    // Draw the layout with a dummy renderer, which logs the
-    // font used and stores it.
-    IDWriteFont *font = NULL;
-    hr = IDWriteTextLayout_Draw(text_layout, &font, &renderer.iface, 0.0f, 0.0f);
-    if (FAILED(hr) || font == NULL) {
+    if (SUCCEEDED(hr) && factory2) {
+        IDWriteFontFallback *fontFallback = NULL;
+        FallbackLogTextAnalysisSource analysisSource;
+        UINT32 mappedLength;
+        FLOAT scale;
+
+        init_FallbackLogTextAnalysisSource(&analysisSource, char_string, char_len, L"", 0);
+
+        hr = IDWriteFactory2_GetSystemFontFallback(factory2, &fontFallback);
+        if (FAILED(hr)) {
+            IDWriteFactory2_Release(factory2);
+            return NULL;
+        }
+
+        hr = IDWriteFontFallback_MapCharacters(
+            fontFallback,
+            &analysisSource.iface,
+            0,
+            char_len,
+            NULL,
+            FALLBACK_DEFAULT_FONT,
+            DWRITE_FONT_WEIGHT_MEDIUM,
+            DWRITE_FONT_STYLE_NORMAL,
+            DWRITE_FONT_STRETCH_NORMAL,
+            &mappedLength,
+            &font,
+            &scale
+        );
+
+        IDWriteFontFallback_Release(fontFallback);
+        IDWriteFactory2_Release(factory2);
+
+        if (FAILED(hr) || !font) {
+            return NULL;
+        }
+    } else {
+        IDWriteTextFormat *text_format = NULL;
+        IDWriteTextLayout *text_layout = NULL;
+        FallbackLogTextRenderer renderer;
+
+        init_FallbackLogTextRenderer(&renderer, dw_factory);
+
+        hr = IDWriteFactory_CreateTextFormat(dw_factory, FALLBACK_DEFAULT_FONT, NULL,
+                DWRITE_FONT_WEIGHT_MEDIUM, DWRITE_FONT_STYLE_NORMAL,
+                DWRITE_FONT_STRETCH_NORMAL, 1.0f, L"", &text_format);
+        if (FAILED(hr)) {
+            return NULL;
+        }
+
+        // Create a text_layout, a high-level text rendering facility, using
+        // the given codepoint and dummy format.
+        hr = IDWriteFactory_CreateTextLayout(dw_factory, char_string, char_len, text_format,
+            0.0f, 0.0f, &text_layout);
+        if (FAILED(hr)) {
+            IDWriteTextFormat_Release(text_format);
+            return NULL;
+        }
+
+        // Draw the layout with a dummy renderer, which logs the
+        // font used and stores it.
+        hr = IDWriteTextLayout_Draw(text_layout, &font, &renderer.iface, 0.0f, 0.0f);
+        if (FAILED(hr) || font == NULL) {
+            IDWriteTextLayout_Release(text_layout);
+            IDWriteTextFormat_Release(text_format);
+            return NULL;
+        }
+
+        // We're done with these now
         IDWriteTextLayout_Release(text_layout);
         IDWriteTextFormat_Release(text_format);
-        return NULL;
-    }
 
-    // We're done with these now
-    IDWriteTextLayout_Release(text_layout);
-    IDWriteTextFormat_Release(text_format);
-
-    // DirectWrite may not have found a valid fallback, so check that
-    // the selected font actually has the requested glyph.
-    BOOL exists = FALSE;
-    if (codepoint > 0) {
-        hr = IDWriteFont_HasCharacter(font, codepoint, &exists);
-        if (FAILED(hr) || !exists) {
-            IDWriteFont_Release(font);
-            return NULL;
+        // DirectWrite may not have found a valid fallback, so check that
+        // the selected font actually has the requested glyph.
+        if (codepoint > 0) {
+            hr = IDWriteFont_HasCharacter(font, codepoint, &exists);
+            if (FAILED(hr) || !exists) {
+                IDWriteFont_Release(font);
+                return NULL;
+            }
         }
     }
 
