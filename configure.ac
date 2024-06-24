@@ -53,6 +53,13 @@ FUZZ_CPPFLAGS="${FUZZ_CPPFLAGS:--DASS_FUZZMODE=0}"
 # Checks for flags support
 AX_APPEND_COMPILE_FLAGS([-fno-math-errno])
 
+# Enable some warnings
+AX_APPEND_COMPILE_FLAGS([ \
+    -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes \
+    -Wpointer-arith -Werror-implicit-function-declaration -Wredundant-decls \
+    -Wno-missing-field-initializers \
+])
+
 # Checks for available libraries and define corresponding C Macros
 # Start with system libs, then check everything else via pkg-config
 AS_IF([test "x$ac_cv_header_iconv_h" = xyes], [
