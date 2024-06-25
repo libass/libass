@@ -30,10 +30,6 @@
 
 #include "ass_coretext.h"
 
-#ifndef __has_builtin
-#define __has_builtin 0
-#endif
-
 #if __has_builtin(__builtin_available)
 #define CHECK_AVAILABLE(sym, ...) __builtin_available(__VA_ARGS__)
 #else
