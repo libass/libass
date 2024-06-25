@@ -17,6 +17,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+// We have some asserts on highly-contended atomics in here,
+// so they're disabled if not requested
+#if !defined(DEBUG) && !defined(NDEBUG)
+#define NDEBUG 1
+#endif
+
 #include "config.h"
 #include "ass_compat.h"
 
@@ -29,6 +35,7 @@
 #include "ass_font.h"
 #include "ass_outline.h"
 #include "ass_cache.h"
+#include "ass_threading.h"
 
 // Always enable native-endian mode, since we don't care about cross-platform consistency of the hash
 #define WYHASH_LITTLE_ENDIAN 1
@@ -61,7 +68,13 @@ static bool font_key_move(void *dst, void *src)
     return d->family.str;
 }
 
-static void font_destruct(void *key, void *value)
+static void font_key_destruct(void *k)
+{
+    ASS_FontDesc *key = k;
+    free((void *) key->family.str);
+}
+
+static void font_destruct(void *value)
 {
     ass_font_clear(value);
 }
@@ -72,8 +85,9 @@ const CacheDesc font_cache_desc = {
     .hash_func = font_hash,
     .compare_func = font_compare,
     .key_move_func = font_key_move,
+    .key_destruct_func = font_key_destruct,
     .construct_func = ass_font_construct,
-    .destruct_func = font_destruct,
+    .value_destruct_func = font_destruct,
     .key_size = sizeof(ASS_FontDesc),
     .value_size = sizeof(ASS_Font)
 };
@@ -90,11 +104,15 @@ static bool bitmap_key_move(void *dst, void *src)
     return true;
 }
 
-static void bitmap_destruct(void *key, void *value)
+static void bitmap_key_destruct(void *key)
 {
     BitmapHashKey *k = key;
-    ass_free_bitmap(value);
     ass_cache_dec_ref(k->outline);
+}
+
+static void bitmap_destruct(void *value)
+{
+    ass_free_bitmap(value);
 }
 
 size_t ass_bitmap_construct(void *key, void *value, void *priv);
@@ -103,8 +121,9 @@ const CacheDesc bitmap_cache_desc = {
     .hash_func = bitmap_hash,
     .compare_func = bitmap_compare,
     .key_move_func = bitmap_key_move,
+    .key_destruct_func = bitmap_key_destruct,
     .construct_func = ass_bitmap_construct,
-    .destruct_func = bitmap_destruct,
+    .value_destruct_func = bitmap_destruct,
     .key_size = sizeof(BitmapHashKey),
     .value_size = sizeof(Bitmap)
 };
@@ -150,18 +169,22 @@ static bool composite_key_move(void *dst, void *src)
     return true;
 }
 
-static void composite_destruct(void *key, void *value)
+static void composite_key_destruct(void *key)
 {
-    CompositeHashValue *v = value;
     CompositeHashKey *k = key;
-    ass_free_bitmap(&v->bm);
-    ass_free_bitmap(&v->bm_o);
-    ass_free_bitmap(&v->bm_s);
     for (size_t i = 0; i < k->bitmap_count; i++) {
         ass_cache_dec_ref(k->bitmaps[i].bm);
         ass_cache_dec_ref(k->bitmaps[i].bm_o);
     }
     free(k->bitmaps);
+}
+
+static void composite_destruct(void *value)
+{
+    CompositeHashValue *v = value;
+    ass_free_bitmap(&v->bm);
+    ass_free_bitmap(&v->bm_o);
+    ass_free_bitmap(&v->bm_s);
 }
 
 size_t ass_composite_construct(void *key, void *value, void *priv);
@@ -170,8 +193,9 @@ const CacheDesc composite_cache_desc = {
     .hash_func = composite_hash,
     .compare_func = composite_compare,
     .key_move_func = composite_key_move,
+    .key_destruct_func = composite_key_destruct,
     .construct_func = ass_composite_construct,
-    .destruct_func = composite_destruct,
+    .value_destruct_func = composite_destruct,
     .key_size = sizeof(CompositeHashKey),
     .value_size = sizeof(CompositeHashValue)
 };
@@ -229,12 +253,9 @@ static bool outline_key_move(void *dst, void *src)
     return true;
 }
 
-static void outline_destruct(void *key, void *value)
+static void outline_key_destruct(void *key)
 {
-    OutlineHashValue *v = value;
     OutlineHashKey *k = key;
-    ass_outline_free(&v->outline[0]);
-    ass_outline_free(&v->outline[1]);
     switch (k->type) {
     case OUTLINE_GLYPH:
         ass_cache_dec_ref(k->u.glyph.font);
@@ -250,6 +271,13 @@ static void outline_destruct(void *key, void *value)
     }
 }
 
+static void outline_destruct(void *value)
+{
+    OutlineHashValue *v = value;
+    ass_outline_free(&v->outline[0]);
+    ass_outline_free(&v->outline[1]);
+}
+
 size_t ass_outline_construct(void *key, void *value, void *priv);
 
 const CacheDesc outline_cache_desc = {
@@ -257,7 +285,8 @@ const CacheDesc outline_cache_desc = {
     .compare_func = outline_compare,
     .key_move_func = outline_key_move,
     .construct_func = ass_outline_construct,
-    .destruct_func = outline_destruct,
+    .key_destruct_func = outline_key_destruct,
+    .value_destruct_func = outline_destruct,
     .key_size = sizeof(OutlineHashKey),
     .value_size = sizeof(OutlineHashValue)
 };
@@ -275,7 +304,7 @@ static bool face_size_metrics_key_move(void *dst, void *src)
     return true;
 }
 
-static void face_size_metrics_destruct(void *key, void *value)
+static void face_size_metrics_key_destruct(void *key)
 {
     FaceSizeMetricsHashKey *k = key;
     ass_cache_dec_ref(k->font);
@@ -287,8 +316,8 @@ const CacheDesc face_size_metrics_cache_desc = {
     .hash_func = face_size_metrics_hash,
     .compare_func = face_size_metrics_compare,
     .key_move_func = face_size_metrics_key_move,
+    .key_destruct_func = face_size_metrics_key_destruct,
     .construct_func = ass_face_size_metrics_construct,
-    .destruct_func = face_size_metrics_destruct,
     .key_size = sizeof(FaceSizeMetricsHashKey),
     .value_size = sizeof(FT_Size_Metrics)
 };
@@ -306,7 +335,7 @@ static bool glyph_metrics_key_move(void *dst, void *src)
     return true;
 }
 
-static void glyph_metrics_destruct(void *key, void *value)
+static void glyph_metrics_key_destruct(void *key)
 {
     GlyphMetricsHashKey *k = key;
     ass_cache_dec_ref(k->font);
@@ -318,8 +347,8 @@ const CacheDesc glyph_metrics_cache_desc = {
     .hash_func = glyph_metrics_hash,
     .compare_func = glyph_metrics_compare,
     .key_move_func = glyph_metrics_key_move,
+    .key_destruct_func = glyph_metrics_key_destruct,
     .construct_func = ass_glyph_metrics_construct,
-    .destruct_func = glyph_metrics_destruct,
     .key_size = sizeof(GlyphMetricsHashKey),
     .value_size = sizeof(FT_Glyph_Metrics)
 };
@@ -330,19 +359,40 @@ const CacheDesc glyph_metrics_cache_desc = {
 typedef struct cache_item {
     Cache *cache;
     const CacheDesc *desc;
-    struct cache_item *next, **prev;
+    struct cache_item *_Atomic next, *_Atomic *prev;
     struct cache_item *queue_next, **queue_prev;
-    size_t size, ref_count;
+    struct cache_item *promote_next;
+    _Atomic AtomicInt size, ref_count;
+    ass_hashcode hash;
+
+    _Atomic AtomicInt last_used_frame;
+
+#if ENABLE_THREADS
+    struct cache_client *creating_client;
+#endif
 } CacheItem;
 
 struct cache {
     unsigned buckets;
-    CacheItem **map;
+    CacheItem *_Atomic *map;
     CacheItem *queue_first, **queue_last;
 
     const CacheDesc *desc;
 
-    size_t cache_size;
+    _Atomic AtomicInt cache_size;
+
+    uintptr_t cur_frame;
+};
+
+struct cache_client {
+    CacheItem *promote_first;
+
+    struct cache_client *next;
+
+#if ENABLE_THREADS
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+#endif
 };
 
 #define CACHE_ALIGN 8
@@ -374,70 +424,216 @@ Cache *ass_cache_create(const CacheDesc *desc)
         return NULL;
     }
 
+#if ENABLE_THREADS
+    for (size_t i = 0; i < cache->buckets; i++)
+        atomic_init(&cache->map[i], NULL);
+
+    atomic_init(&cache->cache_size, 0);
+#endif
+
     return cache;
+}
+
+bool ass_cache_client_set_init(CacheClientSet *set)
+{
+    memset(set, 0, sizeof(*set));
+
+#if ENABLE_THREADS
+    if (pthread_mutex_init(&set->mutex, NULL) != 0)
+        return false;
+#endif
+
+    return true;
+}
+
+static void cache_client_done(CacheClient *client)
+{
+#if ENABLE_THREADS
+    pthread_mutex_destroy(&client->mutex);
+    pthread_cond_destroy(&client->cond);
+#endif
+
+    free(client);
+}
+
+void ass_cache_client_set_clear(CacheClientSet *set)
+{
+    CacheClient *client = set->first_client;
+
+    while (client) {
+        CacheClient *next = client->next;
+        cache_client_done(client);
+        client = next;
+    }
+
+    set->first_client = NULL;
+}
+
+void ass_cache_client_set_done(CacheClientSet *set)
+{
+    ass_cache_client_set_clear(set);
+
+#if ENABLE_THREADS
+    pthread_mutex_destroy(&set->mutex);
+#endif
+}
+
+CacheClient *ass_cache_client_create(CacheClientSet *set)
+{
+    CacheClient *client = NULL;
+
+    client = calloc(1, sizeof(*client));
+    if (!client)
+        return NULL;
+
+#if ENABLE_THREADS
+    if (pthread_mutex_init(&client->mutex, NULL) != 0) {
+        free(client);
+        return NULL;
+    }
+
+    if (pthread_cond_init(&client->cond, NULL) != 0) {
+        pthread_cond_destroy(&client->cond);
+        free(client);
+        return NULL;
+    }
+
+    pthread_mutex_lock(&set->mutex);
+#endif
+
+    client->next = set->first_client;
+    set->first_client = client;
+
+#if ENABLE_THREADS
+    pthread_mutex_unlock(&set->mutex);
+#endif
+
+    return client;
 }
 
 // Retrieve a value corresponding to a particular cache key,
 // creating one if it does not already exist.
 // The returned item is guaranteed to be valid until the next ass_cache_cut call;
 // to extend its lifetime further, call ass_cache_inc_ref().
-void *ass_cache_get(Cache *cache, void *key, void *priv)
+void *ass_cache_get(Cache *cache, CacheClient *client, void *key, void *priv)
 {
     const CacheDesc *desc = cache->desc;
     size_t key_offs = CACHE_ITEM_SIZE + align_cache(desc->value_size);
-    unsigned bucket = desc->hash_func(key, ASS_HASH_INIT) % cache->buckets;
-    CacheItem *item = cache->map[bucket];
-    while (item) {
-        if (desc->compare_func(key, (char *) item + key_offs)) {
-            assert(item->size);
-            if (!item->queue_prev || item->queue_next) {
-                if (item->queue_prev) {
-                    item->queue_next->queue_prev = item->queue_prev;
-                    *item->queue_prev = item->queue_next;
-                } else
-                    item->ref_count++;
-                *cache->queue_last = item;
-                item->queue_prev = cache->queue_last;
-                cache->queue_last = &item->queue_next;
-                item->queue_next = NULL;
+    ass_hashcode hash = desc->hash_func(key, ASS_HASH_INIT);
+    unsigned bucket = hash % cache->buckets;
+
+    CacheItem *_Atomic *bucketptr = &cache->map[bucket];
+    CacheItem *stop_at = NULL;
+    CacheItem *item, *new_item = NULL;
+    void *new_key = NULL;
+    CacheItem *start = atomic_load_explicit(bucketptr, memory_order_acquire);
+
+retry:
+    for (item = start; item && item != stop_at; item = atomic_load_explicit(&item->next, memory_order_acquire)) {
+        if (item->hash == hash && desc->compare_func(key, (char *)item + key_offs))
+            break;
+    }
+
+    if (item != NULL && item != stop_at) {
+        if (atomic_load_explicit(&item->last_used_frame, memory_order_consume) != cache->cur_frame) {
+            uintptr_t last_used = atomic_exchange_explicit(&item->last_used_frame, cache->cur_frame, memory_order_consume);
+
+            if (last_used != cache->cur_frame) {
+                item->promote_next = client->promote_first;
+                client->promote_first = item;
             }
-            desc->key_move_func(NULL, key);
-
-            return (char *) item + CACHE_ITEM_SIZE;
         }
-        item = item->next;
+
+        if (new_item) {
+            if (desc->key_destruct_func)
+                desc->key_destruct_func(key);
+        } else {
+            desc->key_move_func(NULL, key);
+        }
+
+#if ENABLE_THREADS
+        if (!atomic_load_explicit(&item->size, memory_order_acquire)) {
+            pthread_mutex_lock(&item->creating_client->mutex);
+
+            while (!atomic_load_explicit(&item->size, memory_order_relaxed))
+                pthread_cond_wait(&item->creating_client->cond, &item->creating_client->mutex);
+
+            pthread_mutex_unlock(&item->creating_client->mutex);
+        }
+
+        if (new_item) {
+            free(new_item);
+        }
+#endif
+
+        return (char *) item + CACHE_ITEM_SIZE;
     }
 
-    item = malloc(key_offs + desc->key_size);
-    if (!item) {
-        desc->key_move_func(NULL, key);
-        return NULL;
+    stop_at = start;
+
+    if (!new_item) {
+        // Risk of cache miss. Set up a new item to insert if we win the race.
+        new_item = malloc(key_offs + desc->key_size);
+        if (!new_item) {
+        fail_item:
+            desc->key_move_func(NULL, key);
+            return NULL;
+        }
+
+        new_key = (char *) new_item + key_offs;
+        if (!desc->key_move_func(new_key, key)) {
+            free(new_item);
+            goto fail_item;
+        }
+
+        key = new_key;
+
+        new_item->cache = cache;
+        new_item->desc = desc;
+        atomic_init(&new_item->size, 0);
+        new_item->hash = hash;
+        atomic_init(&new_item->last_used_frame, cache->cur_frame);
+        atomic_init(&new_item->ref_count, 1);
+        atomic_init(&new_item->next, NULL);
+        new_item->queue_next = NULL;
+        new_item->queue_prev = NULL;
+#if ENABLE_THREADS
+        new_item->creating_client = client;
+#endif
     }
-    item->cache = cache;
-    item->desc = desc;
-    void *new_key = (char *) item + key_offs;
-    if (!desc->key_move_func(new_key, key)) {
-        free(item);
-        return NULL;
-    }
+
+    atomic_store_explicit(&new_item->next, start, memory_order_release);
+    new_item->prev = bucketptr;
+
+    if (!atomic_compare_exchange_weak_explicit(bucketptr, &start, new_item, memory_order_acq_rel, memory_order_acquire))
+        goto retry;
+
+    // We won the race; finish inserting our new item
+    if (start)
+        start->prev = &new_item->next;
+
+    item = new_item;
+
+    item->promote_next = client->promote_first;
+    client->promote_first = item;
+
     void *value = (char *) item + CACHE_ITEM_SIZE;
-    item->size = desc->construct_func(new_key, value, priv);
-    assert(item->size);
+    size_t size = desc->construct_func(new_key, value, priv);
+    assert(size);
 
-    CacheItem **bucketptr = &cache->map[bucket];
-    if (*bucketptr)
-        (*bucketptr)->prev = &item->next;
-    item->prev = bucketptr;
-    item->next = *bucketptr;
-    *bucketptr = item;
+    atomic_fetch_add_explicit(&cache->cache_size, size + (size == 1 ? 0 : CACHE_ITEM_SIZE), memory_order_relaxed);
 
-    *cache->queue_last = item;
-    item->queue_prev = cache->queue_last;
-    cache->queue_last = &item->queue_next;
-    item->queue_next = NULL;
-    item->ref_count = 1;
+#if ENABLE_THREADS
+    pthread_mutex_lock(&client->mutex);
+#endif
 
-    cache->cache_size += item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
+    atomic_store_explicit(&item->size, size, memory_order_release);
+
+#if ENABLE_THREADS
+    pthread_mutex_unlock(&client->mutex);
+    pthread_cond_broadcast(&client->cond);
+#endif
+
     return value;
 }
 
@@ -450,8 +646,12 @@ void *ass_cache_key(void *value)
 static inline void destroy_item(const CacheDesc *desc, CacheItem *item)
 {
     assert(item->desc == desc);
+    assert(!item->next && !item->prev);
     char *value = (char *) item + CACHE_ITEM_SIZE;
-    desc->destruct_func(value + align_cache(desc->value_size), value);
+    if (desc->key_destruct_func)
+        desc->key_destruct_func(value + align_cache(desc->value_size));
+    if (desc->value_destruct_func)
+        desc->value_destruct_func(value);
     free(item);
 }
 
@@ -461,7 +661,14 @@ void ass_cache_inc_ref(void *value)
         return;
     CacheItem *item = value_to_item(value);
     assert(item->size && item->ref_count);
-    item->ref_count++;
+    inc_ref(&item->ref_count);
+}
+
+static void dec_ref_item(CacheItem *item)
+{
+    assert(item->size && item->ref_count);
+    if (dec_ref(&item->ref_count) == 0)
+        destroy_item(item->desc, item);
 }
 
 void ass_cache_dec_ref(void *value)
@@ -469,72 +676,100 @@ void ass_cache_dec_ref(void *value)
     if (!value)
         return;
     CacheItem *item = value_to_item(value);
-    assert(item->size && item->ref_count);
-    if (--item->ref_count)
-        return;
+    dec_ref_item(item);
+}
 
-    Cache *cache = item->cache;
-    if (cache) {
-        if (item->next)
-            item->next->prev = item->prev;
-        *item->prev = item->next;
+void ass_cache_promote(CacheClientSet *set)
+{
+    for (CacheClient *client = set->first_client; client; client = client->next) {
+        while (client->promote_first) {
+            CacheItem *item = client->promote_first;
 
-        cache->cache_size -= item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
+            if (item->queue_prev)
+                *item->queue_prev = item->queue_next;
+            if (item->queue_next)
+                item->queue_next->queue_prev = item->queue_prev;
+            item->queue_next = NULL;
+
+            item->queue_prev = item->cache->queue_last;
+            *item->cache->queue_last = item;
+            item->cache->queue_last = &item->queue_next;
+
+            client->promote_first = item->promote_next;
+            item->promote_next = NULL;
+        }
     }
-    destroy_item(item->desc, item);
 }
 
 void ass_cache_cut(Cache *cache, size_t max_size)
 {
-    if (cache->cache_size <= max_size)
-        return;
-
-    do {
+    while (atomic_load_explicit(&cache->cache_size, memory_order_relaxed) > max_size && cache->queue_first) {
         CacheItem *item = cache->queue_first;
-        if (!item)
-            break;
         assert(item->size);
 
-        cache->queue_first = item->queue_next;
-        if (--item->ref_count) {
-            item->queue_prev = NULL;
-            continue;
+        if (atomic_load_explicit(&item->last_used_frame, memory_order_relaxed) == cache->cur_frame) {
+            // everything after this must have been last used this frame
+            break;
         }
 
-        if (item->next)
-            item->next->prev = item->prev;
-        *item->prev = item->next;
+        if (item->queue_next) {
+            item->queue_next->queue_prev = item->queue_prev;
+            *item->queue_prev = item->queue_next;
+        } else {
+            cache->queue_last = item->queue_prev;
+        }
 
-        cache->cache_size -= item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
-        destroy_item(cache->desc, item);
-    } while (cache->cache_size > max_size);
-    if (cache->queue_first)
-        cache->queue_first->queue_prev = &cache->queue_first;
-    else
-        cache->queue_last = &cache->queue_first;
+        cache->queue_first = item->queue_next;
+
+        CacheItem *item_next = atomic_load_explicit(&item->next, memory_order_relaxed);
+        if (item_next)
+            item_next->prev = item->prev;
+        atomic_store_explicit(item->prev, item_next, memory_order_relaxed);
+
+        atomic_store_explicit(&item->next, NULL, memory_order_relaxed);
+        item->prev = NULL;
+        item->queue_prev = NULL;
+        item->queue_next = NULL;
+        assert(!item->promote_next);
+
+        uintptr_t item_size = atomic_load_explicit(&item->size, memory_order_relaxed);
+        atomic_fetch_sub_explicit(&cache->cache_size, item_size + (item_size == 1 ? 0 : CACHE_ITEM_SIZE), memory_order_relaxed);
+
+        dec_ref_item(item);
+    }
+
+    cache->cur_frame++;
 }
 
 void ass_cache_empty(Cache *cache)
 {
     for (int i = 0; i < cache->buckets; i++) {
-        CacheItem *item = cache->map[i];
+        CacheItem *item = atomic_load_explicit(&cache->map[i], memory_order_relaxed);
         while (item) {
             assert(item->size);
-            CacheItem *next = item->next;
-            if (item->queue_prev)
-                item->ref_count--;
-            if (item->ref_count)
-                item->cache = NULL;
-            else
-                destroy_item(cache->desc, item);
+            CacheItem *next = atomic_load_explicit(&item->next, memory_order_relaxed);
+
+            atomic_store_explicit(&item->next, NULL, memory_order_relaxed);
+            item->prev = NULL;
+            item->queue_prev = NULL;
+            item->queue_next = NULL;
+            item->promote_next = NULL;
+
+            uintptr_t item_size = atomic_load_explicit(&item->size, memory_order_relaxed);
+            atomic_fetch_sub_explicit(&cache->cache_size, item_size + (item_size == 1 ? 0 : CACHE_ITEM_SIZE), memory_order_relaxed);
+
+            dec_ref_item(item);
+
             item = next;
         }
-        cache->map[i] = NULL;
+        atomic_store_explicit(&cache->map[i], NULL, memory_order_release);
     }
+
+    assert(!cache->cache_size);
 
     cache->queue_first = NULL;
     cache->queue_last = &cache->queue_first;
-    cache->cache_size = 0;
+    atomic_store_explicit(&cache->cache_size, 0, memory_order_release);
 }
 
 void ass_cache_done(Cache *cache)

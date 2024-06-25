@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -I$(top_srcdir)/libass
-AM_CFLAGS = -std=gnu99 -D_GNU_SOURCE
+AM_CFLAGS = -D_GNU_SOURCE
 
 EXTRA_DIST = libass.pc.in Changelog MAINTAINERS RELEASEVERSION ltnasm.sh
 

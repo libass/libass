@@ -4,7 +4,7 @@ project(
     license: 'ISC',
     meson_version: '>= 0.64.0',
     default_options: [
-        'c_std=c99',
+        'c_std=c11',
         'buildtype=debugoptimized',
         'warning_level=2',
         'default_library=static',
@@ -26,7 +26,7 @@ cc_warnings = []
 cc_features = []
 
 if cc.get_id() != 'msvc'
-    cc_features += ['-D_POSIX_C_SOURCE=200809L', '-fno-math-errno']
+    cc_features += ['-D_GNU_SOURCE', '-fno-math-errno']
 endif
 
 if cc.get_argument_syntax() == 'gcc'
@@ -38,6 +38,7 @@ if cc.get_argument_syntax() == 'gcc'
         '-Wpointer-arith',
         '-Wredundant-decls',
         '-Wno-missing-field-initializers',
+        '-Watomic-implicit-seq-cst',
     ]
 endif
 
@@ -71,6 +72,11 @@ if (
     conf.set('HAVE_FSTAT', 1)
 endif
 
+have_stdatomic = cc.check_header('stdatomic.h')
+if have_stdatomic
+    conf.set('HAVE_STDATOMIC_H', 1)
+endif
+
 # Dependencies
 
 deps += cc.find_library('m', required: false)
@@ -89,7 +95,7 @@ deps += dependency(
 
 deps += dependency(
     'fribidi',
-    version: '>= 0.19.1',
+    version: '>= 0.19.7',
     default_options: ['docs=false', 'tests=false'],
 )
 
@@ -133,6 +139,37 @@ if fontconfig
     deps += fontconfig_dep
     conf.set('CONFIG_FONTCONFIG', 1)
     font_providers += ['Fontconfig']
+endif
+
+threads_opt = get_option('threads')
+if not threads_opt.disabled()
+    thread_dep = dependency('threads')
+    if thread_dep.found()
+        if host_system in ['windows', 'cygwin']
+            conf.set('CONFIG_W32THREAD', 1)
+        elif host_system in ['darwin', 'linux', 'sunos', 'haiku', 'gnu', 'dragonfly'] or host_system.endswith('bsd')
+            if have_stdatomic
+                conf.set('CONFIG_PTHREAD', 1)
+            elif threads_opt.enabled()
+                error(
+                    'threading support was requested, but atomic support was not found.',
+                )
+            endif
+        elif threads_opt.enabled()
+            error(
+                'threading support was requested, but the threading API for this platform is unknown.',
+            )
+        else
+            warning(
+                'the threading API for this platform is unknown.',
+            )
+        endif
+        deps += thread_dep
+    elif threads_opt.enabled()
+        error(
+            'threading support was requested, but it was not found.',
+        )
+    endif
 endif
 
 # CoreText
