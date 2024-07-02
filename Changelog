@@ -1,3 +1,14 @@
+libass (0.17.3)
+ * Fix 0.17.2 regression in the fontconfig fontprovider
+   leading to undesirable widths being chosen from large typographic families
+ * Fix configure generated with slibtool-provided autoconf macros
+ * Fix "make check" for shared-only builds
+ * Constify some API parameters in a backwards-compatible manner
+ * Add new ass_malloc and ass_free API functions
+ * Tweak default optimization flags
+ * Speed up parsing of events with very long override blocks
+ * Improve handling of HarfBuzz-related failures
+
 libass (0.17.2)
  * Fix rendering of \h in certain cases
  * Fix a minor memory leak in the CoreText and DirectWrite font provider
