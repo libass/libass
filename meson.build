@@ -40,6 +40,8 @@ if cc.get_argument_syntax() == 'gcc'
         '-Wpointer-arith',
         '-Wredundant-decls',
         '-Wno-missing-field-initializers',
+        '-Wformat-non-iso',
+        '-Werror=format-non-iso',
     ]
 endif
 

@@ -59,6 +59,8 @@ AX_APPEND_COMPILE_FLAGS([ \
     -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes \
     -Wpointer-arith -Werror-implicit-function-declaration -Wredundant-decls \
     -Wno-missing-field-initializers \
+    dnl clang-specific, gcc currently has no fine-grained toggle for this, only -Wpedantic
+    -Wformat-non-iso -Werror=format-non-iso \
 ])
 
 # Checks for available libraries and define corresponding C Macros
