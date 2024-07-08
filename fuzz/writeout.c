@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <inttypes.h>
+#include <limits.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -43,32 +45,25 @@ static const char *ycbcr_to_str(ASS_YCbCrMatrix ycbcr_val)
     }
 }
 
-static bool time_to_str(long long time, char **buf, size_t *buf_size)
+// Max size a parsed timestamp can occupy when printed as a string again
+// (includes terminating null byte and sign indicators per field)
+// = 13 + ceil(log10(INT32_MAX + 1ULL)) + 1
+#define TIME_MAX_STRBUF_SIZE 24
+
+static bool time_to_str(long long time, char (*buf)[TIME_MAX_STRBUF_SIZE])
 {
     time /= 10; // ASS files can only have centi-second precision
     int sign = time < 0 ? -1 : 1;
     time = labs(time);
 
-    // Without chars for hours, except for sign indicator
-    size_t min_size = sign == -1 ? 14 : 10;
+    int32_t cs = time % 100;  time /= 100;
+    int32_t  s = time %  60;  time /=  60;
+    int32_t  m = time %  60;  time /=  60;
 
-    long long cs = time % 100;  time /= 100;
-    long long  s = time %  60;  time /=  60;
-    long long  m = time %  60;  time /=  60;
-
-    min_size += time >= 10 ? ceil(log10(time + 1)) : 1;
-    if (*buf_size < min_size) {
-        // +14 are arbitrary padding to avoid too many reallocs
-        char *nbuf = realloc(*buf, min_size + 14);
-        if (!nbuf)
-            return false;
-        *buf = nbuf;
-        *buf_size = min_size + 14;
-    }
-
-    int ret = snprintf(*buf, *buf_size, "%lld:%02lld:%02lld.%02lld",
+    int ret = snprintf(*buf, TIME_MAX_STRBUF_SIZE,
+                       "%lld:%02"PRId32":%02"PRId32".%02"PRId32,
                        time * sign, m * sign, s * sign, cs * sign);
-    return ret >= 0 && ret < *buf_size;
+    return ret >= 0 && ret < TIME_MAX_STRBUF_SIZE;
 }
 
 static int ssa2ass_align(int ssa_align)
@@ -144,19 +139,8 @@ static void write_styles(FILE *f, ASS_Track *track)
 
 static void write_events(FILE *f, ASS_Track *track)
 {
-    size_t start_size = 128;
-    char *start = calloc(1, start_size);
-    if (!start) {
-        printf("Failure to alloc start time buffer!\n");
-        return;
-    }
-
-    size_t end_size = 128;
-    char *end = calloc(1, end_size);
-    if (!start) {
-        printf("Failure to alloc end time buffer!\n");
-        return;
-    }
+    char start[TIME_MAX_STRBUF_SIZE];
+    char end[TIME_MAX_STRBUF_SIZE];
 
     fprintf(f, "\n[Events]\n");
     fprintf(f, "Format: "
@@ -165,8 +149,8 @@ static void write_events(FILE *f, ASS_Track *track)
 
     for (int i = 0; i < track->n_events; i++) {
         ASS_Event *e = track->events + i;
-        bool flag = time_to_str(e->Start, &start, &start_size);
-        flag = flag && time_to_str(e->Start + e->Duration, &end, &end_size);
+        bool flag = time_to_str(e->Start, &start);
+        flag = flag && time_to_str(e->Start + e->Duration, &end);
         if (!flag) {
             printf("Ommiting event %d due to timestamp failure!\n", i);
             fprintf(f, "Comment: Skipped event\n");
