@@ -105,8 +105,11 @@ static bool scan_fonts(FcConfig *config, ASS_FontProvider *provider)
     // trim=FcFalse returns all system fonts
     fonts = FcFontSort(config, pat, FcFalse, NULL, &res);
     FcPatternDestroy(pat);
-    if (res != FcResultMatch)
+    if (res != FcResultMatch) {
+        if (fonts)
+            FcFontSetDestroy(fonts);
         return false;
+    }
 
     // fill font_info list
     for (i = 0; i < fonts->nfont; i++) {
