@@ -735,6 +735,24 @@ void ass_process_chunk(ASS_Track *track, const char *data, int size,
 void ass_set_check_readorder(ASS_Track *track, int check_readorder);
 
 /**
+ * \brief Garbage collect events that preceed deadline
+ * \param track track
+ * \param deadline cut-off timestamp in milliseconds.
+*/
+void ass_prune_events(ASS_Track *track, long long deadline);
+
+/**
+ * \brief Configure the automatic garbage collection of events.
+ * \param track track
+ * \param enabled enable automatic garbage collection with the given delay.
+ * \param delay delay from "now" (ass_render_frame) in milliseconds.
+ * After every succesful render, events whose undisplay timestamp predate
+ * "now - delay" will be deleted. Delay of 0 performs aggressive collection.
+ * Disabled by default (no collection, keep all parsed events).
+ */
+void ass_configure_gc(ASS_Track *track, int enabled, long long delay);
+
+/**
  * \brief Flush buffered events.
  * \param track track
 */

@@ -71,12 +71,6 @@ void ass_free_track(ASS_Track *track)
     if (!track)
         return;
 
-    if (track->parser_priv) {
-        free(track->parser_priv->read_order_bitmap);
-        free(track->parser_priv->fontname);
-        free(track->parser_priv->fontdata);
-        free(track->parser_priv);
-    }
     free(track->style_format);
     free(track->event_format);
     free(track->Language);
@@ -90,6 +84,14 @@ void ass_free_track(ASS_Track *track)
             ass_free_event(track, i);
     }
     free(track->events);
+
+    if (track->parser_priv) {
+        free(track->parser_priv->read_order_bitmap);
+        free(track->parser_priv->fontname);
+        free(track->parser_priv->fontdata);
+        free(track->parser_priv);
+    }
+
     free(track->name);
     free(track);
 }
@@ -186,15 +188,18 @@ fail:
     return -1;
 }
 
-static int test_and_set_read_order_bit(ASS_Track *track, int id)
+static int test_and_write_read_order_bit(ASS_Track *track, int id, bool set)
 {
     if (resize_read_order_bitmap(track, id) < 0)
         return -1;
-    int index = id / 32;
-    uint32_t bit = 1u << (id % 32);
-    if (track->parser_priv->read_order_bitmap[index] & bit)
+    int index = id >> 5; //div32
+    uint32_t bit = 1u << (id & 0x1F); //mod32
+    if (set && track->parser_priv->read_order_bitmap[index] & bit)
         return 1;
-    track->parser_priv->read_order_bitmap[index] |= bit;
+    if (set)
+        track->parser_priv->read_order_bitmap[index] |= bit;
+    else
+        track->parser_priv->read_order_bitmap[index] &= ~bit;
     return 0;
 }
 
@@ -1258,7 +1263,7 @@ void ass_process_codec_private(ASS_Track *track, const char *data, int size)
 static int check_duplicate_event(ASS_Track *track, int ReadOrder)
 {
     if (track->parser_priv->read_order_bitmap)
-        return test_and_set_read_order_bit(track, ReadOrder) > 0;
+        return test_and_write_read_order_bit(track, ReadOrder, true) > 0;
     // ignoring last event, it is the one we are comparing with
     for (int i = 0; i < track->n_events - 1; i++)
         if (track->events[i].ReadOrder == ReadOrder)
@@ -1291,7 +1296,7 @@ void ass_process_chunk(ASS_Track *track, const char *data, int size,
 
     if (check_readorder && !track->parser_priv->read_order_bitmap) {
         for (int i = 0; i < track->n_events; i++) {
-            if (test_and_set_read_order_bit(track, track->events[i].ReadOrder) < 0)
+            if (test_and_write_read_order_bit(track, track->events[i].ReadOrder, true) < 0)
                 break;
         }
     }
@@ -1357,6 +1362,34 @@ void ass_flush_events(ASS_Track *track)
     free(track->parser_priv->read_order_bitmap);
     track->parser_priv->read_order_bitmap = NULL;
     track->parser_priv->read_order_elems = 0;
+}
+
+void ass_configure_gc(ASS_Track *track, int enabled, long long delay)
+{
+    track->parser_priv->gc_enabled = enabled;
+
+    if (0ll <= delay)
+        track->parser_priv->gc_delay = delay;
+}
+
+#define TS_OUT(ev) (ev.Start + ev.Duration)
+
+// This function is not thread safe
+void ass_prune_events(ASS_Track *track, long long deadline)
+{
+    bool check_readorder = track->parser_priv->check_readorder;
+
+    for (int k = 0, eid = 0; eid < track->n_events; eid = ++k) {
+        while (k < track->n_events && TS_OUT(track->events[k]) < deadline) {
+            if (check_readorder)
+                test_and_write_read_order_bit(track, track->events[k].ReadOrder, false);
+            ass_free_event(track, k++);
+        }
+        if (k > eid) {
+            memmove(&track->events[eid], &track->events[k], sizeof(ASS_Event)*(track->n_events - k));
+            track->n_events -= (k - eid);
+        }
+    }
 }
 
 #ifdef CONFIG_ICONV
@@ -1725,6 +1758,8 @@ ASS_Track *ass_new_track(ASS_Library *library)
     if (!track->styles[def_sid].Name || !track->styles[def_sid].FontName)
         goto fail;
     track->parser_priv->check_readorder = 1;
+    track->parser_priv->gc_enabled = 0;
+    track->parser_priv->gc_delay = 0;
     return track;
 
 fail:
