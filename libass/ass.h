@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01703000
+#define LIBASS_VERSION 0x01703010
 
 #ifdef __cplusplus
 extern "C" {
@@ -733,6 +733,24 @@ void ass_process_chunk(ASS_Track *track, const char *data, int size,
  * If this function is not called, the default value is 1.
  */
 void ass_set_check_readorder(ASS_Track *track, int check_readorder);
+
+/**
+ * \brief Prune events that preceed deadline.
+ * \param track track
+ * \param deadline cut-off timestamp in milliseconds.
+*/
+void ass_prune_events(ASS_Track *track, long long deadline);
+
+/**
+ * \brief Configure automatic pruning of events.
+ * \param track track
+ * \param delay delay from "now" (ass_render_frame) in milliseconds.
+ * After every render, events whose undisplay timestamp predate
+ * "now - delay" will be deleted. A delay of 0 prunes aggressively.
+ * Negative delays disable automatic pruning.
+ * Disabled by default (no removal of events from memory).
+ */
+void ass_configure_prune(ASS_Track *track, long long delay);
 
 /**
  * \brief Flush buffered events.

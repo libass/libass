@@ -3428,6 +3428,9 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
     ass_frame_unref(priv->prev_images_root);
     priv->prev_images_root = NULL;
 
+    if (track->parser_priv->prune_delay >= 0)
+        ass_prune_events(track, now - track->parser_priv->prune_delay);
+
     return priv->images_root;
 }
 
