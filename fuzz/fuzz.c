@@ -117,7 +117,7 @@ static bool init(void)
 }
 
 
-static inline void process_image(ASS_Image* imgs)
+static inline void process_image(ASS_Image *imgs)
 {
     for (; imgs; imgs = imgs->next) {
         assert(imgs->w >= 0 && imgs->h >= 0 &&
@@ -156,7 +156,7 @@ static void consume_track(ASS_Renderer *renderer, ASS_Track *track)
 static ASS_Track *read_track_from_stdin(void)
 {
     size_t smax = 4096;
-    char* buf = malloc(smax);
+    char *buf = malloc(smax);
     if (!buf)
         goto error;
     size_t s = 0;
@@ -168,7 +168,7 @@ static ASS_Track *read_track_from_stdin(void)
         s += read_b > 0 ? read_b : 0;
         if (s == smax) {
             size_t new_smax = smax > SIZE_MAX / 2 ? SIZE_MAX : smax * 2;
-            char* new_buf = realloc(buf, new_smax);
+            char *new_buf = realloc(buf, new_smax);
             if (!new_buf || new_smax <= smax) {
                 free(new_buf ? new_buf : buf);
                 goto error;
