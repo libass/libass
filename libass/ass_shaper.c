@@ -641,10 +641,10 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
         // set position and advance
         info->skip = false;
         info->glyph_index = glyph_info[j].codepoint;
-        info->offset.x    = lrint(pos[j].x_offset * info->scale_x);
-        info->offset.y    = lrint(-pos[j].y_offset * info->scale_y);
-        info->advance.x   = lrint(pos[j].x_advance * info->scale_x);
-        info->advance.y   = lrint(-pos[j].y_advance * info->scale_y);
+        info->offset.x    = ass_lrint(pos[j].x_offset * info->scale_x);
+        info->offset.y    = ass_lrint(-pos[j].y_offset * info->scale_y);
+        info->advance.x   = ass_lrint(pos[j].x_advance * info->scale_x);
+        info->advance.y   = ass_lrint(-pos[j].y_advance * info->scale_y);
 
         // accumulate advance in the root glyph
         root->cluster_advance.x += info->advance.x;
