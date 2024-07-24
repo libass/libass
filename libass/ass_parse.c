@@ -1096,7 +1096,7 @@ void ass_process_karaoke_effects(RenderContext *state)
                     info->c[1] = tmp;
                 }
             }
-            x = x_start + lrint((x_end - x_start) * dt);
+            x = x_start + ass_lrint((x_end - x_start) * dt);
         }
 
         for (GlyphInfo *info = start; info < end; info++) {

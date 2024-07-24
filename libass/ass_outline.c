@@ -418,8 +418,8 @@ bool ass_outline_transform_2d(ASS_Outline *outline, const ASS_Outline *source,
             ass_outline_free(outline);
             return false;
         }
-        outline->points[i].x = lrint(v[0]);
-        outline->points[i].y = lrint(v[1]);
+        outline->points[i].x = ass_lrint(v[0]);
+        outline->points[i].y = ass_lrint(v[1]);
     }
     memcpy(outline->segments, source->segments, source->n_segments);
     outline->n_points = source->n_points;
@@ -457,8 +457,8 @@ bool ass_outline_transform_3d(ASS_Outline *outline, const ASS_Outline *source,
             ass_outline_free(outline);
             return false;
         }
-        outline->points[i].x = lrint(v[0]);
-        outline->points[i].y = lrint(v[1]);
+        outline->points[i].x = ass_lrint(v[0]);
+        outline->points[i].y = ass_lrint(v[1]);
     }
     memcpy(outline->segments, source->segments, source->n_segments);
     outline->n_points = source->n_points;
@@ -478,7 +478,7 @@ void ass_outline_update_min_transformed_x(const ASS_Outline *outline,
         double x = (m[0][0] * pt[i].x + m[0][1] * pt[i].y + m[0][2]) / FFMAX(z, 0.1);
         if (isnan(x))
             continue;
-        int32_t ix = lrint(FFMINMAX(x, -OUTLINE_MAX, OUTLINE_MAX));
+        int32_t ix = ass_lrint(FFMINMAX(x, -OUTLINE_MAX, OUTLINE_MAX));
         *min_x = FFMIN(*min_x, ix);
     }
 }
