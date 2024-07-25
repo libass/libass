@@ -242,24 +242,28 @@ endif
 
 if not asm_option.disabled()
     if cpu_family == 'x86'
+        nasm_req = '2.10'
         asm_is_nasm = add_languages(
             'nasm',
             required: false,
             native: false,
         )
         if not asm_is_nasm
-            warning(
-                'nasm was not found; ASM functions are disabled. Install nasm ' +
-                '>= 2.10 for a significantly faster libass build.',
-            )
+            err_msg = '`nasm` was not found. Install nasm >= ' + nasm_req
+            if asm_option.enabled()
+                error('"asm" option is enabled, but ' + err_msg)
+            else
+                warning('ASM functions are disabled; ' + err_msg + ' for a significantly faster libass build.')
+            endif
         else
             nasm_ver = meson.get_compiler('nasm').version()
-            if nasm_ver.version_compare('< 2.10')
-                warning(
-                    'nasm is too old (found @0@); ASM functions are disabled. '.format(
-                        nasm_ver,
-                    ) + 'Install nasm >= 2.10 for a significantly faster libass build.',
-                )
+            if nasm_ver.version_compare('< ' + nasm_req)
+                too_old_msg = '`nasm` is too old (found ' + nasm_ver + ', need >= ' + nasm_req + '). '
+                if asm_option.enabled()
+                    error('"asm" option is enabled, but ' + too_old_msg)
+                else
+                    warning('ASM functions are disabled; ' + too_old_msg)
+                endif
                 asm_is_nasm = false
             endif
         endif
