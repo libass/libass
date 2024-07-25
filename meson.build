@@ -285,15 +285,15 @@ if not asm_option.disabled()
                 endif
             elif host_system == 'darwin'
                 nasm_args += ['-DPREFIX', '-DSTACK_ALIGNMENT=16']
-            elif host_system in ['linux', 'sunos', 'haiku', 'gnu']
+            elif host_system in ['linux', 'sunos', 'haiku', 'gnu', 'android']
                 nasm_args += ['-DSTACK_ALIGNMENT=16']
             elif host_system == 'dragonfly' or host_system.endswith('bsd')
                 nasm_args += []
             else
                 error(
                     'Please contact libass upstream to figure out if ASM support ' +
-                    'for your platform can be added. In the meantime you will need ' +
-                    'to use -Dasm=disabled.',
+                    'for your platform @0@ can be added. '.format(host_system) +
+                    'In the meantime you will need to use -Dasm=disabled.'
                 )
             endif
 
