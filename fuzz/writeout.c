@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 
 #include "writeout.h"
 
@@ -177,6 +178,8 @@ void write_out_track(ASS_Track *track, const char *outpath)
         printf("Parsed File will be written to:  %s\n", outpath);
     } else {
         char filename[] = "/tmp/parsedSubs_XXXXXX";
+        // POSIX Issue 6 and earlier did not forbid read/write for non-owners
+        umask(S_IRUSR | S_IWUSR);
         int fd = mkstemp(filename);
         if (fd == -1) {
             printf("Failed to acquire temporary file!\n");
