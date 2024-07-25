@@ -284,7 +284,7 @@ int main(int argc, char *argv[])
                "\n"
                "  -o [FILE]:\n"
                "    Write out parsed file content in a standardized form\n"
-               "    into FILE or if omitted a generated temproary file.\n"
+               "    into FILE or if omitted a generated temporary file.\n"
                "    If used the input file will not be processed, only parsed.\n",
                argc ? argv[0] : "fuzz");
         return FUZZ_BAD_USAGE;
