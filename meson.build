@@ -232,16 +232,16 @@ asm_is_nasm = false
 asm_args = []
 
 # ASM architecture variables
-asm_option = get_option('asm')
-cpu_subfamily = host_machine.cpu_family()
-if cpu_subfamily.startswith('x86')
-    cpu_family = 'x86'
+cpu_family = host_machine.cpu_family()
+if cpu_family in ['x86', 'x86_64']
+    generic_cpu_family = 'x86'
 else
-    cpu_family = cpu_subfamily
+    generic_cpu_family = cpu_family
 endif
+asm_option = get_option('asm')
 
 if not asm_option.disabled()
-    if cpu_family == 'x86'
+    if generic_cpu_family == 'x86'
         nasm_req = '2.10'
         asm_is_nasm = add_languages(
             'nasm',
@@ -272,7 +272,7 @@ if not asm_option.disabled()
             conf.set('ARCH_X86', 1)
             nasm_args = ['-Dprivate_prefix=ass', '-DPIC=1']
 
-            if cpu_subfamily == 'x86_64'
+            if cpu_family == 'x86_64'
                 conf.set('ARCH_X86_64', 1)
                 nasm_args += '-DARCH_X86_64=1'
             else
@@ -280,7 +280,7 @@ if not asm_option.disabled()
             endif
 
             if host_system in ['windows', 'cygwin']
-                if cpu_subfamily == 'x86'
+                if cpu_family == 'x86'
                     nasm_args += '-DPREFIX'
                 endif
             elif host_system == 'darwin'
@@ -299,26 +299,23 @@ if not asm_option.disabled()
 
             add_project_arguments(nasm_args, language: 'nasm')
         endif
-    elif cpu_subfamily == 'aarch64'
+    elif generic_cpu_family == 'aarch64'
         enable_asm = true
         conf.set('ARCH_AARCH64', 1)
         if host_system == 'darwin'
             asm_args += '-DPREFIX'
         endif
     else
-        warning(
-            'Assembly optimizations are not yet supported for the "@0@" architecture; disabling.'.format(
-                cpu_subfamily,
-            ),
-        )
+        msg = 'Assembly optimizations are not yet supported for ' + cpu_family
+        if asm_option.enabled()
+          error(msg)
+        else
+          warning(msg)
+        endif
     endif
 
     if enable_asm
         conf.set('CONFIG_ASM', 1)
-    elif asm_option.enabled()
-        error(
-            'Assembly was requested, but cannot be built; see prior messages.',
-        )
     endif
 endif
 
