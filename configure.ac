@@ -16,7 +16,7 @@ AM_PROG_AS
 AC_CHECK_HEADERS_ONCE([iconv.h])
 
 # Checks for library functions.
-AC_CHECK_FUNCS([strdup strndup])
+AC_CHECK_FUNCS([strdup strndup strchrnul])
 
 # Query configuration parameters and set their description
 AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
