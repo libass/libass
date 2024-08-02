@@ -52,6 +52,7 @@ FUZZ_CPPFLAGS="${FUZZ_CPPFLAGS:--DASS_FUZZMODE=0}"
 
 # Checks for flags support
 AX_APPEND_COMPILE_FLAGS([-fno-math-errno])
+AX_APPEND_COMPILE_FLAGS([/clang:-fno-math-errno])
 
 # Enable some warnings
 AX_APPEND_COMPILE_FLAGS([ \

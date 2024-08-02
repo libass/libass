@@ -25,7 +25,9 @@ cc = meson.get_compiler('c')
 cc_warnings = []
 cc_features = []
 
-if cc.get_id() != 'msvc'
+if cc.get_id() == 'clang-cl'
+    cc_features += '/clang:-fno-math-errno'
+elif cc.get_id() != 'msvc'
     cc_features += ['-D_POSIX_C_SOURCE=200809L', '-fno-math-errno']
 endif
 
