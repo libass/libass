@@ -120,9 +120,10 @@ void ass_update_font(RenderContext *state)
  */
 static inline int32_t dtoi32(double val)
 {
-    if (isnan(val) || val <= INT32_MIN || val >= INT32_MAX + 1LL)
+    if (val > INT32_MIN && val < INT32_MAX + 1LL)
+        return val;
+    else
         return INT32_MIN;
-    return val;
 }
 
 static double calc_anim(double new, double old, double pwr)
