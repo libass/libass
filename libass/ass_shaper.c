@@ -239,7 +239,7 @@ size_t ass_face_size_metrics_construct(void *key, void *value, void *priv)
     FaceSizeMetricsHashKey *k = key;
     FT_Size_Metrics *v = value;
 
-    FT_Face face = k->font->faces[k->face_index];
+    FT_Face face = k->font->faces[k->face_index].face;
 
     ass_face_set_size(face, k->size);
 
@@ -256,7 +256,7 @@ size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
     int load_flags = FT_LOAD_DEFAULT | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
         | FT_LOAD_IGNORE_TRANSFORM;
 
-    FT_Face face = k->font->faces[k->face_index];
+    FT_Face face = k->font->faces[k->face_index].face;
 
     ass_face_set_size(face, k->size);
 
@@ -303,7 +303,7 @@ get_glyph_nominal(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
                   hb_codepoint_t *glyph, void *user_data)
 {
     struct ass_shaper_metrics_data *metrics_priv = font_data;
-    FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index];
+    FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index].face;
 
     *glyph = ass_font_index_magic(face, unicode);
     if (*glyph)
@@ -321,7 +321,7 @@ get_glyph_variation(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
                     hb_codepoint_t variation, hb_codepoint_t *glyph, void *user_data)
 {
     struct ass_shaper_metrics_data *metrics_priv = font_data;
-    FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index];
+    FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index].face;
 
     *glyph = ass_font_index_magic(face, unicode);
     if (*glyph)
@@ -384,7 +384,7 @@ get_h_kerning(hb_font_t *font, void *font_data, hb_codepoint_t first,
                  hb_codepoint_t second, void *user_data)
 {
     struct ass_shaper_metrics_data *metrics_priv = font_data;
-    FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index];
+    FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index].face;
     FT_Vector kern;
 
     if (FT_Get_Kerning(face, first, second, FT_KERNING_DEFAULT, &kern))
@@ -422,7 +422,7 @@ get_contour_point(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                      hb_position_t *y, void *user_data)
 {
     struct ass_shaper_metrics_data *metrics_priv = font_data;
-    FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index];
+    FT_Face face = metrics_priv->hash_key.font->faces[metrics_priv->hash_key.face_index].face;
     int load_flags = FT_LOAD_DEFAULT | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
         | FT_LOAD_IGNORE_TRANSFORM;
 
@@ -439,7 +439,7 @@ get_contour_point(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
 
 bool ass_create_hb_font(ASS_Font *font, int index)
 {
-    FT_Face face = font->faces[index];
+    FT_Face face = font->faces[index].face;
     hb_face_t *hb_face = hb_face_create_for_tables(get_reference_table, face, NULL);
     if (hb_face_is_immutable(hb_face))
         return false;
@@ -452,7 +452,7 @@ bool ass_create_hb_font(ASS_Font *font, int index)
     if (hb_font_is_immutable(hb_font))
         return false;
 
-    font->hb_fonts[index] = hb_font;
+    font->faces[index].hb_font = hb_font;
 
     return true;
 }
@@ -475,7 +475,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
     if (!m)
         return NULL;
 
-    hb_font_t *hb_font = hb_font_create_sub_font(font->hb_fonts[info->face_index]);
+    hb_font_t *hb_font = hb_font_create_sub_font(font->faces[info->face_index].hb_font);
     if (hb_font_is_immutable(hb_font))
         return NULL;
 
@@ -490,7 +490,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
 
     hb_font_set_funcs(hb_font, shaper->font_funcs, metrics, free);
 
-    update_hb_size(hb_font, font->faces[info->face_index], m);
+    update_hb_size(hb_font, font->faces[info->face_index].face, m);
 
     return hb_font;
 }
@@ -793,7 +793,7 @@ static void shape_fribidi(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
     // update indexes
     for (i = 0; i < len; i++) {
         GlyphInfo *info = glyphs + i;
-        FT_Face face = info->font->faces[info->face_index];
+        FT_Face face = info->font->faces[info->face_index].face;
         info->symbol = shaper->event_text[i];
         info->glyph_index = ass_font_index_magic(face, shaper->event_text[i]);
         if (info->glyph_index)

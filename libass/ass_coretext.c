@@ -182,7 +182,7 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
 }
 
 static void match_fonts(void *priv, ASS_Library *lib, ASS_FontProvider *provider,
-                        char *name)
+                        const char *name)
 {
     CFStringRef cfname =
         CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8);
