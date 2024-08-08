@@ -236,34 +236,39 @@ asm_is_nasm = false
 asm_args = []
 
 # ASM architecture variables
-asm_option = get_option('asm')
-cpu_subfamily = host_machine.cpu_family()
-if cpu_subfamily.startswith('x86')
-    cpu_family = 'x86'
+cpu_family = host_machine.cpu_family()
+if cpu_family in ['x86', 'x86_64']
+    generic_cpu_family = 'x86'
 else
-    cpu_family = cpu_subfamily
+    generic_cpu_family = cpu_family
 endif
+asm_option = get_option('asm')
 
 if not asm_option.disabled()
-    if cpu_family == 'x86'
+    if generic_cpu_family == 'x86'
+        nasm_req = '2.10'
         asm_is_nasm = add_languages(
             'nasm',
             required: false,
             native: false,
         )
-        if not asm_is_nasm
-            warning(
-                'nasm was not found; ASM functions are disabled. Install nasm ' +
-                '>= 2.10 for a significantly faster libass build.',
-            )
+        nasm_compiler = meson.get_compiler('nasm')
+        if not asm_is_nasm or nasm_compiler.get_id() != 'nasm'
+            err_msg = '`nasm` was not found. Install nasm >= ' + nasm_req
+            if asm_option.enabled()
+                error('"asm" option is enabled, but ' + err_msg)
+            else
+                warning('ASM functions are disabled; ' + err_msg + ' for a significantly faster libass build.')
+            endif
         else
-            nasm_ver = meson.get_compiler('nasm').version()
-            if nasm_ver.version_compare('< 2.10')
-                warning(
-                    'nasm is too old (found @0@); ASM functions are disabled. '.format(
-                        nasm_ver,
-                    ) + 'Install nasm >= 2.10 for a significantly faster libass build.',
-                )
+            nasm_ver = nasm_compiler.version()
+            if nasm_ver.version_compare('< ' + nasm_req)
+                too_old_msg = '`nasm` is too old (found ' + nasm_ver + ', need >= ' + nasm_req + '). '
+                if asm_option.enabled()
+                    error('"asm" option is enabled, but ' + too_old_msg)
+                else
+                    warning('ASM functions are disabled; ' + too_old_msg)
+                endif
                 asm_is_nasm = false
             endif
         endif
@@ -272,7 +277,7 @@ if not asm_option.disabled()
             conf.set('ARCH_X86', 1)
             nasm_args = ['-Dprivate_prefix=ass', '-DPIC=1']
 
-            if cpu_subfamily == 'x86_64'
+            if cpu_family == 'x86_64'
                 conf.set('ARCH_X86_64', 1)
                 nasm_args += '-DARCH_X86_64=1'
             else
@@ -280,45 +285,42 @@ if not asm_option.disabled()
             endif
 
             if host_system in ['windows', 'cygwin']
-                if cpu_subfamily == 'x86'
+                if cpu_family == 'x86'
                     nasm_args += '-DPREFIX'
                 endif
             elif host_system == 'darwin'
                 nasm_args += ['-DPREFIX', '-DSTACK_ALIGNMENT=16']
-            elif host_system in ['linux', 'sunos', 'haiku', 'gnu']
+            elif host_system in ['linux', 'sunos', 'haiku', 'gnu', 'android']
                 nasm_args += ['-DSTACK_ALIGNMENT=16']
             elif host_system == 'dragonfly' or host_system.endswith('bsd')
                 nasm_args += []
             else
                 error(
                     'Please contact libass upstream to figure out if ASM support ' +
-                    'for your platform can be added. In the meantime you will need ' +
-                    'to use -Dasm=disabled.',
+                    'for your platform @0@ can be added. '.format(host_system) +
+                    'In the meantime you will need to use -Dasm=disabled.'
                 )
             endif
 
             add_project_arguments(nasm_args, language: 'nasm')
         endif
-    elif cpu_subfamily == 'aarch64'
+    elif generic_cpu_family == 'aarch64'
         enable_asm = true
         conf.set('ARCH_AARCH64', 1)
         if host_system == 'darwin'
             asm_args += '-DPREFIX'
         endif
     else
-        warning(
-            'Assembly optimizations are not yet supported for the "@0@" architecture; disabling.'.format(
-                cpu_subfamily,
-            ),
-        )
+        msg = 'Assembly optimizations are not yet supported for ' + cpu_family
+        if asm_option.enabled()
+          error(msg)
+        else
+          warning(msg)
+        endif
     endif
 
     if enable_asm
         conf.set('CONFIG_ASM', 1)
-    elif asm_option.enabled()
-        error(
-            'Assembly was requested, but cannot be built; see prior messages.',
-        )
     endif
 endif
 

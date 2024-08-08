@@ -83,9 +83,9 @@ endif
 
 if enable_asm
     asm_sources = []
-    if cpu_family == 'x86'
+    if generic_cpu_family == 'x86'
         asm_sources = src_x86
-    elif cpu_subfamily == 'aarch64'
+    elif generic_cpu_family == 'aarch64'
         asm_sources = src_aarch64
     endif
 
