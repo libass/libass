@@ -251,14 +251,13 @@ if not asm_option.disabled()
             required: false,
             native: false,
         )
-        nasm_compiler = meson.get_compiler('nasm')
-        if not asm_is_nasm or nasm_compiler.get_id() != 'nasm'
+        if not asm_is_nasm or meson.get_compiler('nasm').get_id() != 'nasm'
             warning(
                 'nasm was not found; ASM functions are disabled. Install nasm ' +
                 '>= 2.10 for a significantly faster libass build.',
             )
         else
-            nasm_ver = nasm_compiler.version()
+            nasm_ver = meson.get_compiler('nasm').version()
             if nasm_ver.version_compare('< 2.10')
                 warning(
                     'nasm is too old (found @0@); ASM functions are disabled. '.format(
