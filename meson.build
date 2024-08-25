@@ -293,7 +293,7 @@ if not asm_option.disabled()
                 error(
                     'Please contact libass upstream to figure out if ASM support ' +
                     'for your platform @0@ can be added. '.format(host_system) +
-                    'In the meantime you will need to use -Dasm=disabled.'
+                    'In the meantime you will need to use -Dasm=disabled.',
                 )
             endif
 
