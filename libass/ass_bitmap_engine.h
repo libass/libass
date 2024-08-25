@@ -42,7 +42,7 @@ typedef void BitmapMulFunc(uint8_t *dst, ptrdiff_t dst_stride,
 typedef void BeBlurFunc(uint8_t *buf, ptrdiff_t stride,
                         size_t width, size_t height, uint16_t *tmp);
 
-// intermediate bitmaps represented as sets of verical stripes of int16_t[alignment / 2]
+// intermediate bitmaps represented as sets of vertical stripes of int16_t[alignment / 2]
 typedef void Convert8to16Func(int16_t *dst, const uint8_t *src, ptrdiff_t src_stride,
                               size_t width, size_t height);
 typedef void Convert16to8Func(uint8_t *dst, ptrdiff_t dst_stride, const int16_t *src,

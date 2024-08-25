@@ -419,7 +419,7 @@ static ASS_Image **render_glyph_i(RenderContext *state,
  * \param brk x coordinate relative to glyph origin, color is used to the left of brk, color2 - to the right
  * \param tail pointer to the last image's next field, head of the generated list should be stored here
  * \return pointer to the new list tail
- * Performs clipping. Uses my_draw_bitmap for actual bitmap convertion.
+ * Performs clipping. Uses my_draw_bitmap for actual bitmap conversion.
  */
 static ASS_Image **
 render_glyph(RenderContext *state, Bitmap *bm, int dst_x, int dst_y,
@@ -590,7 +590,7 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
     // Total error is larger than each ACCURACY, but still of the same magnitude.
     // Via our choice of ACCURACY, we get a total error of up to several POSITION_PRECISION.
 
-    // Quantization steps (pick: ACCURARY = POSITION_PRECISION):
+    // Quantization steps (pick: ACCURACY = POSITION_PRECISION):
     // D(m_xx), D(m_yx) ~ q_x = POSITION_PRECISION * z0 / dx,
     // D(m_xy), D(m_yy) ~ q_y = POSITION_PRECISION * z0 / dy,
     // qm_xx = round(m_xx / q_x), qm_xy = round(m_xy / q_y),
@@ -2883,7 +2883,7 @@ ass_render_event(RenderContext *state, ASS_Event *event,
 
     align_lines(state, max_text_width);
 
-    // determing text bounding box
+    // determine text bounding box
     ASS_DRect bbox;
     compute_string_bbox(text_info, &bbox);
 

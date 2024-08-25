@@ -784,7 +784,7 @@ static bool format_line_compare(const char *fmt1, const char *fmt2)
  * \param std   standard format line
  *
  * As of writing libass is the only renderer accepting custom format lines.
- * For years libass defaultet SBAS to yes instead of no.
+ * For years libass defaulted SBAS to yes instead of no.
  * To avoid breaking released scripts with custom format lines,
  * keep SBAS=1 default for custom format files.
  */

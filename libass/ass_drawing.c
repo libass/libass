@@ -295,7 +295,7 @@ static bool drawing_add_curve(ASS_Outline *outline, ASS_Rect *cbox,
 }
 
 /*
- * Anything produced by our tokenizer is already supposed to fullfil these requirements
+ * Anything produced by our tokenizer is already supposed to fulfill these requirements
  * where relevant, but let's check with an assert in builds without NDEBUG
  */
 static inline void assert_3_forward(ASS_DrawingToken *token)

@@ -101,12 +101,12 @@ void SUFFIX(ass_fill_halfplane_tile)(uint8_t *buf, ptrdiff_t stride,
  * Generic Filling Functions
  *
  * Used Algorithm
- * Construct trapeziod from each polyline segment and its projection into left side of tile.
- * Render that trapeziod into internal buffer with additive blending and correct sign.
+ * Construct trapezoid from each polyline segment and its projection into left side of tile.
+ * Render that trapezoid into internal buffer with additive blending and correct sign.
  * Store clamped absolute value from internal buffer into result buffer.
  */
 
-// Render top/bottom line of the trapeziod with antialiasing
+// Render top/bottom line of the trapezoid with antialiasing
 static inline void SUFFIX(update_border_line)(int16_t res[TILE_SIZE],
                                               int16_t abs_a, const int16_t va[TILE_SIZE],
                                               int16_t b, int16_t abs_b,

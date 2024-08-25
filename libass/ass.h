@@ -537,7 +537,7 @@ void ass_get_available_font_providers(ASS_Library *priv,
  * \param default_family fallback font family, or NULL
  * \param dfp which font provider to use (one of ASS_DefaultFontProvider). In
  * older libass version, this could be 0 or 1, where 1 enabled fontconfig.
- * Newer relases also accept 0 (ASS_FONTPROVIDER_NONE) and 1
+ * Newer releases also accept 0 (ASS_FONTPROVIDER_NONE) and 1
  * (ASS_FONTPROVIDER_AUTODETECT), which is almost backward-compatible.
  * If the requested fontprovider does not exist or fails to initialize, the
  * behavior is the same as when ASS_FONTPROVIDER_NONE was passed.

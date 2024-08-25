@@ -152,7 +152,7 @@ static void write_events(FILE *f, ASS_Track *track)
         bool flag = time_to_str(e->Start, &start);
         flag = flag && time_to_str(e->Start + e->Duration, &end);
         if (!flag) {
-            printf("Ommiting event %d due to timestamp failure!\n", i);
+            printf("Omitting event %d due to timestamp failure!\n", i);
             fprintf(f, "Comment: Skipped event\n");
             continue;
         }
