@@ -104,10 +104,13 @@
     GENERIC_PROTOTYPES(suffix) \
     BLUR_PROTOTYPES(alignment, suffix)
 
-#define ALL_FUNCTIONS(align_order_, alignment, suffix) \
+#define BASE_FUNCTIONS(align_order_, alignment, suffix) \
     RASTERIZER_FUNCTIONS(suffix) \
     GENERIC_FUNCTIONS(suffix) \
     BLUR_FUNCTIONS(align_order_, alignment, suffix)
+
+#define ALL_FUNCTIONS(align_order_, alignment, suffix) \
+    BASE_FUNCTIONS(align_order_, alignment, suffix)
 
 
 unsigned ass_get_cpu_flags(unsigned mask)
@@ -177,10 +180,10 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
 #if ARCH_X86
     if (flags & ASS_CPU_FLAG_X86_AVX2) {
         ALL_PROTOTYPES(32, avx2)
-        ALL_FUNCTIONS(5, 32, avx2)
+        BASE_FUNCTIONS(5, 32, avx2)
     } else if (flags & ASS_CPU_FLAG_X86_SSE2) {
         ALL_PROTOTYPES(16, sse2)
-        ALL_FUNCTIONS(4, 16, sse2)
+        BASE_FUNCTIONS(4, 16, sse2)
         if (flags & ASS_CPU_FLAG_X86_SSSE3) {
             ALL_PROTOTYPES(16, ssse3)
             RASTERIZER_FUNCTION(fill_generic, ssse3)
@@ -193,7 +196,7 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
 #elif ARCH_AARCH64
     if (flags & ASS_CPU_FLAG_ARM_NEON) {
         ALL_PROTOTYPES(16, neon)
-        ALL_FUNCTIONS(4, 16, neon)
+        BASE_FUNCTIONS(4, 16, neon)
     }
 #endif
 #endif
