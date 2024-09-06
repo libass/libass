@@ -22,6 +22,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/*
+ * All of these routines require some basic preconditions about their args:
+ * - Widths and heights must be > 0
+ * - For be_blur, width and height must be > 1
+ * - All strides must be multiples of the engine alignment (16 or a greater power of 2)
+ */
+
 struct segment;
 typedef void FillSolidTileFunc(uint8_t *buf, ptrdiff_t stride, int set);
 typedef void FillHalfplaneTileFunc(uint8_t *buf, ptrdiff_t stride,
