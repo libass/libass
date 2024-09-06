@@ -44,6 +44,7 @@ if AARCH64
 libass_libass_internal_la_SOURCES += \
     libass/aarch64/rasterizer.S \
     libass/aarch64/blend_bitmaps.S \
+    libass/aarch64/shift_bitmap.S \
     libass/aarch64/be_blur.S \
     libass/aarch64/blur.S \
     libass/aarch64/asm.S

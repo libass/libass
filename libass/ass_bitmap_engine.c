@@ -205,6 +205,7 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
     if (flags & ASS_CPU_FLAG_ARM_NEON) {
         ALL_PROTOTYPES(16, neon)
         BASE_FUNCTIONS(4, 16, neon)
+        SHIFT_FUNCTIONS(neon)
     }
 #endif
 #endif
