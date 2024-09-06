@@ -24,6 +24,8 @@
 #include "ass_rasterizer.h"
 
 
+#define ALIGNMENT  16
+
 #define TILE_SIZE  16
 #include "rasterizer_template.h"
 #undef TILE_SIZE

@@ -24,6 +24,8 @@
 #include <stdint.h>
 
 
+#define ALIGNMENT  16
+
 static inline uint16_t sliding_sum(uint16_t *prev, uint16_t next)
 {
     uint16_t sum = *prev + next;
@@ -39,7 +41,9 @@ static inline uint16_t sliding_sum(uint16_t *prev, uint16_t next)
 void ass_be_blur_c(uint8_t *restrict buf, ptrdiff_t stride,
                    size_t width, size_t height, uint16_t *restrict tmp)
 {
-    ASSUME(!(stride % 16) && width > 1 && height > 1);
+    ASSUME(!((uintptr_t) buf % ALIGNMENT) && !(stride % ALIGNMENT));
+    ASSUME(!((uintptr_t) tmp % ALIGNMENT));
+    ASSUME(width > 1 && height > 1);
 
     uint16_t *col_pix_buf = tmp;
     uint16_t *col_sum_buf = tmp + stride;
