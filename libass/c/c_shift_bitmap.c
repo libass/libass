@@ -30,29 +30,34 @@
  * expressed in 26.6 fixed point.
  * Pure C implementation.
  */
-void ass_shift_bitmap_c(uint8_t *restrict buf, ptrdiff_t s,
-                        size_t w, size_t h,
+void ass_shift_bitmap_c(uint8_t *restrict buf, ptrdiff_t stride,
+                        size_t width, size_t height,
                         uint32_t shift_x, uint32_t shift_y, uint16_t *restrict tmp)
 {
-    assert((shift_x & ~63) == 0 && (shift_y & ~63) == 0);
+    ASSUME(shift_x < 64 && shift_y < 64 && !(stride % 16) && width > 0 && height > 0 && stride > 0);
 
-    // Shift in x direction
-    if (shift_x)
-        for (int32_t y = 0; y < h; y++) {
-            for (int32_t x = w - 1; x > 0; x--) {
-                uint8_t b = buf[x + y * s - 1] * shift_x >> 6;
-                buf[x + y * s - 1] -= b;
-                buf[x + y * s] += b;
-            }
+    for (size_t y = 0; y < height; y++) {
+        uint16_t shifted_from_left = 0;
+        for (size_t x = 0; x < width; x++) {
+            uint16_t px = buf[x] << 1;
+            uint16_t shifted_from_top = tmp[x];
+
+            uint16_t b_x = px * shift_x >> 6;
+
+            px += shifted_from_left;
+            px -= b_x;
+
+            uint16_t b_y = px * shift_y >> 6;
+
+            px += shifted_from_top;
+            px -= b_y;
+
+            buf[x] = (px + 1) >> 1;
+
+            shifted_from_left = b_x;
+            tmp[x] = b_y;
         }
 
-    // Shift in y direction
-    if (shift_y)
-        for (int32_t x = 0; x < w; x++) {
-            for (int32_t y = h - 1; y > 0; y--) {
-                uint8_t b = buf[x + y * s - s] * shift_y >> 6;
-                buf[x + y * s - s] -= b;
-                buf[x + y * s] += b;
-            }
-        }
+        buf += stride;
+    }
 }
