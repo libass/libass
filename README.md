@@ -30,6 +30,17 @@ Windows. It is suited for static-only builds on any platform well supported by
 Meson and as a Meson subproject.
 Notably, Meson supports MSVC and generation of VS project files.
 
+Macro defines
+-------------
+
+Unless developing libass there’s usually no need to manually define macros
+and there are no stability guarantees for these manual defines.
+
+- `DEBUG_LEVEL=0..3`
+  - `0` use the default set of asserts; implied if macro is not defined at all
+  - `1`, `2` *unused*
+  - `3` additionally assert assumptions usually pledged to the compiler for optimization purposes
+
 Information about the ASS format:
 =================================
 - [ASS format overview](https://github.com/libass/libass/wiki/ASS-File-Format-Guide)

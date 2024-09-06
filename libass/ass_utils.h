@@ -59,7 +59,9 @@
     #define __has_builtin(x) 0
 #endif
 
-#if __has_builtin(__builtin_assume)
+#if DEBUG_LEVEL >= 3
+    #define ASSUME(x) assert(x)
+#elif __has_builtin(__builtin_assume)
     #define ASSUME(x) __builtin_assume(x)
 #elif defined(_MSC_VER)
     #define ASSUME(x) __assume(x)

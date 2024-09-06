@@ -215,6 +215,7 @@ jobs:
       - name: configure
         run: |
           export CC="${{ matrix.cc }}\
+            -DDEBUG_LEVEL=3\
             ${{ matrix.extra_cflags && ' ' }}${{ matrix.extra_cflags }}\
             ${{ steps.sanitizer.outputs.flags && ' ' }}${{ steps.sanitizer.outputs.flags }}"
           export LD="${{ matrix.ld }}"
