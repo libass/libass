@@ -167,13 +167,17 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
     BitmapEngine engine = {0};
     engine.tile_order = mask & ASS_FLAG_LARGE_TILES ? 5 : 4;
 
+    ALL_FUNCTIONS(4, 16, c)
+    if (mask & ASS_FLAG_WIDE_STRIPE) {
+        BLUR_FUNCTIONS(5, 32, c)
+    }
+
 #if CONFIG_ASM
     unsigned flags = ass_get_cpu_flags(mask);
 #if ARCH_X86
     if (flags & ASS_CPU_FLAG_X86_AVX2) {
         ALL_PROTOTYPES(32, avx2)
         ALL_FUNCTIONS(5, 32, avx2)
-        return engine;
     } else if (flags & ASS_CPU_FLAG_X86_SSE2) {
         ALL_PROTOTYPES(16, sse2)
         ALL_FUNCTIONS(4, 16, sse2)
@@ -185,20 +189,14 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
             BLUR_FUNCTION(expand_horz, 16, ssse3)
             PARAM_BLUR_FUNCTION(horz, 16, ssse3)
         }
-        return engine;
     }
 #elif ARCH_AARCH64
     if (flags & ASS_CPU_FLAG_ARM_NEON) {
         ALL_PROTOTYPES(16, neon)
         ALL_FUNCTIONS(4, 16, neon)
-        return engine;
     }
 #endif
 #endif
 
-    ALL_FUNCTIONS(4, 16, c)
-    if (mask & ASS_FLAG_WIDE_STRIPE) {
-        BLUR_FUNCTIONS(5, 32, c)
-    }
     return engine;
 }
