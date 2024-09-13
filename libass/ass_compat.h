@@ -19,6 +19,10 @@
 #ifndef LIBASS_COMPAT_H
 #define LIBASS_COMPAT_H
 
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+
 #ifdef _MSC_VER
 #define _CRT_NONSTDC_NO_DEPRECATE
 #define _CRT_SECURE_NO_WARNINGS

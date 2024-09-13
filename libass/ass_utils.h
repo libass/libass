@@ -55,10 +55,6 @@
 
 #define FEATURE_MASK(feat) (((uint32_t) 1) << (feat))
 
-#ifndef __has_builtin
-    #define __has_builtin(x) 0
-#endif
-
 #if DEBUG_LEVEL >= 3
     #define ASSUME(x) assert(x)
 #elif __has_builtin(__builtin_assume)
