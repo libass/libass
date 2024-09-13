@@ -54,7 +54,7 @@ static bool time_to_str(long long time, char (*buf)[TIME_MAX_STRBUF_SIZE])
 {
     time /= 10; // ASS files can only have centi-second precision
     int sign = time < 0 ? -1 : 1;
-    time = labs(time);
+    time = llabs(time);
 
     int32_t cs = time % 100;  time /= 100;
     int32_t  s = time %  60;  time /=  60;
