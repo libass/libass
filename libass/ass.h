@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01703010
+#define LIBASS_VERSION 0x01703020
 
 #ifdef __cplusplus
 extern "C" {
@@ -154,7 +154,7 @@ typedef enum {
      */
     ASS_OVERRIDE_BIT_FONT_SIZE ASS_DEPRECATED_ENUM("replaced by ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE") = 1 << 1,
     /**
-     * On dialogue events override: FontSize, Spacing, Blur, ScaleX, ScaleY
+     * On dialogue events override: FontSize, Spacing, ScaleX, ScaleY
      */
     ASS_OVERRIDE_BIT_FONT_SIZE_FIELDS = 1 << 2,
     /**
@@ -194,6 +194,10 @@ typedef enum {
      * On dialogue events override: Justify
      */
     ASS_OVERRIDE_BIT_JUSTIFY = 1 << 10,
+    /**
+     * On dialogue events override: Blur
+     */
+    ASS_OVERRIDE_BIT_BLUR = 1 << 11,
     // New enum values can be added here in new ABI-compatible library releases.
 } ASS_OverrideBits;
 

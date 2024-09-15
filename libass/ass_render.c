@@ -981,6 +981,9 @@ static ASS_Style *handle_selective_style_overrides(RenderContext *state,
         new->Shadow = user->Shadow * scale;
     }
 
+    if (requested & ASS_OVERRIDE_BIT_BLUR)
+        new->Blur = user->Blur * scale;
+
     if (requested & ASS_OVERRIDE_BIT_ALIGNMENT)
         new->Alignment = user->Alignment;
 
