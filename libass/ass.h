@@ -690,7 +690,7 @@ void ass_free_style(ASS_Track *track, int sid);
 void ass_free_event(ASS_Track *track, int eid);
 
 /**
- * \brief Parse a chunk of subtitle stream data.
+ * \brief Parse full lines of subtitle stream data.
  * \param track track
  * \param data string to parse
  * \param size length of data
