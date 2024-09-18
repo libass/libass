@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "ass_compat.h"
+
 #include "checkasm.h"
 #include "ass_rasterizer.h"
 

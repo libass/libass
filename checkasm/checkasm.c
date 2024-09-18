@@ -25,6 +25,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "ass_compat.h"
+
 #include "ass_utils.h"
 #include "checkasm.h"
 
