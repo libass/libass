@@ -109,7 +109,7 @@ typedef void    (*DestroyProviderFunc)(void *priv);
 typedef void    (*MatchFontsFunc)(void *priv,
                                   ASS_Library *lib,
                                   ASS_FontProvider *provider,
-                                  char *name);
+                                  const char *name);
 
 /**
  * Substitute font name by another. This implements generic font family
@@ -157,30 +157,18 @@ typedef char   *(*GetFallbackFunc)(void *priv,
 
 typedef struct font_provider_funcs {
     GetDataFunc         get_data;               /* optional/mandatory */
-    CheckPostscriptFunc check_postscript;       /* optional */
     CheckGlyphFunc      check_glyph;            /* mandatory */
     DestroyFontFunc     destroy_font;           /* mandatory */
     DestroyProviderFunc destroy_provider;       /* optional */
     MatchFontsFunc      match_fonts;            /* optional */
     SubstituteFontFunc  get_substitutions;      /* optional */
     GetFallbackFunc     get_fallback;           /* optional */
-    GetFontIndex        get_font_index;         /* optional */
 } ASS_FontProviderFuncs;
 
 /*
- * Basic font metadata. All strings must be encoded with UTF-8.
- * At minimum one family is required.
- * If no family names are present, ass_font_provider_add_font
- * will open the font file and read metadata from there,
- * replacing everything but extended_family.
+ * Basic font metadata. All fields are optional.
  */
 struct ass_font_provider_meta_data {
-    /**
-     * List of localized font family names,
-     * e.g. "Arial", "Arial Narrow" or "Arial Black".
-     */
-    char **families;
-
     /**
      * List of localized full names, e.g. "Arial Bold",
      * "Arial Narrow Bold", "Arial Black" or "Arial Black Normal".
@@ -202,18 +190,7 @@ struct ass_font_provider_meta_data {
      */
     char *extended_family;
 
-    int n_family;       // Number of localized family names
     int n_fullname;     // Number of localized full names
-
-    FT_Long style_flags; // Computed from OS/2 table, or equivalent
-    int weight;         // Font weight in TrueType scale, 100-900
-                        // See FONT_WEIGHT_*
-
-    /**
-     * Whether the font contains PostScript outlines.
-     * Unused if the font provider has a check_postscript function.
-     */
-    bool is_postscript;
 };
 
 struct ass_font_stream {
@@ -250,6 +227,7 @@ ass_fontselect_init(ASS_Library *library, FT_Library ftlibrary, size_t *num_emfo
                     ASS_DefaultFontProvider dfp);
 char *ass_font_select(ASS_FontSelector *priv,
                       const ASS_Font *font, int *index, char **postscript_name,
+                      unsigned *bold, FT_Long *style_flags,
                       int *uid, ASS_FontStream *data, uint32_t code);
 void ass_fontselect_free(ASS_FontSelector *priv);
 
