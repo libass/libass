@@ -209,11 +209,12 @@ int ass_library_version(void);
  *
  * NONE don't use any default font provider for font lookup
  * AUTODETECT use the first available font provider
- * CORETEXT force a CoreText based font provider (OS X only)
+ * CORETEXT force a CoreText based font provider (Apple platforms only)
  * DIRECTWRITE force a DirectWrite based font provider (Microsoft Win32 only)
  * FONTCONFIG force a Fontconfig based font provider
  *
- * libass uses the best shaper available by default.
+ * In the AUTODETECT case, fontconfig will be preferred over other available providers
+ * if the environment variable "LIBASS_FORCE_FONTCONFIG" is set to any value.
  */
 typedef enum {
     ASS_FONTPROVIDER_NONE       = 0,
