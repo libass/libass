@@ -28,11 +28,11 @@ AC_ARG_ENABLE([profile], AS_HELP_STRING([--enable-profile],
 AC_ARG_ENABLE([fuzz], AS_HELP_STRING([--enable-fuzz],
     [enable fuzzing consumer @<:@default=no@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
-    [disable fontconfig support @<:@default=check@:>@]))
+    [disable Fontconfig support @<:@default=check@:>@]))
 AC_ARG_ENABLE([directwrite], AS_HELP_STRING([--disable-directwrite],
     [disable DirectWrite support (Windows only) @<:@default=check@:>@]))
 AC_ARG_ENABLE([coretext], AS_HELP_STRING([--disable-coretext],
-    [disable CoreText support (OSX only) @<:@default=check@:>@]))
+    [disable Core Text support (macOS only) @<:@default=check@:>@]))
 AC_ARG_ENABLE([libunibreak], AS_HELP_STRING([--disable-libunibreak],
     [disable libunibreak support @<:@default=check@:>@]))
 AC_ARG_ENABLE([require-system-font-provider], AS_HELP_STRING([--disable-require-system-font-provider],
@@ -144,12 +144,12 @@ AS_IF([test "x$enable_fontconfig" != xno], [
     ], [
         fontconfig=false
         AS_IF([test "x$enable_fontconfig" = xyes], [
-            AC_MSG_ERROR([fontconfig support was requested, but it was not found.])
+            AC_MSG_ERROR([Fontconfig support was requested, but it was not found.])
         ])
     ])
 ])
 
-### Coretext
+### Core Text
 AS_IF([test "x$enable_coretext" != xno], [
     # Linking to CoreText directly only works from Mountain Lion and iOS.
     # In earlier OS X releases CoreText was part of the ApplicationServices
@@ -238,7 +238,7 @@ AS_IF([test "x$enable_require_system_font_provider" != xno  dnl
         && test "x$directwrite" != xtrue                    dnl
         && test "x$coretext" != xtrue                       ], [
     AC_MSG_ERROR(m4_text_wrap(m4_normalize([
-            Either DirectWrite (on Windows), CoreText (on OSX), or Fontconfig
+            Either DirectWrite (on Windows), Core Text (on macOS), or Fontconfig
             (Linux, other) is required. If you really want to compile without
             a system font provider, add --disable-require-system-font-provider]),
         [                  ],

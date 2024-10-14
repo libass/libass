@@ -139,7 +139,7 @@ if fontconfig
     font_providers += ['Fontconfig']
 endif
 
-# CoreText
+# Core Text
 coretext = false
 if not get_option('coretext').disabled()
     appservices_dep = dependency(
@@ -162,7 +162,7 @@ if not get_option('coretext').disabled()
         deps += appservices_dep
         conf.set('CONFIG_CORETEXT', 1)
         coretext = true
-        font_providers += ['CoreText']
+        font_providers += ['Core Text']
     else
         coretext_dep = dependency(
             'appleframeworks',
@@ -174,7 +174,7 @@ if not get_option('coretext').disabled()
             deps += coretext_dep
             conf.set('CONFIG_CORETEXT', 1)
             coretext = true
-            font_providers += ['CoreText']
+            font_providers += ['Core Text']
         endif
     endif
 endif
@@ -211,14 +211,14 @@ endif
 
 if get_option('coretext').enabled() and coretext == false
     error(
-        'CoreText support was requested, but it was not found.',
+        'Core Text support was requested, but it was not found.',
     )
 endif
 
 if get_option('require-system-font-provider')
     if font_providers.length() == 0
         error(
-            'Either DirectWrite (on Windows), CoreText (on OSX), or Fontconfig (Linux, ' +
+            'Either DirectWrite (on Windows), Core Text (on macOS), or Fontconfig (Linux, ' +
             'other) is required. If you really want to compile without a system font ' +
             'provider, set -Drequire-system-font-provider=false',
         )

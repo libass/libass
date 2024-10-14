@@ -1,9 +1,9 @@
 option('test', type: 'boolean', value: false, description: 'enable test program (requires libpng)')
 option('profile', type: 'boolean', value: false, description: 'enable profiling program')
 
-option('fontconfig', type: 'feature', description: 'fontconfig support')
+option('fontconfig', type: 'feature', description: 'Fontconfig support')
 option('directwrite', type: 'feature', description: 'DirectWrite support (win32 only)')
-option('coretext', type: 'feature', description: 'CoreText support (OSX only)')
+option('coretext', type: 'feature', description: 'Core Text support (macOS only)')
 option('asm', type: 'feature', description: 'ASM support (better performance)')
 option('libunibreak', type: 'feature', description: 'libunibreak support')
 
