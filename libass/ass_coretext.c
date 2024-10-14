@@ -19,7 +19,7 @@
 #include "config.h"
 #include "ass_compat.h"
 
-#include <Availability.h>
+#include <AvailabilityMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <TargetConditionals.h>
 #if TARGET_OS_IPHONE
@@ -87,13 +87,13 @@ static char *get_font_file(CTFontDescriptorRef fontd)
 {
     CFURLRef url = NULL;
     if (false) {}
-#ifdef __MAC_10_6
+#ifdef MAC_OS_X_VERSION_10_6
     // Declared in SDKs since 10.6, including iOS SDKs
     else if (CHECK_AVAILABLE(kCTFontURLAttribute, macOS 10.6, *)) {
         url = CTFontDescriptorCopyAttribute(fontd, kCTFontURLAttribute);
     }
 #endif
-#if !TARGET_OS_IPHONE && (!defined(__MAC_10_6) || __MAC_OS_X_VERSION_MIN_REQUIRED < __MAC_10_6)
+#if !TARGET_OS_IPHONE && MAC_OS_X_VERSION_MIN_REQUIRED < 1060
     // ATS is declared deprecated in newer macOS SDKs
     // and not declared at all in iOS SDKs
     else {
