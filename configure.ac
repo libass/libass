@@ -154,7 +154,7 @@ AS_IF([test "x$enable_coretext" != xno], [
     # Linking to CoreText directly only works from Mountain Lion and iOS.
     # In earlier OS X releases CoreText was part of the ApplicationServices
     # umbrella framework.
-    AC_MSG_CHECKING([for CORETEXT])
+    AC_MSG_CHECKING([for Core Text])
     # First test for the legacy include to better support building
     # on a new macOS and allowing the binary to run on an old one
     AC_COMPILE_IFELSE([
@@ -194,7 +194,7 @@ AS_IF([test "x$enable_coretext" != xno], [
 ### DirectWrite
 AS_IF([test "x$enable_directwrite" != xno], [
     # Linking to DirectWrite directly only works from Windows
-    AC_MSG_CHECKING([for DIRECTWRITE])
+    AC_MSG_CHECKING([for DirectWrite])
     AC_COMPILE_IFELSE([
         AC_LANG_PROGRAM([[#include <windows.h>]], [[;]])
     ], [
