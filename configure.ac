@@ -155,8 +155,10 @@ AS_IF([test "x$enable_coretext" != xno], [
     # In earlier OS X releases CoreText was part of the ApplicationServices
     # umbrella framework.
     AC_MSG_CHECKING([for CORETEXT])
+    # First test for the legacy include to better support building
+    # on a new macOS and allowing the binary to run on an old one
     AC_COMPILE_IFELSE([
-        AC_LANG_PROGRAM( dnl# First test for legacy include
+        AC_LANG_PROGRAM(
             [[#include <ApplicationServices/ApplicationServices.h>]],
             [[CTFontDescriptorCopyAttribute(NULL, kCTFontNameAttribute);]]
         )
@@ -167,8 +169,9 @@ AS_IF([test "x$enable_coretext" != xno], [
         coretext=true
         AC_MSG_RESULT([yes])
     ], [
+        # Otherwise check the newer include style (for iOS)
         AC_COMPILE_IFELSE([
-            AC_LANG_PROGRAM( dnl# Otherwise check newer include style
+            AC_LANG_PROGRAM(
                 [[#include <CoreText/CoreText.h>]],
                 [[CTFontDescriptorCopyAttribute(NULL, kCTFontNameAttribute);]]
             )
