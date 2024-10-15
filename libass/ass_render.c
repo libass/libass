@@ -2767,7 +2767,7 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
         // '>>' rounds toward negative infinity, '&' returns correct remainder
         v->bm_s.left += k->filter.shadow.x >> 6;
         v->bm_s.top  += k->filter.shadow.y >> 6;
-        ass_shift_bitmap(&v->bm_s, k->filter.shadow.x & SUBPIXEL_MASK, k->filter.shadow.y & SUBPIXEL_MASK);
+        ass_shift_bitmap(&render_priv->engine, &v->bm_s, k->filter.shadow.x & SUBPIXEL_MASK, k->filter.shadow.y & SUBPIXEL_MASK);
     }
 
     if ((flags & FILTER_FILL_IN_SHADOW) && !(flags & FILTER_FILL_IN_BORDER))
