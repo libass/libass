@@ -154,7 +154,7 @@ typedef enum {
      */
     ASS_OVERRIDE_BIT_FONT_SIZE ASS_DEPRECATED_ENUM("replaced by ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE") = 1 << 1,
     /**
-     * On dialogue events override: FontSize, Spacing, Blur, ScaleX, ScaleY
+     * On dialogue events override: FontSize, Spacing, ScaleX, ScaleY
      */
     ASS_OVERRIDE_BIT_FONT_SIZE_FIELDS = 1 << 2,
     /**
@@ -170,7 +170,7 @@ typedef enum {
      */
     ASS_OVERRIDE_BIT_ATTRIBUTES = 1 << 5,
     /**
-     * On dialogue events override: BorderStyle, Outline, Shadow
+     * On dialogue events override: BorderStyle, Outline, Shadow, Blur
      */
     ASS_OVERRIDE_BIT_BORDER = 1 << 6,
     /**

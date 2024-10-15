@@ -979,6 +979,7 @@ static ASS_Style *handle_selective_style_overrides(RenderContext *state,
         new->BorderStyle = user->BorderStyle;
         new->Outline = user->Outline * scale;
         new->Shadow = user->Shadow * scale;
+        new->Blur = user->Blur;
     }
 
     if (requested & ASS_OVERRIDE_BIT_ALIGNMENT)
