@@ -190,12 +190,27 @@ static int test_and_set_read_order_bit(ASS_Track *track, int id)
 {
     if (resize_read_order_bitmap(track, id) < 0)
         return -1;
-    int index = id / 32;
-    uint32_t bit = 1u << (id % 32);
+    int index = id >> 5;
+    uint32_t bit = 1u << (id & 0x1F);
     if (track->parser_priv->read_order_bitmap[index] & bit)
         return 1;
     track->parser_priv->read_order_bitmap[index] |= bit;
     return 0;
+}
+
+static inline void clear_read_order_bit(ASS_Track *track, int id)
+{
+    int index = id >> 5;
+    if (index < track->parser_priv->read_order_elems) {
+        uint32_t mask = ~(1u << (id & 0x1F));
+        track->parser_priv->read_order_bitmap[index] &= mask;
+    }
+}
+
+static inline void update_prune_ts(ASS_Track *track, const long long ts)
+{
+    if (ts < track->parser_priv->prune_next_ts)
+        track->parser_priv->prune_next_ts = ts;
 }
 
 // ==============================================================================================
@@ -1015,8 +1030,10 @@ static int process_events_line(ASS_Track *track, char *str)
         event = track->events + eid;
 
         int ret = process_event_tail(track, event, str, 0);
-        if (!ret)
+        if (!ret) {
+            update_prune_ts(track, event->Start + event->Duration);
             return 0;
+        }
         // If something went wrong, discard the useless Event
         ass_free_event(track, eid);
         track->n_events--;
@@ -1330,7 +1347,7 @@ void ass_process_chunk(ASS_Track *track, const char *data, int size,
 
         event->Start = timecode;
         event->Duration = duration;
-
+        update_prune_ts(track, event->Start + event->Duration);
         goto cleanup;
 //              dump_events(tid);
     } while (0);
@@ -1357,6 +1374,46 @@ void ass_flush_events(ASS_Track *track)
     free(track->parser_priv->read_order_bitmap);
     track->parser_priv->read_order_bitmap = NULL;
     track->parser_priv->read_order_elems = 0;
+}
+
+void ass_configure_prune(ASS_Track *track, long long delay)
+{
+    track->parser_priv->prune_delay = delay;
+}
+
+void ass_prune_events(ASS_Track *track, long long deadline)
+{
+    if (deadline < track->parser_priv->prune_next_ts)
+        return;
+
+    const bool check_readorder = track->parser_priv->check_readorder;
+    const int old_n_events = track->n_events;
+
+    int n_kept = 0;
+    ASS_Event *events = track->events;
+
+    track->parser_priv->prune_next_ts = LLONG_MAX;
+    for (int k = 0; k < old_n_events;) {
+        // discardable sequence
+        for (; k < old_n_events && events[k].Start + events[k].Duration < deadline; k++) {
+            if (check_readorder)
+                clear_read_order_bit(track, events[k].ReadOrder);
+            ass_free_event(track, k);
+        }
+
+        // to-be-kept sequence
+        int move_from = k;
+        for (long long ts; k < old_n_events && (ts = events[k].Start + events[k].Duration) >= deadline; k++)
+            update_prune_ts(track, ts);
+
+        // Relocate kept events
+        if (move_from < k) {
+            int cnt = k - move_from;
+            memmove(events + n_kept, events + move_from, cnt * sizeof(*track->events));
+            n_kept += cnt;
+        }
+    }
+    track->n_events = n_kept;
 }
 
 #ifdef CONFIG_ICONV
@@ -1725,6 +1782,8 @@ ASS_Track *ass_new_track(ASS_Library *library)
     if (!track->styles[def_sid].Name || !track->styles[def_sid].FontName)
         goto fail;
     track->parser_priv->check_readorder = 1;
+    track->parser_priv->prune_delay = -1;
+    track->parser_priv->prune_next_ts = LLONG_MAX;
     return track;
 
 fail:

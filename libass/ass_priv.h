@@ -65,6 +65,9 @@ struct parser_priv {
     uint32_t header_flags;
 
     uint32_t feature_flags;
+
+    long long prune_delay;
+    long long prune_next_ts;
 };
 
 #endif /* LIBASS_PRIV_H */
