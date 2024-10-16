@@ -3,7 +3,7 @@ option('profile', type: 'boolean', value: false, description: 'enable profiling 
 
 option('fontconfig', type: 'feature', description: 'Fontconfig support')
 option('directwrite', type: 'feature', description: 'DirectWrite support (win32 only)')
-option('coretext', type: 'feature', description: 'Core Text support (macOS only)')
+option('coretext', type: 'feature', description: 'Core Text support (Apple only)')
 option('asm', type: 'feature', description: 'ASM support (better performance)')
 option('libunibreak', type: 'feature', description: 'libunibreak support')
 

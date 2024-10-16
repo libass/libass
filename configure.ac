@@ -32,7 +32,7 @@ AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
 AC_ARG_ENABLE([directwrite], AS_HELP_STRING([--disable-directwrite],
     [disable DirectWrite support (Windows only) @<:@default=check@:>@]))
 AC_ARG_ENABLE([coretext], AS_HELP_STRING([--disable-coretext],
-    [disable Core Text support (macOS only) @<:@default=check@:>@]))
+    [disable Core Text support (Apple only) @<:@default=check@:>@]))
 AC_ARG_ENABLE([libunibreak], AS_HELP_STRING([--disable-libunibreak],
     [disable libunibreak support @<:@default=check@:>@]))
 AC_ARG_ENABLE([require-system-font-provider], AS_HELP_STRING([--disable-require-system-font-provider],
@@ -238,7 +238,7 @@ AS_IF([test "x$enable_require_system_font_provider" != xno  dnl
         && test "x$directwrite" != xtrue                    dnl
         && test "x$coretext" != xtrue                       ], [
     AC_MSG_ERROR(m4_text_wrap(m4_normalize([
-            Either DirectWrite (on Windows), Core Text (on macOS), or Fontconfig
+            Either DirectWrite (on Windows), Core Text (Apple), or Fontconfig
             (Linux, other) is required. If you really want to compile without
             a system font provider, add --disable-require-system-font-provider]),
         [                  ],
