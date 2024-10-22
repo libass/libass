@@ -326,6 +326,78 @@ static bool init_font_private_stream(FontPrivate *priv)
     return true;
 }
 
+static char* get_utf8_path(FontPrivate *priv)
+{
+    HRESULT hr = S_OK;
+    IDWriteFontFile *file = NULL;
+    IDWriteFontFileLoader *loader = NULL;
+    IDWriteLocalFontFileLoader *local_loader = NULL;
+    UINT32 n_files = 1;
+    const void *refKey = NULL;
+    UINT32 keySize = 0;
+    UINT32 path_length = 1;
+    wchar_t *temp_path = NULL;
+    char *path = NULL;
+
+    if (!init_font_private_face(priv))
+        goto cleanup;
+
+    /* DirectWrite only supports one file per face */
+    hr = IDWriteFontFace_GetFiles(priv->face, &n_files, &file);
+    if (FAILED(hr) || !file)
+        goto cleanup;
+
+    hr = IDWriteFontFile_GetReferenceKey(file, &refKey, &keySize);
+    if (FAILED(hr))
+        goto cleanup;
+
+    IDWriteFontFile_GetLoader(file, &loader);
+    if (FAILED(hr) || !loader)
+        goto cleanup;
+
+    hr = IDWriteLocalFontFileLoader_QueryInterface(loader, &IID_IDWriteLocalFontFileLoader,
+                                                   (void **) &local_loader);
+    if (FAILED(hr) || !local_loader)
+        goto cleanup;
+
+    hr = IDWriteLocalFontFileLoader_GetFilePathLengthFromKey(local_loader, refKey, keySize,
+                                                             &path_length);
+    if (FAILED(hr))
+        goto cleanup;
+
+    temp_path = malloc((path_length + 1) * sizeof(wchar_t));
+
+    if (!temp_path)
+        goto cleanup;
+
+    hr = IDWriteLocalFontFileLoader_GetFilePathFromKey(local_loader, refKey, keySize,
+                                                       temp_path, path_length + 1);
+    if (FAILED(hr))
+        goto cleanup;
+
+    int size_needed =
+        WideCharToMultiByte(CP_UTF8, 0, temp_path, -1, NULL, 0, NULL, NULL);
+    if (!size_needed)
+        goto cleanup;
+
+    path = malloc(size_needed);
+    if (!path)
+        goto cleanup;
+
+    WideCharToMultiByte(CP_UTF8, 0, temp_path, -1, path, size_needed, NULL, NULL);
+
+cleanup:
+    free(temp_path);
+    if (local_loader)
+        IDWriteLocalFontFileLoader_Release(local_loader);
+    if (loader)
+        IDWriteFontFileLoader_Release(loader);
+    if (file)
+        IDWriteFontFile_Release(file);
+
+    return path;
+}
+
 /*
  * Read a specified part of a fontfile into memory.
  * If the font wasn't used before first creates a
@@ -637,7 +709,12 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
     font_priv->shared_hdc = hdc_retain(shared_hdc);
 #endif
 
-    ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
+    char *path = get_utf8_path(font_priv);
+
+    ass_font_provider_add_font(provider, &meta, path, 0, font_priv);
+
+    if (path)
+        free(path);
 
 cleanup:
     free(meta.postscript_name);
@@ -830,7 +907,12 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
     font_priv->font = font;
     font = NULL;
 
-    ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
+    char *path = get_utf8_path(font_priv);
+
+    ass_font_provider_add_font(provider, &meta, path, 0, font_priv);
+
+    if (path)
+        free(path);
 
 cleanup:
     free(meta.postscript_name);
