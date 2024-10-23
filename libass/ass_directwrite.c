@@ -314,11 +314,13 @@ static bool init_font_private_stream(FontPrivate *priv)
 
     hr = IDWriteFontFileLoader_CreateStreamFromKey(loader, refKey, keySize, &stream);
     if (FAILED(hr) || !stream) {
+        IDWriteFontFileLoader_Release(loader);
         IDWriteFontFile_Release(file);
         return false;
     }
 
     priv->stream = stream;
+    IDWriteFontFileLoader_Release(loader);
     IDWriteFontFile_Release(file);
 
     return true;
@@ -604,7 +606,7 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
 {
     ASS_FontProviderMetaData meta = {0};
 
-    IDWriteFontFace3 *face3;
+    IDWriteFontFace3 *face3 = NULL;
     HRESULT hr = IDWriteFontFace_QueryInterface(face, &IID_IDWriteFontFace3,
                                                 (void **) &face3);
     if (SUCCEEDED(hr) && face3) {
@@ -613,7 +615,7 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
         if (!success)
             goto cleanup;
     } else if (system_font_coll) {
-        IDWriteFont *font;
+        IDWriteFont *font = NULL;
         hr = IDWriteFontCollection_GetFontFromFontFace(system_font_coll,
                                                        face, &font);
         if (SUCCEEDED(hr) && font) {
