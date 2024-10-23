@@ -254,27 +254,6 @@ static void init_FallbackLogTextRenderer(FallbackLogTextRenderer *r,
 }
 
 /*
- * This function is called whenever a font is accessed for the
- * first time. It will create a FontFace for metadata access and
- * memory reading, which will be stored within the private data.
- */
-static bool init_font_private_face(FontPrivate *priv)
-{
-    HRESULT hr;
-    IDWriteFontFace *face;
-
-    if (priv->face != NULL)
-        return true;
-
-    hr = IDWriteFont_CreateFontFace(priv->font, &face);
-    if (FAILED(hr) || !face)
-        return false;
-
-    priv->face = face;
-    return true;
-}
-
-/*
  * This function is called whenever a font is used for the first
  * time. It will create a FontStream for memory reading, which
  * will be stored within the private data.
@@ -291,9 +270,6 @@ static bool init_font_private_stream(FontPrivate *priv)
 
     if (priv->stream != NULL)
         return true;
-
-    if (!init_font_private_face(priv))
-        return false;
 
     /* DirectWrite only supports one file per face */
     hr = IDWriteFontFace_GetFiles(priv->face, &n_files, &file);
@@ -338,9 +314,6 @@ static char* get_utf8_path(FontPrivate *priv)
     UINT32 path_length = 1;
     wchar_t *temp_path = NULL;
     char *path = NULL;
-
-    if (!init_font_private_face(priv))
-        goto cleanup;
 
     /* DirectWrite only supports one file per face */
     hr = IDWriteFontFace_GetFiles(priv->face, &n_files, &file);
@@ -445,9 +418,6 @@ static bool check_postscript(void *data)
 {
     FontPrivate *priv = (FontPrivate *) data;
 
-    if (!init_font_private_face(priv))
-        return false;
-
     DWRITE_FONT_FACE_TYPE type = IDWriteFontFace_GetType(priv->face);
     return type == DWRITE_FONT_FACE_TYPE_CFF ||
            type == DWRITE_FONT_FACE_TYPE_RAW_CFF ||
@@ -460,9 +430,6 @@ static bool check_postscript(void *data)
 static unsigned get_font_index(void *data)
 {
     FontPrivate *priv = (FontPrivate *)data;
-
-    if (!init_font_private_face(priv))
-        return 0;
 
     return IDWriteFontFace_GetIndex(priv->face);
 }
@@ -898,14 +865,26 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
                      ASS_FontProvider *provider)
 {
     ASS_FontProviderMetaData meta = {0};
+    FontPrivate *font_priv = NULL;
+    IDWriteFontFace *face = NULL;
+
     if (!get_font_info_IDWriteFont(font, fontFamily, &meta))
         goto cleanup;
 
-    FontPrivate *font_priv = calloc(1, sizeof(*font_priv));
+    font_priv = calloc(1, sizeof(*font_priv));
     if (!font_priv)
         goto cleanup;
+
+    HRESULT hr = IDWriteFont_CreateFontFace(font_priv->font, &face);
+    if (FAILED(hr) || !face) {
+        free(font_priv);
+        goto cleanup;
+    }
+
     font_priv->font = font;
+    font_priv->face = face;
     font = NULL;
+    face = NULL;
 
     char *path = get_utf8_path(font_priv);
 
@@ -918,6 +897,8 @@ cleanup:
     free(meta.postscript_name);
     free(meta.extended_family);
 
+    if (face)
+        IDWriteFontFace_Release(face);
     if (font)
         IDWriteFont_Release(font);
 }
