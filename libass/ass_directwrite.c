@@ -254,78 +254,89 @@ static void init_FallbackLogTextRenderer(FallbackLogTextRenderer *r,
 }
 
 /*
+ * A helper function for init_font_private_stream and get_utf8_path.
+ * Remember to release the file and loader after obtaining it, even if the function fails.
+ */
+static bool get_font_file_loader_and_reference_key(FontPrivate *priv,
+                                                   const void **refKey,
+                                                   UINT32 *keySize,
+                                                   IDWriteFontFile **file,
+                                                   IDWriteFontFileLoader **loader)
+{
+    HRESULT hr = S_OK;
+    UINT32 n_files = 1;
+    *refKey = NULL, *file = NULL, *loader = NULL, *keySize = 0;
+
+    /* DirectWrite only supports one file per face */
+    hr = IDWriteFontFace_GetFiles(priv->face, &n_files, file);
+    if (FAILED(hr) || !*file)
+        return false;
+
+    hr = IDWriteFontFile_GetReferenceKey(*file, refKey, keySize);
+    if (FAILED(hr))
+        return false;
+
+    hr = IDWriteFontFile_GetLoader(*file, loader);
+    if (FAILED(hr) || !*loader)
+        return false;
+
+    return true;
+}
+
+/*
  * This function is called whenever a font is used for the first
  * time. It will create a FontStream for memory reading, which
  * will be stored within the private data.
  */
 static bool init_font_private_stream(FontPrivate *priv)
 {
+    bool ret = false;
     HRESULT hr = S_OK;
     IDWriteFontFile *file = NULL;
-    IDWriteFontFileStream *stream = NULL;
     IDWriteFontFileLoader *loader = NULL;
-    UINT32 n_files = 1;
+    IDWriteFontFileStream *stream = NULL;
     const void *refKey = NULL;
     UINT32 keySize = 0;
 
     if (priv->stream != NULL)
         return true;
 
-    /* DirectWrite only supports one file per face */
-    hr = IDWriteFontFace_GetFiles(priv->face, &n_files, &file);
-    if (FAILED(hr) || !file)
-        return false;
-
-    hr = IDWriteFontFile_GetReferenceKey(file, &refKey, &keySize);
-    if (FAILED(hr)) {
-        IDWriteFontFile_Release(file);
-        return false;
-    }
-
-    hr = IDWriteFontFile_GetLoader(file, &loader);
-    if (FAILED(hr) || !loader) {
-        IDWriteFontFile_Release(file);
-        return false;
-    }
+    if (!get_font_file_loader_and_reference_key(priv, &refKey, &keySize, &file, &loader))
+        goto cleanup;
 
     hr = IDWriteFontFileLoader_CreateStreamFromKey(loader, refKey, keySize, &stream);
-    if (FAILED(hr) || !stream) {
-        IDWriteFontFileLoader_Release(loader);
-        IDWriteFontFile_Release(file);
-        return false;
-    }
+    if (FAILED(hr) || !stream)
+        goto cleanup;
 
     priv->stream = stream;
-    IDWriteFontFileLoader_Release(loader);
-    IDWriteFontFile_Release(file);
+    ret = true;
 
-    return true;
+cleanup:
+    if (loader)
+        IDWriteFontFileLoader_Release(loader);
+    if (file)
+        IDWriteFontFile_Release(file);
+
+    return ret;
 }
 
+/*
+ * Get underlying path where the font file is located,
+ * converted to UTF-8.
+ */
 static char* get_utf8_path(FontPrivate *priv)
 {
     HRESULT hr = S_OK;
     IDWriteFontFile *file = NULL;
     IDWriteFontFileLoader *loader = NULL;
     IDWriteLocalFontFileLoader *local_loader = NULL;
-    UINT32 n_files = 1;
     const void *refKey = NULL;
     UINT32 keySize = 0;
     UINT32 path_length = 1;
     wchar_t *temp_path = NULL;
     char *path = NULL;
 
-    /* DirectWrite only supports one file per face */
-    hr = IDWriteFontFace_GetFiles(priv->face, &n_files, &file);
-    if (FAILED(hr) || !file)
-        goto cleanup;
-
-    hr = IDWriteFontFile_GetReferenceKey(file, &refKey, &keySize);
-    if (FAILED(hr))
-        goto cleanup;
-
-    IDWriteFontFile_GetLoader(file, &loader);
-    if (FAILED(hr) || !loader)
+    if (!get_font_file_loader_and_reference_key(priv, &refKey, &keySize, &file, &loader))
         goto cleanup;
 
     hr = IDWriteLocalFontFileLoader_QueryInterface(loader, &IID_IDWriteLocalFontFileLoader,
