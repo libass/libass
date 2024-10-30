@@ -218,8 +218,9 @@ endif
 if get_option('require-system-font-provider')
     if font_providers.length() == 0
         error(
-            'Either DirectWrite (on Windows), Core Text (Apple), or Fontconfig (Linux, ' +
-            'other) is required. If you really want to compile without a system font ' +
+            'At least one of DirectWrite (Windows-exclusive), ' +
+            'Core Text (Apple-exclusive), or Fontconfig is required. ' +
+            'If you really want to compile without a system font ' +
             'provider, set -Drequire-system-font-provider=false',
         )
     endif
