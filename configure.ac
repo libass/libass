@@ -239,9 +239,10 @@ AS_IF([test "x$enable_require_system_font_provider" != xno  dnl
         && test "x$directwrite" != xtrue                    dnl
         && test "x$coretext" != xtrue                       ], [
     AC_MSG_ERROR(m4_text_wrap(m4_normalize([
-            Either DirectWrite (on Windows), Core Text (Apple), or Fontconfig
-            (Linux, other) is required. If you really want to compile without
-            a system font provider, add --disable-require-system-font-provider]),
+            At least one of DirectWrite (Windows-exclusive),
+            Core Text (Apple-exclusive), or Fontconfig is required.
+            If you really want to compile without a system font provider,
+            add --disable-require-system-font-provider]),
         [                  ],
         [No system font provider!],
         [78]
