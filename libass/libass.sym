@@ -46,3 +46,5 @@ ass_set_check_readorder
 ass_track_set_feature
 ass_malloc
 ass_free
+ass_prune_events
+ass_configure_prune
