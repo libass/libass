@@ -50,11 +50,12 @@ AC_ARG_VAR([FUZZ_CPPFLAGS],
     [If fuzzing program is enabled, set this to select alternative modes; see fuzzer source for options.])
 FUZZ_CPPFLAGS="${FUZZ_CPPFLAGS:--DASS_FUZZMODE=0}"
 
-# Checks for flags support
+# Configure Compiler
+## Perf tuning features
 AX_APPEND_COMPILE_FLAGS([-fno-math-errno])
 AX_APPEND_COMPILE_FLAGS([/clang:-fno-math-errno])
 
-# Enable some warnings
+## Warnings
 AX_APPEND_COMPILE_FLAGS([ \
     -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes \
     -Wpointer-arith -Werror-implicit-function-declaration -Wredundant-decls \
