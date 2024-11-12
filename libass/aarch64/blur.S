@@ -18,7 +18,7 @@
 
 #include "asm.S"
 
-const words_zero, align=16
+const words_zero, align=4
     .dc.w 0, 0, 0, 0, 0, 0, 0, 0
 endconst
 

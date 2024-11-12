@@ -28,7 +28,7 @@
 #endif
 
 
-const words_index, align=16
+const words_index, align=4
     .dc.w 0, 1, 2, 3, 4, 5, 6, 7
 endconst
 

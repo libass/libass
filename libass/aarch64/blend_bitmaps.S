@@ -18,7 +18,7 @@
 
 #include "asm.S"
 
-const edge_mask, align=16
+const edge_mask, align=4
     .dcb.b 16, 0xFF
     .dcb.b 16, 0x00
 endconst
