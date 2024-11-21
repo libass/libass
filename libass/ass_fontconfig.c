@@ -138,10 +138,10 @@ static bool scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         // from typographical weight. we're using truetype weights, so
         // convert appropriately.
 #if FC_VERSION >= 21292
-        meta.weight = FcWeightToOpenTypeDouble(weight) + 0.5;
+        meta.weight = ass_lrint(FcWeightToOpenTypeDouble(weight));
 #elif FC_VERSION >= 21191
         // Versions prior to 2.12.92 only had integer precision.
-        meta.weight = FcWeightToOpenType(weight + 0.5) + 0.5;
+        meta.weight = FcWeightToOpenType(ass_lrint(weight));
 #else
         // On older fontconfig, FcWeightToOpenType is unavailable, and its inverse was
         // implemented more simply, using an if/else ladder instead of linear interpolation.

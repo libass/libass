@@ -162,7 +162,7 @@ static void find_best_method(BlurMethod *blur, double r2)
         calc_coeff(mu, blur->radius, r2, mul);
     }
     for (int i = 0; i < blur->radius; i++)
-        blur->coeff[i] = (int) (0x10000 * mu[i] + 0.5);
+        blur->coeff[i] = ass_lrint(0x10000 * mu[i]);
 }
 
 /**

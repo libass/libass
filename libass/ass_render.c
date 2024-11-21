@@ -1020,14 +1020,14 @@ ASS_Vector ass_layout_res(ASS_Renderer *render_priv)
         return (ASS_Vector) { track->PlayResX, track->PlayResY };
     if (settings->par > 1)
         return (ASS_Vector) {
-            FFMAX(1, lround(track->PlayResY * render_priv->frame_content_width
+            FFMAX(1, ass_lrint(track->PlayResY * render_priv->frame_content_width
                     / render_priv->frame_content_height / settings->par)),
             track->PlayResY
         };
     else
         return (ASS_Vector) {
             track->PlayResX,
-            FFMAX(1, lround(track->PlayResX * render_priv->frame_content_height
+            FFMAX(1, ass_lrint(track->PlayResX * render_priv->frame_content_height
                     / render_priv->frame_content_width * settings->par))
         };
 }
@@ -2599,7 +2599,7 @@ static void render_and_combine_glyphs(RenderContext *state,
         }
 
         if (info->effect_type == EF_KARAOKE_KF)
-            info->effect_timing = lround(d6_to_double(info->leftmost_x) +
+            info->effect_timing = ass_lrint(d6_to_double(info->leftmost_x) +
                 d6_to_double(info->effect_timing) * render_priv->par_scale_x);
 
         for (int j = 0; j < info->bitmap_count; j++) {
@@ -2785,9 +2785,9 @@ static void add_background(RenderContext *state, EventImages *event_images)
 {
     ASS_Renderer *render_priv = state->renderer;
     int size_x = state->shadow_x > 0 ?
-        lround(state->shadow_x * state->border_scale_x) : 0;
+        ass_lrint(state->shadow_x * state->border_scale_x) : 0;
     int size_y = state->shadow_y > 0 ?
-        lround(state->shadow_y * state->border_scale_y) : 0;
+        ass_lrint(state->shadow_y * state->border_scale_y) : 0;
     int left    = event_images->left - size_x;
     int top     = event_images->top  - size_y;
     int right   = event_images->left + event_images->width  + size_x;
@@ -2973,13 +2973,13 @@ ass_render_event(RenderContext *state, ASS_Event *event,
     // fix clip coordinates
     if (state->explicit || !render_priv->settings.use_margins) {
         state->clip_x0 =
-            lround(x2scr_pos_scaled(render_priv, state->clip_x0));
+            ass_lrint(x2scr_pos_scaled(render_priv, state->clip_x0));
         state->clip_x1 =
-            lround(x2scr_pos_scaled(render_priv, state->clip_x1));
+            ass_lrint(x2scr_pos_scaled(render_priv, state->clip_x1));
         state->clip_y0 =
-            lround(y2scr_pos(render_priv, state->clip_y0));
+            ass_lrint(y2scr_pos(render_priv, state->clip_y0));
         state->clip_y1 =
-            lround(y2scr_pos(render_priv, state->clip_y1));
+            ass_lrint(y2scr_pos(render_priv, state->clip_y1));
 
         if (state->explicit) {
             // we still need to clip against screen boundaries
@@ -3002,8 +3002,8 @@ ass_render_event(RenderContext *state, ASS_Event *event,
     }
 
     if (state->evt_type & EVENT_VSCROLL) {
-        int y0 = lround(y2scr_pos(render_priv, state->scroll_y0));
-        int y1 = lround(y2scr_pos(render_priv, state->scroll_y1));
+        int y0 = ass_lrint(y2scr_pos(render_priv, state->scroll_y0));
+        int y1 = ass_lrint(y2scr_pos(render_priv, state->scroll_y1));
 
         state->clip_y0 = FFMAX(state->clip_y0, y0);
         state->clip_y1 = FFMIN(state->clip_y1, y1);
