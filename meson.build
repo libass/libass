@@ -4,7 +4,7 @@ project(
     license: 'ISC',
     meson_version: '>= 0.64.0',
     default_options: [
-        'c_std=c99',
+        'c_std=gnu99',
         'buildtype=debugoptimized',
         'warning_level=2',
         'default_library=static',

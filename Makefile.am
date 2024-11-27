@@ -1,5 +1,9 @@
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -I$(top_srcdir)/libass
+
+# Using gnu99 to gain compatibility between const and
+# non-const array types without needing to jump to ISO C23.
+# Otherwise intended to be compatible with ISO C.
 AM_CFLAGS = -std=gnu99 -D_GNU_SOURCE
 
 EXTRA_DIST = libass.pc.in Changelog MAINTAINERS RELEASEVERSION ltnasm.sh
