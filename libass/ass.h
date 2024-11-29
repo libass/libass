@@ -62,9 +62,12 @@ extern "C" {
 typedef struct ass_image {
     int w, h;                   // Bitmap width/height
     int stride;                 // Bitmap stride
-    unsigned char *bitmap;      // 1bpp stride*h alpha buffer
+    unsigned char *bitmap;      // 1-byte-per-pixel alpha buffer
                                 // Note: the last row may not be padded to
                                 // bitmap stride!
+                                // The guaranteed allocated size is
+                                // `(stride * (h - 1)) + w`, and bytes past
+                                // the width in each line may be uninitialized.
     uint32_t color;             // Bitmap color and alpha, RGBA
                                 // For full VSFilter compatibility, the value
                                 // must be transformed as described in
