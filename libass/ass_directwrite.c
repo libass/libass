@@ -365,35 +365,6 @@ static size_t get_data(void *data, unsigned char *buf, size_t offset,
 }
 
 /*
- * Check whether the font contains PostScript outlines.
- */
-static bool check_postscript(void *data)
-{
-    FontPrivate *priv = (FontPrivate *) data;
-
-    if (!init_font_private_face(priv))
-        return false;
-
-    DWRITE_FONT_FACE_TYPE type = IDWriteFontFace_GetType(priv->face);
-    return type == DWRITE_FONT_FACE_TYPE_CFF ||
-           type == DWRITE_FONT_FACE_TYPE_RAW_CFF ||
-           type == DWRITE_FONT_FACE_TYPE_TYPE1;
-}
-
-/*
- * Lazily return index of font. It requires the FontFace to be present, which is expensive to initialize.
- */
-static unsigned get_font_index(void *data)
-{
-    FontPrivate *priv = (FontPrivate *)data;
-
-    if (!init_font_private_face(priv))
-        return 0;
-
-    return IDWriteFontFace_GetIndex(priv->face);
-}
-
-/*
  * Check if the passed font has a specific unicode character.
  */
 static bool check_glyph(void *data, uint32_t code)
@@ -624,6 +595,8 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
         }
     }
 
+    int index = IDWriteFontFace_GetIndex(face);
+
     FontPrivate *font_priv = calloc(1, sizeof(*font_priv));
     if (!font_priv)
         goto cleanup;
@@ -635,7 +608,7 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
     font_priv->shared_hdc = hdc_retain(shared_hdc);
 #endif
 
-    ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
+    ass_font_provider_add_font(provider, &meta, NULL, index, font_priv);
 
 cleanup:
     free(meta.postscript_name);
@@ -844,7 +817,7 @@ cleanup:
  * When a new font name is requested, called to load that font from Windows
  */
 static void match_fonts(void *priv, ASS_Library *lib,
-                        ASS_FontProvider *provider, char *name)
+                        ASS_FontProvider *provider, const char *name)
 {
     ProviderPrivate *provider_priv = (ProviderPrivate *)priv;
     LOGFONTW lf = {0};
@@ -1020,14 +993,12 @@ static void get_substitutions(void *priv, const char *name,
  */
 static ASS_FontProviderFuncs directwrite_callbacks = {
     .get_data           = get_data,
-    .check_postscript   = check_postscript,
     .check_glyph        = check_glyph,
     .destroy_font       = destroy_font,
     .destroy_provider   = destroy_provider,
     .match_fonts        = match_fonts,
     .get_substitutions  = get_substitutions,
     .get_fallback       = get_fallback,
-    .get_font_index     = get_font_index,
 };
 
 #if ASS_WINAPI_DESKTOP
