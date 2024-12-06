@@ -158,9 +158,12 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     if (!ass_cache_client_set_init(&priv->cache.client_set))
         goto fail;
 
-    priv->cache.glyph_max = GLYPH_CACHE_MAX;
-    priv->cache.bitmap_max_size = BITMAP_CACHE_MAX_SIZE;
-    priv->cache.composite_max_size = COMPOSITE_CACHE_MAX_SIZE;
+    const char *glyph_str = getenv("LIBASS_GLYPH_CACHE_MAX");
+    const char *bitmap_str = getenv("LIBASS_BITMAP_CACHE_MAX");
+    int glyph_size = glyph_str ? atoi(glyph_str) : 0;
+    int bitmap_size = bitmap_str ? atoi(bitmap_str) : 0;
+
+    ass_set_cache_limits(priv, glyph_size, bitmap_size);
 
     if (!render_context_init(&priv->state, priv))
         goto fail;
@@ -3157,7 +3160,9 @@ static void *run_thread(void *ptr)
     pthread_cond_broadcast(&priv->main_cond);
 
     for (;;) {
-        while (!priv->shutting_down && atomic_load_explicit(&priv->next_eimg, memory_order_relaxed) >= atomic_load_explicit(&priv->sent_eimgs, memory_order_relaxed))
+        while (!priv->shutting_down &&
+               (atomic_load_explicit(&priv->next_eimg, memory_order_relaxed) >=
+                atomic_load_explicit(&priv->sent_eimgs, memory_order_relaxed)))
             pthread_cond_wait(&priv->pool_cond, &priv->mutex);
 
         if (priv->shutting_down)
@@ -3511,34 +3516,35 @@ static int ass_detect_change(ASS_Renderer *priv)
 #if ENABLE_THREADS
 static bool start_threads(ASS_Renderer *priv)
 {
-    if (priv->n_threads != priv->settings.threads && !priv->thread_start_failed) {
-        join_threads(priv);
+    if (priv->n_threads == priv->settings.threads || priv->thread_start_failed)
+        return true;
 
-        priv->shutting_down = 0;
+    join_threads(priv);
 
-        if (priv->settings.threads <= 1)
-            return true;
+    priv->shutting_down = 0;
 
-        if (!(priv->threads = calloc(priv->settings.threads, sizeof(pthread_t)))) {
-            ass_msg(priv->library, MSGL_ERR, "Allocation failure");
-            return false;
-        }
+    if (priv->settings.threads <= 1)
+        return true;
 
-        for (priv->n_threads = 0; priv->n_threads < priv->settings.threads; priv->n_threads++) {
-            if (pthread_create(&priv->threads[priv->n_threads], NULL, run_thread, priv) != 0) {
-                pthread_mutex_lock(&priv->mutex);
-                ass_msg(priv->library, MSGL_WARN, "Thread startup failure");
-                priv->thread_start_failed = 1;
-                pthread_mutex_unlock(&priv->mutex);
-                return true;
-            }
-        }
-
-        pthread_mutex_lock(&priv->mutex);
-        while (priv->started_threads < priv->n_threads && !priv->thread_start_failed)
-            pthread_cond_wait(&priv->main_cond, &priv->mutex);
-        pthread_mutex_unlock(&priv->mutex);
+    if (!(priv->threads = calloc(priv->settings.threads, sizeof(pthread_t)))) {
+        ass_msg(priv->library, MSGL_ERR, "Allocation failure");
+        return false;
     }
+
+    for (priv->n_threads = 0; priv->n_threads < priv->settings.threads; priv->n_threads++) {
+        if (pthread_create(&priv->threads[priv->n_threads], NULL, run_thread, priv) != 0) {
+            pthread_mutex_lock(&priv->mutex);
+            ass_msg(priv->library, MSGL_WARN, "Thread startup failure");
+            priv->thread_start_failed = 1;
+            pthread_mutex_unlock(&priv->mutex);
+            return true;
+        }
+    }
+
+    pthread_mutex_lock(&priv->mutex);
+    while (priv->started_threads < priv->n_threads && !priv->thread_start_failed)
+        pthread_cond_wait(&priv->main_cond, &priv->mutex);
+    pthread_mutex_unlock(&priv->mutex);
 
     return true;
 }
