@@ -33,9 +33,11 @@ typedef struct image_s {
 ASS_Library *ass_library;
 ASS_Renderer *ass_renderer;
 
+static int log_level = 6;
+
 void msg_callback(int level, const char *fmt, va_list va, void *data)
 {
-    if (level > 6)
+    if (level > log_level)
         return;
     char fmt_buf[1024];
     snprintf(fmt_buf, sizeof(fmt_buf), "libass: %s\n", fmt);
@@ -93,6 +95,11 @@ int main(int argc, char *argv[])
     if (fps == 0) {
         printf("fps cannot equal 0\n");
         exit(1);
+    }
+
+    const char *log_level_var = getenv("LIBASS_LOG_LEVEL");
+    if (log_level_var) {
+        log_level = atoi(log_level_var);
     }
 
     struct timespec start_time;
