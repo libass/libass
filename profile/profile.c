@@ -21,6 +21,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <time.h>
+#endif
 #include "../libass/ass.h"
 
 typedef struct image_s {
@@ -35,9 +41,9 @@ void msg_callback(int level, const char *fmt, va_list va, void *data)
 {
     if (level > 6)
         return;
-    printf("libass: ");
-    vprintf(fmt, va);
-    printf("\n");
+    char fmt_buf[1024];
+    snprintf(fmt_buf, sizeof(fmt_buf), "libass: %s\n", fmt);
+    vfprintf(stderr, fmt_buf, va);
 }
 
 static void init(int frame_w, int frame_h)
@@ -62,6 +68,20 @@ static void init(int frame_w, int frame_h)
     ass_set_fonts(ass_renderer, NULL, "Sans", 1, NULL, 1);
 }
 
+static double gettime(void)
+{
+#ifdef _WIN32
+    LARGE_INTEGER counter, frequency;
+    QueryPerformanceCounter(&counter);
+    QueryPerformanceFrequency(&frequency);
+    return counter.QuadPart / (double)frequency.QuadPart;
+#else
+    struct timespec spec;
+    clock_gettime(CLOCK_MONOTONIC, &spec);
+    return spec.tv_sec + spec.tv_nsec / 1000000000.;
+#endif
+}
+
 int main(int argc, char *argv[])
 {
     const int frame_w = 1280;
@@ -82,21 +102,66 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    double start_time = gettime();
+
     init(frame_w, frame_h);
+
+    double init_time = gettime();
+
     ASS_Track *track = ass_read_file(ass_library, subfile, NULL);
     if (!track) {
         printf("track init failed!\n");
         exit(1);
     }
 
+    double read_time = gettime();
+    double last_frame_time = read_time;
+
+    double first_frame_time;
+    double worst_frame = 0;
+    bool got_frame = false;
+    int frames = 0;
+
     while (tm < end_time) {
-        ass_render_frame(ass_renderer, track, (int) (tm * 1000), NULL);
+        bool got = ass_render_frame(ass_renderer, track, (int) (tm * 1000), NULL) != NULL;
         tm += 1 / fps;
+
+        double current_time = gettime();
+        if (got && !got_frame) {
+            first_frame_time = current_time;
+            got_frame = true;
+        } else {
+            double current_frame = current_time - last_frame_time;
+            if (current_frame > worst_frame)
+                worst_frame = current_frame;
+        }
+
+        last_frame_time = current_time;
+
+        frames++;
     }
 
     ass_free_track(track);
     ass_renderer_done(ass_renderer);
     ass_library_done(ass_library);
+
+    double cleanup_time = gettime();
+
+    printf("Timing:\n");
+    printf("           init: %f\n", init_time - start_time);
+    printf("           read: %f\n", read_time - init_time);
+    printf("   total render: %f\n", last_frame_time - read_time);
+    if (frames > 0) {
+        printf("    first frame: %f\n", first_frame_time - read_time);
+        printf("     post-first: %f\n", last_frame_time - first_frame_time);
+        printf("    worst frame: %f\n", worst_frame);
+    }
+    printf("        cleanup: %f\n", cleanup_time - last_frame_time);
+    if (frames > 0) {
+        printf("      total fps: %f\n", frames / (last_frame_time - read_time));
+        printf("     post-1 fps: %f\n", frames / (last_frame_time - first_frame_time));
+        printf("     post-1 fps: %f\n", frames / (last_frame_time - first_frame_time));
+    }
 
     return 0;
 }
