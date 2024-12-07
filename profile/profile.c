@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
+#include <time.h>
 #include "../libass/ass.h"
 
 typedef struct image_s {
@@ -35,9 +37,9 @@ void msg_callback(int level, const char *fmt, va_list va, void *data)
 {
     if (level > 6)
         return;
-    printf("libass: ");
-    vprintf(fmt, va);
-    printf("\n");
+    char fmt_buf[1024];
+    snprintf(fmt_buf, sizeof(fmt_buf), "libass: %s\n", fmt);
+    vfprintf(stderr, fmt_buf, va);
 }
 
 static void init(int frame_w, int frame_h)
@@ -63,6 +65,16 @@ static void init(int frame_w, int frame_h)
     ass_set_fonts(ass_renderer, NULL, "Sans", 1, NULL, 1);
 }
 
+static double timespec_to_double(struct timespec *spec)
+{
+    return spec->tv_sec + spec->tv_nsec / 1000000000.;
+}
+
+static double timespec_diff(struct timespec *a, struct timespec *b)
+{
+    return timespec_to_double(a) - timespec_to_double(b);
+}
+
 int main(int argc, char *argv[])
 {
     const int frame_w = 1280;
@@ -83,21 +95,62 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    struct timespec start_time;
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
+
     init(frame_w, frame_h);
+
+    struct timespec init_time;
+    clock_gettime(CLOCK_MONOTONIC, &init_time);
+
     ASS_Track *track = ass_read_file(ass_library, subfile, NULL);
     if (!track) {
         printf("track init failed!\n");
         exit(1);
     }
 
+    struct timespec read_time;
+    clock_gettime(CLOCK_MONOTONIC, &read_time);
+
+    struct timespec first_frame_time;
+    bool got_frame = false;
+    int frames = 0;
+
     while (tm < end_time) {
-        ass_render_frame(ass_renderer, track, (int) (tm * 1000), NULL);
+        bool got = ass_render_frame(ass_renderer, track, (int) (tm * 1000), NULL) != NULL;
         tm += 1 / fps;
+
+        if (got && !got_frame) {
+            clock_gettime(CLOCK_MONOTONIC, &first_frame_time);
+            got_frame = true;
+        }
+
+        frames++;
     }
+
+    struct timespec last_frame_time;
+    clock_gettime(CLOCK_MONOTONIC, &last_frame_time);
 
     ass_free_track(track);
     ass_renderer_done(ass_renderer);
     ass_library_done(ass_library);
+
+    struct timespec cleanup_time;
+    clock_gettime(CLOCK_MONOTONIC, &cleanup_time);
+
+    printf("Timing:\n");
+    printf("           init: %f\n", timespec_diff(&init_time, &start_time));
+    printf("           read: %f\n", timespec_diff(&read_time, &init_time));
+    printf("   total render: %f\n", timespec_diff(&last_frame_time, &read_time));
+    if (frames > 0) {
+        printf("    first frame: %f\n", timespec_diff(&first_frame_time, &read_time));
+        printf("     post-first: %f\n", timespec_diff(&last_frame_time, &first_frame_time));
+    }
+    printf("            cleanup: %f\n", timespec_diff(&cleanup_time, &last_frame_time));
+    if (frames > 0) {
+        printf("      total fps: %f\n", frames / timespec_diff(&last_frame_time, &read_time));
+        printf("     post-1 fps: %f\n", frames / timespec_diff(&last_frame_time, &first_frame_time));
+    }
 
     return 0;
 }
