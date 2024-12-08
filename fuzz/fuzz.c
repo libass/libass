@@ -34,6 +34,15 @@
     #define ASS_FUZZMODE FUZZMODE_STANDALONE
 #endif
 
+// Limit maximal processed size in continuous fuzzing;
+// to be used when the fuzzing setup doesn't expose its own max size control.
+// Has no effect in standalone builds
+#ifdef ASSFUZZ_MAX_LEN
+    #define LEN_IN_RANGE(s) ((s) <= (ASSFUZZ_MAX_LEN))
+#else
+    #define LEN_IN_RANGE(s) true
+#endif
+
 // MSAN: will trigger MSAN if any pixel in bitmap not written to (costly)
 #ifndef ASSFUZZ_HASH_WHOLEBITMAP
     #define ASSFUZZ_HASH_WHOLEBITMAP 0
@@ -347,6 +356,8 @@ int main(int argc, char *argv[])
     buf = __AFL_FUZZ_TESTCASE_BUF;
     while (__AFL_LOOP(100000)) {
         len = __AFL_FUZZ_TESTCASE_LEN;
+        if (!LEN_IN_RANGE(len))
+            continue;
 
         if (!init_renderer()) {
             printf("Failing renderer init, skipping a sample!\n");
@@ -372,9 +383,14 @@ int main(int argc, char *argv[])
 #elif ASS_FUZZMODE == FUZZMODE_LIBFUZZER
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
+    // OSS Fuzz docs recommend just returning 0 on too large input
+    // But libFuzzer docs tell us to use -1 to prevent addition to corpus
+    if (!LEN_IN_RANGE(size))
+        return -1;
+
     ASS_Track *track = NULL;
 
-    // All return values but zero are reserved
+    // All return values but zero and -1 are reserved
     if (!init())
         return 0;
 
