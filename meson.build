@@ -43,6 +43,10 @@ if cc.get_argument_syntax() == 'gcc'
         '-Wformat-non-iso',
         '-Werror=format-non-iso',
     ]
+elif cc.get_id() == 'msvc'
+    cc_warnings += [
+        '/we4013',
+    ]
 endif
 
 add_project_arguments(

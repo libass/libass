@@ -22,7 +22,7 @@ jobs:
             msystem: MINGW64,
             shell: 'powershell',
             buildtype: release,
-            args: '-Ddefault_library=static'
+            args: '-Ddefault_library=both'
           }
           - {
             name: Windows MinGW Release,
@@ -32,7 +32,7 @@ jobs:
             msystem: MINGW64,
             shell: 'msys2 {0}',
             buildtype: debugoptimized,
-            args: ''
+            args: '-Ddefault_library=both'
           }
           - {
             name: Ubuntu Debug,
