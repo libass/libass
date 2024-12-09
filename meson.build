@@ -14,7 +14,7 @@ project(
 
 conf = configuration_data()
 deps = []
-test_deps = []
+png_deps = []
 
 host_system = host_machine.system()
 
@@ -120,8 +120,12 @@ if libunibreak_dep.found()
     conf.set('CONFIG_UNIBREAK', 1)
 endif
 
-if get_option('test')
-    test_deps += dependency('libpng', version: '>= 1.2.0')
+png_dep = dependency(
+    'libpng',
+    version: '>= 1.2.0',
+    required: get_option('test').enabled() or get_option('compare').enabled())
+if png_dep.found()
+    png_deps += png_dep
     conf.set('CONFIG_LIBPNG', 1)
 endif
 
@@ -373,11 +377,20 @@ else
     libass_for_tools = libass
 endif
 
-if get_option('test')
+if get_option('test').enabled()
     subdir('test')
 endif
-if get_option('profile')
+if get_option('compare').require(default_library != 'shared').enabled()
+    subdir('compare')
+endif
+if get_option('profile').enabled()
     subdir('profile')
+endif
+if get_option('fuzz').enabled()
+    subdir('fuzz')
+endif
+if get_option('checkasm').require(enable_asm and default_library != 'shared').allowed()
+    subdir('checkasm')
 endif
 
 # libass.pc

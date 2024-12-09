@@ -5,6 +5,6 @@ libass_test = executable(
     test_src,
     install: false,
     include_directories: incs,
-    dependencies: deps + test_deps,
+    dependencies: deps + png_deps,
     link_with: libass_for_tools,
 )
