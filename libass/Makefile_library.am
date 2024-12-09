@@ -11,7 +11,8 @@ libass_libass_internal_la_SOURCES = \
     libass/ass_string.h libass/ass_string.c \
     libass/ass_compat.h libass/ass_strtod.c \
     libass/ass_filesystem.h libass/ass_filesystem.c \
-    libass/ass_types.h libass/ass.h libass/ass_priv.h libass/ass.c \
+    libass/ass_types.h libass/ass_metrics.h \
+    libass/ass.h libass/ass_priv.h libass/ass.c \
     libass/ass_library.h libass/ass_library.c \
     libass/ass_cache_template.h libass/ass_cache.h libass/ass_cache.c \
     libass/ass_font.h libass/ass_font.c \
@@ -71,7 +72,7 @@ libass_libass_la_LDFLAGS = -no-undefined -version-info $(LIBASS_LT_CURRENT):$(LI
 libass_libass_la_LDFLAGS += -export-symbols $(top_srcdir)/libass/libass.sym
 
 assheadersdir = $(includedir)/ass
-dist_assheaders_HEADERS = libass/ass_types.h libass/ass.h
+dist_assheaders_HEADERS = libass/ass_types.h libass/ass_metrics.h libass/ass.h
 
 EXTRA_DIST += \
     libass/x86/x86inc.asm libass/x86/utils.asm \
