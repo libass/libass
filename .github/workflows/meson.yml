@@ -51,10 +51,19 @@ jobs:
       run:
         shell: ${{ matrix.config.shell || 'bash' }}
 
+    env:
+      ART_SAMPLES: ${{ github.workspace }}/ext_art-samples
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: '0'
+
+      - name: download test samples
+        uses: actions/checkout@v4
+        with:
+          repository: libass/libass-tests
+          path: ${{ env.ART_SAMPLES }}
 
       - name: Setup MSys2
         if: startsWith(matrix.config.os, 'windows')
@@ -124,14 +133,25 @@ jobs:
           meson wrap update-db
 
       - name: Configure
-        run: meson setup build ${{ matrix.config.args }} -Dbuildtype=${{ matrix.config.buildtype }}
+        run: meson setup build ${{ matrix.config.args }} -Dbuildtype=${{ matrix.config.buildtype }} -Dtest=enabled -Dcompare=enabled -Dprofile=enabled -Dfuzz=enabled '-Dart-samples=${{ env.ART_SAMPLES }}'
 
       - name: Build
         run: meson compile -C build
 
+      - name: Run tests
+        id: run-tests
+        if: matrix.config.skip_tests != 'yes'
+        env:
+          ART_REG_SKIP: ${{ matrix.config.art_reg_skip }}
+        run: meson test -C build
+
       - name: Dump Meson Debug Info
         if: failure()
         run: cat build/meson-logs/meson-log.txt
+
+      - name: Dump Meson Test Debug Info
+        if: ${{ failure() && steps.run-tests.conclusion == 'failure' }}
+        run: cat build/meson-logs/testlog.txt
 
   build-muon:
     runs-on: ubuntu-latest
