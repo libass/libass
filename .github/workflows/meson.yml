@@ -52,6 +52,8 @@ jobs:
 
     env:
       ART_SAMPLES: ${{ github.workspace }}/ext_art-samples
+      SCCACHE_DIR: ${{ github.workspace }}/.sccache
+      SCCACHE_MAXSIZE: 200M
 
     steps:
       - uses: actions/checkout@v4
@@ -75,13 +77,26 @@ jobs:
         if: matrix.config.os == 'windows-latest' && matrix.config.msvc == true
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Get time
+        if: matrix.config.msvc
+        id: get_time
+        run: |
+          "timestamp=$((Get-Date).Ticks)" >> $env:GITHUB_OUTPUT
+
+      - name: Restore cache
+        if: matrix.config.msvc
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: windows-msvc-${{ steps.get_time.outputs.timestamp }}
+          restore-keys: windows-msvc-
+
       - name: Install MSVC dependecies with choco
         if: matrix.config.msvc
+        # Install meson through pip to add it to PATH easily
         run: |
-          # for whatever reason choco insist on a reboot if it installs meson
-          choco install ninja nasm python pkgconfiglite
-          python -m pip install --upgrade pip
-          pip install meson
+          python -m pip install meson
+          choco install nasm sccache
 
       - name: Install dependencies (not MSVC)
         if: ${{ !matrix.config.msvc }}
@@ -132,6 +147,13 @@ jobs:
       - name: Dump Meson Test Debug Info
         if: ${{ failure() && steps.run-tests.conclusion == 'failure' }}
         run: cat build/meson-logs/testlog.txt
+
+      - name: Save Cache
+        uses: actions/cache/save@v4
+        if: always() && matrix.config.msvc
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: windows-msvc-${{ steps.get_time.outputs.timestamp }}
 
   build-muon:
     runs-on: ubuntu-latest
