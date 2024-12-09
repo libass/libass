@@ -16,7 +16,7 @@ if ENABLE_COMPARE
 noinst_PROGRAMS += compare/compare
 endif
 compare_compare_SOURCES = compare/image.h  compare/image.c  compare/compare.c
-compare_compare_LDADD = libass/libass.la
+compare_compare_LDADD = libass/libass_internal.la
 compare_compare_LDFLAGS = $(AM_LDFLAGS) $(LIBPNG_LIBS) -static
 EXTRA_DIST += compare/README.md
 
