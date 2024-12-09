@@ -23,6 +23,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#endif
+
 #include "writeout.h"
 
 
@@ -177,7 +183,12 @@ void write_out_track(ASS_Track *track, const char *outpath)
         printf("Parsed File will be written to:  %s\n", outpath);
     } else {
         char filename[] = "/tmp/parsedSubs_XXXXXX";
+#ifdef _WIN32
+        _mktemp(filename);
+        int fd = _open(filename, O_CREAT | _O_EXCL | _O_WRONLY, _S_IREAD | _S_IWRITE);
+#else
         int fd = mkstemp(filename);
+#endif
         if (fd == -1) {
             printf("Failed to acquire temporary file!\n");
             return;
