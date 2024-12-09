@@ -23,7 +23,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 #include "ass.h"
 #include "ass_types.h"
 
@@ -173,6 +177,11 @@ struct settings {
     const char *output; // path or NULL for tmp file
 };
 
+#ifdef _WIN32
+#define READ_RET int
+#else
+#define READ_RET ssize_t
+#endif
 
 static ASS_Track *read_track_from_stdin(void)
 {
@@ -181,11 +190,11 @@ static ASS_Track *read_track_from_stdin(void)
     if (!buf)
         goto error;
     size_t s = 0;
-    ssize_t read_b = 0;
+    READ_RET read_b = 0;
     do {
         // AFL++ docs recommend using raw file descriptors
         // to avoid buffering issues with stdin
-        read_b = read(STDIN_FILENO, buf + s, smax - s);
+        read_b = read(fileno(stdin), buf + s, smax - s);
         s += read_b > 0 ? read_b : 0;
         if (s == smax) {
             size_t new_smax = smax > SIZE_MAX / 2 ? SIZE_MAX : smax * 2;
