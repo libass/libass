@@ -86,6 +86,13 @@ jobs:
               $pre-fribidi $pre-freetype $pre-harfbuzz \
               $pre-fontconfig $pre-libpng
             echo "PKG_CONFIG_PATH=$(cygpath -w "$PWD/pacman-root/mingw64/lib/pkgconfig")" >> "$GITHUB_ENV"
+            cygpath -w "$PWD/pacman-root/mingw64/bin" >> "$GITHUB_PATH"
+            cp "$PWD/pacman-root/mingw64/lib/libharfbuzz.dll.a" "$PWD/pacman-root/mingw64/lib/libharfbuzz.lib"
+            cp "$PWD/pacman-root/mingw64/lib/libfreetype.dll.a" "$PWD/pacman-root/mingw64/lib/libfreetype.lib"
+            cp "$PWD/pacman-root/mingw64/lib/libfribidi.dll.a" "$PWD/pacman-root/mingw64/lib/libfribidi.lib"
+            cp "$PWD/pacman-root/mingw64/lib/libfontconfig.dll.a" "$PWD/pacman-root/mingw64/lib/libfontconfig.lib"
+            cp "$PWD/pacman-root/mingw64/lib/libpng.dll.a" "$PWD/pacman-root/mingw64/lib/libpng.lib"
+            cp "$PWD/pacman-root/mingw64/lib/libpng16.dll.a" "$PWD/pacman-root/mingw64/lib/libpng16.lib"
 
       - name: Install dependencies (not MSVC)
         if: ${{ !matrix.config.msvc }}
