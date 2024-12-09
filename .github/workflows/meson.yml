@@ -19,7 +19,6 @@ jobs:
             name: Windows MSVC Release,
             os: windows-latest,
             msvc: true,
-            msystem: MINGW64,
             shell: 'powershell',
             buildtype: release,
             args: '-Ddefault_library=both'
@@ -59,14 +58,14 @@ jobs:
         with:
           fetch-depth: '0'
 
-      - name: download test samples
+      - name: Download test samples
         uses: actions/checkout@v4
         with:
           repository: libass/libass-tests
           path: ${{ env.ART_SAMPLES }}
 
-      - name: Setup MSys2
-        if: startsWith(matrix.config.os, 'windows')
+      - name: Setup MSYS2
+        if: matrix.config.msystem
         uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.config.msystem }}
@@ -83,25 +82,6 @@ jobs:
           choco install ninja nasm python pkgconfiglite
           python -m pip install --upgrade pip
           pip install meson
-
-      - name: Install more MSVC dependecies with msys
-        if: matrix.config.msvc
-        shell: 'msys2 {0}'
-        run: |
-            pre="$MINGW_PACKAGE_PREFIX"
-            mkdir pacman-root
-            ln -s /var pacman-root/var
-            pacman -r ./pacman-root --noconfirm -S \
-              $pre-fribidi $pre-freetype $pre-harfbuzz \
-              $pre-fontconfig $pre-libpng
-            echo "PKG_CONFIG_PATH=$(cygpath -w "$PWD/pacman-root/mingw64/lib/pkgconfig")" >> "$GITHUB_ENV"
-            cygpath -w "$PWD/pacman-root/mingw64/bin" >> "$GITHUB_PATH"
-            cp "$PWD/pacman-root/mingw64/lib/libharfbuzz.dll.a" "$PWD/pacman-root/mingw64/lib/libharfbuzz.lib"
-            cp "$PWD/pacman-root/mingw64/lib/libfreetype.dll.a" "$PWD/pacman-root/mingw64/lib/libfreetype.lib"
-            cp "$PWD/pacman-root/mingw64/lib/libfribidi.dll.a" "$PWD/pacman-root/mingw64/lib/libfribidi.lib"
-            cp "$PWD/pacman-root/mingw64/lib/libfontconfig.dll.a" "$PWD/pacman-root/mingw64/lib/libfontconfig.lib"
-            cp "$PWD/pacman-root/mingw64/lib/libpng.dll.a" "$PWD/pacman-root/mingw64/lib/libpng.lib"
-            cp "$PWD/pacman-root/mingw64/lib/libpng16.dll.a" "$PWD/pacman-root/mingw64/lib/libpng16.lib"
 
       - name: Install dependencies (not MSVC)
         if: ${{ !matrix.config.msvc }}
@@ -128,7 +108,7 @@ jobs:
           esac
 
       - name: Set up WrapDB
-        if: matrix.config.pkgmanager == 'choco' || matrix.config.os == 'macos-latest'
+        if: matrix.config.msvc || matrix.config.os == 'macos-latest'
         run: |
           meson wrap update-db
 
