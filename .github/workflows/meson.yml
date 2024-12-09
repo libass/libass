@@ -155,7 +155,7 @@ jobs:
       - name: configure
         run: |
           muon version
-          muon setup -Dtest=true build
+          muon setup -Dtest=enabled build
 
       - name: build
         run: |

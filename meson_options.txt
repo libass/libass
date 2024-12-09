@@ -1,5 +1,9 @@
-option('test', type: 'boolean', value: false, description: 'enable test program (requires libpng)')
-option('profile', type: 'boolean', value: false, description: 'enable profiling program')
+option('test', type: 'feature', description: 'enable test program (requires libpng)')
+option('compare', type: 'feature', description: 'enable compare program')
+option('profile', type: 'feature', description: 'enable profiling program')
+option('fuzz', type: 'feature', description: 'enable fuzzing consumer')
+option('checkasm', type: 'feature', description: 'enable assembly unit test program')
+option('art-samples', type: 'string', description: 'Path to the root of regression testing sample repository. If set, it is used in meson test.')
 
 option('fontconfig', type: 'feature', description: 'Fontconfig support')
 option('directwrite', type: 'feature', description: 'DirectWrite support (win32 only)')
