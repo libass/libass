@@ -24,16 +24,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "ass_metrics.h"
 #include "ass_utils.h"
 
 
 typedef struct {
     int32_t x, y;
 } ASS_Vector;
-
-typedef struct {
-    double x, y;
-} ASS_DVector;
 
 typedef struct {
     int32_t x_min, y_min, x_max, y_max;
@@ -90,6 +87,9 @@ typedef struct {
 void ass_outline_clear(ASS_Outline *outline);
 bool ass_outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_segments);
 void ass_outline_free(ASS_Outline *outline);
+
+void ass_metric_outline_copy(ASS_Metrics_Outline *metrics_outline, ASS_Outline *outline);
+void ass_metric_outline_free(ASS_Metrics_Outline *metrics_outline);
 
 // expects preallocated outline and works inplace
 bool ass_outline_convert(ASS_Outline *outline, const FT_Outline *source);

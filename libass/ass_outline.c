@@ -77,6 +77,48 @@ void ass_outline_free(ASS_Outline *outline)
 }
 
 
+/*
+ * \brief Allocate an ASS_Metrics_Outline's memory and copy the given
+ * ASS_Outline's data into it.
+ */
+void ass_metric_outline_copy(ASS_Metrics_Outline *metrics_outline, ASS_Outline *outline)
+{
+    metrics_outline->n_points = outline->n_points;
+    metrics_outline->n_segments = outline->n_segments;
+    metrics_outline->points = malloc(sizeof(ASS_DVector) * outline->n_points);
+    metrics_outline->segments = malloc(outline->n_segments);
+    if (!metrics_outline->points || !metrics_outline->segments) {
+        free(metrics_outline->points);
+        free(metrics_outline->segments);
+        metrics_outline->n_points = 0;
+        metrics_outline->n_segments = 0;
+        return;
+    }
+
+    memcpy(metrics_outline->segments, outline->segments, outline->n_segments);
+
+    for (int i = 0; i < outline->n_points; i++) {
+        metrics_outline->points[i].x = d6_to_double(outline->points[i].x);
+        metrics_outline->points[i].y = d6_to_double(outline->points[i].y);
+    }
+}
+
+/*
+ * \brief Free the point and segments lists of an ASS_Metrics_Outline
+ */
+void ass_metric_outline_free(ASS_Metrics_Outline *metrics_outline)
+{
+    if (!metrics_outline)
+        return;
+
+    free(metrics_outline->points);
+    free(metrics_outline->segments);
+    metrics_outline->points = NULL;
+    metrics_outline->segments = NULL;
+    metrics_outline->n_points = 0;
+    metrics_outline->n_segments = 0;
+}
+
 static bool valid_point(const FT_Vector *pt)
 {
     return labs(pt->x) <= OUTLINE_MAX && labs(pt->y) <= OUTLINE_MAX;
