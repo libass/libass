@@ -384,9 +384,12 @@ int main(int argc, char *argv[])
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
     // OSS Fuzz docs recommend just returning 0 on too large input
-    // But libFuzzer docs tell us to use -1 to prevent addition to corpus
+    // libFuzzer docs tell us to use -1 to prevent addition to corpus
+    // BUT HongFuzz' LLVMFuzzerTestOneInput hook can't handle it and
+    // neither does OSS Fuzz convert this in their wrapper, see:
+    // https://github.com/google/oss-fuzz/issues/11983
     if (!LEN_IN_RANGE(size))
-        return -1;
+        return 0;
 
     ASS_Track *track = NULL;
 
