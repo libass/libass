@@ -18,6 +18,8 @@ EXTRA_DIST = libass.pc.in Changelog MAINTAINERS RELEASEVERSION ltnasm.sh
 # Meson build setup
 EXTRA_DIST += gen_defs.py meson_options.txt meson.build \
               libass/meson.build libass/ass/meson.build \
+              fuzz/meson.build checkasm/meson.build \
+              compare/meson.build \
               profile/meson.build test/meson.build
 
 pkgconfigdir = $(libdir)/pkgconfig
