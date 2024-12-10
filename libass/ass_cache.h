@@ -24,8 +24,10 @@
 #include "ass_font.h"
 #include "ass_outline.h"
 #include "ass_bitmap.h"
+#include "ass_threading.h"
 
 typedef struct cache Cache;
+typedef struct cache_client CacheClient;
 typedef uint64_t ass_hashcode;
 
 // cache values
@@ -50,8 +52,9 @@ typedef struct {
 typedef ass_hashcode (*HashFunction)(void *key, ass_hashcode hval);
 typedef bool (*HashCompare)(void *a, void *b);
 typedef bool (*CacheKeyMove)(void *dst, void *src);
-typedef size_t (*CacheValueConstructor)(void *key, void *value, void *priv);
-typedef void (*CacheItemDestructor)(void *key, void *value);
+typedef void (*CacheKeyDestruct)(void *key);
+typedef size_t (*CacheValueConstruct)(void *key, void *value, void *priv);
+typedef void (*CacheValueDestruct)(void *value);
 
 // cache hash keys
 
@@ -92,17 +95,32 @@ typedef struct
     HashFunction hash_func;
     HashCompare compare_func;
     CacheKeyMove key_move_func;
-    CacheValueConstructor construct_func;
-    CacheItemDestructor destruct_func;
+    CacheValueConstruct construct_func;
+    CacheKeyDestruct key_destruct_func;
+    CacheValueDestruct value_destruct_func;
     size_t key_size;
     size_t value_size;
 } CacheDesc;
 
+typedef struct
+{
+    struct cache_client *first_client;
+
+#if ENABLE_THREADS
+    pthread_mutex_t mutex;
+#endif
+} CacheClientSet;
+
 Cache *ass_cache_create(const CacheDesc *desc);
-void *ass_cache_get(Cache *cache, void *key, void *priv);
+bool ass_cache_client_set_init(CacheClientSet *set);
+void ass_cache_client_set_clear(CacheClientSet *set);
+void ass_cache_client_set_done(CacheClientSet *set);
+CacheClient *ass_cache_client_create(CacheClientSet *set);
+void *ass_cache_get(Cache *cache, CacheClient *client, void *key, void *priv);
 void *ass_cache_key(void *value);
 void ass_cache_inc_ref(void *value);
 void ass_cache_dec_ref(void *value);
+void ass_cache_promote(CacheClientSet *set);
 void ass_cache_cut(Cache *cache, size_t max_size);
 void ass_cache_empty(Cache *cache);
 void ass_cache_done(Cache *cache);
