@@ -87,7 +87,9 @@ jobs:
         if: matrix.config.msvc
         uses: actions/cache/restore@v4
         with:
-          path: ${{ env.SCCACHE_DIR }}
+          path: |
+            ${{ env.SCCACHE_DIR }}
+            ${{ github.workspace }}/subprojects/packagecache
           key: windows-msvc-${{ steps.get_time.outputs.timestamp }}
           restore-keys: windows-msvc-
 
@@ -151,7 +153,9 @@ jobs:
         uses: actions/cache/save@v4
         if: always() && matrix.config.msvc
         with:
-          path: ${{ env.SCCACHE_DIR }}
+          path: |
+            ${{ env.SCCACHE_DIR }}
+            ${{ github.workspace }}/subprojects/packagecache
           key: windows-msvc-${{ steps.get_time.outputs.timestamp }}
 
   build-muon:
