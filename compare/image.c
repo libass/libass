@@ -25,6 +25,15 @@ static inline bool is_little_endian(void)
     return *(char *) &(uint16_t) {1};
 }
 
+static void read_callback(png_structp png_ptr, png_bytep data, size_t length)
+{
+    if (png_ptr == NULL)
+        return;
+
+    if (fread(data, 1, length, png_get_io_ptr(png_ptr)) < length)
+        png_error(png_ptr, "Read Error");
+}
+
 bool read_png(const char *path, Image16 *img)
 {
     FILE *fp = fopen(path, "rb");
@@ -55,6 +64,11 @@ bool read_png(const char *path, Image16 *img)
         return false;
     }
 
+    // Explicitly set a read callback instead of using the default.
+    // This ensures all accesses to the FILE* happen within the program that created it,
+    // rather than in the libpng library, which may be linked against a different libc
+    // (particularly on win32).
+    png_set_read_fn(png, fp, &read_callback);
     png_init_io(png, fp);
     png_read_info(png, info);
 
