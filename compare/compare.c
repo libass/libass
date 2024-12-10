@@ -18,9 +18,9 @@
 
 #include "image.h"
 #include "../libass/ass.h"
+#include "../libass/ass_filesystem.h"
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <dirent.h>
 #include <string.h>
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
@@ -485,14 +485,14 @@ static bool add_img_item(ItemList *list, const char *dir, const char *file, size
 
 static bool process_input(ItemList *list, const char *path, ASS_Library *lib)
 {
-    DIR *dir = opendir(path);
-    if (!dir) {
+    ASS_Dir dir;
+    if (!ass_open_dir(&dir, path)) {
         printf("Cannot open input directory '%s'!\n", path);
         return false;
     }
-    struct dirent *file;
-    while ((file = readdir(dir))) {
-        const char *name = file->d_name;
+
+    const char *name;
+    while ((name = ass_read_dir(&dir))) {
         if (name[0] == '.')
             continue;
         const char *ext = strrchr(name + 1, '.');
@@ -527,10 +527,10 @@ static bool process_input(ItemList *list, const char *path, ASS_Library *lib)
         } else {
             continue;
         }
-        closedir(dir);
+        ass_close_dir(&dir);
         return false;
     }
-    closedir(dir);
+    ass_close_dir(&dir);
     return true;
 }
 
