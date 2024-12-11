@@ -20,7 +20,6 @@ jobs:
             msvc: true
             shell: 'powershell'
             buildtype: release
-            args: '-Ddefault_library=static'
 
           - name: Windows MinGW Release
             os: windows-latest
@@ -29,17 +28,14 @@ jobs:
             msystem: MINGW64
             shell: 'msys2 {0}'
             buildtype: debugoptimized
-            args: ''
 
           - name: Ubuntu Debug
             os: ubuntu-latest
             buildtype: debugoptimized
-            args: ''
 
           - name: macOS Debug
             os: macos-latest
             buildtype: debugoptimized
-            args: ''
 
     defaults:
       run:
@@ -117,7 +113,7 @@ jobs:
           meson wrap update-db
 
       - name: Configure
-        run: meson setup build ${{ matrix.config.args }} -Dbuildtype=${{ matrix.config.buildtype }}
+        run: meson setup build -Dbuildtype=${{ matrix.config.buildtype }}
 
       - name: Build
         run: meson compile -C build
