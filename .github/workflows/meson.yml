@@ -18,7 +18,7 @@ jobs:
           - name: Windows MSVC
             os: windows-latest
             msvc: true
-            shell: 'powershell'
+            shell: 'pwsh'
 
           - name: Windows MinGW
             os: windows-latest
