@@ -15,29 +15,24 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: Windows MSVC Release
+          - name: Windows MSVC
             os: windows-latest
             msvc: true
             shell: 'powershell'
-            buildtype: release
             args: '-Ddefault_library=both'
 
-          - name: Windows MinGW Release
+          - name: Windows MinGW
             os: windows-latest
-            msvc: false
             pkgmanager: msys
             msystem: MINGW64
             shell: 'msys2 {0}'
-            buildtype: debugoptimized
             args: '-Ddefault_library=both'
 
-          - name: Ubuntu Debug
+          - name: Ubuntu
             os: ubuntu-latest
-            buildtype: debugoptimized
 
-          - name: macOS Debug
+          - name: macOS
             os: macos-latest
-            buildtype: debugoptimized
 
     defaults:
       run:
@@ -121,7 +116,7 @@ jobs:
           meson wrap update-db
 
       - name: Configure
-        run: meson setup build ${{ matrix.config.args }} -Dbuildtype=${{ matrix.config.buildtype }} -Dtest=enabled -Dcompare=enabled -Dprofile=enabled -Dfuzz=enabled '-Dart-samples=${{ env.ART_SAMPLES }}'
+        run: meson setup build ${{ matrix.config.args }} -Dtest=enabled -Dcompare=enabled -Dprofile=enabled -Dfuzz=enabled '-Dart-samples=${{ env.ART_SAMPLES }}'
 
       - name: Build
         run: meson compile -C build
