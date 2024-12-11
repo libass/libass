@@ -15,36 +15,29 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {
-            name: Windows MSVC Release,
-            os: windows-latest,
-            msvc: true,
-            shell: 'powershell',
-            buildtype: release,
+          - name: Windows MSVC Release
+            os: windows-latest
+            msvc: true
+            shell: 'powershell'
+            buildtype: release
             args: '-Ddefault_library=both'
-          }
-          - {
-            name: Windows MinGW Release,
-            os: windows-latest,
-            msvc: false,
-            pkgmanager: msys,
-            msystem: MINGW64,
-            shell: 'msys2 {0}',
-            buildtype: debugoptimized,
+
+          - name: Windows MinGW Release
+            os: windows-latest
+            msvc: false
+            pkgmanager: msys
+            msystem: MINGW64
+            shell: 'msys2 {0}'
+            buildtype: debugoptimized
             args: '-Ddefault_library=both'
-          }
-          - {
-            name: Ubuntu Debug,
-            os: ubuntu-latest,
-            buildtype: debugoptimized,
-            args: ''
-          }
-          - {
-            name: macOS Debug,
-            os: macos-latest,
-            buildtype: debugoptimized,
-            args: ''
-          }
+
+          - name: Ubuntu Debug
+            os: ubuntu-latest
+            buildtype: debugoptimized
+
+          - name: macOS Debug
+            os: macos-latest
+            buildtype: debugoptimized
 
     defaults:
       run:
