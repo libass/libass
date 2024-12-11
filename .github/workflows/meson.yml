@@ -19,6 +19,9 @@ jobs:
             os: windows-latest
             msvc: true
             shell: 'pwsh'
+            devenv: |
+              Import-Module "$env:VS\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+              Enter-VsDevShell -VsInstallPath $env:VS -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64"
 
           - name: Windows MinGW
             os: windows-latest
@@ -37,6 +40,7 @@ jobs:
         shell: ${{ matrix.config.shell || 'bash' }}
 
     env:
+      VS: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise"
       SCCACHE_DIR: "${{ github.workspace }}\\.sccache"
       SCCACHE_MAXSIZE: 500M
 
@@ -51,10 +55,6 @@ jobs:
         with:
           msystem: ${{ matrix.config.msystem }}
           update: false
-
-      - name: Setup MSVC
-        if: matrix.config.os == 'windows-latest' && matrix.config.msvc == true
-        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Get time
         if: matrix.config.msvc
@@ -108,10 +108,14 @@ jobs:
           meson wrap update-db
 
       - name: Configure
-        run: meson setup build
+        run: |
+          ${{ matrix.config.devenv }}
+          meson setup build
 
       - name: Build
-        run: meson compile -C build
+        run: |
+          ${{ matrix.config.devenv }}
+          meson compile -C build
 
       - name: Dump Meson Debug Info
         if: failure()
