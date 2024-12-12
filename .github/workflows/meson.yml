@@ -112,7 +112,7 @@ jobs:
       - name: Configure
         run: |
           ${{ matrix.config.devenv }}
-          meson setup build
+          meson setup build --wrap-mode=nopromote -Dharfbuzz:icu=disabled
 
       - name: Build
         run: |
