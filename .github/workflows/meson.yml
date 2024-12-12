@@ -119,7 +119,7 @@ jobs:
       - name: Configure
         run: |
           ${{ matrix.config.devenv }}
-          meson setup build ${{ matrix.config.args }} -Dtest=enabled -Dcompare=enabled -Dprofile=enabled -Dfuzz=enabled '-Dart-samples=${{ env.ART_SAMPLES }}'
+          meson setup build ${{ matrix.config.args }} --wrap-mode=nopromote -Dtest=enabled -Dcompare=enabled -Dprofile=enabled -Dfuzz=enabled '-Dart-samples=${{ env.ART_SAMPLES }}' -Dharfbuzz:icu=disabled
 
       - name: Build
         run: |
