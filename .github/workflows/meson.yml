@@ -26,7 +26,6 @@ jobs:
 
           - name: Windows MinGW
             os: windows-latest
-            pkgmanager: msys
             msystem: MINGW64
             shell: 'msys2 {0}'
             args: '-Ddefault_library=both'
@@ -63,7 +62,16 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.config.msystem }}
-          update: false
+          pacboy: >-
+            cc
+            fontconfig
+            freetype
+            fribidi
+            harfbuzz
+            libpng
+            meson
+            nasm
+            ninja
 
       - name: Get time
         if: matrix.config.msvc
@@ -86,17 +94,10 @@ jobs:
           python -m pip install meson
           choco install nasm sccache
 
-      - name: Install dependencies (not MSVC)
-        if: ${{ !matrix.config.msvc }}
+      - name: Install dependencies
+        if: ${{ !matrix.config.msvc && !matrix.config.msystem}}
         run: |
-          case "${{ matrix.config.pkgmanager || matrix.config.os }}" in
-            msys)
-              pre="$MINGW_PACKAGE_PREFIX"
-              pacman --noconfirm -S \
-                $pre-gcc $pre-meson $pre-ninja nasm \
-                $pre-fribidi $pre-freetype $pre-harfbuzz \
-                $pre-fontconfig $pre-libpng
-              ;;
+          case "${{ matrix.config.os }}" in
             macos-*)
               brew install nasm ninja pkg-config meson
               ;;
