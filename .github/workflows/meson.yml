@@ -15,89 +15,82 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {
-            name: Windows MSVC Release,
-            os: windows-latest,
-            msvc: true,
-            msystem: MINGW64,
-            shell: 'powershell',
-            buildtype: release,
-            args: '-Ddefault_library=static'
-          }
-          - {
-            name: Windows MinGW Release,
-            os: windows-latest,
-            msvc: false,
-            pkgmanager: msys,
-            msystem: MINGW64,
-            shell: 'msys2 {0}',
-            buildtype: debugoptimized,
-            args: ''
-          }
-          - {
-            name: Ubuntu Debug,
-            os: ubuntu-latest,
-            buildtype: debugoptimized,
-            args: ''
-          }
-          - {
-            name: macOS Debug,
-            os: macos-latest,
-            buildtype: debugoptimized,
-            args: ''
-          }
+          - name: Windows MSVC
+            os: windows-latest
+            msvc: true
+            shell: 'pwsh'
+            devenv: |
+              Import-Module "$env:VS\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+              Enter-VsDevShell -VsInstallPath $env:VS -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64"
+
+          - name: Windows MinGW
+            os: windows-latest
+            pkgmanager: msys
+            msystem: MINGW64
+            shell: 'msys2 {0}'
+
+          - name: Ubuntu
+            os: ubuntu-latest
+
+          - name: macOS
+            os: macos-latest
 
     defaults:
       run:
         shell: ${{ matrix.config.shell || 'bash' }}
+
+    env:
+      VS: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise"
+      SCCACHE_DIR: "${{ github.workspace }}\\.sccache"
+      SCCACHE_MAXSIZE: 500M
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: '0'
 
-      - name: Setup MSys2
-        if: startsWith(matrix.config.os, 'windows')
+      - name: Setup MSYS2
+        if: matrix.config.msystem
         uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.config.msystem }}
-          update: false
+          pacboy: >-
+            cc
+            fontconfig
+            freetype
+            fribidi
+            harfbuzz
+            libpng
+            meson
+            nasm
+            ninja
 
-      - name: Setup MSVC
-        if: matrix.config.os == 'windows-latest' && matrix.config.msvc == true
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Get time
+        if: matrix.config.msvc
+        id: get_time
+        run: |
+          "timestamp=$((Get-Date).Ticks)" >> $env:GITHUB_OUTPUT
+
+      - name: Restore cache
+        if: matrix.config.msvc
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.SCCACHE_DIR }}
+            ${{ github.workspace }}/subprojects/packagecache
+          key:  windows-msvc-${{ steps.get_time.outputs.timestamp }}
+          restore-keys: windows-msvc-
 
       - name: Install MSVC dependecies with choco
         if: matrix.config.msvc
         run: |
-          # for whatever reason choco insist on a reboot if it installs meson
-          choco install ninja nasm python pkgconfiglite
-          python -m pip install --upgrade pip
-          pip install meson
+          python -m pip install meson
+          choco install sccache nasm
 
-      - name: Install more MSVC dependecies with msys
-        if: matrix.config.msvc
-        shell: 'msys2 {0}'
+      - name: Install dependencies
+        if: ${{ !matrix.config.msvc && !matrix.config.msystem}}
         run: |
-            pre="$MINGW_PACKAGE_PREFIX"
-            mkdir pacman-root
-            ln -s /var pacman-root/var
-            pacman -r ./pacman-root --noconfirm -S \
-              $pre-fribidi $pre-freetype $pre-harfbuzz \
-              $pre-fontconfig $pre-libpng
-            echo "PKG_CONFIG_PATH=$(cygpath -w "$PWD/pacman-root/mingw64/lib/pkgconfig")" >> "$GITHUB_ENV"
-
-      - name: Install dependencies (not MSVC)
-        if: ${{ !matrix.config.msvc }}
-        run: |
-          case "${{ matrix.config.pkgmanager || matrix.config.os }}" in
-            msys)
-              pre="$MINGW_PACKAGE_PREFIX"
-              pacman --noconfirm -S \
-                $pre-gcc $pre-meson $pre-ninja nasm \
-                $pre-fribidi $pre-freetype $pre-harfbuzz \
-                $pre-fontconfig $pre-libpng
-              ;;
+          case "${{ matrix.config.os }}" in
             macos-*)
               brew install nasm ninja pkg-config meson
               ;;
@@ -112,19 +105,32 @@ jobs:
           esac
 
       - name: Set up WrapDB
-        if: matrix.config.pkgmanager == 'choco' || matrix.config.os == 'macos-latest'
+        if: matrix.config.os == 'macos-latest' || matrix.config.msvc
         run: |
           meson wrap update-db
 
       - name: Configure
-        run: meson setup build ${{ matrix.config.args }} -Dbuildtype=${{ matrix.config.buildtype }}
+        run: |
+          ${{ matrix.config.devenv }}
+          meson setup build --wrap-mode=nopromote -Dharfbuzz:icu=disabled
 
       - name: Build
-        run: meson compile -C build
+        run: |
+          ${{ matrix.config.devenv }}
+          meson compile -C build
 
       - name: Dump Meson Debug Info
         if: failure()
         run: cat build/meson-logs/meson-log.txt
+
+      - name: Save Cache
+        uses: actions/cache/save@v4
+        if: always() && matrix.config.msvc
+        with:
+          path: |
+            ${{ env.SCCACHE_DIR }}
+            ${{ github.workspace }}/subprojects/packagecache
+          key: windows-msvc-${{ steps.get_time.outputs.timestamp }}
 
   build-muon:
     runs-on: ubuntu-latest
