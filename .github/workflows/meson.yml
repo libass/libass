@@ -89,6 +89,12 @@ jobs:
           key: windows-msvc-${{ steps.get_time.outputs.timestamp }}
           restore-keys: windows-msvc-
 
+      - name: Get time
+        if: matrix.config.msvc
+        id: get_time_restore
+        run: |
+          "timestamp=$((Get-Date).Ticks)" >> $env:GITHUB_OUTPUT
+
       - name: Install MSVC dependecies with choco
         if: matrix.config.msvc
         run: |
@@ -143,6 +149,21 @@ jobs:
       - name: Dump Meson Test Debug Info
         if: ${{ failure() && steps.run-tests.conclusion == 'failure' }}
         run: cat build/meson-logs/testlog.txt
+
+      - name: Clear Cache
+        if: matrix.config.msvc
+        run: |
+          # Clear all cache files with access time older than the start of the job
+          Get-ChildItem -Path "${{ github.workspace }}/subprojects/packagecache" -Recurse -File |
+              Where-Object { $_.LastAccessTime.Ticks -lt ${{ steps.get_time_restore.outputs.timestamp }} } |
+              ForEach-Object {
+                  try {
+                      Remove-Item -Path $_.FullName -Force -ErrorAction Stop
+                      Write-Host "Deleted: $($_.FullName)"
+                  } catch {
+                      # Ignore errors
+                  }
+              }
 
       - name: Save Cache
         uses: actions/cache/save@v4
