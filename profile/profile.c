@@ -37,7 +37,7 @@ typedef struct image_s {
 ASS_Library *ass_library;
 ASS_Renderer *ass_renderer;
 
-static int log_level = 6;
+static int log_level = 4;
 
 void msg_callback(int level, const char *fmt, va_list va, void *data)
 {
