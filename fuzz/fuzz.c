@@ -101,6 +101,7 @@ static bool init_renderer(void)
     if (!ass_renderer)
         return false;
 
+    ass_set_threads(ass_renderer, 0);
     ass_set_fonts(ass_renderer, NULL, "sans-serif",
                   ASS_FONTPROVIDER_AUTODETECT, NULL, 1);
     ass_set_frame_size(ass_renderer, RWIDTH, RHEIGHT);
