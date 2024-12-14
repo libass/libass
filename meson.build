@@ -46,6 +46,10 @@ if cc.get_argument_syntax() == 'gcc'
 elif cc.get_id() == 'msvc'
     cc_warnings += [
         '/we4013', # implicit function definition
+        '/we4775', # non-standard format strings
+        '/we4317', # not enough arguments for format string
+        '/we4473', # same as above
+        '/we4474', # too many arguments for format string
     ]
 endif
 
