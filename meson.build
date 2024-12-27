@@ -388,7 +388,7 @@ endif
 if get_option('test').enabled()
     subdir('test')
 endif
-if get_option('compare').require(default_library != 'shared').enabled()
+if get_option('compare').enabled()
     subdir('compare')
 endif
 if get_option('profile').enabled()
@@ -397,7 +397,7 @@ endif
 if get_option('fuzz').enabled()
     subdir('fuzz')
 endif
-if get_option('checkasm').require(enable_asm and default_library != 'shared').allowed()
+if get_option('checkasm').require(enable_asm).allowed()
     subdir('checkasm')
 endif
 

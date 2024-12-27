@@ -9,7 +9,7 @@ libass_compare = executable(
     install: false,
     include_directories: incs,
     dependencies: deps + png_deps,
-    link_with: libass_for_tools,
+    objects: libass.extract_all_objects(recursive: true),
 )
 
 art_samples = get_option('art-samples')
