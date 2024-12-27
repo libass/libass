@@ -15,5 +15,5 @@ libass_compare = executable(
 art_samples = get_option('art-samples')
 if art_samples != ''
     dir = join_paths(art_samples, 'regression')
-    test('art-compare', files(join_paths(dir, 'run-all.sh'))[0], workdir: dir, args: [libass_compare.full_path()], depends: [libass_compare])
+    test('art-compare', files(join_paths(dir, 'run-all.sh'))[0], workdir: dir, args: [libass_compare], depends: [libass_compare])
 endif

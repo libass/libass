@@ -15,5 +15,5 @@ libass_fuzz = executable(
 art_samples = get_option('art-samples')
 if art_samples != ''
     dir = join_paths(art_samples, 'crash')
-    test('art-fuzz', files(join_paths(dir, 'run-all.sh'))[0], workdir: dir, args: [libass_fuzz.full_path()], depends: [libass_fuzz])
+    test('art-fuzz', files(join_paths(dir, 'run-all.sh'))[0], workdir: dir, args: [libass_fuzz], depends: [libass_fuzz])
 endif
