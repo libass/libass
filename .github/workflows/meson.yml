@@ -28,7 +28,7 @@ jobs:
             os: windows-latest
             msystem: CLANG64
             shell: 'msys2 {0}'
-            args: '-Ddefault_library=both'
+            args: '-Ddefault_library=both -Db_sanitize=address,undefined'
 
           - name: Windows (UCRT64)
             os: windows-latest
@@ -44,6 +44,7 @@ jobs:
 
           - name: Ubuntu
             os: ubuntu-latest
+            args: '-Db_sanitize=address,undefined'
 
           - name: macOS
             os: macos-latest
