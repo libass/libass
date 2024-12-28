@@ -286,7 +286,7 @@ static bool append_tail(WCHAR *wpath, size_t wlen)
         offs = 1;
     else if (wlen && (wpath[wlen - 1] == L'/' || wpath[wlen - 1] == L'\\'))
         offs = 1;
-    memcpy(wpath + wlen, dir_tail + offs, sizeof(dir_tail) - offs);
+    memcpy(wpath + wlen, dir_tail + offs, sizeof(dir_tail) - offs * sizeof(dir_tail[0]));
     return !offs;
 }
 
