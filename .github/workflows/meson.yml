@@ -19,7 +19,7 @@ jobs:
             os: windows-latest
             msvc: true
             shell: 'pwsh'
-            args: '-Ddefault_library=both'
+            args: '-Ddefault_library=shared'
             devenv: |
               Import-Module "$env:VS\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
               Enter-VsDevShell -VsInstallPath $env:VS -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64"
@@ -28,7 +28,7 @@ jobs:
             os: windows-latest
             msystem: CLANG64
             shell: 'msys2 {0}'
-            args: '-Ddefault_library=both -Db_sanitize=address,undefined'
+            args: '-Ddefault_library=static -Db_sanitize=address,undefined'
 
           - name: Windows (UCRT64)
             os: windows-latest
@@ -40,7 +40,7 @@ jobs:
             os: windows-latest
             msystem: MINGW64
             shell: 'msys2 {0}'
-            args: '-Ddefault_library=both'
+            args: '-Ddefault_library=shared'
 
           - name: Ubuntu
             os: ubuntu-latest
