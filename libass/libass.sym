@@ -48,3 +48,4 @@ ass_malloc
 ass_free
 ass_prune_events
 ass_configure_prune
+ass_get_metrics
