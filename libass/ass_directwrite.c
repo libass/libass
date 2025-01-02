@@ -21,9 +21,8 @@
 #include "ass_compat.h"
 
 #include <initguid.h>
+#include <dwrite_3.h>
 #include <wchar.h>
-
-#include "dwrite_c.h"
 
 #include "ass_directwrite.h"
 #include "ass_utils.h"

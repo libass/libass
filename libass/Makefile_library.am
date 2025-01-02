@@ -55,7 +55,6 @@ endif
 
 if DIRECTWRITE
 libass_libass_internal_la_SOURCES += \
-    libass/dwrite_c.h \
     libass/ass_directwrite_info_template.h \
     libass/ass_directwrite.h libass/ass_directwrite.c
 endif
