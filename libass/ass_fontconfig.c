@@ -243,8 +243,11 @@ static void cache_fallbacks(ProviderPrivate *fc)
 
     // If this fails, just add an empty set
     // (if it fails, cache_fallbacks will just be reattempted later)
-    if (result != FcResultMatch)
+    if (result != FcResultMatch) {
+        if (fc->fallbacks)
+            FcFontSetDestroy(fc->fallbacks);
         fc->fallbacks = FcFontSetCreate();
+    }
 
     FcPatternDestroy(pat);
 }
