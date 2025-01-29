@@ -266,4 +266,4 @@ jobs:
           cd libass-*/
           meson setup build
           ninja -C build
-          DESTIDR="$PWD/TEST_INSTALL" ninja -C build install
+          DESTDIR="$PWD/TEST_INSTALL" ninja -C build install
