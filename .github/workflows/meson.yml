@@ -232,9 +232,6 @@ jobs:
 
   build-from-tarball:
     runs-on: ubuntu-latest
-    container:
-      # currently GHA’s ubuntu-latest still has a too old meson
-      image: debian:stable
 
     strategy:
       fail-fast: false
@@ -244,8 +241,8 @@ jobs:
     steps:
       - name: install dependencies
         run: |
-          apt-get update #&& sudo apt-get upgrade
-          apt-get install -y --no-install-recommends \
+          sudo apt-get update #&& sudo apt-get upgrade
+          sudo apt-get install -y --no-install-recommends \
                   autoconf automake make libtool \
                   libfontconfig1-dev libfreetype6-dev libfribidi-dev \
                   libharfbuzz-dev nasm ${{ matrix.cc }} \
