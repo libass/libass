@@ -116,11 +116,8 @@ jobs:
               ;;
             ubuntu-*)
               sudo apt-get update
-              sudo apt-get install ninja-build build-essential pkg-config nasm \
+              sudo apt-get install ninja-build meson build-essential pkg-config nasm \
                 libfreetype-dev libfontconfig-dev libharfbuzz-dev libfribidi-dev \
-                python3-pip
-              # Drop once 24.04 is available in GHA
-              pip3 install  meson
               ;;
           esac
 
