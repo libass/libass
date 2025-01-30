@@ -46,6 +46,10 @@ jobs:
             os: ubuntu-latest
             args: '-Db_sanitize=address,undefined'
 
+          - name: Ubuntu (ARM64)
+            os: ubuntu-24.04-arm
+            args: '-Db_sanitize=address,undefined'
+
           - name: macOS
             os: macos-latest
 
