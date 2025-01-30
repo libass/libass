@@ -32,6 +32,11 @@ jobs:
             docker_image: alpine:latest
             shell: '/tmp/docker_shell {0}'
             art_reg_skip: 'font_nonunicode'
+          # ARM linux builds
+          - os: ubuntu-24.04-arm
+            cc: gcc
+          - os: ubuntu-24.04-arm
+            cc: clang
           # Add docker-build with minimum version of dependencies
           - os: ubuntu-latest
             cc: gcc
