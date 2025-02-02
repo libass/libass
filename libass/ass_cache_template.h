@@ -131,6 +131,13 @@ START(bitmap_ref, bitmap_ref_key)
     VECTOR(pos_o)
 END(BitmapRef)
 
+#ifdef CONFIG_FONTCONFIG
+// describes list of known fonts corresponding to a given fontconfig name
+START(fontconfig_name, fontconfig_name_hash_key)
+    STRING(name)
+END(FontconfigNameHashKey)
+#endif
+
 #undef START
 #undef GENERIC
 #undef STRING

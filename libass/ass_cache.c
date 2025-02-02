@@ -325,6 +325,54 @@ const CacheDesc glyph_metrics_cache_desc = {
 };
 
 
+#ifdef CONFIG_FONTCONFIG
+// font name to path cache
+static bool fontconfig_name_key_move(void *dst, void *src)
+{
+    FontconfigNameHashKey *d = dst, *s = src;
+    if (!d)
+        return true;
+
+    *d = *s;
+    d->name.str = ass_copy_string(s->name);
+    return d->name.str;
+}
+
+static void fontconfig_name_destruct(void *key, void *value)
+{
+    FontconfigNameHashKey *k = key;
+    FontconfigNameHashValue *v = value;
+    free((char*)k->name.str);
+
+    for (size_t i = 0; i < v->size; i++)
+        FcPatternDestroy(v->patterns[i]);
+
+    free(v->patterns);
+}
+
+static size_t fontconfig_name_construct(void *key, void *value, void *priv)
+{
+    FontconfigNameHashValue *v = value;
+
+    memset(v, 0, sizeof(*v));
+
+    return 1;
+}
+
+size_t ass_fontconfig_name_metrics_construct(void *key, void *value, void *priv);
+
+const CacheDesc fontconfig_name_cache_desc = {
+    .hash_func = fontconfig_name_hash,
+    .compare_func = fontconfig_name_compare,
+    .key_move_func = fontconfig_name_key_move,
+    .construct_func = fontconfig_name_construct,
+    .destruct_func = fontconfig_name_destruct,
+    .key_size = sizeof(FontconfigNameHashKey),
+    .value_size = sizeof(FontconfigNameHashValue)
+};
+#endif
+
+
 
 // Cache data
 typedef struct cache_item {
@@ -574,3 +622,10 @@ Cache *ass_composite_cache_create(void)
 {
     return ass_cache_create(&composite_cache_desc);
 }
+
+#ifdef CONFIG_FONTCONFIG
+Cache *ass_fontconfig_name_cache_create(void)
+{
+    return ass_cache_create(&fontconfig_name_cache_desc);
+}
+#endif

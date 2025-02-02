@@ -36,21 +36,9 @@ typedef struct fc_private {
     FcConfig *config;
     FcFontSet *fallbacks;
     FcCharSet *fallback_chars;
+
+    Cache *cache;
 } ProviderPrivate;
-
-static bool check_postscript(void *priv)
-{
-    FcPattern *pat = (FcPattern *)priv;
-    char *format;
-
-    FcResult result =
-        FcPatternGetString(pat, FC_FONTFORMAT, 0, (FcChar8 **)&format);
-    if (result != FcResultMatch)
-        return false;
-
-    return !strcmp(format, "Type 1") || !strcmp(format, "Type 42") ||
-           !strcmp(format, "CID Type 1") || !strcmp(format, "CFF");
-}
 
 static bool check_glyph(void *priv, uint32_t code)
 {
@@ -80,6 +68,8 @@ static void destroy(void *priv)
 {
     ProviderPrivate *fc = (ProviderPrivate *)priv;
 
+    if (fc->cache)
+        ass_cache_done(fc->cache);
     if (fc->fallback_chars)
         FcCharSetDestroy(fc->fallback_chars);
     if (fc->fallbacks)
@@ -88,11 +78,55 @@ static void destroy(void *priv)
     free(fc);
 }
 
-static bool scan_fonts(FcConfig *config, ASS_FontProvider *provider)
+static bool add_name(Cache *cache, FcObjectSet *filter, FcPattern *pat, const char *name)
+{
+    FontconfigNameHashKey key = {
+        .name = {
+            .str = name,
+            .len = strlen(name),
+        },
+    };
+
+    FontconfigNameHashValue *value = ass_cache_get(cache, &key, NULL);
+    if (!value)
+        return false;
+
+    for (size_t i = 0; i < value->size; i++) {
+        if (FcPatternEqualSubset(value->patterns[i], pat, filter))
+            return true;
+    }
+
+    if (value->size >= value->capacity) {
+        size_t new_cap = FFMAX(value->capacity, 1) * 2;
+        void *resized = ass_realloc_array(value->patterns, new_cap, sizeof(FcPattern*));
+        if (!resized)
+            return false;
+
+        value->patterns = resized;
+        value->capacity = new_cap;
+    }
+
+    FcPatternReference(pat);
+    value->patterns[value->size++] = pat;
+
+    return true;
+}
+
+static bool try_add_name(Cache *cache, FcObjectSet *filter, FcPattern *pat, const char *object, int n)
+{
+    char *name = NULL;
+    if (FcPatternGetString(pat, object, n, (FcChar8 **)&name) != FcResultMatch)
+        return false;
+
+    return add_name(cache, filter, pat, name);
+}
+
+static bool scan_fonts(ProviderPrivate *priv, ASS_FontProvider *provider)
 {
     int i;
     FcFontSet *fonts;
-    ASS_FontProviderMetaData meta = {0};
+    FcConfig *config = priv->config;
+    Cache *cache = priv->cache;
 
     // get list of fonts;
     // sorting by default pattern prefers regular variants
@@ -111,107 +145,37 @@ static bool scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         return false;
     }
 
+    FcObjectSet *filter = FcObjectSetBuild(FC_FILE, FC_INDEX, NULL);
+    if (!filter) {
+        FcFontSetDestroy(fonts);
+        return false;
+    }
+
     // fill font_info list
     for (i = 0; i < fonts->nfont; i++) {
         FcPattern *pat = fonts->fonts[i];
         FcBool outline;
-        int index;
-        double weight;
-        int slant;
-        char *path;
-        char *fullnames[MAX_NAME];
-        char *families[MAX_NAME];
 
         // skip non-outline fonts
         FcResult result = FcPatternGetBool(pat, FC_OUTLINE, 0, &outline);
         if (result != FcResultMatch || outline != FcTrue)
             continue;
 
-        // simple types
-        result  = FcPatternGetInteger(pat, FC_SLANT, 0, &slant);
-        result |= FcPatternGetDouble(pat, FC_WEIGHT, 0, &weight);
-        result |= FcPatternGetInteger(pat, FC_INDEX, 0, &index);
-        if (result != FcResultMatch)
-            continue;
-
-        // fontconfig uses its own weight scale, apparently derived
-        // from typographical weight. we're using truetype weights, so
-        // convert appropriately.
-#if FC_VERSION >= 21292
-        meta.weight = FcWeightToOpenTypeDouble(weight) + 0.5;
-#elif FC_VERSION >= 21191
-        // Versions prior to 2.12.92 only had integer precision.
-        meta.weight = FcWeightToOpenType(weight + 0.5) + 0.5;
-#else
-        // On older fontconfig, FcWeightToOpenType is unavailable, and its inverse was
-        // implemented more simply, using an if/else ladder instead of linear interpolation.
-        // We implement an inverse of that ladder here.
-        // We don't expect actual FC caches from these versions to have intermediate
-        // values, so the average checks are only for completeness.
-#define AVG(x, y) (((double)x + y) / 2)
-#ifndef FC_WEIGHT_SEMILIGHT
-#define FC_WEIGHT_SEMILIGHT 55
-#endif
-        if (weight < AVG(FC_WEIGHT_THIN, FC_WEIGHT_EXTRALIGHT))
-            meta.weight = 100;
-        else if (weight < AVG(FC_WEIGHT_EXTRALIGHT, FC_WEIGHT_LIGHT))
-            meta.weight = 200;
-        else if (weight < AVG(FC_WEIGHT_LIGHT, FC_WEIGHT_SEMILIGHT))
-            meta.weight = 300;
-        else if (weight < AVG(FC_WEIGHT_SEMILIGHT, FC_WEIGHT_BOOK))
-            meta.weight = 350;
-        else if (weight < AVG(FC_WEIGHT_BOOK, FC_WEIGHT_REGULAR))
-            meta.weight = 380;
-        else if (weight < AVG(FC_WEIGHT_REGULAR, FC_WEIGHT_MEDIUM))
-            meta.weight = 400;
-        else if (weight < AVG(FC_WEIGHT_MEDIUM, FC_WEIGHT_SEMIBOLD))
-            meta.weight = 500;
-        else if (weight < AVG(FC_WEIGHT_SEMIBOLD, FC_WEIGHT_BOLD))
-            meta.weight = 600;
-        else if (weight < AVG(FC_WEIGHT_BOLD, FC_WEIGHT_EXTRABOLD))
-            meta.weight = 700;
-        else if (weight < AVG(FC_WEIGHT_EXTRABOLD, FC_WEIGHT_BLACK))
-            meta.weight = 800;
-        else if (weight < AVG(FC_WEIGHT_BLACK, FC_WEIGHT_EXTRABLACK))
-            meta.weight = 900;
-        else
-            meta.weight = 1000;
-#endif
-
-        // Take a guess at the italic flag
-        meta.style_flags = (slant >= FC_SLANT_ITALIC) ? FT_STYLE_FLAG_ITALIC : 0;
-
-        // path
-        result = FcPatternGetString(pat, FC_FILE, 0, (FcChar8 **)&path);
-        if (result != FcResultMatch)
+        // ignore variants (we'll handle those via the base name)
+        int index;
+        result = FcPatternGetInteger(pat, FC_INDEX, 0, &index);
+        if (result != FcResultMatch || index > 0xFFFF)
             continue;
 
         // read family names
-        meta.n_family = 0;
-        while (meta.n_family < MAX_NAME &&
-                FcPatternGetString(pat, FC_FAMILY, meta.n_family,
-                    (FcChar8 **)&families[meta.n_family]) == FcResultMatch)
-            meta.n_family++;
-        meta.families = families;
+        for (int j = 0; try_add_name(cache, filter, pat, FC_FAMILY, j); j++);
 
         // read fullnames
-        meta.n_fullname = 0;
-        while (meta.n_fullname < MAX_NAME &&
-                FcPatternGetString(pat, FC_FULLNAME, meta.n_fullname,
-                    (FcChar8 **)&fullnames[meta.n_fullname]) == FcResultMatch)
-            meta.n_fullname++;
-        meta.fullnames = fullnames;
-
-        // read PostScript name
-        result = FcPatternGetString(pat, FC_POSTSCRIPT_NAME, 0,
-                (FcChar8 **)&meta.postscript_name);
-        if (result != FcResultMatch)
-            meta.postscript_name = NULL;
-
-        FcPatternReference(pat);
-        ass_font_provider_add_font(provider, &meta, path, index, (void *)pat);
+        try_add_name(cache, filter, pat, FC_POSTSCRIPT_NAME, 0);
+        for (int j = 0; try_add_name(cache, filter, pat, FC_FULLNAME, j); j++);
     }
 
+    FcObjectSetDestroy(filter);
     FcFontSetDestroy(fonts);
     return true;
 }
@@ -340,13 +304,54 @@ cleanup:
     FcPatternDestroy(pat);
 }
 
+static void match_fonts(void *priv, ASS_Library *lib, ASS_FontProvider *provider,
+                        const char *name)
+{
+    ProviderPrivate *fc = (ProviderPrivate *)priv;
+
+    FontconfigNameHashKey key = {
+        .name = {
+            .str = name,
+            .len = strlen(name),
+        },
+    };
+
+    FontconfigNameHashValue *value = ass_cache_get(fc->cache, &key, NULL);
+    if (!value || !value->capacity)
+        return;
+
+    for (size_t i = 0; i < value->size; i++) {
+        ASS_FontProviderMetaData meta = {
+            .extended_family = (char*)name,
+        };
+        FcPattern *pat = value->patterns[i];
+        int index;
+        char *path;
+
+        // index in ttc file
+        FcResult result = FcPatternGetInteger(pat, FC_INDEX, 0, &index);
+        if (result != FcResultMatch)
+            continue;
+
+        // path
+        result = FcPatternGetString(pat, FC_FILE, 0, (FcChar8 **)&path);
+        if (result != FcResultMatch)
+            continue;
+
+        ass_font_provider_add_font(provider, &meta, path, index, pat);
+        value->patterns[i] = NULL;
+    }
+
+    value->capacity = 0;
+}
+
 static ASS_FontProviderFuncs fontconfig_callbacks = {
-    .check_postscript   = check_postscript,
     .check_glyph        = check_glyph,
     .destroy_font       = destroy_font,
     .destroy_provider   = destroy,
     .get_substitutions  = get_substitutions,
     .get_fallback       = get_fallback,
+    .match_fonts        = match_fonts,
 };
 
 ASS_FontProvider *
@@ -360,6 +365,12 @@ ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
     fc = calloc(1, sizeof(ProviderPrivate));
     if (fc == NULL)
         return NULL;
+
+    fc->cache = ass_fontconfig_name_cache_create();
+    if (!fc->cache) {
+        free(fc);
+        return NULL;
+    }
 
     // build and load fontconfig configuration
     fc->config = FcConfigCreate();
@@ -388,8 +399,8 @@ ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
     provider = ass_font_provider_new(selector, &fontconfig_callbacks, fc);
 
     // build database from system fonts
-    if (!scan_fonts(fc->config, provider))
-        ass_msg(lib, MSGL_ERR, "Failed to load fonctconfig fonts!");
+    if (!scan_fonts(fc, provider))
+        ass_msg(lib, MSGL_ERR, "Failed to load fontconfig fonts!");
 
     return provider;
 }

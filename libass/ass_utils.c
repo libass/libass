@@ -223,12 +223,13 @@ too_short:
     return 0xFFFD;
 }
 
-void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_size)
+size_t ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_size)
 {
+    char *start = dst;
     uint8_t *end = src + src_size;
 
     if (!dst_size)
-        return;
+        return 0;
 
     while (src < end) {
         uint32_t cp = ass_read_utf16be(&src, end - src);
@@ -240,6 +241,7 @@ void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_si
     }
 
     *dst = '\0';
+    return dst - start;
 }
 
 /**
