@@ -272,18 +272,29 @@ ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
 /**
  * \brief Add a font to a font provider.
  * \param provider the font provider
- * \param meta font metadata. See struct definition for more information.
+ * \param info The font to add to the database.
+ * \return True if the font has been successfully added to the provider. Otherwise, false.
+ * \note After calling this function, **do not** call `ass_font_provider_free_fontinfo`
+ *       on the `info` parameter, as its contents have been copied.
+ */
+bool
+ass_font_provider_add_font(ASS_FontProvider *provider,
+                           ASS_FontInfo* info);
+
+/**
+ * \brief Get the font info from a provider's font.
+ * \param provider the font provider
+ * \param meta the font metadata. See struct definition for more information.
  * \param path absolute path to font, or NULL for memory-based fonts
  * \param index index inside a font collection file
  *              (-1 to look up by PostScript name)
  * \param data private data for font callbacks
- * \return success
- *
+ * \return A pointer to an ASS_FontInfo corresponding to the given parameters.
  */
-bool
-ass_font_provider_add_font(ASS_FontProvider *provider,
-                           ASS_FontProviderMetaData *meta, const char *path,
-                           int index, void *data);
+ASS_FontInfo *
+ass_font_provider_get_font_info(ASS_FontProvider *provider,
+                                ASS_FontProviderMetaData *meta, const char *path,
+                                int index, void *data);
 
 /**
  * \brief Free font provider and associated fonts.
