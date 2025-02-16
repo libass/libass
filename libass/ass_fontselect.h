@@ -105,11 +105,21 @@ typedef void    (*DestroyProviderFunc)(void *priv);
  * \param lib ASS_Library instance
  * \param provider font provider instance
  * \param name font name (as specified in script)
+ * \param match_extended_family If true, the function allows matching against
+ *                              extended family names as defined by the provider.
+ *                              This behavior is provider-dependent.
+ * \param bold The requested boldness level.
+ * \param italic The requested italic style.
+ * \param code The character that should be present in the font, can be 0.
+ * \return The font selected by the provider.
  */
-typedef void    (*MatchFontsFunc)(void *priv,
-                                  ASS_Library *lib,
-                                  ASS_FontProvider *provider,
-                                  char *name);
+typedef ASS_FontInfo   *(*MatchFontsFunc)(void *priv,
+                                          ASS_Library *lib,
+                                          ASS_FontProvider *provider,
+                                          char *name,
+                                          bool match_extended_family,
+                                          unsigned bold, unsigned italic,
+                                          uint32_t code);
 
 /**
  * Substitute font name by another. This implements generic font family

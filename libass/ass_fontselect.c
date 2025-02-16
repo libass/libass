@@ -913,12 +913,17 @@ static char *select_font(ASS_FontSelector *priv,
         // TODO: consider changing the API to make more efficient
         // implementations possible.
         for (int i = 0; i < meta.n_fullname; i++) {
-            default_provider->funcs.match_fonts(default_provider->priv,
+            matched_font = default_provider->funcs.match_fonts(default_provider->priv,
                                                 priv->library, default_provider,
-                                                meta.fullnames[i]);
+                                                meta.fullnames[i], match_extended_family,
+                                                bold, italic, code);
+            // TODO - This might be a bad idea because
+            // we may not get the best font if meta.n_fullname > 1
+            // Currently, only fontconfig can have a meta.n_fullname > 1,
+            // but since it doesn't define match_fonts, we don't have the problem
+            if (matched_font)
+                break;
         }
-        matched_font = find_font(priv, meta, match_extended_family,
-                                 bold, italic, code, &name_match);
     }
 
     result = get_font_result(matched_font, index, postscript_name, uid, stream);
