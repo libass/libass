@@ -209,7 +209,13 @@ static bool scan_fonts(FcConfig *config, ASS_FontProvider *provider)
             meta.postscript_name = NULL;
 
         FcPatternReference(pat);
-        ass_font_provider_add_font(provider, &meta, path, index, (void *)pat);
+
+        ASS_FontInfo* font_info = ass_font_provider_get_font_info(provider, &meta, path, index, (void *)pat);
+        if (font_info) {
+            ass_font_provider_add_font(provider, font_info);
+            free(font_info);
+        }
+
     }
 
     FcFontSetDestroy(fonts);
