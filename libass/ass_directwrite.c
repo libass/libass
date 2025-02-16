@@ -716,7 +716,12 @@ cleanup:
 }
 
 static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
-                     ASS_FontProvider *provider)
+                     ASS_FontProvider *provider,
+                     ASS_FontProviderMetaData requested_font,
+                     ASS_FontInfo **best_font_info, unsigned *best_font_score,
+                     bool match_extended_family,
+                     unsigned bold, unsigned italic,
+                     uint32_t code)
 {
     ASS_FontProviderMetaData meta = {0};
     if (!get_font_info_IDWriteFont(font, fontFamily, &meta))
@@ -728,7 +733,9 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
     font_priv->font = font;
     font = NULL;
 
-    ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
+    update_best_matching_font(provider, &meta, font_priv, requested_font,
+                              best_font_info, best_font_score, match_extended_family,
+                              bold, italic, code);
 
 cleanup:
     free(meta.postscript_name);
@@ -913,14 +920,15 @@ cleanup:
         hr = IDWriteGdiInterop_CreateFontFromLOGFONT(provider_priv->gdi_interop,
                                                      &lf, &font);
         if (FAILED(hr) || !font)
-            return;
+            return NULL;
 
         IDWriteFontFamily *fontFamily = NULL;
         hr = IDWriteFont_GetFontFamily(font, &fontFamily);
         IDWriteFont_Release(font);
         if (FAILED(hr) || !fontFamily)
-            return;
+            return NULL;
 
+        unsigned best_font_score = UINT_MAX;
         UINT32 n = IDWriteFontFamily_GetFontCount(fontFamily);
         for (UINT32 i = 0; i < n; i++) {
             hr = IDWriteFontFamily_GetFont(fontFamily, i, &font);
@@ -934,7 +942,9 @@ cleanup:
                 continue;
             }
 
-            add_font(font, fontFamily, provider);
+            add_font(font, fontFamily, provider, requested_font,
+                     &font_result, &best_font_score,
+                     match_extended_family, bold, italic, code);
         }
 
         IDWriteFontFamily_Release(fontFamily);
