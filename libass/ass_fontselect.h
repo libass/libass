@@ -297,6 +297,31 @@ ass_font_provider_get_font_info(ASS_FontProvider *provider,
                                 int index, void *data);
 
 /**
+ * \brief Updates the best matching font based on the given criteria.
+ * \param info The font to be evaluated.
+ * \param requested_font The requested font metadata used for comparison. Only the
+ *             `fullnames` and `n_fullname` fields are considered for matching.
+ * \param match_extended_family If true, the function allows matching against
+ *                              extended family names as defined by the provider.
+ *                              This behavior is provider-dependent.
+ * \param bold The requested boldness level.
+ * \param italic The requested italic style.
+ * \param code The character that should be present in the font, can be 0.
+ * \param name_match Set to true if the font matches the metadata,
+ *                   otherwise set to false.
+ * \param best_font_score Score representing the match. The lower, the better.
+ *                        It will be updated if the font has a better score.
+ * \return True if `info` provides a better match than the previously recorded
+ *         best font score. Otherwise, false.
+ */
+bool ass_update_best_matching_font(ASS_FontInfo *info,
+    ASS_FontProviderMetaData requested_font,
+    bool match_extended_family,
+    unsigned bold, unsigned italic,
+    uint32_t code, bool *name_match,
+    unsigned *best_font_score);
+
+/**
  * \brief Free font provider and associated fonts.
  * \param provider the font provider
  *

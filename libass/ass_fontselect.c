@@ -725,75 +725,117 @@ static bool check_glyph(ASS_FontInfo *fi, uint32_t code)
     return provider->funcs.check_glyph(fi->priv, code);
 }
 
-static char *
-find_font(ASS_FontSelector *priv,
-          ASS_FontProviderMetaData meta, bool match_extended_family,
-          unsigned bold, unsigned italic,
-          int *index, char **postscript_name, int *uid, ASS_FontStream *stream,
-          uint32_t code, bool *name_match)
+/**
+ * \brief Check if a font matches the given criteria.
+ * \param font The font to check.
+ * \param meta The requested font metadata used for comparison. Only the
+ *             `fullnames` and `n_fullname` fields are considered for matching.
+ * \param match_extended_family If true, the function allows matching against
+ *                              extended family names as defined by the provider.
+ *                              This behavior is provider-dependent.
+ * \param bold The requested boldness level.
+ * \param italic The requested italic style.
+ * \param name_match Set to true if the font matches the metadata,
+ *                   otherwise set to false.
+ * \param score Score representing the match. The lower, the better.
+ */
+static void
+is_font_match(ASS_FontInfo *font, ASS_FontProviderMetaData meta,
+              bool match_extended_family,
+              unsigned bold, unsigned italic,
+              bool *name_match, unsigned *score)
 {
     ASS_FontInfo req = {0};
-    ASS_FontInfo *selected = NULL;
-
-    // do we actually have any fonts?
-    if (!priv->n_font)
-        return NULL;
 
     // fill font request
     req.style_flags = (italic ? FT_STYLE_FLAG_ITALIC : 0);
     req.weight      = bold;
 
     // Match font family name against font list
-    unsigned score_min = UINT_MAX;
+    *score = UINT_MAX;
     for (int i = 0; i < meta.n_fullname; i++) {
         const char *fullname = meta.fullnames[i];
 
-        for (int x = 0; x < priv->n_font; x++) {
-            ASS_FontInfo *font = &priv->font_infos[x];
-            unsigned score = UINT_MAX;
+        if (matches_family_name(font, fullname, match_extended_family)) {
+            // If there's a family match, compare font attributes
+            // to determine best match in that particular family
+            *score = font_attributes_similarity(font, &req);
+            *name_match = true;
+            break;
+        } else if (matches_full_or_postscript_name(font, fullname)) {
+            // If we don't have any match, compare fullnames against request
+            // if there is a match now, assign lowest score possible. This means
+            // the font should be chosen instantly, without further search.
+            *score = 0;
+            *name_match = true;
+            break;
+        }
+    }
+}
 
-            if (matches_family_name(font, fullname, match_extended_family)) {
-                // If there's a family match, compare font attributes
-                // to determine best match in that particular family
-                score = font_attributes_similarity(font, &req);
-                *name_match = true;
-            } else if (matches_full_or_postscript_name(font, fullname)) {
-                // If we don't have any match, compare fullnames against request
-                // if there is a match now, assign lowest score possible. This means
-                // the font should be chosen instantly, without further search.
-                score = 0;
-                *name_match = true;
-            }
+bool ass_update_best_matching_font(ASS_FontInfo *info,
+                                   ASS_FontProviderMetaData requested_font,
+                                   bool match_extended_family,
+                                   unsigned bold, unsigned italic,
+                                   uint32_t code, bool *name_match,
+                                   unsigned *best_font_score)
+{
+    if (!info)
+        return false;
 
-            // Consider updating idx if score is better than current minimum
-            if (score < score_min) {
-                // Check if the font has the requested glyph.
-                // We are doing this here, for every font face, because
-                // coverage might differ between the variants of a font
-                // family. In practice, it is common that the regular
-                // style has the best coverage while bold/italic/etc
-                // variants cover less (e.g. FreeSans family).
-                // We want to be able to match even if the closest variant
-                // does not have the requested glyph, but another member
-                // of the family has the glyph.
-                if (!check_glyph(font, code))
-                    continue;
+    unsigned score = UINT_MAX;
+    is_font_match(info, requested_font, match_extended_family, bold, italic, name_match, &score);
 
-                score_min = score;
-                selected = font;
-            }
+    if (score < *best_font_score) {
+        // Check if the font has the requested glyph.
+        // We are doing this here, for every font face, because
+        // coverage might differ between the variants of a font
+        // family. In practice, it is common that the regular
+        // style has the best coverage while bold/italic/etc
+        // variants cover less (e.g. FreeSans family).
+        // We want to be able to match even if the closest variant
+        // does not have the requested glyph, but another member
+        // of the family has the glyph.
+        if (check_glyph(info, code)) {
+            *best_font_score = score;
+            return true;
+        }
+    }
 
-            // Lowest possible score instantly matches; this is typical
-            // for fullname matches, but can also occur with family matches.
-            if (score == 0)
-                break;
+    return false;
+}
+
+static ASS_FontInfo *
+find_font(ASS_FontSelector *priv,
+          ASS_FontProviderMetaData meta, bool match_extended_family,
+          unsigned bold, unsigned italic,
+          uint32_t code, bool *name_match)
+{
+    ASS_FontInfo *selected = NULL;
+
+    // do we actually have any fonts?
+    if (!priv->n_font)
+        return NULL;
+
+    unsigned score_min = UINT_MAX;
+    for (int x = 0; x < priv->n_font; x++) {
+        ASS_FontInfo *font = &priv->font_infos[x];
+        if (ass_update_best_matching_font(font, meta, match_extended_family, bold, italic, code, name_match, &score_min)) {
+            selected = font;
         }
 
-        // The list of names is sorted by priority. If we matched anything,
-        // we can and should stop.
-        if (selected != NULL)
+        // Lowest possible score instantly matches; this is typical
+        // for fullname matches, but can also occur with family matches.
+        if (score_min == 0)
             break;
     }
+
+    return selected;
+}
+
+static char *
+get_font_result(ASS_FontInfo *selected, int *index, char **postscript_name, int *uid, ASS_FontStream *stream)
+{
 
     // found anything?
     char *result = NULL;
@@ -837,6 +879,7 @@ static char *select_font(ASS_FontSelector *priv,
 {
     ASS_FontProvider *default_provider = priv->default_provider;
     ASS_FontProviderMetaData meta = {0};
+    ASS_FontInfo *matched_font = NULL;
     char *result = NULL;
     bool name_match = false;
 
@@ -859,9 +902,8 @@ static char *select_font(ASS_FontSelector *priv,
         meta = default_meta;
     }
 
-    result = find_font(priv, meta, match_extended_family,
-                       bold, italic, index, postscript_name, uid,
-                       stream, code, &name_match);
+    matched_font = find_font(priv, meta, match_extended_family,
+                             bold, italic, code, &name_match);
 
     // If no matching font was found, it might not exist in the font list
     // yet. Call the match_fonts callback to fill in the missing fonts
@@ -875,10 +917,11 @@ static char *select_font(ASS_FontSelector *priv,
                                                 priv->library, default_provider,
                                                 meta.fullnames[i]);
         }
-        result = find_font(priv, meta, match_extended_family,
-                           bold, italic, index, postscript_name, uid,
-                           stream, code, &name_match);
+        matched_font = find_font(priv, meta, match_extended_family,
+                                 bold, italic, code, &name_match);
     }
+
+    result = get_font_result(matched_font, index, postscript_name, uid, stream);
 
     // cleanup
     if (meta.fullnames != default_meta.fullnames) {
