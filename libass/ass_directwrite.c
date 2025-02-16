@@ -678,7 +678,11 @@ cleanup:
 
 #if !ASS_WINAPI_DESKTOP
 
-static void add_font_set(IDWriteFontSet *fontSet, ASS_FontProvider *provider)
+static void add_font_set(IDWriteFontSet *fontSet, ASS_FontProvider *provider,
+                         ASS_FontProviderMetaData requested_font,
+                         ASS_FontInfo **best_font_info, unsigned *best_font_score,
+                         bool match_extended_family, unsigned bold, unsigned italic,
+                         uint32_t code)
 {
     UINT32 n = IDWriteFontSet_GetFontCount(fontSet);
     for (UINT32 i = 0; i < n; i++) {
@@ -702,7 +706,9 @@ static void add_font_set(IDWriteFontSet *fontSet, ASS_FontProvider *provider)
         if (FAILED(hr) || !face)
             goto cleanup;
 
-        add_font_face((IDWriteFontFace *) face, provider, NULL, NULL);
+        add_font_face((IDWriteFontFace *) face, provider, NULL, NULL,
+                      requested_font, best_font_info, best_font_score,
+                      match_extended_family, bold, italic, code);
 
 cleanup:
         IDWriteFontFaceReference_Release(faceRef);
@@ -859,8 +865,9 @@ cleanup:
         hr = IDWriteFactory3_GetSystemFontSet(factory3, &fontSet);
         IDWriteFactory3_Release(factory3);
         if (FAILED(hr) || !fontSet)
-            return;
+            return NULL;
 
+        unsigned best_font_score = UINT_MAX;
         DWRITE_FONT_PROPERTY_ID property_ids[] = {
             DWRITE_FONT_PROPERTY_ID_WIN32_FAMILY_NAME,
             DWRITE_FONT_PROPERTY_ID_FULL_NAME,
@@ -879,7 +886,9 @@ cleanup:
             if (FAILED(hr) || !filteredSet)
                 continue;
 
-            add_font_set(filteredSet, provider);
+            add_font_set(filteredSet, provider, requested_font,
+                         &font_result, &best_font_score,
+                         match_extended_family, bold, italic, code);
 
             IDWriteFontSet_Release(filteredSet);
         }
