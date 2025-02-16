@@ -215,7 +215,7 @@ ass_font_provider_new(ASS_FontSelector *selector, ASS_FontProviderFuncs *funcs,
  *
  * \param info FontInfo struct to free associated data from
  */
-static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
+void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
 {
     int j;
 
