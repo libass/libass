@@ -242,6 +242,17 @@ void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
 }
 
 /**
+ * Free the provider-specific private data.
+ *
+ * \param info FontInfo struct to free private data from.
+ */
+void ass_font_provider_destroy_private_fontinfo(ASS_FontInfo *info)
+{
+    if (info->provider)
+        info->provider->funcs.destroy_font(info->priv);
+}
+
+/**
  * \brief Read basic metadata (names, weight, slant) from a FreeType face,
  * as required for the FontSelector for matching and sorting.
  * \param lib FreeType library

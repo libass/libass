@@ -340,6 +340,13 @@ bool ass_update_best_matching_font(ASS_FontInfo *info,
 void ass_font_provider_free_fontinfo(ASS_FontInfo *info);
 
 /**
+ * Free the provider-specific private data.
+ *
+ * \param info FontInfo struct to free private data from.
+ */
+void ass_font_provider_destroy_private_fontinfo(ASS_FontInfo *info);
+
+/**
  * \brief Free font provider and associated fonts.
  * \param provider the font provider
  *
