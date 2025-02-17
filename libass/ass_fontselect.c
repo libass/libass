@@ -94,10 +94,10 @@ struct font_selector {
     char *path_default;
     int index_default;
 
-    // font database
-    int n_font;
-    int alloc_font;
-    ASS_FontInfo *font_infos;
+    // embedded font database
+    int embedded_n_font;
+    int embedded_alloc_font;
+    ASS_FontInfo *embedded_font_infos;
 
     ASS_FontProvider *default_provider;
     ASS_FontProvider *embedded_provider;
@@ -396,16 +396,16 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     ASS_FontSelector *selector = provider->parent;
 
     // check size
-    if (selector->n_font >= selector->alloc_font) {
-        size_t new_size = FFMAX(1, 2 * selector->alloc_font);
-        if (!ASS_REALLOC_ARRAY(selector->font_infos, new_size))
+    if (selector->embedded_n_font >= selector->embedded_alloc_font) {
+        size_t new_size = FFMAX(1, 2 * selector->embedded_alloc_font);
+        if (!ASS_REALLOC_ARRAY(selector->embedded_font_infos, new_size))
             return false;
-        selector->alloc_font = new_size;
+        selector->embedded_alloc_font = new_size;
     }
 
-    ASS_FontInfo* new_font_info = selector->font_infos + selector->n_font;
+    ASS_FontInfo* new_font_info = selector->embedded_font_infos + selector->embedded_n_font;
     *new_font_info = *info;
-    selector->n_font++;
+    selector->embedded_n_font++;
     return true;
 }
 
@@ -568,21 +568,21 @@ static void ass_fontselect_cleanup(ASS_FontSelector *selector)
 {
     int i, w;
 
-    for (i = 0, w = 0; i < selector->n_font; i++) {
-        ASS_FontInfo *info = selector->font_infos + i;
+    for (i = 0, w = 0; i < selector->embedded_n_font; i++) {
+        ASS_FontInfo *info = selector->embedded_font_infos + i;
 
         // update write pointer
         if (info->provider != NULL) {
             // rewrite, if needed
             if (w != i)
-                memcpy(selector->font_infos + w, selector->font_infos + i,
+                memcpy(selector->embedded_font_infos + w, selector->embedded_font_infos + i,
                         sizeof(ASS_FontInfo));
             w++;
         }
 
     }
 
-    selector->n_font = w;
+    selector->embedded_n_font = w;
 }
 
 void ass_font_provider_free(ASS_FontProvider *provider)
@@ -591,8 +591,8 @@ void ass_font_provider_free(ASS_FontProvider *provider)
     ASS_FontSelector *selector = provider->parent;
 
     // free all fonts and mark their entries
-    for (i = 0; i < selector->n_font; i++) {
-        ASS_FontInfo *info = selector->font_infos + i;
+    for (i = 0; i < selector->embedded_n_font; i++) {
+        ASS_FontInfo *info = selector->embedded_font_infos + i;
 
         if (info->provider == provider) {
             ass_font_provider_free_fontinfo(info);
@@ -825,12 +825,12 @@ find_font(ASS_FontSelector *priv,
     ASS_FontInfo *selected = NULL;
 
     // do we actually have any fonts?
-    if (!priv->n_font)
+    if (!priv->embedded_n_font)
         return NULL;
 
     unsigned score_min = UINT_MAX;
-    for (int x = 0; x < priv->n_font; x++) {
-        ASS_FontInfo *font = &priv->font_infos[x];
+    for (int x = 0; x < priv->embedded_n_font; x++) {
+        ASS_FontInfo *font = &priv->embedded_font_infos[x];
         if (ass_update_best_matching_font(font, meta, match_extended_family, bold, italic, code, name_match, &score_min)) {
             selected = font;
         }
@@ -1248,7 +1248,7 @@ void ass_fontselect_free(ASS_FontSelector *priv)
     if (priv->embedded_provider)
         ass_font_provider_free(priv->embedded_provider);
 
-    free(priv->font_infos);
+    free(priv->embedded_font_infos);
     free(priv->path_default);
     free(priv->family_default);
 
