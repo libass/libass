@@ -212,7 +212,7 @@ static bool scan_fonts(FcConfig *config, ASS_FontProvider *provider)
 
         ASS_FontInfo* font_info = ass_font_provider_get_font_info(provider, &meta, path, index, (void *)pat);
         if (font_info) {
-            ass_font_provider_add_font(provider, font_info);
+            ass_font_provider_add_font(provider, font_info, true);
             free(font_info);
         }
 

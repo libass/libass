@@ -99,6 +99,11 @@ struct font_selector {
     int embedded_alloc_font;
     ASS_FontInfo *embedded_font_infos;
 
+    // provider font database
+    int provider_n_font;
+    int provider_alloc_font;
+    ASS_FontInfo *provider_font_infos;
+
     ASS_FontProvider *default_provider;
     ASS_FontProvider *embedded_provider;
 };
@@ -385,27 +390,37 @@ static void free_font_info(ASS_FontProviderMetaData *meta)
  * \brief Add a font to a font provider.
  * \param provider the font provider
  * \param info The font to add to the database.
+ * \param is_embedded If true, the font will be added to the embedded db.
+ *                    If false, it will be added to the provider db.
  * \return True if the font has been successfully added to the provider. Otherwise, false.
  * \note After calling this function, **do not** call `ass_font_provider_free_fontinfo`
  *       on the `info` parameter, as its contents have been copied.
  */
 bool
 ass_font_provider_add_font(ASS_FontProvider *provider,
-                           ASS_FontInfo* info)
+                           ASS_FontInfo* info, bool is_embedded)
 {
+    if (!provider || !info)
+        return false;
+
     ASS_FontSelector *selector = provider->parent;
 
+    // Select the appropriate font database
+    int *n_font = is_embedded ? &selector->embedded_n_font : &selector->provider_n_font;
+    int *alloc_font = is_embedded ? &selector->embedded_alloc_font : &selector->provider_alloc_font;
+    ASS_FontInfo **font_infos = is_embedded ? &selector->embedded_font_infos : &selector->provider_font_infos;
+
     // check size
-    if (selector->embedded_n_font >= selector->embedded_alloc_font) {
-        size_t new_size = FFMAX(1, 2 * selector->embedded_alloc_font);
-        if (!ASS_REALLOC_ARRAY(selector->embedded_font_infos, new_size))
+    if (*n_font >= *alloc_font) {
+        size_t new_size = FFMAX(1, 2 * (*alloc_font));
+        if (!ASS_REALLOC_ARRAY(*font_infos, new_size))
             return false;
-        selector->embedded_alloc_font = new_size;
+        *alloc_font = new_size;
     }
 
-    ASS_FontInfo* new_font_info = selector->embedded_font_infos + selector->embedded_n_font;
+    ASS_FontInfo *new_font_info = *font_infos + *n_font;
     *new_font_info = *info;
-    selector->embedded_n_font++;
+    (*n_font)++;
     return true;
 }
 
@@ -583,6 +598,22 @@ static void ass_fontselect_cleanup(ASS_FontSelector *selector)
     }
 
     selector->embedded_n_font = w;
+
+    for (i = 0, w = 0; i < selector->provider_n_font; i++) {
+        ASS_FontInfo *info = selector->provider_font_infos + i;
+
+        // update write pointer
+        if (info->provider != NULL) {
+            // rewrite, if needed
+            if (w != i)
+                memcpy(selector->provider_font_infos + w, selector->provider_font_infos + i,
+                        sizeof(ASS_FontInfo));
+            w++;
+        }
+
+    }
+
+    selector->provider_n_font = w;
 }
 
 void ass_font_provider_free(ASS_FontProvider *provider)
@@ -596,7 +627,18 @@ void ass_font_provider_free(ASS_FontProvider *provider)
 
         if (info->provider == provider) {
             ass_font_provider_free_fontinfo(info);
-            info->provider->funcs.destroy_font(info->priv);
+            ass_font_provider_destroy_private_fontinfo(info);
+            info->provider = NULL;
+        }
+
+    }
+
+    for (i = 0; i < selector->provider_n_font; i++) {
+        ASS_FontInfo *info = selector->provider_font_infos + i;
+
+        if (info->provider == provider) {
+            ass_font_provider_free_fontinfo(info);
+            ass_font_provider_destroy_private_fontinfo(info);
             info->provider = NULL;
         }
 
@@ -893,6 +935,8 @@ static char *select_font(ASS_FontSelector *priv,
     ASS_FontInfo *matched_font = NULL;
     char *result = NULL;
     bool name_match = false;
+    bool font_queried_via_provider = false;
+    bool font_queried_via_provider_error = false;
 
     if (family == NULL)
         return NULL;
@@ -935,9 +979,13 @@ static char *select_font(ASS_FontSelector *priv,
             if (matched_font)
                 break;
         }
+
+        font_queried_via_provider_error = !ass_font_provider_add_font(default_provider, matched_font, false);
+        font_queried_via_provider = true;
     }
 
-    result = get_font_result(matched_font, index, postscript_name, uid, stream);
+    if (!font_queried_via_provider || !font_queried_via_provider_error)
+        result = get_font_result(matched_font, index, postscript_name, uid, stream);
 
     // cleanup
     if (meta.fullnames != default_meta.fullnames) {
@@ -945,6 +993,9 @@ static char *select_font(ASS_FontSelector *priv,
             free(meta.fullnames[i]);
         free(meta.fullnames);
     }
+
+    if (font_queried_via_provider)
+        free(matched_font);
 
     return result;
 }
@@ -1083,7 +1134,7 @@ static void process_fontdata(ASS_FontProvider *priv, int idx)
             free(ft);
         }
 
-        ass_font_provider_add_font(priv, font_info);
+        ass_font_provider_add_font(priv, font_info, true);
         free(font_info);
 
         free_font_info(&info);
@@ -1249,6 +1300,7 @@ void ass_fontselect_free(ASS_FontSelector *priv)
         ass_font_provider_free(priv->embedded_provider);
 
     free(priv->embedded_font_infos);
+    free(priv->provider_font_infos);
     free(priv->path_default);
     free(priv->family_default);
 

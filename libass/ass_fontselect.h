@@ -283,13 +283,15 @@ ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
  * \brief Add a font to a font provider.
  * \param provider the font provider
  * \param info The font to add to the database.
+ * \param is_embedded If true, the font will be added to the embedded db.
+ *                    If false, it will be added to the provider db.
  * \return True if the font has been successfully added to the provider. Otherwise, false.
  * \note After calling this function, **do not** call `ass_font_provider_free_fontinfo`
  *       on the `info` parameter, as its contents have been copied.
  */
 bool
 ass_font_provider_add_font(ASS_FontProvider *provider,
-                           ASS_FontInfo* info);
+                           ASS_FontInfo* info, bool is_embedded);
 
 /**
  * \brief Get the font info from a provider's font.
