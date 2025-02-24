@@ -203,19 +203,19 @@ struct ThreadStruct {
 
 typedef struct ThreadStruct *pthread_t;
 
-typedef CRITICAL_SECTION   pthread_mutex_t;
+typedef SRWLOCK            pthread_mutex_t;
 typedef CONDITION_VARIABLE pthread_cond_t;
 
 static inline int pthread_mutex_init(pthread_mutex_t *mtx, const void *attr)
 {
     assert(!attr);
-    InitializeCriticalSection(mtx);
+    InitializeSRWLock(mtx);
     return 0;
 }
 
-#define pthread_mutex_destroy DeleteCriticalSection
-#define pthread_mutex_lock EnterCriticalSection
-#define pthread_mutex_unlock LeaveCriticalSection
+#define pthread_mutex_destroy(x) ((void) 0) // No-op
+#define pthread_mutex_lock AcquireSRWLockExclusive
+#define pthread_mutex_unlock ReleaseSRWLockExclusive
 
 static inline bool pthread_cond_init(pthread_cond_t *cond, const void *attr)
 {
@@ -230,7 +230,7 @@ static inline bool pthread_cond_init(pthread_cond_t *cond, const void *attr)
 
 static inline int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
 {
-    return (SleepConditionVariableCS(cond, mutex, INFINITE) == 0) ? 0 : EINVAL;
+    return (SleepConditionVariableSRW(cond, mutex, INFINITE, 0) == 0) ? 0 : EINVAL;
 }
 
 static DWORD WINAPI
