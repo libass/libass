@@ -448,9 +448,10 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
 
     // check size
     if (selector->n_font >= selector->alloc_font) {
-        selector->alloc_font = FFMAX(1, 2 * selector->alloc_font);
-        selector->font_infos = realloc(selector->font_infos,
-                selector->alloc_font * sizeof(ASS_FontInfo));
+        size_t new_size = FFMAX(1, 2 * selector->alloc_font);
+        if (!ASS_REALLOC_ARRAY(selector->font_infos, new_size))
+            goto error;
+        selector->alloc_font = new_size;
     }
 
     // copy over metadata
