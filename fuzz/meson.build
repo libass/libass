@@ -9,6 +9,8 @@ libass_fuzz = executable(
     install: false,
     include_directories: incs,
     dependencies: deps,
+    link_args: get_option('fuzz-link-args'),
+    link_language: get_option('fuzz-link-language'),
     link_with: libass_for_tools,
 )
 
