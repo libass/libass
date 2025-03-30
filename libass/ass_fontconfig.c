@@ -389,7 +389,7 @@ ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
 
     // build database from system fonts
     if (!scan_fonts(fc->config, provider))
-        ass_msg(lib, MSGL_ERR, "Failed to load fonctconfig fonts!");
+        ass_msg(lib, MSGL_ERR, "Failed to load fontconfig fonts!");
 
     return provider;
 }
