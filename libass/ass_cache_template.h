@@ -8,6 +8,8 @@
         ASS_StringView member;
 #define VECTOR(member) \
         ASS_Vector member;
+#define RECT(member) \
+        ASS_Rect member;
 #define END(typedefnamename) \
     } typedefnamename;
 
@@ -25,6 +27,10 @@
             ass_string_equal(a->member, b->member) &&
 #define VECTOR(member) \
             a->member.x == b->member.x && a->member.y == b->member.y &&
+#define RECT(member) \
+            a->member.x_min == b->member.x_min && a->member.y_min == b->member.y_min && \
+            a->member.x_max == b->member.x_max && a->member.y_max == b->member.y_max &&
+
 #define END(typedefname) \
             true; \
     }
@@ -40,6 +46,9 @@
 #define STRING(member) \
         hval = ass_hash_buf(p->member.str, p->member.len, hval);
 #define VECTOR(member) GENERIC(, member.x); GENERIC(, member.y);
+#define RECT(member) \
+        GENERIC(, member.x_min); GENERIC(, member.y_min); \
+        GENERIC(, member.x_max); GENERIC(, member.y_max);
 #define END(typedefname) \
         return hval; \
     }
@@ -135,4 +144,5 @@ END(BitmapRef)
 #undef GENERIC
 #undef STRING
 #undef VECTOR
+#undef RECT
 #undef END
