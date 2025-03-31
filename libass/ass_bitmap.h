@@ -42,7 +42,8 @@ void ass_free_bitmap(Bitmap *bm);
 struct render_context;
 
 bool ass_outline_to_bitmap(struct render_context *state, Bitmap *bm,
-                           ASS_Outline *outline1, ASS_Outline *outline2);
+                           ASS_Outline *outline1, ASS_Outline *outline2,
+                           ASS_Rect *clip);
 
 void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
                     int be, double blur_r2x, double blur_r2y);

@@ -725,6 +725,13 @@ static void blend_vector_clip(RenderContext *state, ASS_Image *head)
             !quantize_transform(m, &pos, NULL, true, &key))
         return;
 
+    key.clip = (ASS_Rect){
+        -pos.x,
+        -pos.y,
+        render_priv->settings.frame_width - pos.x,
+        render_priv->settings.frame_height - pos.y,
+    };
+
     Bitmap *clip_bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
     if (!clip_bm)
         return;
@@ -1372,6 +1379,8 @@ static void calc_transform_matrix(RenderContext *state,
     }
 }
 
+int ass_be_padding(int be);
+
 /**
  * \brief Get bitmaps for a glyph
  * \param info glyph info
@@ -1404,10 +1413,62 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
     if (info->effect_type == EF_KARAOKE_KF)
         ass_outline_update_min_transformed_x(&info->outline->outline[0], m, leftmost_x);
 
+    ASS_Rect clip_rect = {
+        0,
+        0,
+        render_priv->settings.frame_width,
+        render_priv->settings.frame_height,
+    };
+
+#ifdef USE_RECT_CLIP
+    if (!state->clip_mode) {
+        clip_rect = (ASS_Rect){
+            state->clip_x0,
+            state->clip_y0,
+            state->clip_x1,
+            state->clip_y1,
+        };
+    }
+#endif
+
+    bool potentially_clipped = (
+        info->pos.x + info->outline->cbox.x_min < clip_rect.x_min << SUBPIXEL_ORDER ||
+        info->pos.y + info->outline->cbox.y_min < clip_rect.y_min << SUBPIXEL_ORDER ||
+        info->pos.x + info->outline->cbox.x_max > clip_rect.x_max << SUBPIXEL_ORDER ||
+        info->pos.y + info->outline->cbox.y_max > clip_rect.y_max << SUBPIXEL_ORDER
+    );
+
+    if (potentially_clipped) {
+        double blur_radius_scale = 2 / sqrt(log(256));
+        double blur_scale_x = state->blur_scale_x * blur_radius_scale;
+        double blur_scale_y = state->blur_scale_y * blur_radius_scale;
+        double blur_x = info->blur * blur_scale_x;
+        double blur_y = info->blur * blur_scale_y;
+
+        uint32_t xpad = ass_blur_padding(blur_x) + ass_be_padding(info->be);
+        uint32_t ypad = ass_blur_padding(blur_y) + ass_be_padding(info->be);
+
+        clip_rect.x_min -= xpad;
+        clip_rect.y_min -= ypad;
+        clip_rect.x_max += xpad;
+        clip_rect.y_max += ypad;
+    }
+
     BitmapHashKey key;
     key.outline = info->outline;
     if (!quantize_transform(m, pos, offset, first, &key))
         return;
+
+    key.clip = (ASS_Rect){0};
+
+    if (potentially_clipped) {
+        key.clip = (ASS_Rect){
+            clip_rect.x_min - pos->x,
+            clip_rect.y_min - pos->y,
+            clip_rect.x_max - pos->x,
+            clip_rect.y_max - pos->y,
+        };
+    }
 
     info->bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
     if (!info->bm || !info->bm->buffer)
@@ -1533,6 +1594,15 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
             !quantize_transform(m, pos_o, offset, false, &key))
         return;
 
+    if (potentially_clipped) {
+        key.clip = (ASS_Rect){
+            clip_rect.x_min - pos_o->x,
+            clip_rect.y_min - pos_o->y,
+            clip_rect.x_max - pos_o->x,
+            clip_rect.y_max - pos_o->y,
+        };
+    }
+
     info->bm_o = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
     if (!info->bm_o || !info->bm_o->buffer) {
         info->bm_o = NULL;
@@ -1564,7 +1634,7 @@ size_t ass_bitmap_construct(void *key, void *value, void *priv)
         ass_outline_transform_2d(&outline[1], &k->outline->outline[1], m);
     }
 
-    if (!ass_outline_to_bitmap(state, bm, &outline[0], &outline[1]))
+    if (!ass_outline_to_bitmap(state, bm, &outline[0], &outline[1], &k->clip))
         memset(bm, 0, sizeof(*bm));
     ass_outline_free(&outline[0]);
     ass_outline_free(&outline[1]);
