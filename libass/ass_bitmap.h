@@ -47,6 +47,7 @@ bool ass_outline_to_bitmap(struct render_context *state, Bitmap *bm,
 void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
                     int be, double blur_r2x, double blur_r2y);
 
+uint32_t ass_blur_padding(double r2);
 bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2x, double r2y);
 void ass_shift_bitmap(Bitmap *bm, int shift_x, int shift_y);
 void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o);
