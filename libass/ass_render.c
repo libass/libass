@@ -497,6 +497,7 @@ render_glyph(RenderContext *state, Bitmap *bm, int dst_x, int dst_y,
 
 static bool quantize_transform(double m[3][3], ASS_Vector *pos,
                                ASS_DVector *offset, bool first,
+                               ASS_Rect *clip,
                                BitmapHashKey *key)
 {
     // Full transform:
@@ -645,6 +646,30 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
     key->matrix_x.x = qm[0][0];  key->matrix_x.y = qm[0][1];
     key->matrix_y.x = qm[1][0];  key->matrix_y.y = qm[1][1];
     key->matrix_z.x = qm[2][0];  key->matrix_z.y = qm[2][1];
+
+    if (clip && !(
+        ((qr[0] + key->outline->cbox.x_min) < (int64_t)((uint64_t)clip->x_min << SUBPIXEL_ORDER)) ||
+        ((qr[1] + key->outline->cbox.y_min) < (int64_t)((uint64_t)clip->y_min << SUBPIXEL_ORDER)) ||
+        ((qr[0] + key->outline->cbox.x_max) > (int64_t)((uint64_t)clip->x_max << SUBPIXEL_ORDER)) ||
+        ((qr[1] + key->outline->cbox.y_max) > (int64_t)((uint64_t)clip->y_max << SUBPIXEL_ORDER))
+    ))
+        clip = NULL;
+
+#define CLIP_PRECISION 64
+#define CLIP_PRECISION_MASK (~(CLIP_PRECISION - 1))
+#define CLIP_MIN(x) ((x) & CLIP_PRECISION_MASK)
+#define CLIP_MAX(x) (((x) + CLIP_PRECISION) & CLIP_PRECISION_MASK)
+    if (clip) {
+        key->clip = (ASS_Rect){
+            CLIP_MIN(clip->x_min - pos->x),
+            CLIP_MIN(clip->y_min - pos->y),
+            CLIP_MAX(clip->x_max - pos->x),
+            CLIP_MAX(clip->y_max - pos->y),
+        };
+    } else {
+        key->clip = (ASS_Rect){0};
+    }
+
     return true;
 }
 
@@ -718,19 +743,19 @@ static void blend_vector_clip(RenderContext *state, ASS_Image *head)
     m[0][2] = int_to_d6(render_priv->settings.left_margin);
     m[1][2] = int_to_d6(render_priv->settings.top_margin);
 
+    ASS_Rect clip = (ASS_Rect){
+        0,
+        0,
+        render_priv->settings.frame_width,
+        render_priv->settings.frame_height,
+    };
+
     ASS_Vector pos;
     BitmapHashKey key;
     key.outline = ass_cache_get(render_priv->cache.outline_cache, &ol_key, render_priv);
     if (!key.outline || !key.outline->valid ||
-            !quantize_transform(m, &pos, NULL, true, &key))
+            !quantize_transform(m, &pos, NULL, true, &clip, &key))
         return;
-
-    key.clip = (ASS_Rect){
-        -pos.x,
-        -pos.y,
-        render_priv->settings.frame_width - pos.x,
-        render_priv->settings.frame_height - pos.y,
-    };
 
     Bitmap *clip_bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
     if (!clip_bm)
@@ -1456,19 +1481,8 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
 
     BitmapHashKey key;
     key.outline = info->outline;
-    if (!quantize_transform(m, pos, offset, first, &key))
+    if (!quantize_transform(m, pos, offset, first, potentially_clipped ? &clip_rect : NULL, &key))
         return;
-
-    key.clip = (ASS_Rect){0};
-
-    if (potentially_clipped) {
-        key.clip = (ASS_Rect){
-            clip_rect.x_min - pos->x,
-            clip_rect.y_min - pos->y,
-            clip_rect.x_max - pos->x,
-            clip_rect.y_max - pos->y,
-        };
-    }
 
     info->bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
     if (!info->bm || !info->bm->buffer)
@@ -1591,17 +1605,8 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
 
     key.outline = ass_cache_get(render_priv->cache.outline_cache, &ol_key, render_priv);
     if (!key.outline || !key.outline->valid ||
-            !quantize_transform(m, pos_o, offset, false, &key))
+            !quantize_transform(m, pos_o, offset, false, potentially_clipped ? &clip_rect : NULL, &key))
         return;
-
-    if (potentially_clipped) {
-        key.clip = (ASS_Rect){
-            clip_rect.x_min - pos_o->x,
-            clip_rect.y_min - pos_o->y,
-            clip_rect.x_max - pos_o->x,
-            clip_rect.y_max - pos_o->y,
-        };
-    }
 
     info->bm_o = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
     if (!info->bm_o || !info->bm_o->buffer) {
