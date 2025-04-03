@@ -170,7 +170,7 @@ bool ass_outline_to_bitmap(RenderContext *state, Bitmap *bm,
     int32_t y_max = (rst->bbox.y_max + 127) >> 6;
 
 
-    if (clip->x_min != 0 || clip->y_min != 0 || clip->x_max != 0 || clip->y_max != 0) {
+    if (clip) {
         x_min = FFMAX(x_min, clip->x_min);
         y_min = FFMAX(y_min, clip->y_min);
         x_max = FFMIN(x_max, clip->x_max);

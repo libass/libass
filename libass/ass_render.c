@@ -667,7 +667,10 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
             CLIP_MAX(clip->y_max - pos->y),
         };
     } else {
-        key->clip = (ASS_Rect){0};
+        key->clip = (ASS_Rect){
+            INT32_MIN, INT32_MIN,
+            INT32_MAX, INT32_MAX,
+        };
     }
 
     return true;
