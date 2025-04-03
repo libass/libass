@@ -1480,6 +1480,18 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
         clip_rect.y_min -= ypad;
         clip_rect.x_max += xpad;
         clip_rect.y_max += ypad;
+
+        int32_t shadow_x = double_to_d6(info->shadow_x * state->border_scale_x);
+        int32_t shadow_y = double_to_d6(info->shadow_y * state->border_scale_y);
+
+        if (shadow_x > 0)
+            clip_rect.x_min -= (shadow_x + 63) >> 6;
+        else
+            clip_rect.x_max -= (shadow_x - 63) >> 6;
+        if (shadow_y > 0)
+            clip_rect.y_min -= (shadow_y + 63) >> 6;
+        else
+            clip_rect.y_max -= (shadow_y - 63) >> 6;
     }
 
     BitmapHashKey key;
