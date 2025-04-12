@@ -227,34 +227,29 @@ void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o)
  * \brief Shift a bitmap by the fraction of a pixel in x and y direction
  * expressed in 26.6 fixed point
  */
-void ass_shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
+void ass_shift_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t shift_x, int32_t shift_y)
 {
     assert((shift_x & ~63) == 0 && (shift_y & ~63) == 0);
 
     if (!bm->buffer)
         return;
 
+    if (!shift_x && !shift_y)
+        return;
+
     int32_t w = bm->w, h = bm->h;
     ptrdiff_t s = bm->stride;
     uint8_t *buf = bm->buffer;
 
-    // Shift in x direction
-    if (shift_x)
-        for (int32_t y = 0; y < h; y++) {
-            for (int32_t x = w - 1; x > 0; x--) {
-                uint8_t b = buf[x + y * s - 1] * shift_x >> 6;
-                buf[x + y * s - 1] -= b;
-                buf[x + y * s] += b;
-            }
-        }
+    unsigned align = 1 << engine->align_order;
+    size_t size = sizeof(uint16_t) * bm->stride;
+    uint16_t *tmp = ass_aligned_alloc(align, size, false);
+    if (!tmp)
+        return;
 
-    // Shift in y direction
-    if (shift_y)
-        for (int32_t x = 0; x < w; x++) {
-            for (int32_t y = h - 1; y > 0; y--) {
-                uint8_t b = buf[x + y * s - s] * shift_y >> 6;
-                buf[x + y * s - s] -= b;
-                buf[x + y * s] += b;
-            }
-        }
+    memset(tmp, 0, size);
+
+    engine->shift_bitmap(buf, s, w, h, shift_x, shift_y, tmp);
+
+    ass_aligned_free(tmp);
 }
