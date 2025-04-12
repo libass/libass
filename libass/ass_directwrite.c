@@ -254,23 +254,32 @@ static void init_FallbackLogTextRenderer(FallbackLogTextRenderer *r,
 }
 
 /*
- * This function is called whenever a font is accessed for the
- * first time. It will create a FontFace for metadata access and
- * memory reading, which will be stored within the private data.
+ * A helper function for init_font_private_stream and get_utf8_path.
+ * Remember to release the file and loader after obtaining it, even if the function fails.
  */
-static bool init_font_private_face(FontPrivate *priv)
+static bool get_font_file_loader_and_reference_key(FontPrivate *priv,
+                                                   const void **refKey,
+                                                   UINT32 *keySize,
+                                                   IDWriteFontFile **file,
+                                                   IDWriteFontFileLoader **loader)
 {
-    HRESULT hr;
-    IDWriteFontFace *face;
+    HRESULT hr = S_OK;
+    UINT32 n_files = 1;
+    *refKey = NULL, *file = NULL, *loader = NULL, *keySize = 0;
 
-    if (priv->face != NULL)
-        return true;
-
-    hr = IDWriteFont_CreateFontFace(priv->font, &face);
-    if (FAILED(hr) || !face)
+    /* DirectWrite only supports one file per face */
+    hr = IDWriteFontFace_GetFiles(priv->face, &n_files, file);
+    if (FAILED(hr) || !*file)
         return false;
 
-    priv->face = face;
+    hr = IDWriteFontFile_GetReferenceKey(*file, refKey, keySize);
+    if (FAILED(hr))
+        return false;
+
+    hr = IDWriteFontFile_GetLoader(*file, loader);
+    if (FAILED(hr) || !*loader)
+        return false;
+
     return true;
 }
 
@@ -281,47 +290,96 @@ static bool init_font_private_face(FontPrivate *priv)
  */
 static bool init_font_private_stream(FontPrivate *priv)
 {
+    bool ret = false;
     HRESULT hr = S_OK;
     IDWriteFontFile *file = NULL;
-    IDWriteFontFileStream *stream = NULL;
     IDWriteFontFileLoader *loader = NULL;
-    UINT32 n_files = 1;
+    IDWriteFontFileStream *stream = NULL;
     const void *refKey = NULL;
     UINT32 keySize = 0;
 
     if (priv->stream != NULL)
         return true;
 
-    if (!init_font_private_face(priv))
-        return false;
-
-    /* DirectWrite only supports one file per face */
-    hr = IDWriteFontFace_GetFiles(priv->face, &n_files, &file);
-    if (FAILED(hr) || !file)
-        return false;
-
-    hr = IDWriteFontFile_GetReferenceKey(file, &refKey, &keySize);
-    if (FAILED(hr)) {
-        IDWriteFontFile_Release(file);
-        return false;
-    }
-
-    hr = IDWriteFontFile_GetLoader(file, &loader);
-    if (FAILED(hr) || !loader) {
-        IDWriteFontFile_Release(file);
-        return false;
-    }
+    if (!get_font_file_loader_and_reference_key(priv, &refKey, &keySize, &file, &loader))
+        goto cleanup;
 
     hr = IDWriteFontFileLoader_CreateStreamFromKey(loader, refKey, keySize, &stream);
-    if (FAILED(hr) || !stream) {
-        IDWriteFontFile_Release(file);
-        return false;
-    }
+    if (FAILED(hr) || !stream)
+        goto cleanup;
 
     priv->stream = stream;
-    IDWriteFontFile_Release(file);
+    ret = true;
 
-    return true;
+cleanup:
+    if (loader)
+        IDWriteFontFileLoader_Release(loader);
+    if (file)
+        IDWriteFontFile_Release(file);
+
+    return ret;
+}
+
+/*
+ * Get underlying path where the font file is located,
+ * converted to UTF-8.
+ */
+static char* get_utf8_path(FontPrivate *priv)
+{
+    HRESULT hr = S_OK;
+    IDWriteFontFile *file = NULL;
+    IDWriteFontFileLoader *loader = NULL;
+    IDWriteLocalFontFileLoader *local_loader = NULL;
+    const void *refKey = NULL;
+    UINT32 keySize = 0;
+    UINT32 path_length = 1;
+    wchar_t *temp_path = NULL;
+    char *path = NULL;
+
+    if (!get_font_file_loader_and_reference_key(priv, &refKey, &keySize, &file, &loader))
+        goto cleanup;
+
+    hr = IDWriteLocalFontFileLoader_QueryInterface(loader, &IID_IDWriteLocalFontFileLoader,
+                                                   (void **) &local_loader);
+    if (FAILED(hr) || !local_loader)
+        goto cleanup;
+
+    hr = IDWriteLocalFontFileLoader_GetFilePathLengthFromKey(local_loader, refKey, keySize,
+                                                             &path_length);
+    if (FAILED(hr))
+        goto cleanup;
+
+    temp_path = malloc((path_length + 1) * sizeof(wchar_t));
+
+    if (!temp_path)
+        goto cleanup;
+
+    hr = IDWriteLocalFontFileLoader_GetFilePathFromKey(local_loader, refKey, keySize,
+                                                       temp_path, path_length + 1);
+    if (FAILED(hr))
+        goto cleanup;
+
+    int size_needed =
+        WideCharToMultiByte(CP_UTF8, 0, temp_path, -1, NULL, 0, NULL, NULL);
+    if (!size_needed)
+        goto cleanup;
+
+    path = malloc(size_needed);
+    if (!path)
+        goto cleanup;
+
+    WideCharToMultiByte(CP_UTF8, 0, temp_path, -1, path, size_needed, NULL, NULL);
+
+cleanup:
+    free(temp_path);
+    if (local_loader)
+        IDWriteLocalFontFileLoader_Release(local_loader);
+    if (loader)
+        IDWriteFontFileLoader_Release(loader);
+    if (file)
+        IDWriteFontFile_Release(file);
+
+    return path;
 }
 
 /*
@@ -371,9 +429,6 @@ static bool check_postscript(void *data)
 {
     FontPrivate *priv = (FontPrivate *) data;
 
-    if (!init_font_private_face(priv))
-        return false;
-
     DWRITE_FONT_FACE_TYPE type = IDWriteFontFace_GetType(priv->face);
     return type == DWRITE_FONT_FACE_TYPE_CFF ||
            type == DWRITE_FONT_FACE_TYPE_RAW_CFF ||
@@ -386,9 +441,6 @@ static bool check_postscript(void *data)
 static unsigned get_font_index(void *data)
 {
     FontPrivate *priv = (FontPrivate *)data;
-
-    if (!init_font_private_face(priv))
-        return 0;
 
     return IDWriteFontFace_GetIndex(priv->face);
 }
@@ -604,7 +656,7 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
 {
     ASS_FontProviderMetaData meta = {0};
 
-    IDWriteFontFace3 *face3;
+    IDWriteFontFace3 *face3 = NULL;
     HRESULT hr = IDWriteFontFace_QueryInterface(face, &IID_IDWriteFontFace3,
                                                 (void **) &face3);
     if (SUCCEEDED(hr) && face3) {
@@ -613,7 +665,7 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
         if (!success)
             goto cleanup;
     } else if (system_font_coll) {
-        IDWriteFont *font;
+        IDWriteFont *font = NULL;
         hr = IDWriteFontCollection_GetFontFromFontFace(system_font_coll,
                                                        face, &font);
         if (SUCCEEDED(hr) && font) {
@@ -635,7 +687,12 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
     font_priv->shared_hdc = hdc_retain(shared_hdc);
 #endif
 
-    ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
+    char *path = get_utf8_path(font_priv);
+
+    ass_font_provider_add_font(provider, &meta, path, 0, font_priv);
+
+    if (path)
+        free(path);
 
 cleanup:
     free(meta.postscript_name);
@@ -819,21 +876,40 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
                      ASS_FontProvider *provider)
 {
     ASS_FontProviderMetaData meta = {0};
+    FontPrivate *font_priv = NULL;
+    IDWriteFontFace *face = NULL;
+
     if (!get_font_info_IDWriteFont(font, fontFamily, &meta))
         goto cleanup;
 
-    FontPrivate *font_priv = calloc(1, sizeof(*font_priv));
+    font_priv = calloc(1, sizeof(*font_priv));
     if (!font_priv)
         goto cleanup;
-    font_priv->font = font;
-    font = NULL;
 
-    ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
+    HRESULT hr = IDWriteFont_CreateFontFace(font_priv->font, &face);
+    if (FAILED(hr) || !face) {
+        free(font_priv);
+        goto cleanup;
+    }
+
+    font_priv->font = font;
+    font_priv->face = face;
+    font = NULL;
+    face = NULL;
+
+    char *path = get_utf8_path(font_priv);
+
+    ass_font_provider_add_font(provider, &meta, path, 0, font_priv);
+
+    if (path)
+        free(path);
 
 cleanup:
     free(meta.postscript_name);
     free(meta.extended_family);
 
+    if (face)
+        IDWriteFontFace_Release(face);
     if (font)
         IDWriteFont_Release(font);
 }
