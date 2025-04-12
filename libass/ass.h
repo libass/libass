@@ -613,6 +613,9 @@ void ass_set_cache_limits(ASS_Renderer *priv, int glyph_max,
  * \param now video timestamp in milliseconds
  * \param detect_change compare to the previous call and set to 1
  * if positions may have changed, or set to 2 if content may have changed.
+ *
+ * The returned ASS_Images live until the next call to ass_render_frame,
+ * ass_get_metrics, or ass_renderer_done.
  */
 ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
                             long long now, int *detect_change);
