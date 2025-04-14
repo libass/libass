@@ -377,7 +377,7 @@ int main(int argc, char *argv[])
 
         if (!init_renderer()) {
             printf("Failing renderer init, skipping a sample!\n");
-            continue;
+            exit(1);
         }
 
         ASS_Track *track = ass_read_memory(ass_library, (char *)buf, len, NULL);
@@ -417,9 +417,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
     ASS_Track *track = NULL;
 
-    // All return values but zero and -1 are reserved
     if (!init())
-        return 0;
+        exit(1);
 
     track = ass_read_memory(ass_library, (char *)data, size, NULL);
     if (track) {
