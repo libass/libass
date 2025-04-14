@@ -3,6 +3,8 @@ fuzz_src = files(
     'writeout.c',
 )
 
+add_languages(get_option('fuzz-link-language'), native: false)
+
 libass_fuzz = executable(
     'fuzz',
     fuzz_src,
