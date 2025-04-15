@@ -15,8 +15,9 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: Windows (MSVC)
+          - name: Windows (MSVC x64)
             os: windows-latest
+            arch: x64
             msvc: true
             shell: 'pwsh'
             args: '-Ddefault_library=shared'
@@ -24,11 +25,28 @@ jobs:
               Import-Module "$env:VS\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
               Enter-VsDevShell -VsInstallPath $env:VS -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64"
 
+          - name: Windows (MSVC arm64)
+            os: "windows-11-arm"
+            arch: arm64
+            msvc: true
+            shell: 'pwsh'
+            # asm preprocessing is not supported by Meson, could be done manually with custom target
+            # https://github.com/mesonbuild/meson/issues/9889
+            args: '-Ddefault_library=shared -Dasm=disabled'
+            devenv: |
+              Import-Module "$env:VS\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+              Enter-VsDevShell -VsInstallPath $env:VS -SkipAutomaticLocation -DevCmdArguments "-arch=arm64 -host_arch=arm64"
+
           - name: Windows (CLANG64)
             os: windows-latest
             msystem: CLANG64
             shell: 'msys2 {0}'
             args: '-Ddefault_library=static -Db_sanitize=address,undefined'
+
+          - name: Windows (CLANGARM64)
+            os: windows-11-arm
+            msystem: CLANGARM64
+            shell: 'msys2 {0}'
 
           - name: Windows (UCRT64)
             os: windows-latest
@@ -101,7 +119,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.SCCACHE_DIR }}
-          key: windows-msvc-${{ steps.get_time.outputs.timestamp }}
+          key: windows-msvc-${{ matrix.config.arch }}-${{ steps.get_time.outputs.timestamp }}
           restore-keys: windows-msvc-
 
       - name: Install MSVC dependecies with choco
@@ -162,7 +180,7 @@ jobs:
         if: always() && matrix.config.msvc
         with:
           path: ${{ env.SCCACHE_DIR }}
-          key: windows-msvc-${{ steps.get_time.outputs.timestamp }}
+          key: windows-msvc-${{ matrix.config.arch }}-${{ steps.get_time.outputs.timestamp }}
 
   build-muon:
     runs-on: ubuntu-latest
