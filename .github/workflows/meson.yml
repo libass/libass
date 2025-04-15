@@ -15,8 +15,9 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: Windows (MSVC)
+          - name: Windows (MSVC x64)
             os: windows-latest
+            arch: x64
             msvc: true
             shell: 'pwsh'
             args: '-Ddefault_library=shared'
@@ -29,6 +30,11 @@ jobs:
             msystem: CLANG64
             shell: 'msys2 {0}'
             args: '-Ddefault_library=static -Db_sanitize=address,undefined'
+
+          - name: Windows (CLANGARM64)
+            os: windows-11-arm
+            msystem: CLANGARM64
+            shell: 'msys2 {0}'
 
           - name: Windows (UCRT64)
             os: windows-latest
@@ -101,7 +107,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.SCCACHE_DIR }}
-          key: windows-msvc-${{ steps.get_time.outputs.timestamp }}
+          key: windows-msvc-${{ matrix.config.arch }}-${{ steps.get_time.outputs.timestamp }}
           restore-keys: windows-msvc-
 
       - name: Install MSVC dependecies with choco
@@ -162,7 +168,7 @@ jobs:
         if: always() && matrix.config.msvc
         with:
           path: ${{ env.SCCACHE_DIR }}
-          key: windows-msvc-${{ steps.get_time.outputs.timestamp }}
+          key: windows-msvc-${{ matrix.config.arch }}-${{ steps.get_time.outputs.timestamp }}
 
   build-muon:
     runs-on: ubuntu-latest
