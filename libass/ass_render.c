@@ -2097,8 +2097,7 @@ static bool parse_events(RenderContext *state, ASS_Event *event)
                 q = p;
                 if (*p == '{')
                     q++;
-                while ((*q != '{') && (*q != 0))
-                    q++;
+                q = ass_strchrnul(q, '{');
                 drawing_text.str = p;
                 drawing_text.len = q - p;
                 code = 0xfffc; // object replacement character
