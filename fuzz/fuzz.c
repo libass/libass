@@ -47,6 +47,9 @@
     #define LEN_IN_RANGE(s) true
 #endif
 
+#define STR_(x) #x
+#define STR(x) STR_(x)
+
 // MSAN: will trigger MSAN if any pixel in bitmap not written to (costly)
 #ifndef ASSFUZZ_HASH_WHOLEBITMAP
     #define ASSFUZZ_HASH_WHOLEBITMAP 0
@@ -356,6 +359,10 @@ int main(int argc, char *argv[])
     ssize_t len;
     unsigned char *buf;
 
+#ifdef ASSFUZZ_FONTCONFIG_SYSROOT
+    setenv("FONTCONFIG_SYSROOT", STR(ASSFUZZ_FONTCONFIG_SYSROOT), 1);
+#endif
+
     if (!init()) {
         printf("library init failed!\n");
         return 1;
@@ -370,7 +377,7 @@ int main(int argc, char *argv[])
 
         if (!init_renderer()) {
             printf("Failing renderer init, skipping a sample!\n");
-            continue;
+            exit(1);
         }
 
         ASS_Track *track = ass_read_memory(ass_library, (char *)buf, len, NULL);
@@ -390,6 +397,14 @@ int main(int argc, char *argv[])
     return 0;
 }
 #elif ASS_FUZZMODE == FUZZMODE_LIBFUZZER
+int LLVMFuzzerInitialize(int *argc, char ***argv)
+{
+#ifdef ASSFUZZ_FONTCONFIG_SYSROOT
+    setenv("FONTCONFIG_SYSROOT", STR(ASSFUZZ_FONTCONFIG_SYSROOT), 1);
+#endif
+    return 0;
+}
+
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
     // OSS Fuzz docs recommend just returning 0 on too large input
@@ -402,9 +417,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
     ASS_Track *track = NULL;
 
-    // All return values but zero and -1 are reserved
     if (!init())
-        return 0;
+        exit(1);
 
     track = ass_read_memory(ass_library, (char *)data, size, NULL);
     if (track) {
