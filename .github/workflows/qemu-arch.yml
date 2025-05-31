@@ -1,0 +1,310 @@
+name: Automatic Regression Tests (emulated architectures)
+
+on:
+  push:
+    branches: [master, ci]
+  pull_request:
+  workflow_dispatch:
+    # Even with defaults, jobs not started via dispatch will only have blank inputs
+    inputs:
+      test_repo:
+        description: 'An instance of a libass-tests git repo'
+        required: false
+        default: 'https://github.com/libass/libass-tests.git'
+      test_ref:
+        description: 'Git ref of test repo to run tests on; defaults to newest commit on default branch'
+        required: false
+        default: ''
+
+jobs:
+  ART:
+    runs-on: ${{ matrix.host_os || 'ubuntu-latest' }}
+    # Run on each arch we support ASM on and furthemore
+    # some additional little and big endian archs
+    # ASM:    i386
+    #         (x32 is no longer supported in GHA kernels)
+    #         (amd64 and arm64 already covered in regular CI runners)
+    # Big:    s390x
+    # Little: riscv64, mips64el
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [s390x, mips64el]
+        suite: [bookworm]
+        chroot-rev: [1]
+        confopts: [""]
+        cflags: [""]
+        include:
+          # i386 needs some SSE usage enabled to get a bit-identical result (even without ASM).
+          # This is due to different (higher) precision of 387 floating math (default for <=i686).
+          # SSE2 was introduced in 2000 by Intel and is present in both 32bit and 64bit
+          # CPUs from both AMD and Intel since 2003. Our ASM needs at least SSE2 anyway.
+          - arch: i386
+            suite: bookworm
+            # 24.04’s kernel doesn't enable all 32bit compat options leading to segfaults
+            host_os: 'ubuntu-22.04'
+            cflags: '-msse -msse2 -mfpmath=sse'
+            sanity: sane?
+            chroot-rev: 1
+          - arch: riscv64
+            suite: sid
+            port: no
+            chroot-rev: 1
+
+    steps:
+      - name: Prepare System
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+                debian-keyring debian-archive-keyring debian-ports-archive-keyring \
+                debootstrap qemu-user-static zstd \
+                git ca-certificates
+          sudo mkdir -p /var/chroot/imgs
+          sudo chmod -R 777 /var/chroot
+          luser="$(whoami)"
+          sudo chown $luser:$luser /var/chroot/imgs
+
+
+      - name: Determine Configuration
+        id: config
+        run: |
+          # Map debian arch/abi name to qemu arch name
+          case "${{ matrix.arch }}" in
+            amd64)       qarch="x86_64"  ;;
+            arm64)       qarch="aarch64" ;;
+            armel|armhf) qarch="arm"     ;; # Untested
+            arm)         qarch="armeb"   ;; # Untested
+            ppc64el)     qarch="ppc64le" ;;
+            *) qarch="${{ matrix.arch }}" ;;
+          esac
+
+          # Make sure we have an qemu layer available
+          if [ x"$qarch" != xi386  ] && [ x"$qarch" != xx86_64 ] \
+             && [ ! -x "/usr/bin/qemu-${qarch}-static" ]
+          then
+            echo "Arch '${{ matrix.arch }}/${qarch}' not supported!"
+            exit 1
+          fi
+
+          # Set prefixes as needed
+          outer_prefix=""
+          inner_prefix=""
+          case "${{ matrix.arch }}" in
+            amd64|arm64)
+              : ;;
+            i386)
+              outer_prefix="linux32"
+              ;;
+            *)
+              inner_prefix="/usr/bin/qemu-${qarch}-static"
+              ;;
+          esac
+
+          # Host user and group id
+          echo "uid=$(id -u)" >> $GITHUB_OUTPUT
+          echo "gid=$(id -g)" >> $GITHUB_OUTPUT
+
+          # Regenerate chroots regularly
+          # Often a few GHA jobs suffered connection timeouts on regeneration,
+          # but work just fine on manual rerun. Offset regeneration time
+          # for some chroots in hopes to avoid this.
+          # Note: date +%j can have leading zeros causing $(()) to interpret it as octal.
+          #       To avoid this, initially use bc to stick to decimal and remove leading zeros.
+          if [ "x${{ matrix.port }}" = xyes ] ; then
+            tmp="$( echo "$(date +%j) + 1" | bc )"
+          else
+            tmp="$(echo "$(date +%j)" | bc )"
+          fi
+          cache_period="$(printf "%d-%02d" "$(date +%Y)" "$(( tmp / 44 ))")"
+          echo "cache_period=${cache_period}" >> $GITHUB_OUTPUT
+
+          CHR_DIR="debian-${{ matrix.suite }}-${{ matrix.arch }}"
+          echo "chr_dir=${CHR_DIR}" >> $GITHUB_OUTPUT
+
+          echo "QEMU_ARCH=${qarch}"   >> $GITHUB_ENV
+          echo "OPRE=${outer_prefix}" >> $GITHUB_ENV
+          echo "IPRE=${inner_prefix}" >> $GITHUB_ENV
+          echo "CHR_DIR=${CHR_DIR}"   >> $GITHUB_ENV
+
+
+      # Each repo is allowed up to 10GB total cache
+      # use it to store our (compressed) chroot dirs
+      # (cache is branch scoped)
+      - name: Retrieve Cached Chroots
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: /var/chroot/imgs
+          key: ${{ matrix.suite }}-${{ matrix.arch }}-${{ matrix.chroot-rev }}_${{ steps.config.outputs.cache_period }}
+
+      - name: Load and Update Cached Chroot
+        if: steps.cache.outputs.cache-hit == 'true'
+        run: |
+          sudo tar --zstd -xf /var/chroot/imgs/"$CHR_DIR".tar.zstd
+          if [ ! -z "${IPRE}" ] ; then
+            echo "Update qemu-binary '${IPRE}' ..."
+            sudo cp "${IPRE}" "${CHR_DIR}${IPRE}"
+          fi
+          sudo $OPRE chroot "$CHR_DIR" $IPRE /bin/dash -c '
+            export DEBIAN_FRONTEND=noninteractive
+            export LC_ALL=C.UTF-8
+            apt-get update && apt-get -y upgrade --with-new-pkgs
+            cp -a /home/artci/workarea-skel /home/artci/workarea
+          '
+
+      - name: (Re)Create Chroot
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          echo "Creating '$CHR_DIR' !"
+          sudo mkdir "$CHR_DIR"
+
+          if [ x"${{ matrix.port }}" = xyes ] ; then
+            crepo="http://ftp.ports.debian.org/debian-ports/"
+          else
+            crepo="http://deb.debian.org/debian"
+          fi
+
+          # For simplicity, pretend every arch is foreign
+          sudo debootstrap --foreign --arch=${{ matrix.arch }} \
+                           --variant=minbase  \
+                           --include=debian-ports-archive-keyring \
+                           --no-check-gpg \
+                           ${{ matrix.suite }} "$CHR_DIR" "$crepo"
+
+          if [ ! -z "${IPRE}" ] ; then
+            echo "Copy qemu-binary '${IPRE}' into chroot."
+            sudo cp "${IPRE}" "${CHR_DIR}${IPRE}"
+          fi
+
+          # Set additional packages for some archs
+          case "${{ matrix.arch }}" in
+            amd64|i386)  add_pkgs="nasm" ;;
+            *)           add_pkgs="" ;;
+          esac
+
+          # ime we don't need to mount everything for those setup steps
+          sudo $OPRE chroot "$CHR_DIR" $IPRE /bin/dash /debootstrap/debootstrap --second-stage
+          sudo $OPRE chroot "$CHR_DIR" $IPRE /bin/dash -c '
+            export DEBIAN_FRONTEND=noninteractive
+            export LC_ALL=C.UTF-8
+            add_pkgs="'"$add_pkgs"'"
+            set -e
+
+            # in case something funny happened during initial creation
+            apt-get --fix-broken install -y
+
+            # grab newest sanitiser versions available in chroot
+            if [ -n "${{ matrix.sanity }}" ] ; then
+              ubver="$(apt-cache search libubsan | awk '\''/^libubsan[0-9]* / {print substr($1, 9)}'\'' | sort -rn | head -n1)"
+              asver="$(apt-cache search libasan | awk '\''/^libasan[0-9]* / {print substr($1, 8)}'\'' | sort -rn | head -n1)"
+              add_pkgs="$add_pkgs libasan${asver} libubsan${ubver}"
+            fi
+
+            apt-get install -y --no-install-recommends --no-install-suggests \
+              autoconf automake make libtool pkgconf \
+              gcc \
+              libfreetype-dev libfribidi-dev libfontconfig-dev libharfbuzz-dev libpng-dev \
+              $add_pkgs
+
+            groupadd -g ${{ steps.config.outputs.gid }} artci
+            useradd -m -d /home/artci -s /bin/dash -g artci -u ${{ steps.config.outputs.uid }} artci
+            runuser -u artci mkdir /home/artci/workarea-skel
+          '
+
+      - name: Save Chroot Base to Cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          # Compress and store chroot in cache dir
+          luser="$(whoami)"
+          sudo tar --zstd -cf /var/chroot/imgs/"$CHR_DIR".tar.zstd "$CHR_DIR"
+          sudo chown $luser:$luser /var/chroot/imgs/"$CHR_DIR".tar.zstd
+          # Initialise workarea for further use
+          sudo cp -a "$CHR_DIR/home/artci/workarea-skel" "$CHR_DIR/home/artci/workarea"
+
+
+      - name: Checkout libass
+        uses: actions/checkout@v4
+        with:
+          path: '${{ steps.config.outputs.chr_dir }}/home/artci/workarea/libass'
+
+      - name: Checkout tests
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.test_repo || 'libass/libass-tests'}}
+          ref: ${{ github.event.inputs.test_ref }}
+          path: '${{ steps.config.outputs.chr_dir }}/home/artci/workarea/libass-tests'
+
+      - name: Fix ownership
+        run: |
+          sudo chown -R ${{ steps.config.outputs.uid }}:${{ steps.config.outputs.gid }} "$CHR_DIR"/home/artci/workarea
+
+      - name: Prepare Chroot Jobs
+        run: |
+          cd "$CHR_DIR"/home/artci/workarea
+          # Make sure we can write to job scripts
+          sudo touch env.sh build-libass.sh test-libass.sh
+          sudo chmod 777 env.sh build-libass.sh test-libass.sh
+          echo '#!/bin/sh
+            set -e
+            export DEBIAN_FRONTEND=noninteractive
+            export LC_ALL=C.UTF-8
+            export SANITY="'"${{ matrix.sanity }}"'"
+            export LIBASS_CONF="'"${{ matrix.confopts }}"'"
+            export LIBASS_CFLAGS="'"${{ matrix.cflags }}"'"
+            printf "Toolchain:    %s\\n" "$(gcc -dumpmachine)"
+            printf "Kernel-Arch:  %s\\n" "$(uname -m)"
+            printf "Debian Ver.:  %s\\n" "$(cat /etc/debian_version)"
+            printf "Sanity-Check: %s\\n" "$SANITY"
+            echo ""
+          ' > env.sh
+
+          # Build libass
+          echo '#!/bin/sh
+            . ./env.sh
+            cd libass
+            ./autogen.sh
+            if [ -z "$SANITY" ] ; then
+              CC=""
+           else
+              CC="gcc -fsanitize=address -fsanitize=undefined -fsanitize=float-cast-overflow -fno-sanitize-recover=all"
+            fi
+            CC="$CC" CFLAGS="$CFLAGS $LIBASS_CFLAGS" ./configure "$LIBASS_CONF" --enable-fuzz --enable-compare
+            make -j "$(nproc)"
+          ' > build-libass.sh
+
+          # Test libass
+          echo '#!/bin/sh
+            . ./env.sh
+            cd libass
+            make ART_SAMPLES="../libass-tests" check
+          ' > test-libass.sh
+
+
+      - name: Mount Chroot
+        run: |
+          sudo sh -c "
+            mount --rbind /sys/  $CHR_DIR/sys  ;
+            mount --rbind /proc/ $CHR_DIR/proc ;
+            mount --rbind /dev/  $CHR_DIR/dev  ;
+          "
+
+      - name: Chroot - Build Libass
+        run: |
+          sudo $OPRE chroot "$CHR_DIR" $IPRE /bin/dash -c '
+            su -c '\''/bin/sh -c "cd ~/workarea; dash ./build-libass.sh"'\'' --login artci
+          '
+
+      - name: Chroot - Regression Tests
+        run: |
+          sudo $OPRE chroot "$CHR_DIR" $IPRE /bin/dash -c '
+            su -c '\''/bin/sh -c "cd ~/workarea; dash ./test-libass.sh"'\'' --login artci
+          '
+
+      - name: Umount Chroot
+        run: |
+          sudo sh -c '
+            for m in sys proc dev ; do
+              mount --make-rslave '"$CHR_DIR"'/$m
+              umount -R '"$CHR_DIR"'/$m
+            done
+          '
