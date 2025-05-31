@@ -1,0 +1,175 @@
+name: Automatic Regression Tests in QEMU VMs
+
+on:
+  push:
+    branches: [master, ci]
+  pull_request:
+  workflow_dispatch:
+    # Even with defaults, jobs not started via dispatch will only have blank inputs
+    inputs:
+      test_repo:
+        description: 'An instance of a libass-tests git repo'
+        required: false
+        default: 'https://github.com/libass/libass-tests.git'
+      test_ref:
+        description: 'Git ref of libass-tests repo to run tests on; defaults to newest commit on default branch'
+        required: false
+        default: ''
+
+jobs:
+  ART-VM:
+    # This does NOT have KVM, but the only runners with native virtualisation (MacOS) are unreliable
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Bot-friendly names
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: 'ART (netbsd64-qemu, NetBSD-10, amd64)'
+            os_image: netbsd
+            os_version: 10.1
+            CC: 'gcc -fsanitize=undefined,float-cast-overflow -fno-sanitize-recover=all'
+            confflags: ''
+            # Leak detection appears to find false positives in libc and external libs
+            ASAN_OPTIONS: detect_leaks=0
+            ART_REG_SKIP: ''
+
+          - name: 'ART (freebsd64-qemu, FreeBSD-14, amd64)'
+            os_image: freebsd
+            os_version: 14.2
+            # The default FreeBSD env places the libiconv header from ports in the default include path,
+            # but doesn't put the corresponding library into the default library path.
+            # Either inlcuding the lib path (presumably done by ports) or
+            # telling libiconv’s header to pose as system iconv resolves the mismatch.
+            CC: 'clang -DLIBICONV_PLUG=1 -fsanitize=address -fsanitize=undefined,float-cast-overflow -fno-sanitize-recover=all'
+            confflags: ''
+            # Leak detection appears to find false positives in libc and external libs
+            ASAN_OPTIONS: detect_leaks=0
+            ART_REG_SKIP: ''
+
+          - name: 'ART (openbsd64-qemu, OpenBSD-7, amd64)'
+            os_image: openbsd
+            os_version: 7.6
+            CC: 'clang'
+            confflags: ''
+            ASAN_OPTIONS: ''
+            ART_REG_SKIP: 'font_nonunicode'
+            AUTOCONF_VERSION: '2.72'
+            AUTOMAKE_VERSION: '1.16'
+
+          # No illumos in cross-platform-actions/action yet, see
+          #   https://github.com/cross-platform-actions/action/issues/20
+          #- name: 'ART (illumos32-qemu, OpenIndiana, i686)'
+          #  vbox: openindiana/hipster
+          #  CC: gcc -m32 -msse -msse2 -mfpmath=sse
+          #  confflags: '--host=i686-pc-solaris2.11'
+          #  ASAN_OPTIONS: ''
+          #  ART_REG_SKIP: 'font_nonunicode'
+    env:
+      ASAN_OPTIONS: ${{ matrix.ASAN_OPTIONS }}
+      AUTOCONF_VERSION: ${{ matrix.AUTOCONF_VERSION }}
+      AUTOMAKE_VERSION: ${{ matrix.AUTOMAKE_VERSION }}
+
+    steps:
+      - name: checkout libass
+        uses: actions/checkout@v4
+
+      - name: download test samples
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.test_repo || 'libass/libass-tests'}}
+          ref: ${{ github.event.inputs.test_ref }}
+          path: './libass-tests'
+
+      - name: Install Packages
+        uses: cross-platform-actions/action@v0.28.0
+        with:
+          operating_system: ${{ matrix.os_image }}
+          version: ${{ matrix.os_version }}
+          # env vars not really needed here, but must match across all steps
+          environment_variables: ASAN_OPTIONS AUTOCONF_VERSION AUTOMAKE_VERSION
+          shutdown_vm: false
+          sync_files: false
+          run: |
+            # Install Packages
+            case "${{ matrix.os_image }}" in
+              netbsd)
+                # We'll use the base system's version of gcc
+                sudo pkgin -y install \
+                    mozilla-rootcerts-openssl git nasm \
+                    autoconf automake libtool-base pkg-config \
+                    freetype fribidi harfbuzz fontconfig png
+                ;;
+              freebsd)
+                # Using system compiler
+                sudo pkg -o ASSUME_ALWAYS_YES=yes install \
+                  git nasm ca_root_nss \
+                  autoconf automake libtool pkgconf \
+                  freetype2 fribidi harfbuzz fontconfig png
+                ;;
+              openbsd)
+                # while OpenBSD natively uses doas,
+                # cross-platform-action only preconfigured sudo.
+                # Using system-provided: compiler, fontconfig, freetype
+                sudo pkg_add \
+                  git nasm libtool pkgconf \
+                  autoconf-"$AUTOCONF_VERSION"p0 \
+                  automake-"$AUTOMAKE_VERSION".5 \
+                  fribidi harfbuzz libunibreak png
+                ;;
+              openindiana/*)
+                pfexec pkg install --no-backup-be \
+                    crypto/ca-certificates \
+                    developer/versioning/git \
+                    developer/gcc-10 \
+                    developer/assembler/nasm \
+                    developer/build/autoconf \
+                    developer/build/automake \
+                    developer/build/libtool \
+                    developer/build/pkg-config \
+                    system/library/freetype-2 \
+                    library/fribidi \
+                    library/c++/harfbuzz \
+                    system/library/fontconfig \
+                    image/library/libpng
+                ;;
+            esac
+
+      - name: Build libass
+        uses: cross-platform-actions/action@v0.28.0
+        with:
+          operating_system: ${{ matrix.os_image }}
+          version: ${{ matrix.os_version }}
+          environment_variables: ASAN_OPTIONS AUTOCONF_VERSION AUTOMAKE_VERSION
+          shutdown_vm: false
+          sync_files: true
+          run: |
+            ./autogen.sh
+            ./configure CC="${{ matrix.CC }}" ${{ matrix.confflags }} --enable-fuzz --enable-compare
+            make -j 2
+
+      - name: Run Tests
+        uses: cross-platform-actions/action@v0.28.0
+        with:
+          operating_system: ${{ matrix.os_image }}
+          version: ${{ matrix.os_version }}
+          environment_variables: ASAN_OPTIONS AUTOCONF_VERSION AUTOMAKE_VERSION
+          shutdown_vm: false
+          sync_files: true
+          run: |
+            ART_REG_SKIP="${{ matrix.ART_REG_SKIP }}" \
+            make ART_SAMPLES="./libass-tests" check \
+            || (cat ./test-suite.log; exit 1)
+
+      - name: Shutdown VM
+        if: always()
+        uses: cross-platform-actions/action@v0.28.0
+        with:
+          operating_system: ${{ matrix.os_image }}
+          version: ${{ matrix.os_version }}
+          environment_variables: ASAN_OPTIONS AUTOCONF_VERSION AUTOMAKE_VERSION
+          shutdown_vm: true
+          sync_files: false
+          run: echo 'Byebye ^^)/"'
