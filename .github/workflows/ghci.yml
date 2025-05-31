@@ -59,13 +59,13 @@ jobs:
             art_binwrap: 'leaks --atExit --'
             jobname_suffix: leaks
           # Add a Windows build (MinGW-gcc via MSYS2) with no extras
-          - os: windows-2019
+          - os: windows-latest
             msystem: MINGW32
             cc: gcc
             api: desktop
             shell: 'msys2 {0}'
           # Add a best-effort build for UWP apps for Microsoft Store
-          - os: windows-2019
+          - os: windows-latest
             msystem: UCRT64
             cc: gcc
             api: app
