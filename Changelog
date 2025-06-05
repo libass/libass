@@ -1,3 +1,16 @@
+libass (0.17.4)
+ * add new API to prune old events from memory
+   * ass_prune_events for manual pruning
+   * ass_configure_prune to set up automatic pruning
+ * add ASS_OVERRIDE_BIT_BLUR flag
+ * fontconfig: fix minor memory leaks in pathological font setups
+ * coretext: fix build on older compilers or Mac OS X 10.5
+ * checkasm: fix build for older compilers
+ * aarch64: fix assembly build on strict compilers due to oversized align
+ * meson: improve ASM configuration on x86 Android
+ * meson: align MSVC warnings and optimisations closer to gcc-like compilers
+ * meson can now build all dev utility executables
+
 libass (0.17.3)
  * Fix 0.17.2 regression in the fontconfig fontprovider
    leading to undesirable widths being chosen from large typographic families
