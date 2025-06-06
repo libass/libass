@@ -1788,8 +1788,10 @@ ASS_Track *ass_new_track(ASS_Library *library)
 
 fail:
     if (track) {
-        if (def_sid >= 0)
+        if (def_sid >= 0) {
             ass_free_style(track, def_sid);
+            free(track->styles);
+        }
         free(track->parser_priv);
         free(track);
     }
