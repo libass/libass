@@ -193,7 +193,7 @@ jobs:
       - name: configure
         run: |
           muon version
-          muon setup -Dtest=enabled build
+          muon setup -Dtest=enabled -Dthreads=disabled build
 
       - name: build
         run: |

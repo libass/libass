@@ -427,20 +427,25 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     FT_Face face;
     int ret = -1;
 
-    if (font->n_faces == ASS_FONT_MAX_FACES)
-        return -1;
+    ass_fontselect_lock(fontsel);
+
+    AtomicInt n_faces = atomic_load_explicit(&font->n_faces, memory_order_acquire);
+
+    if (n_faces == ASS_FONT_MAX_FACES)
+        goto cleanup;
 
     path = ass_font_select(fontsel, font, &index,
             &postscript_name, &uid, &stream, ch);
 
     if (!path)
-        return -1;
+        goto cleanup;
 
-    for (i = 0; i < font->n_faces; i++) {
+    for (i = 0; i < n_faces; i++) {
         if (font->faces_uid[i] == uid) {
             ass_msg(font->library, MSGL_INFO,
                     "Got a font face that already is available! Skipping.");
-            return i;
+            ret = i;
+            goto cleanup;
         }
     }
 
@@ -453,30 +458,33 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     }
 
     if (!face)
-        return -1;
+        goto cleanup;
 
     ass_charmap_magic(font->library, face);
     set_font_metrics(face);
 
-    font->faces[font->n_faces] = face;
-    font->faces_uid[font->n_faces] = uid;
-    if (!ass_create_hb_font(font, font->n_faces)) {
+    font->faces[n_faces] = face;
+    font->faces_uid[n_faces] = uid;
+    if (!ass_create_hb_font(font, n_faces)) {
         FT_Done_Face(face);
-        goto fail;
+        goto cleanup;
     }
 
-    ret = font->n_faces++;
+    atomic_store_explicit(&font->n_faces, n_faces + 1, memory_order_release);
+    ret = n_faces;
 
-fail:
+cleanup:
+    ass_fontselect_unlock(fontsel);
+
     return ret;
 }
 
 /**
  * \brief Create a new ASS_Font according to "desc" argument
  */
-ASS_Font *ass_font_new(ASS_Renderer *render_priv, ASS_FontDesc *desc)
+ASS_Font *ass_font_new(struct render_context *context, ASS_FontDesc *desc)
 {
-    ASS_Font *font = ass_cache_get(render_priv->cache.font_cache, desc, render_priv);
+    ASS_Font *font = ass_cache_get(context->renderer->cache.font_cache, context->cache_client, desc, context->renderer);
     if (!font)
         return NULL;
     if (font->library)
@@ -490,17 +498,27 @@ size_t ass_font_construct(void *key, void *value, void *priv)
     ASS_FontDesc *desc = key;
     ASS_Font *font = value;
 
-    font->library = render_priv->library;
     font->ftlibrary = render_priv->ftlibrary;
-    font->n_faces = 0;
+    atomic_init(&font->n_faces, 0);
     font->desc.family = desc->family;
     font->desc.bold = desc->bold;
     font->desc.italic = desc->italic;
     font->desc.vertical = desc->vertical;
 
+#if ENABLE_THREADS
+    if (pthread_mutex_init(&font->mutex, NULL) != 0)
+        return 1;
+#endif
+
+    font->library = render_priv->library;
+
     int error = add_face(render_priv->fontselect, font, 0);
-    if (error == -1)
+    if (error == -1) {
         font->library = NULL;
+#if ENABLE_THREADS
+        pthread_mutex_destroy(&font->mutex);
+#endif
+    }
     return 1;
 }
 
@@ -626,6 +644,7 @@ static void ass_glyph_italicize(FT_Face face)
  * \brief Get glyph and face index
  * Finds a face that has the requested codepoint and returns both face
  * and glyph index.
+ * Must be called under lock.
  */
 int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
                        uint32_t symbol, int *face_index, int *glyph_index)
@@ -640,12 +659,15 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
         *face_index = 0;
         return 0;
     }
-    if (font->n_faces == 0) {
+
+    AtomicInt n_faces = atomic_load_explicit(&font->n_faces, memory_order_acquire);
+
+    if (n_faces == 0) {
         *face_index = 0;
         return 0;
     }
 
-    for (i = 0; i < font->n_faces && index == 0; ++i) {
+    for (i = 0; i < n_faces && index == 0; ++i) {
         face = font->faces[i];
         index = ass_font_index_magic(face, symbol);
         if (index)
@@ -740,13 +762,27 @@ bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
 void ass_font_clear(ASS_Font *font)
 {
     int i;
-    for (i = 0; i < font->n_faces; ++i) {
+    AtomicInt n_faces = atomic_load_explicit(&font->n_faces, memory_order_relaxed);
+    for (i = 0; i < n_faces; ++i) {
         if (font->faces[i])
             FT_Done_Face(font->faces[i]);
         if (font->hb_fonts[i])
             hb_font_destroy(font->hb_fonts[i]);
     }
-    free((char *) font->desc.family.str);
+
+#if ENABLE_THREADS
+    pthread_mutex_destroy(&font->mutex);
+#endif
+}
+
+void ass_font_lock(ASS_Font *font)
+{
+    pthread_mutex_lock(&font->mutex);
+}
+
+void ass_font_unlock(ASS_Font *font)
+{
+    pthread_mutex_unlock(&font->mutex);
 }
 
 /**

@@ -31,6 +31,7 @@ static void ass_reconfigure(ASS_Renderer *priv)
     ASS_Settings *settings = &priv->settings;
 
     priv->render_id++;
+    ass_cache_promote(&priv->cache.client_set); // Just in case
     ass_cache_empty(priv->cache.composite_cache);
     ass_cache_empty(priv->cache.bitmap_cache);
     ass_cache_empty(priv->cache.outline_cache);
@@ -62,6 +63,22 @@ void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
         priv->settings.frame_height = h;
         ass_reconfigure(priv);
     }
+}
+
+unsigned ass_set_threads(ASS_Renderer *priv, unsigned threads)
+{
+#if ENABLE_THREADS
+    priv->library->thread_safe_cb = 1;
+
+    if (threads == 0)
+        threads = default_threads();
+
+    priv->settings.threads = threads;
+
+    return threads;
+#else
+    return 0;
+#endif
 }
 
 void ass_set_storage_size(ASS_Renderer *priv, int w, int h)
