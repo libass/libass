@@ -2316,9 +2316,11 @@ static void apply_baseline_shear(RenderContext *state)
             info->skip = true;
         if (info->skip)
             continue;
-        for (GlyphInfo *cur = info; cur; cur = cur->next)
-            cur->pos.y += shear;
-        shear += (info->fay / info->scale_x * info->scale_y) * info->cluster_advance.x;
+        double fay = info->fay / info->scale_x * info->scale_y;
+        for (GlyphInfo *cur = info; cur; cur = cur->next) {
+            cur->pos.y += shear + fay * cur->offset.x;
+            shear += fay * cur->advance.x;
+        }
     }
 }
 
