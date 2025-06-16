@@ -30,6 +30,14 @@
 #define inline __inline
 #endif
 
+#ifndef __has_builtin
+#define __has_builtin(...) 0
+#endif
+
+#ifndef __has_attribute
+#define __has_attribute(...) 0
+#endif
+
 // Work around build failures on Windows with static FriBidi.
 // Possible because we only use FriBidi functions, not objects.
 #if defined(_WIN32) && !defined(FRIBIDI_LIB_STATIC)
