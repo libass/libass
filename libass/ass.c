@@ -575,6 +575,8 @@ void ass_process_force_style(ASS_Track *track)
             track->Kerning = parse_bool(token);
         else if (!ass_strcasecmp(*fs, "YCbCr Matrix"))
             track->YCbCrMatrix = parse_ycbcr_matrix(token);
+        else if (!ass_strcasecmp(*fs, "PositionTransform"))
+            track->PositionTransform = parse_bool(token);
 
         dt = strrchr(*fs, '.');
         if (dt) {
@@ -908,6 +910,10 @@ static int process_info_line(ASS_Track *track, char *str)
         while (*p && ass_isspace(*p)) p++;
         free(track->Language);
         track->Language = strndup(p, 2);
+    } else if (!strncmp(str, "PositionTransform:", 18)) {
+        check_duplicate_info_line(track, SINFO_POSTRANSFORM,
+                                    "PositionTransform");
+        track->PositionTransform = parse_bool(str + 18);
     } else if (!strncmp(str, "ScriptType:", 11)) {
         check_duplicate_info_line(track, SINFO_SCRIPTTYPE, "ScriptType");
         parse_script_type(track, str + 11);

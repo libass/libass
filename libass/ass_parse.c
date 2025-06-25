@@ -610,14 +610,18 @@ char *ass_parse_tags(RenderContext *state, char *p, char *end, double pwr,
                 v2 = argtod(args[1]);
             } else
                 continue;
-            if (state->evt_type & EVENT_POSITIONED) {
+
+            int allow_transform = state->renderer->track->PositionTransform;
+
+            if (state->evt_type & EVENT_POSITIONED && 
+                (!allow_transform || (allow_transform && !nested))) {
                 ass_msg(render_priv->library, MSGL_V, "Subtitle has a new \\pos "
                        "after \\move or \\pos, ignoring");
             } else {
                 state->evt_type |= EVENT_POSITIONED;
                 state->detect_collisions = 0;
-                state->pos_x = v1;
-                state->pos_y = v2;
+                state->pos_x = allow_transform ? v1 * pwr + state->pos_x * (1 - pwr) : v1;
+                state->pos_y = allow_transform ? v2 * pwr + state->pos_y * (1 - pwr) : v2;
             }
         } else if (complex_tag("fade") || complex_tag("fad")) {
             int32_t a1, a2, a3;
