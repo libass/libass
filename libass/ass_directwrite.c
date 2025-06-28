@@ -315,11 +315,13 @@ static bool init_font_private_stream(FontPrivate *priv)
     hr = IDWriteFontFileLoader_CreateStreamFromKey(loader, refKey, keySize, &stream);
     if (FAILED(hr) || !stream) {
         IDWriteFontFile_Release(file);
+        IDWriteFontFileLoader_Release(loader);
         return false;
     }
 
     priv->stream = stream;
     IDWriteFontFile_Release(file);
+    IDWriteFontFileLoader_Release(loader);
 
     return true;
 }
