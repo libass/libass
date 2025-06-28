@@ -28,6 +28,7 @@ libass_libass_internal_la_SOURCES = \
     libass/c/c_blend_bitmaps.c \
     libass/c/c_be_blur.c \
     libass/c/blur_template.h libass/c/c_blur.c \
+    libass/c/c_shift_bitmap.c \
     libass/wyhash.h
 
 if ASM
@@ -43,6 +44,7 @@ if AARCH64
 libass_libass_internal_la_SOURCES += \
     libass/aarch64/rasterizer.S \
     libass/aarch64/blend_bitmaps.S \
+    libass/aarch64/shift_bitmap.S \
     libass/aarch64/be_blur.S \
     libass/aarch64/blur.S \
     libass/aarch64/asm.S
