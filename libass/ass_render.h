@@ -98,7 +98,7 @@ typedef enum {
 // describes a combined bitmap
 typedef struct {
     FilterDesc filter;
-    uint32_t c[4];              // colors
+    uint32_t c[4];              // colors (with fade applied)
     Effect effect_type;
 
     // during render_and_combine_glyphs: distance in subpixels from the karaoke origin.
@@ -143,7 +143,6 @@ typedef struct glyph_info {
     char linebreak;             // the first (leading) glyph of some line ?
     bool starts_new_run;
     uint32_t c[4];              // colors
-    uint8_t a_pre_fade[4];      // alpha values before applying fades
     ASS_Vector advance;         // 26.6
     ASS_Vector cluster_advance;
     Effect effect_type;

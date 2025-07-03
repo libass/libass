@@ -2145,12 +2145,8 @@ static bool parse_events(RenderContext *state, ASS_Event *event)
         // Fill glyph information
         info->symbol = code;
         info->font = state->font;
-        for (int i = 0; i < 4; i++) {
-            uint32_t clr = state->c[i];
-            info->a_pre_fade[i] = _a(clr);
-            ass_apply_fade(&clr, state->fade);
-            info->c[i] = clr;
-        }
+        for (int i = 0; i < 4; i++)
+            info->c[i] = state->c[i];
 
         info->effect_type = state->effect_type;
         info->effect_timing = state->effect_timing;
@@ -2503,15 +2499,15 @@ static void render_and_combine_glyphs(RenderContext *state,
             if (flags & FILTER_NONZERO_SHADOW &&
                 (info->effect_type == EF_KARAOKE_KF ||
                  info->effect_type == EF_KARAOKE_KO ||
-                 (info->a_pre_fade[0]) != 0xFF ||
+                 _a(info->c[0]) != 0xFF ||
                  info->border_style == 3))
                 flags |= FILTER_FILL_IN_SHADOW;
             if (!(flags & FILTER_NONZERO_BORDER) &&
                 !(flags & FILTER_FILL_IN_SHADOW))
                 flags &= ~FILTER_NONZERO_SHADOW;
             if ((flags & FILTER_NONZERO_BORDER &&
-                 info->a_pre_fade[0] == 0 &&
-                 info->a_pre_fade[1] == 0 &&
+                 _a(info->c[0]) == 0 &&
+                 _a(info->c[1]) == 0 &&
                  info->fade == 0) ||
                 info->border_style == 3)
                 flags |= FILTER_FILL_IN_BORDER;
@@ -2528,6 +2524,8 @@ static void render_and_combine_glyphs(RenderContext *state,
                 current_info = &combined_info[nb_bitmaps];
 
                 memcpy(&current_info->c, &info->c, sizeof(info->c));
+                ass_apply_fade(current_info->c, info->fade);
+
                 current_info->effect_type = info->effect_type;
                 current_info->effect_timing = info->effect_timing;
                 current_info->leftmost_x = OUTLINE_MAX;
