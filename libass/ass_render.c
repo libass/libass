@@ -2804,8 +2804,10 @@ static void add_background(RenderContext *state, EventImages *event_images)
     if (!nbuffer)
         return;
     memset(nbuffer, 0xFF, w * h);
+    uint32_t clr = state->c[3];
+    ass_apply_fade(&clr, state->fade);
     ASS_Image *img = my_draw_bitmap(nbuffer, w, h, w, left, top,
-                                    state->c[3], NULL);
+                                    clr, NULL);
     if (img) {
         img->next = event_images->imgs;
         event_images->imgs = img;
