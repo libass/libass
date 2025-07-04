@@ -164,8 +164,11 @@ static void write_events(FILE *f, ASS_Track *track)
             continue;
         }
         fprintf(f, "Dialogue: %d,%s,%s,%s,%s,%03d,%03d,%03d,%s,%s\n",
-            e->Layer, start, end, (track->styles + e->Style)->Name, e->Name,
-            e->MarginL, e->MarginR, e->MarginV, e->Effect, e->Text);
+            e->Layer, start, end, (track->styles + e->Style)->Name,
+            e->Name ? e->Name : "",
+            e->MarginL, e->MarginR, e->MarginV,
+            e->Effect ? e->Effect : "",
+            e->Text);
     }
 }
 
