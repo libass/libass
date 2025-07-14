@@ -2524,7 +2524,8 @@ static void render_and_combine_glyphs(RenderContext *state,
                 current_info = &combined_info[nb_bitmaps];
 
                 memcpy(&current_info->c, &info->c, sizeof(info->c));
-                ass_apply_fade(current_info->c, info->fade);
+                for (int i = 0; i < 4; i++)
+                    ass_apply_fade(&current_info->c[i], info->fade);
 
                 current_info->effect_type = info->effect_type;
                 current_info->effect_timing = info->effect_timing;
