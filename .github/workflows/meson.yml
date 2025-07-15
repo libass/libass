@@ -34,6 +34,12 @@ jobs:
           - name: Windows (CLANGARM64)
             os: windows-11-arm
             msystem: CLANGARM64
+            args: '-Ddefault_library=shared'
+            shell: 'msys2 {0}'
+
+          - name: Windows (CLANGARM64)
+            os: windows-11-arm
+            msystem: CLANGARM64
             shell: 'msys2 {0}'
 
           - name: Windows (UCRT64)
