@@ -93,7 +93,7 @@ if enable_asm
         libass_src += asm_sources
     else
         asm_lib = static_library(
-            'libass_asm',
+            'ass_asm',
             config_h,
             sources: asm_sources,
             c_args: asm_args,
