@@ -27,6 +27,7 @@ libass_checkasm = executable(
     include_directories: incs,
     dependencies: deps,
     objects: libass.extract_all_objects(recursive: true),
+    link_with: libass_link_with,
     c_args: asm_args,
     build_by_default: false,
 )
