@@ -25,31 +25,22 @@ jobs:
     #         (x32 is no longer supported in GHA kernels)
     #         (amd64 and arm64 already covered in regular CI runners)
     # Big:    s390x
-    # Little: riscv64, mips64el
+    # Little: riscv64
     strategy:
       fail-fast: false
       matrix:
-        arch: [s390x, mips64el]
-        suite: [bookworm]
+        arch: [i386, riscv64, s390x]
+        suite: [trixie]
         chroot-rev: [1]
         confopts: [""]
-        cflags: [""]
         include:
           # i386 needs some SSE usage enabled to get a bit-identical result (even without ASM).
           # This is due to different (higher) precision of 387 floating math (default for <=i686).
           # SSE2 was introduced in 2000 by Intel and is present in both 32bit and 64bit
           # CPUs from both AMD and Intel since 2003. Our ASM needs at least SSE2 anyway.
           - arch: i386
-            suite: bookworm
-            # 24.04’s kernel doesn't enable all 32bit compat options leading to segfaults
-            host_os: 'ubuntu-22.04'
             cflags: '-msse -msse2 -mfpmath=sse'
             sanity: sane?
-            chroot-rev: 1
-          - arch: riscv64
-            suite: sid
-            port: no
-            chroot-rev: 1
 
     steps:
       - name: Prepare System
