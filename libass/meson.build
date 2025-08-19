@@ -113,6 +113,17 @@ if host_system == 'windows'
         command: [gen_defs, '@INPUT@', '@OUTPUT@'],
     )
     kwargs = {'vs_module_defs': libass_def}
+elif cc.get_linker_id().contains('ld64')
+    # Apple macOS linker
+    have_symbol_visibility = true
+    libass_expsym = custom_target(
+        'libass.expsym',
+        input: ['libass.sym'],
+        output: ['libass.expsym'],
+        command: [gen_defs, '--expsym', '@INPUT@', '@OUTPUT@'],
+    )
+    kwargs = {'link_args': '-Wl,-exported_symbols_list,@0@'.format(libass_expsym.full_path()),
+              'link_depends': libass_expsym}
 elif cc.has_link_argument('-Wl,--version-script,@0@'.format(meson.current_source_dir() / 'test.map'))
     # GNU compatible linkers (ld.bfd, lld, mold)
     have_symbol_visibility = true
