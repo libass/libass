@@ -103,8 +103,9 @@ if enable_asm
     endif
 endif
 
+gen_defs = find_program('../gen_defs.py')
 if host_system == 'windows'
-    gen_defs = find_program('../gen_defs.py')
+    have_symbol_visibility = true
     libass_def = custom_target(
         'libass.def',
         input: ['libass.sym'],
@@ -112,7 +113,19 @@ if host_system == 'windows'
         command: [gen_defs, '@INPUT@', '@OUTPUT@'],
     )
     kwargs = {'vs_module_defs': libass_def}
+elif cc.has_link_argument('-Wl,--version-script,@0@'.format(meson.current_source_dir() / 'test.map'))
+    # GNU compatible linkers (ld.bfd, lld, mold)
+    have_symbol_visibility = true
+    libass_map = custom_target(
+        'libass.map',
+        input: ['libass.sym'],
+        output: ['libass.map'],
+        command: [gen_defs, '--mapfile', '@INPUT@', '@OUTPUT@'],
+    )
+    kwargs = {'link_args': '-Wl,--version-script,@0@'.format(libass_map.full_path()),
+              'link_depends': libass_map}
 else
+    have_symbol_visibility = false
     kwargs = {}
 endif
 
