@@ -186,6 +186,12 @@ static inline long ass_lrint(double x)
 #endif
 }
 
+#if __has_builtin(__builtin_isnan)
+    #define ass_isnan __builtin_isnan
+#else
+    #define ass_isnan isnan
+#endif
+
 static inline int d6_to_int(int x)
 {
     return (x + 32) >> 6;

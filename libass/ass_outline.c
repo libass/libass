@@ -476,7 +476,7 @@ void ass_outline_update_min_transformed_x(const ASS_Outline *outline,
     for (size_t i = 0; i < outline->n_points; i++) {
         double z = m[2][0] * pt[i].x + m[2][1] * pt[i].y + m[2][2];
         double x = (m[0][0] * pt[i].x + m[0][1] * pt[i].y + m[0][2]) / FFMAX(z, 0.1);
-        if (isnan(x))
+        if (ass_isnan(x))
             continue;
         int32_t ix = ass_lrint(FFMINMAX(x, -OUTLINE_MAX, OUTLINE_MAX));
         *min_x = FFMIN(*min_x, ix);
