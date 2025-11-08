@@ -411,7 +411,7 @@ pkg.generate(
 # `libass_dep` comes from subdir('libass')
 meson.override_dependency('libass', libass_dep)
 
-if default_library != 'static' and host_system != 'windows'
+if default_library != 'static' and not have_symbol_visibility
     warning(
         'this build does not properly support symbol visibility and the resulting shared lib is not suitable for distribution!',
     )
