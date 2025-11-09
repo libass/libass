@@ -22,6 +22,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include "../libass/ass.h"
+#include "../libass/ass_metrics.h"
 #include <png.h>
 
 typedef struct image_s {
@@ -247,6 +248,31 @@ int main(int argc, char *argv[])
     if (!track) {
         printf("track init failed!\n");
         return 1;
+    }
+
+    ASS_Metrics *metrics =
+        ass_get_metrics(ass_renderer, track, (int) (tm * 1000));
+
+    for (; metrics != NULL; metrics = metrics->next) {
+            printf("Got metrics:\n");
+            printf("    Event text: %s\n", metrics->event->Text);
+            for (ASS_RunMetrics *run = metrics->runs; run; run = run->next) {
+                printf("        Run with ascender %f, descender %f, advance (%f, %f), pos (%f, %f):\n", run->asc, run->desc, run->advance.x, run->advance.y, run->pos.x, run->pos.y);
+                for (int z = 0; z < 2; z++) {
+                    printf("        %s:\n", z == 0 ? "Fill" : "Border");
+                    for (ASS_Metrics_Outline *outline = z == 0 ? run->fill : run->border; outline; outline = outline->next) {
+                        printf("          Got outline with %ld points and %ld segments\n", outline->n_points, outline->n_segments);
+
+                        /* printf("            "); */
+                        /* for (int i = 0; i < outline->n_points; i++) { */
+                        /*     if (i != 0) */
+                        /*         printf(", "); */
+                        /*     printf("(%.2f, %.2f)", outline->points[i].x, outline->points[i].y); */
+                        /* } */
+                        /* printf("\n"); */
+                    }
+                }
+            }
     }
 
     ASS_Image *img =
