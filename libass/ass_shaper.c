@@ -895,7 +895,8 @@ void ass_shaper_set_base_direction(ASS_Shaper *shaper, FriBidiParType dir)
     shaper->base_direction = dir;
 
     if (shaper->whole_text_layout != WHOLE_TEXT_LAYOUT_EXPLICIT)
-        shaper->whole_text_layout = dir == FRIBIDI_PAR_ON ?
+        shaper->whole_text_layout = (dir == FRIBIDI_PAR_ON ||
+                                     dir == FRIBIDI_PAR_RTL) ?
             WHOLE_TEXT_LAYOUT_IMPLICIT : WHOLE_TEXT_LAYOUT_OFF;
 }
 
@@ -935,7 +936,8 @@ void ass_shaper_set_whole_text_layout(ASS_Shaper *shaper, bool enable)
 {
     shaper->whole_text_layout = enable ?
         WHOLE_TEXT_LAYOUT_EXPLICIT :
-        shaper->base_direction == FRIBIDI_PAR_ON ?
+        (shaper->base_direction == FRIBIDI_PAR_ON ||
+         shaper->base_direction == FRIBIDI_PAR_RTL) ?
             WHOLE_TEXT_LAYOUT_IMPLICIT : WHOLE_TEXT_LAYOUT_OFF;
 }
 
@@ -1130,13 +1132,15 @@ FriBidiStrIndex *ass_shaper_get_reorder_map(ASS_Shaper *shaper)
 /**
  * \brief Resolve a Windows font charset number to a suitable base
  * direction. Generally, use LTR for compatibility with VSFilter. The
- * special value -1, which is not a legal Windows font charset number,
- * can be used for autodetection.
+ * special values -1 and -2, which are not legal Windows font charset numbers,
+ * can be used for autodetection and forcing RTL, respectively.
  * \param enc Windows font encoding
  */
 FriBidiParType ass_resolve_base_direction(int enc)
 {
     switch (enc) {
+        case -2:
+            return FRIBIDI_PAR_RTL;
         case -1:
             return FRIBIDI_PAR_ON;
         default:
