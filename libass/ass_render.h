@@ -271,6 +271,7 @@ struct render_context {
     } scroll_direction;         // for EVENT_HSCROLL, EVENT_VSCROLL
     double scroll_shift;
     int scroll_y0, scroll_y1;
+    double scroll_fade_width;
 
     // face properties
     ASS_StringView family;
