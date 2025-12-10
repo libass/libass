@@ -38,7 +38,7 @@ jobs:
 
           - name: 'ART (freebsd64-qemu, FreeBSD-14, amd64)'
             os_image: freebsd
-            os_version: 14.2
+            os_version: 14.3
             # The default FreeBSD env places the libiconv header from ports in the default include path,
             # but doesn't put the corresponding library into the default library path.
             # Either inlcuding the lib path (presumably done by ports) or
@@ -51,13 +51,13 @@ jobs:
 
           - name: 'ART (openbsd64-qemu, OpenBSD-7, amd64)'
             os_image: openbsd
-            os_version: 7.6
+            os_version: 7.8
             CC: 'clang'
             confflags: ''
             ASAN_OPTIONS: ''
             ART_REG_SKIP: 'font_nonunicode'
             AUTOCONF_VERSION: '2.72'
-            AUTOMAKE_VERSION: '1.16'
+            AUTOMAKE_VERSION: '1.18'
 
           # No illumos in cross-platform-actions/action yet, see
           #   https://github.com/cross-platform-actions/action/issues/20
@@ -112,11 +112,11 @@ jobs:
               openbsd)
                 # while OpenBSD natively uses doas,
                 # cross-platform-action only preconfigured sudo.
-                # Using system-provided: compiler, fontconfig, freetype
+                # Using system-provided: compiler, fontconfig, freetype, pkgconf
                 sudo pkg_add \
-                  git nasm libtool pkgconf \
+                  git nasm libtool \
                   autoconf-"$AUTOCONF_VERSION"p0 \
-                  automake-"$AUTOMAKE_VERSION".5 \
+                  automake-"$AUTOMAKE_VERSION" \
                   fribidi harfbuzz libunibreak png
                 ;;
               openindiana/*)
