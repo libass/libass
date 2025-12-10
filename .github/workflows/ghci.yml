@@ -47,7 +47,7 @@ jobs:
             # various regression test fail, assumed due to older deps
             skip_tests: yes
           # MacOS Intel
-          - os: macos-13
+          - os: macos-15-intel
             cc: clang
           # MacOS arm64
           - os: macos-14
