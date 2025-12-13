@@ -21,6 +21,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "ass_utils.h"
 
 /*
  * All of these routines require some basic preconditions about their args:
@@ -93,16 +94,20 @@ enum {
     ASS_CPU_FLAG_X86_SSE2      = 0x0001,
     ASS_CPU_FLAG_X86_SSSE3     = 0x0002,
     ASS_CPU_FLAG_X86_AVX2      = 0x0004,
+    ASS_CPU_FLAG_ALL           = ASS_CPU_FLAG_X86_SSE2 | ASS_CPU_FLAG_X86_SSSE3 | ASS_CPU_FLAG_X86_AVX2,
 #elif ARCH_AARCH64
     ASS_CPU_FLAG_ARM_NEON      = 0x0001,
-#endif
+    ASS_CPU_FLAG_ALL           = ASS_CPU_FLAG_ARM_NEON,
+#else
     ASS_CPU_FLAG_ALL           = 0x0FFF,
+#endif
     ASS_FLAG_LARGE_TILES       = 0x1000,
     ASS_FLAG_WIDE_STRIPE       = 0x2000,  // for C version only
 };
 
 unsigned ass_get_cpu_flags(unsigned mask);
 
-BitmapEngine ass_bitmap_engine_init(unsigned mask);
+ASS_INTERNAL BitmapEngine ass_bitmap_engine_init(void);
+ASS_INTERNAL BitmapEngine ass_bitmap_engine_init_checkasm(unsigned mask);
 
 #endif /* LIBASS_BITMAP_ENGINE_H */
