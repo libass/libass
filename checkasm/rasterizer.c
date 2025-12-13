@@ -199,8 +199,8 @@ static void check_merge_tile(MergeTileFunc func, const char *name, int tile_size
 void checkasm_check_rasterizer(unsigned cpu_flag)
 {
     BitmapEngine engine[2] = {
-        ass_bitmap_engine_init(cpu_flag),
-        ass_bitmap_engine_init(cpu_flag | ASS_FLAG_LARGE_TILES)
+        ass_bitmap_engine_init_checkasm(cpu_flag),
+        ass_bitmap_engine_init_checkasm(cpu_flag | ASS_FLAG_LARGE_TILES)
     };
     for (int i = 0; i < 2; i++) {
         int tile_size = 1 << engine[i].tile_order;

@@ -66,6 +66,6 @@ static void check_be_blur(BeBlurFunc func)
 
 void checkasm_check_be_blur(unsigned cpu_flag)
 {
-    BitmapEngine engine = ass_bitmap_engine_init(cpu_flag);
+    BitmapEngine engine = ass_bitmap_engine_init_checkasm(cpu_flag);
     check_be_blur(engine.be_blur);
 }

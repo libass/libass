@@ -178,8 +178,8 @@ static void check_param_filter(ParamFilterFunc func, const char *name, int n, in
 void checkasm_check_blur(unsigned cpu_flag)
 {
     BitmapEngine engine[2] = {
-        ass_bitmap_engine_init(cpu_flag),
-        ass_bitmap_engine_init(cpu_flag | ASS_FLAG_WIDE_STRIPE)
+        ass_bitmap_engine_init_checkasm(cpu_flag),
+        ass_bitmap_engine_init_checkasm(cpu_flag | ASS_FLAG_WIDE_STRIPE)
     };
     for (int i = 0; i < 2; i++) {
         int align = 1 << engine[i].align_order;

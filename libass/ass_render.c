@@ -129,11 +129,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->ftlibrary = ft;
     // images_root and related stuff is zero-filled in calloc
 
-    unsigned flags = ASS_CPU_FLAG_ALL;
-#if CONFIG_LARGE_TILES
-    flags |= ASS_FLAG_LARGE_TILES;
-#endif
-    priv->engine = ass_bitmap_engine_init(flags);
+    priv->engine = ass_bitmap_engine_init();
 
     priv->cache.font_cache = ass_font_cache_create();
     priv->cache.bitmap_cache = ass_bitmap_cache_create();
