@@ -59,6 +59,12 @@ jobs:
             AUTOCONF_VERSION: '2.72'
             AUTOMAKE_VERSION: '1.18'
 
+          - name: 'ART (haiku64-qemu, Haiku, amd64)'
+            os_image: haiku
+            os_version: r1beta5
+            # no libubsan available, thus just SIGILL
+            CC: 'gcc -fsanitize=undefined,float-cast-overflow -fno-sanitize-recover=all -fsanitize-undefined-trap-on-error'
+
           # No illumos in cross-platform-actions/action yet, see
           #   https://github.com/cross-platform-actions/action/issues/20
           #- name: 'ART (illumos32-qemu, OpenIndiana, i686)'
@@ -119,6 +125,13 @@ jobs:
                   automake-"$AUTOMAKE_VERSION" \
                   fribidi harfbuzz libunibreak png
                 ;;
+              haiku)
+                pkgman install -y \
+                  git nasm gcc make pkgconfig \
+                  libtool autoconf automake \
+                  freetype_devel fribidi_devel harfbuzz_devel \
+                  fontconfig_devel libunibreak_devel libpng16_devel
+                ;;
               openindiana/*)
                 pfexec pkg install --no-backup-be \
                     crypto/ca-certificates \
@@ -136,6 +149,18 @@ jobs:
                     image/library/libpng
                 ;;
             esac
+
+      - name: Fix git ownership
+        uses: cross-platform-actions/action@v0.30.0
+        with:
+          operating_system: ${{ matrix.os_image }}
+          version: ${{ matrix.os_version }}
+          environment_variables: ASAN_OPTIONS AUTOCONF_VERSION AUTOMAKE_VERSION
+          shutdown_vm: false
+          sync_files: true
+          run: |
+            # Work around https://github.com/cross-platform-actions/action/issues/108
+            git config --global --add safe.directory "$PWD"
 
       - name: Build libass
         uses: cross-platform-actions/action@v0.30.0
