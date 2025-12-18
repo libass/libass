@@ -30,6 +30,7 @@
 #include <hb.h>
 
 #include "ass.h"
+#include "ass_metrics.h"
 #include "ass_font.h"
 #include "ass_bitmap.h"
 #include "ass_cache.h"
@@ -86,6 +87,7 @@ typedef struct {
     int detect_collisions;
     int shift_direction;
     ASS_Event *event;
+    ASS_Metrics metrics;
 } EventImages;
 
 typedef enum {
@@ -215,6 +217,10 @@ struct render_context {
 
     ASS_Event *event;
     ASS_Style *style;
+
+    bool collect_metrics;
+    ASS_RunMetrics *run_metrics;
+    ASS_RunMetrics *current_run_metrics;
 
     ASS_Font *font;
     double font_size;
@@ -354,6 +360,9 @@ typedef struct {
 } Rect;
 
 void ass_reset_render_context(RenderContext *state, ASS_Style *style);
+int ass_render_frame_internal(ASS_Renderer *priv, ASS_Track *track, long long now, int *detect_change, bool collect_metrics);
+void ass_outline_apply_transform(ASS_Outline *outline, BitmapHashKey *k);
+void ass_free_metrics(ASS_Renderer *priv);
 void ass_frame_ref(ASS_Image *img);
 void ass_frame_unref(ASS_Image *img);
 ASS_Vector ass_layout_res(ASS_Renderer *render_priv);
