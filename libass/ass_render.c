@@ -991,9 +991,9 @@ static ASS_Style *handle_selective_style_overrides(RenderContext *state,
         new->Justify = user->Justify;
 
     if (requested & ASS_OVERRIDE_BIT_MARGINS) {
-        new->MarginL = user->MarginL;
-        new->MarginR = user->MarginR;
-        new->MarginV = user->MarginV;
+        new->MarginL = user->MarginL * scale;
+        new->MarginR = user->MarginR * scale;
+        new->MarginV = user->MarginV * scale;
     }
 
     if (!new->FontName)
