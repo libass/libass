@@ -105,11 +105,21 @@ typedef void    (*DestroyProviderFunc)(void *priv);
  * \param lib ASS_Library instance
  * \param provider font provider instance
  * \param name font name (as specified in script)
+ * \param match_extended_family If true, the function allows matching against
+ *                              extended family names as defined by the provider.
+ *                              This behavior is provider-dependent.
+ * \param bold The requested boldness level.
+ * \param italic The requested italic style.
+ * \param code The character that should be present in the font, can be 0.
+ * \return The font selected by the provider.
  */
-typedef void    (*MatchFontsFunc)(void *priv,
-                                  ASS_Library *lib,
-                                  ASS_FontProvider *provider,
-                                  char *name);
+typedef ASS_FontInfo   *(*MatchFontsFunc)(void *priv,
+                                          ASS_Library *lib,
+                                          ASS_FontProvider *provider,
+                                          char *name,
+                                          bool match_extended_family,
+                                          unsigned bold, unsigned italic,
+                                          uint32_t code);
 
 /**
  * Substitute font name by another. This implements generic font family
@@ -272,18 +282,71 @@ ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
 /**
  * \brief Add a font to a font provider.
  * \param provider the font provider
- * \param meta font metadata. See struct definition for more information.
+ * \param info The font to add to the database.
+ * \param is_embedded If true, the font will be added to the embedded db.
+ *                    If false, it will be added to the provider db.
+ * \return True if the font has been successfully added to the provider. Otherwise, false.
+ * \note After calling this function, **do not** call `ass_font_provider_free_fontinfo`
+ *       on the `info` parameter, as its contents have been copied.
+ */
+bool
+ass_font_provider_add_font(ASS_FontProvider *provider,
+                           ASS_FontInfo* info, bool is_embedded);
+
+/**
+ * \brief Get the font info from a provider's font.
+ * \param provider the font provider
+ * \param meta the font metadata. See struct definition for more information.
  * \param path absolute path to font, or NULL for memory-based fonts
  * \param index index inside a font collection file
  *              (-1 to look up by PostScript name)
  * \param data private data for font callbacks
- * \return success
- *
+ * \return A pointer to an ASS_FontInfo corresponding to the given parameters.
  */
-bool
-ass_font_provider_add_font(ASS_FontProvider *provider,
-                           ASS_FontProviderMetaData *meta, const char *path,
-                           int index, void *data);
+ASS_FontInfo *
+ass_font_provider_get_font_info(ASS_FontProvider *provider,
+                                ASS_FontProviderMetaData *meta, const char *path,
+                                int index, void *data);
+
+/**
+ * \brief Updates the best matching font based on the given criteria.
+ * \param info The font to be evaluated.
+ * \param requested_font The requested font metadata used for comparison. Only the
+ *             `fullnames` and `n_fullname` fields are considered for matching.
+ * \param match_extended_family If true, the function allows matching against
+ *                              extended family names as defined by the provider.
+ *                              This behavior is provider-dependent.
+ * \param bold The requested boldness level.
+ * \param italic The requested italic style.
+ * \param code The character that should be present in the font, can be 0.
+ * \param name_match Set to true if the font matches the metadata,
+ *                   otherwise set to false.
+ * \param best_font_score Score representing the match. The lower, the better.
+ *                        It will be updated if the font has a better score.
+ * \return True if `info` provides a better match than the previously recorded
+ *         best font score. Otherwise, false.
+ */
+bool ass_update_best_matching_font(ASS_FontInfo *info,
+    ASS_FontProviderMetaData requested_font,
+    bool match_extended_family,
+    unsigned bold, unsigned italic,
+    uint32_t code, bool *name_match,
+    unsigned *best_font_score);
+
+/**
+ * Free all data associated with a FontInfo struct. Handles FontInfo structs
+ * with incomplete allocations well.
+ *
+ * \param info FontInfo struct to free associated data from
+ */
+void ass_font_provider_free_fontinfo(ASS_FontInfo *info);
+
+/**
+ * Free the provider-specific private data.
+ *
+ * \param info FontInfo struct to free private data from.
+ */
+void ass_font_provider_destroy_private_fontinfo(ASS_FontInfo *info);
 
 /**
  * \brief Free font provider and associated fonts.

@@ -598,9 +598,38 @@ static char *get_fallback(void *priv, ASS_Library *lib,
 #undef FONT_TYPE
 #undef FAMILY_AS_ARG
 
+static void update_best_matching_font(ASS_FontProvider *provider, ASS_FontProviderMetaData *meta,
+                                      FontPrivate *font_priv, ASS_FontProviderMetaData requested_font,
+                                      ASS_FontInfo **best_font_info, unsigned *best_font_score,
+                                      bool match_extended_family, unsigned bold,
+                                      unsigned italic, uint32_t code)
+{
+    ASS_FontInfo* info = ass_font_provider_get_font_info(provider, meta, NULL, 0, font_priv);
+    if (!info)
+        return;
+
+    bool name_match = false;
+    if (ass_update_best_matching_font(info, requested_font, match_extended_family, bold, italic, code, &name_match, best_font_score)) {
+        if (*best_font_info) {
+            ass_font_provider_free_fontinfo(*best_font_info);
+            ass_font_provider_destroy_private_fontinfo(*best_font_info);
+            free(*best_font_info);
+        }
+        *best_font_info = info;
+    } else {
+        ass_font_provider_free_fontinfo(info);
+        ass_font_provider_destroy_private_fontinfo(info);
+        free(info);
+    }
+}
+
 static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
                           ASS_SharedHDC *shared_hdc,
-                          IDWriteFontCollection *system_font_coll)
+                          IDWriteFontCollection *system_font_coll,
+                          ASS_FontProviderMetaData requested_font,
+                          ASS_FontInfo **best_font_info, unsigned *best_font_score,
+                          bool match_extended_family, unsigned bold, unsigned italic,
+                          uint32_t code)
 {
     ASS_FontProviderMetaData meta = {0};
 
@@ -635,7 +664,9 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
     font_priv->shared_hdc = hdc_retain(shared_hdc);
 #endif
 
-    ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
+    update_best_matching_font(provider, &meta, font_priv, requested_font,
+                              best_font_info, best_font_score, match_extended_family,
+                              bold, italic, code);
 
 cleanup:
     free(meta.postscript_name);
@@ -645,146 +676,13 @@ cleanup:
         IDWriteFontFace_Release(face);
 }
 
-#if ASS_WINAPI_DESKTOP
+#if !ASS_WINAPI_DESKTOP
 
-struct font_enum_priv {
-    ASS_FontProvider *provider;
-    IDWriteGdiInterop *gdi_interop;
-    ASS_SharedHDC *shared_hdc;
-    IDWriteFontCollection *system_font_coll;
-};
-
-/*
- * Windows has three similar functions: EnumFonts, EnumFontFamilies
- * and EnumFontFamiliesEx, which were introduced at different times.
- * Each takes a callback, and the declared callback type is the same
- * for all three. However, the actual arguments passed to the callback
- * have also changed over time. Some changes match the introduction
- * of new EnumFont... variants, and some don't. Documentation has
- * changed over the years, too, so it can be hard to figure out what
- * types, and when, are safe for the callback to take.
- *
- * In the header files, FONTENUMPROC is declared to take:
- *     CONST LOGFONT *, CONST TEXTMETRIC *
- * These are the baseline structs dating back to 16-bit Windows EnumFont.
- *
- * As of 2021, current versions of Microsoft's docs
- * for the EnumFontFamiliesEx callback use the same:
- *     const LOGFONT *, const TEXTMETRIC *
- * and for the EnumFontFamilies callback use:
- *     ENUMLOGFONT *, NEWTEXTMETRIC *
- * and mention that the first "can be cast as" ENUMLOGFONTEX or ENUMLOGFONTEXDV
- * while the second "can be an ENUMTEXTMETRIC structure" but for
- * non-TrueType fonts "is a pointer to a TEXTMETRIC structure".
- *
- * Docs from the 2000s (which include Win95/98/Me/NT/2000/XP details) use
- *     ENUMLOGFONTEX *, NEWTEXTMETRICEX *
- * in the EnumFontFamiliesEx callback's definition:
- *     https://web.archive.org/web/20050907052149
- *         /http://msdn.microsoft.com/library/en-us/gdi/fontext_9rmr.asp
- * and highlight these two extended struct types as advantages over
- * the EnumFontFamilies callback, suggesting that the actual arguments
- * to the EnumFontFamiliesEx callback have always been these two extended
- * structs. This is also reflected in the callback's parameter names
- * (which have stayed unchanged in the current docs).
- * EnumFontFamiliesEx itself was added in Windows NT 4.0 and 95.
- *
- * Similarly, the EnumFontFamilies callback's parameter names support
- * the idea that they have always used ENUMLOGFONT and NEWTEXTMETRIC.
- *
- * It seems the extra fields in NEWTEXTMETRIC[EX] compared to TEXTMETRIC
- * are merely zero-filled when they are irrelevant, rather than nonexistent
- * or inaccessible. This is further supported by the fact the later-still
- * struct ENUMTEXTMETRIC extends NEWTEXTMETRICEX even though the former
- * is/was (upon introduction) relevant only to PostScript fonts
- * while the latter is (supposedly) relevant only to TrueType fonts.
- *
- * Docs from the 2000s for ENUMLOGFONTEXDV and ENUMTEXTMETRIC:
- *     https://web.archive.org/web/20050306200105
- *         /http://msdn.microsoft.com/library/en-us/gdi/fontext_15gy.asp
- * seem to assert that the callback receives these two further-extended
- * structs *if and only if* running on Windows 2000 or newer.
- * We don't need them, but if we did, we'd have to check (or assume)
- * Windows version, because this extension does not seem to have
- * an associated feature check. Moreover, these structs are given
- * to the callbacks of all three EnumFont... function variants.
- * So even EnumFonts actually uses the extended structs in 21st-century
- * Windows, but the declared callback type can no longer be changed
- * without breaking existing C++ code due to its strongly-typed pointers.
- * When targeting modern Windows, though, it seems safe for consumer
- * code to take the newest structs and cast the function pointer
- * to the declared callback type.
- */
-static int CALLBACK font_enum_proc(const ENUMLOGFONTW *lpelf,
-                                   const NEWTEXTMETRICW *lpntm,
-                                   DWORD FontType, LPARAM lParam)
-{
-    struct font_enum_priv *priv = (struct font_enum_priv *) lParam;
-    HFONT hFont = NULL;
-    HRESULT hr;
-
-    if (FontType & RASTER_FONTTYPE)
-        goto cleanup;
-
-    LOGFONTW lf = lpelf->elfLogFont;
-    // lf.lfFaceName currently holds the font family name.
-    // The family may contain several fonts with equal numerical parameters
-    // but distinct full names. If we pass lf to CreateFontIndirect as is,
-    // we will miss this variety and merely get the same one font multiple
-    // times. Try to increase our chances of seeing all the right fonts
-    // by replacing the family name by the full name. There's some chance
-    // that this in turn selects some *other* family's fonts and misses
-    // the requested family, but we would rather take this chance than
-    // add every font twice (via the family name and via the full name).
-    // lfFaceName can hold up to LF_FACESIZE wchars; truncate longer names.
-    wcsncpy(lf.lfFaceName, lpelf->elfFullName, LF_FACESIZE - 1);
-    lf.lfFaceName[LF_FACESIZE - 1] = L'\0';
-
-    hFont = CreateFontIndirectW(&lf);
-    if (!hFont)
-        goto cleanup;
-
-    HDC hdc = priv->shared_hdc->hdc;
-    if (!SelectObject(hdc, hFont))
-        goto cleanup;
-
-    wchar_t selected_name[LF_FACESIZE];
-    if (!GetTextFaceW(hdc, LF_FACESIZE, selected_name))
-        goto cleanup;
-    if (_wcsnicmp(selected_name, lf.lfFaceName, LF_FACESIZE)) {
-        // A different font was selected. This can happen if the requested
-        // name is subject to charset-specific font substitution while
-        // EnumFont... enumerates additional charsets contained in the font.
-        // Alternatively, the font may have disappeared in the meantime.
-        // Either way, there's no use looking at this font any further.
-        goto cleanup;
-    }
-
-    // For single-font files, we could also use GetFontData, but for font
-    // collection files, GDI does not expose the current font index.
-    // CreateFontFaceFromHdc is able to find it out using a private API;
-    // and it may also be more efficient if it doesn't copy the data.
-    // The downside is that we must keep the HDC alive, at least on Windows 7,
-    // to prevent the font from being deleted and breaking the IDWriteFontFace.
-    IDWriteFontFace *face = NULL;
-    hr = IDWriteGdiInterop_CreateFontFaceFromHdc(priv->gdi_interop,
-                                                 hdc, &face);
-    if (FAILED(hr) || !face)
-        goto cleanup;
-
-    add_font_face(face, priv->provider, priv->shared_hdc,
-                  priv->system_font_coll);
-
-cleanup:
-    if (hFont)
-        DeleteObject(hFont);
-
-    return 1 /* continue enumerating */;
-}
-
-#else
-
-static void add_font_set(IDWriteFontSet *fontSet, ASS_FontProvider *provider)
+static void add_font_set(IDWriteFontSet *fontSet, ASS_FontProvider *provider,
+                         ASS_FontProviderMetaData requested_font,
+                         ASS_FontInfo **best_font_info, unsigned *best_font_score,
+                         bool match_extended_family, unsigned bold, unsigned italic,
+                         uint32_t code)
 {
     UINT32 n = IDWriteFontSet_GetFontCount(fontSet);
     for (UINT32 i = 0; i < n; i++) {
@@ -808,7 +706,9 @@ static void add_font_set(IDWriteFontSet *fontSet, ASS_FontProvider *provider)
         if (FAILED(hr) || !face)
             goto cleanup;
 
-        add_font_face((IDWriteFontFace *) face, provider, NULL, NULL);
+        add_font_face((IDWriteFontFace *) face, provider, NULL, NULL,
+                      requested_font, best_font_info, best_font_score,
+                      match_extended_family, bold, italic, code);
 
 cleanup:
         IDWriteFontFaceReference_Release(faceRef);
@@ -816,7 +716,12 @@ cleanup:
 }
 
 static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
-                     ASS_FontProvider *provider)
+                     ASS_FontProvider *provider,
+                     ASS_FontProviderMetaData requested_font,
+                     ASS_FontInfo **best_font_info, unsigned *best_font_score,
+                     bool match_extended_family,
+                     unsigned bold, unsigned italic,
+                     uint32_t code)
 {
     ASS_FontProviderMetaData meta = {0};
     if (!get_font_info_IDWriteFont(font, fontFamily, &meta))
@@ -828,7 +733,9 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
     font_priv->font = font;
     font = NULL;
 
-    ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
+    update_best_matching_font(provider, &meta, font_priv, requested_font,
+                              best_font_info, best_font_score, match_extended_family,
+                              bold, italic, code);
 
 cleanup:
     free(meta.postscript_name);
@@ -843,21 +750,35 @@ cleanup:
 /*
  * When a new font name is requested, called to load that font from Windows
  */
-static void match_fonts(void *priv, ASS_Library *lib,
-                        ASS_FontProvider *provider, char *name)
+static ASS_FontInfo* match_fonts(void *priv, ASS_Library *lib,
+                                 ASS_FontProvider *provider, char *name,
+                                 bool match_extended_family,
+                                 unsigned bold, unsigned italic,
+                                 uint32_t code)
 {
     ProviderPrivate *provider_priv = (ProviderPrivate *)priv;
+    ASS_FontInfo *font_result = NULL;
+    ASS_FontProviderMetaData requested_font = {
+        .n_fullname = 1,
+        .fullnames  = (char **)&name,
+    };
     LOGFONTW lf = {0};
+    lf.lfCharSet = DEFAULT_CHARSET;
+    lf.lfOutPrecision = OUT_TT_PRECIS;
+    lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
+    lf.lfQuality = ANTIALIASED_QUALITY;
+    lf.lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
 
     // lfFaceName can hold up to LF_FACESIZE wchars; truncate longer names
     MultiByteToWideChar(CP_UTF8, 0, name, -1, lf.lfFaceName, LF_FACESIZE-1);
 
 #if ASS_WINAPI_DESKTOP
-    struct font_enum_priv enum_priv;
+    HFONT hFont = NULL;
+    HRESULT hr;
 
-    enum_priv.shared_hdc = calloc(1, sizeof(ASS_SharedHDC));
-    if (!enum_priv.shared_hdc)
-        return;
+    ASS_SharedHDC *shared_hdc = calloc(1, sizeof(ASS_SharedHDC));
+    if (!shared_hdc)
+        return NULL;
 
     // Keep this HDC alive to keep the fonts alive. This seems to be necessary
     // on Windows 7, where the fonts can't be deleted as long as the DC lives
@@ -876,48 +797,71 @@ static void match_fonts(void *priv, ASS_Library *lib,
     // CreateCompatibleDC(NULL) but isn't specifically CreateCompatibleDC(NULL).
     HDC screen_dc = GetDC(NULL);
     if (!screen_dc) {
-        free(enum_priv.shared_hdc);
-        return;
+        free(shared_hdc);
+        return NULL;
     }
     HDC hdc = CreateCompatibleDC(screen_dc);
     ReleaseDC(NULL, screen_dc);
     if (!hdc) {
-        free(enum_priv.shared_hdc);
-        return;
+        free(shared_hdc);
+        return NULL;
     }
 
-    enum_priv.provider = provider;
-    enum_priv.gdi_interop = provider_priv->gdi_interop;
-    enum_priv.shared_hdc->hdc = hdc;
-    enum_priv.shared_hdc->ref_count = 1;
+    shared_hdc->hdc = hdc;
+    shared_hdc->ref_count = 1;
 
-    enum_priv.system_font_coll = NULL;
+    IDWriteFontCollection *system_font_coll = NULL;
     IDWriteFactory_GetSystemFontCollection(provider_priv->factory,
-                                           &enum_priv.system_font_coll,
+                                           &system_font_coll,
                                            FALSE);
 
-    // EnumFontFamilies gives each font once, plus repeats for charset-specific
-    // aliases. EnumFontFamiliesEx gives each charset of each font separately,
-    // so it repeats each font as many times as it has charsets, regardless
-    // of whether they have aliases. Other than this, the two functions are
-    // equivalent. There's no reliable way to distinguish when two items
-    // enumerated by either function refer to the same font (but different
-    // aliases or charsets) or actually distinct fonts, so we add every item
-    // as a separate font to our database and simply prefer the enumeration
-    // function that tends to give fewer duplicates. Generally, many fonts
-    // cover multiple charsets while very few have aliases, so we prefer
-    // EnumFontFamilies.
-    //
-    // Furthermore, the requested name might be an empty string. In this case,
-    // EnumFontFamilies will give us only fonts with empty names, whereas
-    // EnumFontFamiliesEx would give us a list of all installed font families.
-    EnumFontFamiliesW(hdc, lf.lfFaceName,
-                      (FONTENUMPROCW) font_enum_proc, (LPARAM) &enum_priv);
+    lf.lfItalic = italic ? 1 : 0;
+    lf.lfWeight = bold;
 
-    if (enum_priv.system_font_coll)
-        IDWriteFontCollection_Release(enum_priv.system_font_coll);
+    hFont = CreateFontIndirectW(&lf);
+    if (!hFont)
+        goto cleanup;
 
-    hdc_release(enum_priv.shared_hdc);
+    if (!SelectObject(hdc, hFont))
+        goto cleanup;
+
+    wchar_t selected_name[LF_FACESIZE];
+    if (!GetTextFaceW(hdc, LF_FACESIZE, selected_name))
+        goto cleanup;
+    if (_wcsnicmp(selected_name, lf.lfFaceName, LF_FACESIZE)) {
+        // A different font was selected. This can happen if the requested
+        // font isn't available.
+        goto cleanup;
+    }
+
+    // For single-font files, we could also use GetFontData, but for font
+    // collection files, GDI does not expose the current font index.
+    // CreateFontFaceFromHdc is able to find it out using a private API;
+    // and it may also be more efficient if it doesn't copy the data.
+    // The downside is that we must keep the HDC alive, at least on Windows 7,
+    // to prevent the font from being deleted and breaking the IDWriteFontFace.
+    IDWriteFontFace *face = NULL;
+    hr = IDWriteGdiInterop_CreateFontFaceFromHdc(provider_priv->gdi_interop,
+                                                 hdc, &face);
+    if (FAILED(hr) || !face)
+        goto cleanup;
+
+    unsigned best_font_score = UINT_MAX;
+    add_font_face(face, provider, shared_hdc,
+                  system_font_coll, requested_font,
+                  &font_result, &best_font_score,
+                  match_extended_family,
+                  bold, italic,
+                  code);
+
+cleanup:
+    if (hFont)
+        DeleteObject(hFont);
+
+    if (system_font_coll)
+        IDWriteFontCollection_Release(system_font_coll);
+
+    hdc_release(shared_hdc);
 #else
     HRESULT hr;
     IDWriteFactory3 *factory3;
@@ -928,8 +872,9 @@ static void match_fonts(void *priv, ASS_Library *lib,
         hr = IDWriteFactory3_GetSystemFontSet(factory3, &fontSet);
         IDWriteFactory3_Release(factory3);
         if (FAILED(hr) || !fontSet)
-            return;
+            return NULL;
 
+        unsigned best_font_score = UINT_MAX;
         DWRITE_FONT_PROPERTY_ID property_ids[] = {
             DWRITE_FONT_PROPERTY_ID_WIN32_FAMILY_NAME,
             DWRITE_FONT_PROPERTY_ID_FULL_NAME,
@@ -948,7 +893,9 @@ static void match_fonts(void *priv, ASS_Library *lib,
             if (FAILED(hr) || !filteredSet)
                 continue;
 
-            add_font_set(filteredSet, provider);
+            add_font_set(filteredSet, provider, requested_font,
+                         &font_result, &best_font_score,
+                         match_extended_family, bold, italic, code);
 
             IDWriteFontSet_Release(filteredSet);
         }
@@ -969,23 +916,19 @@ static void match_fonts(void *priv, ASS_Library *lib,
         // find TrueType fonts by their full name; but we can't fix this
         // without loading the entire font list.
         lf.lfWeight = FW_DONTCARE;
-        lf.lfCharSet = DEFAULT_CHARSET;
-        lf.lfOutPrecision = OUT_TT_PRECIS;
-        lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-        lf.lfQuality = ANTIALIASED_QUALITY;
-        lf.lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
         IDWriteFont *font = NULL;
         hr = IDWriteGdiInterop_CreateFontFromLOGFONT(provider_priv->gdi_interop,
                                                      &lf, &font);
         if (FAILED(hr) || !font)
-            return;
+            return NULL;
 
         IDWriteFontFamily *fontFamily = NULL;
         hr = IDWriteFont_GetFontFamily(font, &fontFamily);
         IDWriteFont_Release(font);
         if (FAILED(hr) || !fontFamily)
-            return;
+            return NULL;
 
+        unsigned best_font_score = UINT_MAX;
         UINT32 n = IDWriteFontFamily_GetFontCount(fontFamily);
         for (UINT32 i = 0; i < n; i++) {
             hr = IDWriteFontFamily_GetFont(fontFamily, i, &font);
@@ -999,12 +942,16 @@ static void match_fonts(void *priv, ASS_Library *lib,
                 continue;
             }
 
-            add_font(font, fontFamily, provider);
+            add_font(font, fontFamily, provider, requested_font,
+                     &font_result, &best_font_score,
+                     match_extended_family, bold, italic, code);
         }
 
         IDWriteFontFamily_Release(fontFamily);
     }
 #endif
+
+    return font_result;
 }
 
 static void get_substitutions(void *priv, const char *name,
