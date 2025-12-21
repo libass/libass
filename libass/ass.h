@@ -79,7 +79,8 @@ typedef struct ass_image {
     enum {
         IMAGE_TYPE_CHARACTER,
         IMAGE_TYPE_OUTLINE,
-        IMAGE_TYPE_SHADOW
+        IMAGE_TYPE_SHADOW,
+        IMAGE_TYPE_BACKGROUND
     } type;
 
     // New fields can be added here in new ABI-compatible library releases.
