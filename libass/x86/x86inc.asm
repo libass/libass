@@ -763,9 +763,9 @@ DECLARE_ARG 7, 8, 9, 10, 11, 12, 13, 14
 
 %define last_branch_adr $$
 %macro AUTO_REP_RET 0
-    %if notcpuflag(ssse3)
-        times ((last_branch_adr-$)>>31)+1 rep ; times 1 iff $ == last_branch_adr.
-    %endif
+    ;%if notcpuflag(ssse3)
+    ;    times ((last_branch_adr-$)>>31)+1 rep ; times 1 iff $ == last_branch_adr.
+    ;%endif
     ret
     annotate_function_size
 %endmacro
@@ -828,14 +828,23 @@ BRANCH_INSTR jz, je, jnz, jne, jl, jle, jnl, jnle, jg, jge, jng, jnge, ja, jae, 
     %xdefine current_function_section __SECT__
     %if FORMAT_ELF
         %if %1
+            section .text.%2 progbits alloc exec nowrite
             global %2:function hidden
         %else
             global %2:function
         %endif
-    %elif FORMAT_MACHO && HAVE_PRIVATE_EXTERN && %1
-        global %2:private_extern
+    %elif FORMAT_MACHO
+        %if HAVE_PRIVATE_EXTERN && %1
+            global %2:private_extern
+        %else
+            global %2
+        %endif
     %else
-        global %2
+        %if %1
+            section .text$%2 comdat=1:%2
+        %else
+            global %2
+        %endif
     %endif
     align function_align
     %2:

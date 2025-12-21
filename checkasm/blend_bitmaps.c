@@ -101,7 +101,7 @@ static void check_mul_bitmaps(BitmapMulFunc func)
 
 void checkasm_check_blend_bitmaps(unsigned cpu_flag)
 {
-    BitmapEngine engine = ass_bitmap_engine_init(cpu_flag);
+    BitmapEngine engine = ass_bitmap_engine_init_checkasm(cpu_flag);
     check_blend_bitmaps(engine.add_bitmaps, "add_bitmaps");
     check_blend_bitmaps(engine.imul_bitmaps, "imul_bitmaps");
     check_mul_bitmaps(engine.mul_bitmaps);

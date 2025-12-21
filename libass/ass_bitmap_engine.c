@@ -32,7 +32,7 @@
     MergeTileFunc         ass_merge_tile          ## tile_size ## _ ## suffix;
 
 #define RASTERIZER_FUNCTION(name, suffix) \
-    engine.name = mask & ASS_FLAG_LARGE_TILES ? \
+    engine.name = flags & ASS_FLAG_LARGE_TILES ? \
         ass_ ## name ## _tile32_ ## suffix : \
         ass_ ## name ## _tile16_ ## suffix;
 
@@ -110,6 +110,29 @@
     BLUR_FUNCTIONS(align_order_, alignment, suffix)
 
 
+static inline unsigned ass_get_cpu_flags_static(void)
+{
+    unsigned flags = ASS_CPU_FLAG_NONE;
+
+#if ARCH_X86
+  #ifdef __AVX2__
+    flags |= ASS_CPU_FLAG_X86_AVX2;
+  #endif
+  #ifdef __SSSE3__
+    flags |= ASS_CPU_FLAG_X86_SSSE3;
+  #endif
+  #ifdef __SSE2__
+    flags |= ASS_CPU_FLAG_X86_SSE2;
+  #endif
+#elif ARCH_AARCH64
+  #ifdef __ARM_NEON
+    flags |= ASS_CPU_FLAG_ARM_NEON;
+  #endif
+#endif
+
+    return flags;
+}
+
 unsigned ass_get_cpu_flags(unsigned mask)
 {
     unsigned flags = ASS_CPU_FLAG_NONE;
@@ -160,15 +183,14 @@ unsigned ass_get_cpu_flags(unsigned mask)
     return flags & mask;
 }
 
-BitmapEngine ass_bitmap_engine_init(unsigned mask)
+ASS_FORCELINE static inline BitmapEngine ass_bitmap_engine_init_impl(unsigned flags)
 {
     ALL_PROTOTYPES(16, c)
     BLUR_PROTOTYPES(32, c)
     BitmapEngine engine = {0};
-    engine.tile_order = mask & ASS_FLAG_LARGE_TILES ? 5 : 4;
+    engine.tile_order = flags & ASS_FLAG_LARGE_TILES ? 5 : 4;
 
 #if CONFIG_ASM
-    unsigned flags = ass_get_cpu_flags(mask);
 #if ARCH_X86
     if (flags & ASS_CPU_FLAG_X86_AVX2) {
         ALL_PROTOTYPES(32, avx2)
@@ -197,8 +219,25 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
 #endif
 
     ALL_FUNCTIONS(4, 16, c)
-    if (mask & ASS_FLAG_WIDE_STRIPE) {
+    if (flags & ASS_FLAG_WIDE_STRIPE) {
         BLUR_FUNCTIONS(5, 32, c)
     }
     return engine;
+}
+
+BitmapEngine ass_bitmap_engine_init(void)
+{
+    unsigned flags = ass_get_cpu_flags_static();
+    if (flags != ASS_CPU_FLAG_ALL) {
+        flags |= ass_get_cpu_flags(ASS_CPU_FLAG_ALL);
+    }
+#if CONFIG_LARGE_TILES
+    flags |= ASS_FLAG_LARGE_TILES;
+#endif
+    return ass_bitmap_engine_init_impl(flags);
+}
+
+BitmapEngine ass_bitmap_engine_init_checkasm(unsigned mask)
+{
+    return ass_bitmap_engine_init_impl((mask & ~ASS_CPU_FLAG_ALL) | ass_get_cpu_flags(mask));
 }

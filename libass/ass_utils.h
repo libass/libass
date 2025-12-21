@@ -32,6 +32,15 @@
 
 #if defined(_MSC_VER) && !defined(__clang__)
 #include <intrin.h>
+#define ASS_FORCELINE __forceinline
+#else
+#define ASS_FORCELINE __attribute__((always_inline))
+#endif
+
+#ifndef _WIN32
+#define ASS_INTERNAL __attribute__((visibility("hidden")))
+#else
+#define ASS_INTERNAL
 #endif
 
 #include "ass.h"
