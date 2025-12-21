@@ -36,6 +36,7 @@ src_aarch64 = files(
     'aarch64/blend_bitmaps.S',
     'aarch64/blur.S',
     'aarch64/rasterizer.S',
+    'aarch64/shift_bitmap.S',
 )
 src_fontconfig = files('ass_fontconfig.c')
 src_directwrite = files('ass_directwrite.c')
@@ -46,6 +47,7 @@ libass_src = files(
     'c/c_blend_bitmaps.c',
     'c/c_blur.c',
     'c/c_rasterizer.c',
+    'c/c_shift_bitmap.c',
     'ass.c',
     'ass_bitmap.c',
     'ass_bitmap_engine.c',
