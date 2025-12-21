@@ -145,24 +145,52 @@ typedef struct {
     int16_t coeff[8];
 } BlurMethod;
 
-static void find_best_method(BlurMethod *blur, double r2)
+static void find_scale(BlurMethod *blur, double r2)
 {
-    double mu[8];
     if (r2 < 0.5) {
         blur->level = 0;
         blur->radius = 4;
-        mu[1] = 0.085 * r2 * r2 * r2;
-        mu[0] = 0.5 * r2 - 4 * mu[1];
-        mu[2] = mu[3] = 0;
     } else {
         double frac = frexp(sqrt(0.11569 * r2 + 0.20591047), &blur->level);
         double mul = pow(0.25, blur->level);
         blur->radius = 8 - (int) ((10.1525 + 0.8335 * mul) * (1 - frac));
         blur->radius = FFMAX(blur->radius, 4);
+    }
+}
+
+static void find_best_method(BlurMethod *blur, double r2)
+{
+    find_scale(blur, r2);
+
+    double mu[8];
+    if (r2 < 0.5) {
+        mu[1] = 0.085 * r2 * r2 * r2;
+        mu[0] = 0.5 * r2 - 4 * mu[1];
+        mu[2] = mu[3] = 0;
+    } else {
+        double mul = pow(0.25, blur->level);
         calc_coeff(mu, blur->radius, r2, mul);
     }
+
     for (int i = 0; i < blur->radius; i++)
         blur->coeff[i] = (int) (0x10000 * mu[i] + 0.5);
+}
+
+static int blur_offset(const BlurMethod *blur)
+{
+    return ((2 * blur->radius + 9) << blur->level) - 5;
+}
+
+static uint32_t blurred_dim(uint32_t d, const BlurMethod *blur)
+{
+    return ((d + blur_offset(blur)) & ~((1 << blur->level) - 1)) - 4;
+}
+
+uint32_t ass_blur_padding(double r2)
+{
+    BlurMethod blur;
+    find_scale(&blur, r2);
+    return (blur_offset(&blur) + 1) / 2;
 }
 
 /**
@@ -179,10 +207,8 @@ bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2x, doubl
     else find_best_method(&blur_y, r2y);
 
     uint32_t w = bm->w, h = bm->h;
-    int offset_x = ((2 * blur_x.radius + 9) << blur_x.level) - 5;
-    int offset_y = ((2 * blur_y.radius + 9) << blur_y.level) - 5;
-    uint32_t end_w = ((w + offset_x) & ~((1 << blur_x.level) - 1)) - 4;
-    uint32_t end_h = ((h + offset_y) & ~((1 << blur_y.level) - 1)) - 4;
+    uint32_t end_w = blurred_dim(w, &blur_x);
+    uint32_t end_h = blurred_dim(h, &blur_y);
 
     const int stripe_width = 1 << (engine->align_order - 1);
     uint64_t size = (((uint64_t) end_w + stripe_width - 1) & ~(stripe_width - 1)) * end_h;

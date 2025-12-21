@@ -147,7 +147,8 @@ bool ass_copy_bitmap(const BitmapEngine *engine, Bitmap *dst, const Bitmap *src)
 }
 
 bool ass_outline_to_bitmap(RenderContext *state, Bitmap *bm,
-                           ASS_Outline *outline1, ASS_Outline *outline2)
+                           ASS_Outline *outline1, ASS_Outline *outline2,
+                           ASS_Rect *clip)
 {
     ASS_Renderer *render_priv = state->renderer;
     RasterizerData *rst = &state->rasterizer;
@@ -167,6 +168,19 @@ bool ass_outline_to_bitmap(RenderContext *state, Bitmap *bm,
     int32_t y_min = (rst->bbox.y_min -   1) >> 6;
     int32_t x_max = (rst->bbox.x_max + 127) >> 6;
     int32_t y_max = (rst->bbox.y_max + 127) >> 6;
+
+
+    if (clip) {
+        x_min = FFMAX(x_min, clip->x_min);
+        y_min = FFMAX(y_min, clip->y_min);
+        x_max = FFMIN(x_max, clip->x_max);
+        y_max = FFMIN(y_max, clip->y_max);
+
+        if (x_max <= x_min || y_max <= y_min) {
+            return false;
+        }
+    }
+
     int32_t w = x_max - x_min;
     int32_t h = y_max - y_min;
 
