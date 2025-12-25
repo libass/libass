@@ -310,6 +310,11 @@ if not asm_option.disabled()
                 )
             endif
 
+            # Convert SSE asm into (128-bit) AVX when compiler flags are set to use AVX instructions
+            if cc.get_define('__AVX__').strip() != ''
+                nasm_args += '-DFORCE_VEX_ENCODING=1'
+            endif
+
             add_project_arguments(nasm_args, language: 'nasm')
         endif
     elif generic_cpu_family == 'aarch64'

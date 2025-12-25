@@ -325,6 +325,13 @@ AS_IF([test "x$enable_asm" != xno], [
                         ))
                     ]
                 )
+
+                # Convert SSE asm into (128-bit) AVX when compiler baseline is set to use AVX.
+                # Switching between AVX and SSE instructions can incur penalties.
+                AC_CHECK_DECL([__AVX__], [
+                    ASFLAGS="$ASFLAGS -DFORCE_VEX_ENCODING=1"
+                ])
+
                 AC_MSG_CHECKING([if $AS supports vpmovzxwd])
                 echo "vpmovzxwd ymm0, xmm0" > conftest.asm
                 AS_IF([$AS conftest.asm $ASFLAGS -o conftest.o >conftest.log 2>&1], [
