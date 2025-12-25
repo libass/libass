@@ -31,6 +31,12 @@ jobs:
             shell: 'msys2 {0}'
             args: '-Ddefault_library=static -Db_sanitize=address,undefined'
 
+          - name: Windows (CLANG64) (AVX)
+            os: windows-latest
+            msystem: CLANG64
+            shell: 'msys2 {0}'
+            args: '-Ddefault_library=static -Dc_args=-mavx'
+
           - name: Windows (CLANGARM64)
             os: windows-11-arm
             msystem: CLANGARM64
@@ -57,6 +63,10 @@ jobs:
           - name: Ubuntu
             os: ubuntu-latest
             args: '-Db_sanitize=address,undefined'
+
+          - name: Ubuntu (AVX)
+            os: ubuntu-latest
+            args: '-Dc_args=-mavx'
 
           - name: Ubuntu (ARM64)
             os: ubuntu-24.04-arm

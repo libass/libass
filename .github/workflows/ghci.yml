@@ -18,6 +18,10 @@ jobs:
           - os: ubuntu-latest
             cc: gcc
             do_distc: yes
+          # Add a AVX build for FORCE_VEX_ENCODING
+          - os: ubuntu-latest
+            cc: gcc
+            extra_cflags: -mavx
           # Run Coverity on a clang build; Coverity's gcc causes issues
           - os: ubuntu-latest
             cc: clang
@@ -70,6 +74,13 @@ jobs:
             cc: gcc
             api: app
             extra_cflags: -DWINAPI_FAMILY=WINAPI_FAMILY_APP -specs=/tmp/windowsapp.specs
+            shell: 'msys2 {0}'
+          # Add a Windows AVX build (MinGW-LLVM via MSYS2) for FORCE_VEX_ENCODING
+          - os: windows-latest
+            msystem: CLANG64
+            cc: clang
+            api: desktop
+            extra_cflags: -mavx
             shell: 'msys2 {0}'
 
     defaults:
