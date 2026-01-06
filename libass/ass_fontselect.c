@@ -261,8 +261,11 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     char *fullnames[MAX_FULLNAME];
     char *families[MAX_FULLNAME];
 
-    // we're only interested in outlines
-    if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
+    // We're primarily interested in outline fonts, but also allow
+    // color bitmap fonts (like Apple Color Emoji with CBDT/sbix)
+    bool is_scalable = (face->face_flags & FT_FACE_FLAG_SCALABLE) != 0;
+    bool has_color = (face->face_flags & FT_FACE_FLAG_COLOR) != 0;
+    if (!is_scalable && !has_color)
         return false;
 
     for (i = 0; i < num_names; i++) {
@@ -428,23 +431,6 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
         implicit_meta.extended_family = meta->extended_family;
         meta = &implicit_meta;
     }
-
-#if 0
-    int j;
-    printf("new font:\n");
-    printf("  families: ");
-    for (j = 0; j < meta->n_family; j++)
-        printf("'%s' ", meta->families[j]);
-    printf("\n");
-    printf("  fullnames: ");
-    for (j = 0; j < meta->n_fullname; j++)
-        printf("'%s' ", meta->fullnames[j]);
-    printf("\n");
-    printf("  style_flags: %lx\n", meta->style_flags);
-    printf("  weight: %d\n", meta->weight);
-    printf("  path: %s\n", path);
-    printf("  index: %d\n", index);
-#endif
 
     // check size
     if (selector->n_font >= selector->alloc_font) {
@@ -756,7 +742,8 @@ find_font(ASS_FontSelector *priv,
                 // We want to be able to match even if the closest variant
                 // does not have the requested glyph, but another member
                 // of the family has the glyph.
-                if (!check_glyph(font, code))
+                bool has_glyph = check_glyph(font, code);
+                if (!has_glyph)
                     continue;
 
                 score_min = score;

@@ -30,17 +30,34 @@
 #include FT_TYPE1_TABLES_H
 #include <limits.h>
 
+// Include color support header if available (FreeType 2.10+)
+#if FREETYPE_MAJOR > 2 || (FREETYPE_MAJOR == 2 && FREETYPE_MINOR >= 10)
+#include FT_COLOR_H
+#define HAVE_FT_COLOR 1
+#endif
+
+// Default PPEM for SBIX/CBDT color fonts (Apple Color Emoji uses 160px bitmaps)
+#define SBIX_DEFAULT_PPEM 160
+
 #include "ass.h"
 #include "ass_library.h"
 #include "ass_font.h"
 #include "ass_fontselect.h"
 #include "ass_utils.h"
 #include "ass_shaper.h"
+#include "ass_bitmap.h"
 
 #if FREETYPE_MAJOR == 2 && FREETYPE_MINOR < 6
 // The lowercase name is still included (as a macro) but deprecated as of 2.6, so avoid using it if we can
 #define FT_SFNT_OS2 ft_sfnt_os2
 #endif
+
+// FreeType version check macros for color glyph support
+#define FT_VERSION_ATLEAST(major, minor, patch) \
+    (FREETYPE_MAJOR > (major) || \
+     (FREETYPE_MAJOR == (major) && FREETYPE_MINOR > (minor)) || \
+     (FREETYPE_MAJOR == (major) && FREETYPE_MINOR == (minor) && \
+      FREETYPE_PATCH >= (patch)))
 
 /**
  *  Get the mbcs codepoint from the output bytes of iconv/WideCharToMultiByte,
@@ -310,6 +327,51 @@ static void set_font_metrics(FT_Face face)
     }
 }
 
+/**
+ * \brief Detect color glyph formats supported by a font face
+ * \return bitmask of ASS_ColorGlyphFormat values
+ */
+static unsigned int ass_detect_color_formats(FT_Face face)
+{
+    unsigned int formats = ASS_COLOR_GLYPH_NONE;
+    FT_ULong table_size = 0;
+
+    // Check for COLR table (vector-based color layers)
+    if (!FT_Load_Sfnt_Table(face, FT_MAKE_TAG('C','O','L','R'), 0, NULL, &table_size)) {
+        if (table_size > 0) {
+            // Read first 2 bytes to determine COLR version
+            unsigned char header[4];
+            FT_ULong header_size = sizeof(header);
+            if (!FT_Load_Sfnt_Table(face, FT_MAKE_TAG('C','O','L','R'), 0, header, &header_size)) {
+                // COLR table version is big-endian uint16 at offset 0
+                uint16_t version = ((uint16_t)header[0] << 8) | header[1];
+                if (version == 0)
+                    formats |= ASS_COLOR_GLYPH_COLR_V0;
+                else if (version == 1)
+                    formats |= ASS_COLOR_GLYPH_COLR_V0 | ASS_COLOR_GLYPH_COLR_V1;
+            }
+        }
+    }
+
+    // Check for CBDT/CBLC tables (Google color bitmap glyphs)
+    table_size = 0;
+    FT_ULong cblc_size = 0;
+    if (!FT_Load_Sfnt_Table(face, FT_MAKE_TAG('C','B','D','T'), 0, NULL, &table_size) &&
+        !FT_Load_Sfnt_Table(face, FT_MAKE_TAG('C','B','L','C'), 0, NULL, &cblc_size)) {
+        if (table_size > 0 && cblc_size > 0)
+            formats |= ASS_COLOR_GLYPH_CBDT;
+    }
+
+    // Check for sbix table (Apple color bitmap glyphs)
+    table_size = 0;
+    if (!FT_Load_Sfnt_Table(face, FT_MAKE_TAG('s','b','i','x'), 0, NULL, &table_size)) {
+        if (table_size > 0)
+            formats |= ASS_COLOR_GLYPH_SBIX;
+    }
+
+    return formats;
+}
+
 FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
                       const char *postscript_name, int index)
 {
@@ -460,6 +522,13 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 
     font->faces[font->n_faces] = face;
     font->faces_uid[font->n_faces] = uid;
+    font->color_formats[font->n_faces] = ass_detect_color_formats(face);
+    if (font->color_formats[font->n_faces]) {
+        ass_msg(font->library, MSGL_INFO,
+                "Color font detected: %s (formats: 0x%x)",
+                face->family_name ? face->family_name : "unknown",
+                font->color_formats[font->n_faces]);
+    }
     if (!ass_create_hb_font(font, font->n_faces)) {
         FT_Done_Face(face);
         goto fail;
@@ -493,6 +562,7 @@ size_t ass_font_construct(void *key, void *value, void *priv)
     font->library = render_priv->library;
     font->ftlibrary = render_priv->ftlibrary;
     font->n_faces = 0;
+    memset(font->color_formats, 0, sizeof(font->color_formats));
     font->desc.family = desc->family;
     font->desc.bold = desc->bold;
     font->desc.italic = desc->italic;
@@ -832,4 +902,196 @@ bool ass_get_glyph_outline(ASS_Outline *outline, int32_t *advance,
 fail:
     ass_outline_free(outline);
     return false;
+}
+
+/**
+ * \brief Get color glyph format support for a font face
+ * \return bitmask of ASS_ColorGlyphFormat values
+ */
+unsigned int ass_font_get_color_formats(ASS_Font *font, int face_index)
+{
+    if (face_index < 0 || face_index >= font->n_faces)
+        return ASS_COLOR_GLYPH_NONE;
+    return font->color_formats[face_index];
+}
+
+/**
+ * \brief Check if a specific glyph has color data available
+ *
+ * This function attempts to load the glyph with FT_LOAD_COLOR to determine
+ * if color bitmap data is available. For COLR fonts on FreeType 2.10+,
+ * it also checks for color layers.
+ */
+bool ass_glyph_has_color(ASS_Font *font, int face_index, int glyph_index)
+{
+    if (face_index < 0 || face_index >= font->n_faces)
+        return false;
+
+    unsigned int formats = font->color_formats[face_index];
+    if (formats == ASS_COLOR_GLYPH_NONE)
+        return false;
+
+    FT_Face face = font->faces[face_index];
+
+#ifdef HAVE_FT_COLOR
+    // For COLR fonts, check if this glyph has color layers
+    if (formats & (ASS_COLOR_GLYPH_COLR_V0 | ASS_COLOR_GLYPH_COLR_V1)) {
+        FT_LayerIterator iterator = { .p = NULL };
+        FT_UInt layer_glyph_index;
+        FT_UInt layer_color_index;
+
+        if (FT_Get_Color_Glyph_Layer(face, glyph_index,
+                                     &layer_glyph_index,
+                                     &layer_color_index,
+                                     &iterator)) {
+            return true;
+        }
+    }
+#endif
+
+    // For bitmap-based color fonts (CBDT/sbix), try loading with FT_LOAD_COLOR
+    if (formats & (ASS_COLOR_GLYPH_CBDT | ASS_COLOR_GLYPH_SBIX)) {
+        // Save current pixel size to restore after checking
+        FT_UInt orig_ppem = face->size->metrics.y_ppem;
+
+        // Set pixel size for sbix lookup
+        FT_Set_Pixel_Sizes(face, 0, SBIX_DEFAULT_PPEM);
+
+        FT_Error error = FT_Load_Glyph(face, glyph_index,
+                                       FT_LOAD_COLOR | FT_LOAD_NO_HINTING);
+        bool has_color = (!error && face->glyph->format == FT_GLYPH_FORMAT_BITMAP &&
+                          face->glyph->bitmap.pixel_mode == FT_PIXEL_MODE_BGRA);
+
+        // Restore original pixel size
+        if (orig_ppem > 0)
+            FT_Set_Pixel_Sizes(face, 0, orig_ppem);
+
+        if (has_color)
+            return true;
+    }
+
+    return false;
+}
+
+/**
+ * \brief Load a color glyph as RGBA bitmap
+ *
+ * This function loads a color glyph from CBDT/sbix or COLR fonts and
+ * returns the rendered RGBA bitmap data.
+ *
+ * \param font Font to load from
+ * \param face_index Face index within the font
+ * \param glyph_index Glyph index to load
+ * \param size Requested font size in pixels
+ * \param result Output ColorBitmap structure (caller must free with ass_free_color_bitmap)
+ * \return true on success, false on failure
+ */
+bool ass_get_color_glyph(ASS_Font *font, int face_index, int glyph_index,
+                         double size, ColorBitmap *result)
+{
+    if (!result)
+        return false;
+
+    memset(result, 0, sizeof(*result));
+
+    if (face_index < 0 || face_index >= font->n_faces)
+        return false;
+
+    unsigned int formats = font->color_formats[face_index];
+    if (formats == ASS_COLOR_GLYPH_NONE)
+        return false;
+
+    FT_Face face = font->faces[face_index];
+
+    // sbix fonts have fixed bitmap sizes, we scale the result to requested size
+    FT_Error error = FT_Set_Pixel_Sizes(face, 0, SBIX_DEFAULT_PPEM);
+    if (error) {
+        // Fall back to requested size
+        ass_face_set_size(face, size);
+    }
+
+    // Try loading with FT_LOAD_COLOR for bitmap-based color fonts
+    error = FT_Load_Glyph(face, glyph_index,
+                          FT_LOAD_COLOR | FT_LOAD_RENDER | FT_LOAD_NO_HINTING);
+    if (error)
+        return false;
+
+    FT_GlyphSlot slot = face->glyph;
+    if (slot->format != FT_GLYPH_FORMAT_BITMAP)
+        return false;
+
+    FT_Bitmap *bm = &slot->bitmap;
+    if (bm->pixel_mode != FT_PIXEL_MODE_BGRA)
+        return false;
+
+    if (bm->width == 0 || bm->rows == 0)
+        return false;
+
+    // Calculate scale factor to convert from SBIX native size to requested size
+    double scale = size / (double)SBIX_DEFAULT_PPEM;
+    if (scale <= 0)
+        scale = 1.0;
+    else if (scale > 10.0)
+        scale = 10.0;  // Clamp to reasonable maximum
+
+    int out_w = (int)(bm->width * scale + 0.5);
+    int out_h = (int)(bm->rows * scale + 0.5);
+    if (out_w < 1) out_w = 1;
+    if (out_h < 1) out_h = 1;
+
+    // Check for overflow: out_w * out_h * 4 must fit in size_t
+    if (out_w > INT32_MAX / 4 / (out_h > 0 ? out_h : 1))
+        return false;
+
+    // Allocate output buffer at scaled size
+    if (!ass_alloc_color_bitmap(result, out_w, out_h))
+        return false;
+
+    result->left = (int)(slot->bitmap_left * scale);
+    result->top = (int)(slot->bitmap_top * scale);
+
+    // Scale and convert BGRA to RGBA using bilinear interpolation
+    for (int y = 0; y < out_h; y++) {
+        double src_y = y / scale;
+        int y0 = (int)src_y;
+        int y1 = y0 + 1;
+        double fy = src_y - y0;
+        if (y1 >= (int)bm->rows) y1 = bm->rows - 1;
+
+        uint8_t *dst = result->buffer + y * result->stride;
+        for (int x = 0; x < out_w; x++) {
+            double src_x = x / scale;
+            int x0 = (int)src_x;
+            int x1 = x0 + 1;
+            double fx = src_x - x0;
+            if (x1 >= (int)bm->width) x1 = bm->width - 1;
+
+            // Get 4 source pixels
+            uint8_t *p00 = bm->buffer + y0 * bm->pitch + x0 * 4;
+            uint8_t *p01 = bm->buffer + y0 * bm->pitch + x1 * 4;
+            uint8_t *p10 = bm->buffer + y1 * bm->pitch + x0 * 4;
+            uint8_t *p11 = bm->buffer + y1 * bm->pitch + x1 * 4;
+
+            // Bilinear interpolation for each channel with BGRA -> RGBA swizzle
+            // Source is BGRA (FreeType), output is RGBA: B->R, G->G, R->B, A->A
+            static const int bgra_to_rgba[4] = {2, 1, 0, 3};
+            for (int c = 0; c < 4; c++) {
+                int idx = bgra_to_rgba[c];
+                double v00 = p00[idx];
+                double v01 = p01[idx];
+                double v10 = p10[idx];
+                double v11 = p11[idx];
+
+                double v = v00 * (1 - fx) * (1 - fy) +
+                           v01 * fx * (1 - fy) +
+                           v10 * (1 - fx) * fy +
+                           v11 * fx * fy;
+
+                dst[c] = (uint8_t)(v + 0.5);
+            }
+            dst += 4;
+        }
+    }
+
+    return true;
 }

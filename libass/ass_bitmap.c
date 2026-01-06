@@ -258,3 +258,44 @@ void ass_shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
             }
         }
 }
+
+// Color bitmap functions for color emoji support
+
+bool ass_alloc_color_bitmap(ColorBitmap *bm, int32_t w, int32_t h)
+{
+    if (w <= 0 || h <= 0 || w > INT_MAX / 4 / FFMAX(h, 1))
+        return false;
+
+    ptrdiff_t stride = (ptrdiff_t)w * 4;
+    uint8_t *buf = malloc(stride * h);
+    if (!buf)
+        return false;
+
+    bm->left = 0;
+    bm->top = 0;
+    bm->w = w;
+    bm->h = h;
+    bm->stride = stride;
+    bm->buffer = buf;
+    return true;
+}
+
+bool ass_copy_color_bitmap(ColorBitmap *dst, const ColorBitmap *src)
+{
+    if (!src->buffer) {
+        memset(dst, 0, sizeof(*dst));
+        return true;
+    }
+    if (!ass_alloc_color_bitmap(dst, src->w, src->h))
+        return false;
+    dst->left = src->left;
+    dst->top = src->top;
+    memcpy(dst->buffer, src->buffer, src->stride * src->h);
+    return true;
+}
+
+void ass_free_color_bitmap(ColorBitmap *bm)
+{
+    free(bm->buffer);
+    bm->buffer = NULL;
+}

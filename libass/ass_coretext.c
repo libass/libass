@@ -19,6 +19,8 @@
 #include "config.h"
 #include "ass_compat.h"
 
+#include <stdlib.h>
+#include <string.h>
 #include <AvailabilityMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <TargetConditionals.h>
@@ -64,10 +66,60 @@ static char *cfstr2buf(CFStringRef string)
     }
 }
 
+typedef struct {
+    CFCharacterSetRef charset;
+    CTFontRef font;
+    bool has_color_glyphs;
+} FontPriv;
+
+// Check if codepoint is likely an emoji that needs color rendering
+static bool is_emoji_codepoint(uint32_t code)
+{
+    return (code >= 0x1F300 && code <= 0x1FAF8) ||  // Misc symbols, emoticons, etc.
+           (code >= 0x2600 && code <= 0x26FF) ||    // Misc symbols
+           (code >= 0x2700 && code <= 0x27BF) ||    // Dingbats
+           (code >= 0x1F000 && code <= 0x1F02F) ||  // Mahjong, dominos
+           (code >= 0x1F0A0 && code <= 0x1F0FF);    // Playing cards
+}
+
+// Check if font has color glyph tables (sbix, COLR, CBDT)
+static bool font_has_color_tables(CTFontRef font)
+{
+    if (!font)
+        return false;
+
+    // Check for sbix (Apple color bitmap)
+    CFDataRef sbix = CTFontCopyTable(font, kCTFontTableSbix, 0);
+    if (sbix) {
+        CFRelease(sbix);
+        return true;
+    }
+
+    // Check for COLR (color layers)
+    CFDataRef colr = CTFontCopyTable(font, kCTFontTableCOLR, 0);
+    if (colr) {
+        CFRelease(colr);
+        return true;
+    }
+
+    // Check for CBDT (color bitmap data)
+    CFDataRef cbdt = CTFontCopyTable(font, kCTFontTableCBDT, 0);
+    if (cbdt) {
+        CFRelease(cbdt);
+        return true;
+    }
+
+    return false;
+}
+
 static void destroy_font(void *priv)
 {
-    CFCharacterSetRef set = priv;
-    SAFE_CFRelease(set);
+    FontPriv *fp = priv;
+    if (fp) {
+        SAFE_CFRelease(fp->charset);
+        SAFE_CFRelease(fp->font);
+        free(fp);
+    }
 }
 
 static bool check_glyph(void *priv, uint32_t code)
@@ -75,12 +127,41 @@ static bool check_glyph(void *priv, uint32_t code)
     if (code == 0)
         return true;
 
-    CFCharacterSetRef set = priv;
-
-    if (!set)
+    FontPriv *fp = priv;
+    if (!fp)
         return true;
 
-    return CFCharacterSetIsLongCharacterMember(set, code);
+    // For emoji codepoints, only claim we have the glyph if this is a color font.
+    // This forces fallback to a color emoji font for proper rendering.
+    if (is_emoji_codepoint(code) && !fp->has_color_glyphs)
+        return false;
+
+    // First try the character set (fast path)
+    if (fp->charset && CFCharacterSetIsLongCharacterMember(fp->charset, code))
+        return true;
+
+    // Fallback: use CTFont to check glyph (works for color emoji)
+    if (fp->font) {
+        UniChar chars[2];
+        CGGlyph glyphs[2];
+        CFIndex count;
+
+        // Handle surrogate pairs for codepoints > 0xFFFF
+        if (code > 0xFFFF) {
+            uint32_t adjusted = code - 0x10000;
+            chars[0] = (adjusted >> 10) + 0xD800;    // high surrogate
+            chars[1] = (adjusted & 0x3FF) + 0xDC00;  // low surrogate
+            count = 2;
+        } else {
+            chars[0] = code;
+            count = 1;
+        }
+
+        if (CTFontGetGlyphsForCharacters(fp->font, chars, glyphs, count) && glyphs[0] != 0)
+            return true;
+    }
+
+    return false;
 }
 
 static char *get_font_file(CTFontDescriptorRef fontd)
@@ -165,9 +246,13 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
 
         char *path = NULL;
         if (get_font_info_ct(fontd, &path, &meta)) {
-            CFCharacterSetRef set =
-                CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
-            ass_font_provider_add_font(provider, &meta, path, index, (void*)set);
+            FontPriv *fp = calloc(1, sizeof(FontPriv));
+            if (fp) {
+                fp->charset = CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
+                fp->font = CTFontCreateWithFontDescriptor(fontd, 0, NULL);
+                fp->has_color_glyphs = font_has_color_tables(fp->font);
+                ass_font_provider_add_font(provider, &meta, path, index, fp);
+            }
         }
 
         free(meta.postscript_name);
@@ -254,12 +339,26 @@ cleanup:
 static char *get_fallback(void *priv, ASS_Library *lib,
                           const char *family, uint32_t codepoint)
 {
+    // For emoji codepoints, directly return a color emoji font.
+    // CTFontCreateForString often returns .LastResort instead of the color font.
+    if (is_emoji_codepoint(codepoint)) {
+        // Try Apple Color Emoji (macOS/iOS)
+        CTFontRef emoji_font = CTFontCreateWithName(CFSTR("Apple Color Emoji"), 12.0, NULL);
+        if (emoji_font) {
+            if (font_has_color_tables(emoji_font)) {
+                CFRelease(emoji_font);
+                return strdup("Apple Color Emoji");
+            }
+            CFRelease(emoji_font);
+        }
+    }
+
     CFStringRef name = CFStringCreateWithBytes(
         0, (UInt8 *)family, strlen(family), kCFStringEncodingUTF8, false);
     if (!name)
         return NULL;
 
-    CTFontRef font = CTFontCreateWithName(name, 0, NULL);
+    CTFontRef font = CTFontCreateWithName(name, 12.0, NULL);
     CFRelease(name);
     if (!font)
         return NULL;

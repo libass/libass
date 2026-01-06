@@ -53,6 +53,7 @@ typedef struct {
     ASS_Image result;
     CompositeHashValue *source;
     unsigned char *buffer;
+    unsigned char *color_buffer;  // For color emoji: RGBA data (freed separately)
     size_t ref_count;
 } ASS_ImagePriv;
 
@@ -175,6 +176,10 @@ typedef struct glyph_info {
 
     ASS_Vector shift;
     Bitmap *bm, *bm_o;
+
+    // Color glyph support
+    bool is_color_glyph;
+    ColorBitmap *color_bm;
 
     // next glyph in this cluster
     struct glyph_info *next;

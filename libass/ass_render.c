@@ -226,10 +226,67 @@ static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
     img->result.color = color;
     img->result.dst_x = dst_x;
     img->result.dst_y = dst_y;
+    img->result.flags = 0;
+    img->result.color_bitmap = NULL;
 
     img->source = source;
     ass_cache_inc_ref(source);
     img->buffer = source ? NULL : bitmap;
+    img->color_buffer = NULL;
+    img->ref_count = 0;
+
+    return &img->result;
+}
+
+/**
+ * \brief Create an ASS_Image from a color (RGBA) bitmap
+ * For backwards compatibility with applications that don't understand color_bitmap,
+ * we also extract the alpha channel into a separate grayscale bitmap.
+ */
+static ASS_Image *my_draw_color_bitmap(unsigned char *color_bitmap, int bitmap_w,
+                                       int bitmap_h, int rgba_stride, int dst_x,
+                                       int dst_y)
+{
+    // Allocate alpha-only bitmap for backwards compatibility
+    // Applications that don't understand color_bitmap will use this
+    int alpha_stride = (bitmap_w + 31) & ~31;  // 32-byte aligned
+    unsigned char *alpha_bitmap = ass_aligned_alloc(32, alpha_stride * bitmap_h + 32, false);
+    if (!alpha_bitmap) {
+        free(color_bitmap);
+        return NULL;
+    }
+
+    // Extract alpha channel from RGBA data as coverage
+    // The bitmap field in ASS_Image is a coverage map: 255=fully visible, 0=invisible
+    // FreeType's alpha: 255=opaque, 0=transparent - matches coverage semantics directly
+    for (int y = 0; y < bitmap_h; y++) {
+        unsigned char *src = color_bitmap + y * rgba_stride;
+        unsigned char *dst = alpha_bitmap + y * alpha_stride;
+        for (int x = 0; x < bitmap_w; x++) {
+            dst[x] = src[x * 4 + 3];  // Use alpha directly as coverage
+        }
+    }
+
+    ASS_ImagePriv *img = malloc(sizeof(ASS_ImagePriv));
+    if (!img) {
+        free(color_bitmap);
+        ass_aligned_free(alpha_bitmap);
+        return NULL;
+    }
+
+    img->result.w = bitmap_w;
+    img->result.h = bitmap_h;
+    img->result.stride = rgba_stride;   // RGBA stride (4 bytes per pixel)
+    img->result.bitmap = alpha_bitmap;  // Alpha fallback for old renderers
+    img->result.color = 0xFFFFFF00;     // Fallback color (white, opaque)
+    img->result.dst_x = dst_x;
+    img->result.dst_y = dst_y;
+    img->result.flags = ASS_IMAGE_FLAG_COLOR;  // Signal RGBA data available
+    img->result.color_bitmap = color_bitmap;   // Full RGBA pixel data
+
+    img->source = NULL;
+    img->buffer = alpha_bitmap;       // This gets freed with ass_aligned_free
+    img->color_buffer = color_bitmap; // This gets freed with free()
     img->ref_count = 0;
 
     return &img->result;
@@ -883,6 +940,189 @@ static ASS_Image *render_text(RenderContext *state)
     return head;
 }
 
+/**
+ * \brief Render color glyphs (emoji) directly to ASS_Image list
+ *
+ * Color glyphs bypass the normal bitmap combining pipeline and are
+ * rendered directly. This function creates ASS_Image entries for
+ * all color glyphs in the text.
+ *
+ * Renders in two passes:
+ * 1. Shadows - alpha-only images extracted from the color glyph's alpha
+ * 2. Color glyphs - the actual RGBA color bitmaps
+ */
+static ASS_Image *render_color_glyphs(RenderContext *state)
+{
+    TextInfo *text_info = &state->text_info;
+    ASS_Image *head = NULL;
+    ASS_Image **current_tail = &head;
+
+    // First pass: render shadows
+    for (int i = 0; i < text_info->length; i++) {
+        GlyphInfo *info = text_info->glyphs + i;
+        if (info->skip || !info->is_color_glyph || !info->color_bm)
+            continue;
+
+        // Check if shadow is enabled
+        if (info->shadow_x == 0 && info->shadow_y == 0)
+            continue;
+
+        ColorBitmap *cbm = info->color_bm;
+
+        // Calculate shadow position with offset
+        int shadow_offset_x = lround(info->shadow_x * state->border_scale_x);
+        int shadow_offset_y = lround(info->shadow_y * state->border_scale_y);
+        int dst_x = d6_to_int(info->pos.x) + cbm->left + shadow_offset_x;
+        int dst_y = d6_to_int(info->pos.y) - cbm->top + shadow_offset_y;
+
+        // Apply clipping
+        int x0 = dst_x;
+        int y0 = dst_y;
+        int x1 = dst_x + cbm->w;
+        int y1 = dst_y + cbm->h;
+
+        // Clip to screen bounds for color glyphs
+        int clip_x0 = 0;
+        int clip_y0 = 0;
+        int clip_x1 = state->renderer->frame_content_width + state->renderer->settings.left_margin + state->renderer->settings.right_margin;
+        int clip_y1 = state->renderer->frame_content_height + state->renderer->settings.top_margin + state->renderer->settings.bottom_margin;
+
+        if (x0 < clip_x0) x0 = clip_x0;
+        if (y0 < clip_y0) y0 = clip_y0;
+        if (x1 > clip_x1) x1 = clip_x1;
+        if (y1 > clip_y1) y1 = clip_y1;
+
+        if (x0 >= x1 || y0 >= y1)
+            continue;
+
+        int clip_left = x0 - dst_x;
+        int clip_top = y0 - dst_y;
+        int clip_w = x1 - x0;
+        int clip_h = y1 - y0;
+
+        // Create alpha-only shadow bitmap (use ass_aligned_alloc since my_draw_bitmap
+        // stores it in buffer which gets freed with ass_aligned_free)
+        unsigned char *shadow_buf = ass_aligned_alloc(32, (size_t)clip_w * clip_h + 32, false);
+        if (!shadow_buf)
+            continue;
+
+        // Extract alpha channel for shadow
+        int fade = info->fade;
+        for (int row = 0; row < clip_h; row++) {
+            uint8_t *src = cbm->buffer + (clip_top + row) * cbm->stride + clip_left * 4;
+            uint8_t *dst_row = shadow_buf + row * clip_w;
+            for (int col = 0; col < clip_w; col++) {
+                int alpha = src[3];  // Alpha channel
+                if (fade) {
+                    alpha = alpha * (255 - fade) / 255;
+                }
+                dst_row[col] = alpha;
+                src += 4;
+            }
+        }
+
+        // Create shadow image using the standard bitmap draw function
+        ASS_Image *img = my_draw_bitmap(shadow_buf, clip_w, clip_h,
+                                         clip_w, x0, y0, info->c[3], NULL);
+        if (img) {
+            img->type = IMAGE_TYPE_SHADOW;
+            *current_tail = img;
+            current_tail = &img->next;
+        }
+    }
+
+    // Second pass: render the color glyphs themselves
+    for (int i = 0; i < text_info->length; i++) {
+        GlyphInfo *info = text_info->glyphs + i;
+        if (info->skip || !info->is_color_glyph || !info->color_bm)
+            continue;
+
+        ColorBitmap *cbm = info->color_bm;
+
+        // Calculate screen position
+        int dst_x = d6_to_int(info->pos.x) + cbm->left;
+        int dst_y = d6_to_int(info->pos.y) - cbm->top;
+
+        // Apply clipping
+        int x0 = dst_x;
+        int y0 = dst_y;
+        int x1 = dst_x + cbm->w;
+        int y1 = dst_y + cbm->h;
+
+        // Clip to screen - for color glyphs, use frame bounds not text clip
+        // (OSD text clips are too small for emoji)
+        int clip_x0 = 0;
+        int clip_y0 = 0;
+        int clip_x1 = state->renderer->frame_content_width + state->renderer->settings.left_margin + state->renderer->settings.right_margin;
+        int clip_y1 = state->renderer->frame_content_height + state->renderer->settings.top_margin + state->renderer->settings.bottom_margin;
+
+        if (x0 < clip_x0) x0 = clip_x0;
+        if (y0 < clip_y0) y0 = clip_y0;
+        if (x1 > clip_x1) x1 = clip_x1;
+        if (y1 > clip_y1) y1 = clip_y1;
+
+        if (x0 >= x1 || y0 >= y1) {
+            // Fully clipped, clean up
+            ass_free_color_bitmap(cbm);
+            free(info->color_bm);
+            info->color_bm = NULL;
+            continue;
+        }
+
+        // Calculate clipped dimensions
+        int clip_left = x0 - dst_x;
+        int clip_top = y0 - dst_y;
+        int clip_w = x1 - x0;
+        int clip_h = y1 - y0;
+
+        // Create a copy of the clipped region
+        size_t buffer_size = (size_t)clip_w * clip_h * 4;
+        unsigned char *buffer = malloc(buffer_size);
+        if (!buffer) {
+            ass_free_color_bitmap(cbm);
+            free(info->color_bm);
+            info->color_bm = NULL;
+            continue;
+        }
+
+        // Apply fade effect to alpha channel if needed
+        int fade = info->fade;
+        for (int row = 0; row < clip_h; row++) {
+            uint8_t *src = cbm->buffer + (clip_top + row) * cbm->stride + clip_left * 4;
+            uint8_t *dst = buffer + row * clip_w * 4;
+            for (int col = 0; col < clip_w; col++) {
+                dst[0] = src[0];  // R
+                dst[1] = src[1];  // G
+                dst[2] = src[2];  // B
+                // Apply fade to alpha
+                int alpha = src[3];
+                if (fade) {
+                    alpha = alpha * (255 - fade) / 255;
+                }
+                dst[3] = alpha;
+                src += 4;
+                dst += 4;
+            }
+        }
+
+        ASS_Image *img = my_draw_color_bitmap(buffer, clip_w, clip_h,
+                                               clip_w * 4, x0, y0);
+        if (img) {
+            img->type = IMAGE_TYPE_CHARACTER;
+            *current_tail = img;
+            current_tail = &img->next;
+        }
+
+        // Free the original ColorBitmap struct - we've already copied the data to our buffer
+        ass_free_color_bitmap(cbm);
+        free(info->color_bm);
+        info->color_bm = NULL;
+    }
+
+    *current_tail = NULL;
+    return head;
+}
+
 static void compute_string_bbox(TextInfo *text, ASS_DRect *bbox)
 {
     if (text->length > 0) {
@@ -1178,6 +1418,20 @@ get_outline_glyph(RenderContext *state, GlyphInfo *info)
 
     int32_t asc, desc;
     OutlineHashKey key;
+
+    // Initialize color glyph state
+    info->is_color_glyph = false;
+    info->color_bm = NULL;
+
+    // Check if this is a color glyph (not for drawings)
+    if (!info->drawing_text.str && info->font && info->face_index >= 0) {
+        if (ass_glyph_has_color(info->font, info->face_index, info->glyph_index)) {
+            info->is_color_glyph = true;
+            // For color glyphs, we still need metrics for layout
+            // but we don't need the outline - we'll load the color bitmap later
+        }
+    }
+
     if (info->drawing_text.str) {
         key.type = OUTLINE_DRAWING;
         key.u.drawing.text = info->drawing_text;
@@ -1229,6 +1483,13 @@ get_outline_glyph(RenderContext *state, GlyphInfo *info)
     }
     info->asc  = ass_lrint(asc  * scale.y);
     info->desc = ass_lrint(desc * scale.y);
+
+    // For color glyphs, override the advance from shaping with the correct scaled advance
+    // HarfBuzz returns advance at target size, but color glyphs are loaded at native size
+    // and scaled, so we need to use the advance from the outline cache
+    if (info->is_color_glyph && val->advance) {
+        info->cluster_advance.x = info->advance.x = ass_lrint(val->advance * scale.x);
+    }
 }
 
 size_t ass_outline_construct(void *key, void *value, void *priv)
@@ -1242,16 +1503,41 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
     case OUTLINE_GLYPH:
         {
             GlyphHashKey *k = &outline_key->u.glyph;
-            ass_face_set_size(k->font->faces[k->face_index], k->size);
+            FT_Face face = k->font->faces[k->face_index];
+            ass_face_set_size(face, k->size);
+            if (!ass_font_get_glyph(k->font, k->face_index, k->glyph_index,
+                                    render_priv->settings.hinting))
+                return 1;
+            // Save advance and metrics BEFORE ass_glyph_has_color changes face size
+            int32_t glyph_advance = face->glyph->advance.x;
+            int asc, desc;
+            ass_font_get_asc_desc(k->font, k->face_index, &asc, &desc);
+            // Color glyphs have no outline data - just use metrics
+            if (ass_glyph_has_color(k->font, k->face_index, k->glyph_index)) {
+                // For SBIX fonts, FreeType loads bitmaps at native size (160)
+                // The advance we got is at requested size (k->size), but we need
+                // the advance at native size scaled to target, since the bitmap
+                // gets loaded at native size and scaled in ass_get_color_glyph.
+                // The bitmap width at native size is proportional to font em,
+                // so use the em square as the advance (matches typical emoji fonts).
+                // This gives advance = k->size in font units (1 em = 1 glyph width for emoji)
+                v->advance = (int32_t)(k->size * 64);  // Convert to 26.6 format
+                v->asc = asc;
+                v->desc = desc;
+                v->valid = true;
+                break;
+            }
+            // ass_glyph_has_color may have modified face state, reload the glyph
+            ass_face_set_size(face, k->size);
             if (!ass_font_get_glyph(k->font, k->face_index, k->glyph_index,
                                     render_priv->settings.hinting))
                 return 1;
             if (!ass_get_glyph_outline(&v->outline[0], &v->advance,
-                                       k->font->faces[k->face_index],
+                                       face,
                                        k->flags))
                 return 1;
-            ass_font_get_asc_desc(k->font, k->face_index,
-                                  &v->asc, &v->desc);
+            v->asc = asc;
+            v->desc = desc;
             break;
         }
     case OUTLINE_DRAWING:
@@ -1388,7 +1674,33 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
 {
     ASS_Renderer *render_priv = state->renderer;
 
-    if (!info->outline || info->symbol == '\n' || info->symbol == 0 || info->skip)
+    if (info->symbol == '\n' || info->symbol == 0 || info->skip)
+        return;
+
+    // Handle color glyphs separately
+    if (info->is_color_glyph) {
+        // Load the color bitmap from the font
+        ColorBitmap *cbm = malloc(sizeof(ColorBitmap));
+        if (!cbm)
+            return;
+
+        // Apply scale to get actual display size (similar to outline transform)
+        // The font is rendered at font_size, but scale.y adjusts the final display size
+        double target_size = info->font_size * info->scale_y;
+        if (target_size < 4) target_size = 4;  // Minimum size to avoid issues
+
+        if (!ass_get_color_glyph(info->font, info->face_index, info->glyph_index,
+                                 target_size, cbm)) {
+            free(cbm);
+            return;
+        }
+
+        info->color_bm = cbm;
+        // Color glyphs don't have outlines, so skip outline-related processing
+        return;
+    }
+
+    if (!info->outline)
         return;
 
     double m1[3][3], m2[3][3], m[3][3];
@@ -2571,6 +2883,14 @@ static void render_and_combine_glyphs(RenderContext *state,
             get_bitmap_glyph(state, info, &current_info->leftmost_x, &pos, &pos_o,
                              &offset, !current_info->bitmap_count, flags);
 
+            // Color glyphs are handled separately - they bypass bitmap combining
+            // and are rendered directly
+            if (info->is_color_glyph && info->color_bm) {
+                // Color glyphs don't participate in bitmap combining
+                // They will be rendered directly in ass_render_event
+                continue;
+            }
+
             if (!info->bm && !info->bm_o)
                 continue;
 
@@ -3032,6 +3352,16 @@ ass_render_event(RenderContext *state, ASS_Event *event,
     event_images->event = event;
     event_images->imgs = render_text(state);
 
+    // Render color glyphs (emoji) and append to image list
+    ASS_Image *color_imgs = render_color_glyphs(state);
+    if (color_imgs) {
+        // Append color images to the end of the regular images
+        ASS_Image **tail = &event_images->imgs;
+        while (*tail)
+            tail = &(*tail)->next;
+        *tail = color_imgs;
+    }
+
     if (state->border_style == 4)
         add_background(state, event_images);
 
@@ -3464,6 +3794,7 @@ void ass_frame_unref(ASS_Image *img)
         img = img->next;
         ass_cache_dec_ref(priv->source);
         ass_aligned_free(priv->buffer);
+        free(priv->color_buffer);  // Free color bitmap if present
         free(priv);
     } while (img);
 }

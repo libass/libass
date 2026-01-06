@@ -83,7 +83,21 @@ typedef struct ass_image {
     } type;
 
     // New fields can be added here in new ABI-compatible library releases.
+
+    // Color emoji support (added in 0.18.0)
+    // When flags & ASS_IMAGE_FLAG_COLOR:
+    //   - color_bitmap contains RGBA data (4 bytes per pixel, R,G,B,A order)
+    //   - stride is the RGBA stride in bytes (width * 4)
+    //   - bitmap contains alpha-only fallback for backwards compatibility
+    //   - color field is set to white (0xFFFFFF00) as fallback
+    // Applications should check ASS_IMAGE_FLAG_COLOR and use color_bitmap if set,
+    // otherwise fall back to the traditional bitmap + color rendering.
+    uint32_t flags;                  // 0 = alpha-only, ASS_IMAGE_FLAG_COLOR = RGBA
+    unsigned char *color_bitmap;     // RGBA data when color, NULL otherwise
 } ASS_Image;
+
+// ASS_Image flags
+#define ASS_IMAGE_FLAG_COLOR 0x01
 
 /*
  * Hinting type. (see ass_set_hinting below)

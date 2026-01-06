@@ -34,10 +34,22 @@ typedef struct {
     uint8_t *buffer;      // h * stride buffer
 } Bitmap;
 
+// RGBA color bitmap for color emoji/glyphs
+typedef struct ColorBitmap {
+    int32_t left, top;
+    int32_t w, h;         // width, height
+    ptrdiff_t stride;     // stride in bytes (typically w * 4)
+    uint8_t *buffer;      // h * stride RGBA buffer (4 bytes per pixel)
+} ColorBitmap;
+
 bool ass_alloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h, bool zero);
 bool ass_realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h);
 bool ass_copy_bitmap(const BitmapEngine *engine, Bitmap *dst, const Bitmap *src);
 void ass_free_bitmap(Bitmap *bm);
+
+bool ass_alloc_color_bitmap(ColorBitmap *bm, int32_t w, int32_t h);
+bool ass_copy_color_bitmap(ColorBitmap *dst, const ColorBitmap *src);
+void ass_free_color_bitmap(ColorBitmap *bm);
 
 struct render_context;
 

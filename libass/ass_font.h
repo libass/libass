@@ -30,6 +30,7 @@ typedef struct ass_font ASS_Font;
 #include "ass_fontselect.h"
 #include "ass_cache.h"
 #include "ass_outline.h"
+#include "ass_bitmap.h"
 
 #define VERTICAL_LOWER_BOUND 0x02f1
 
@@ -37,6 +38,15 @@ typedef struct ass_font ASS_Font;
 #define DECO_UNDERLINE     1
 #define DECO_STRIKETHROUGH 2
 #define DECO_ROTATE        4
+
+// Color glyph format detection flags
+typedef enum {
+    ASS_COLOR_GLYPH_NONE    = 0,
+    ASS_COLOR_GLYPH_COLR_V0 = (1 << 0),  // COLRv0 layered glyphs
+    ASS_COLOR_GLYPH_COLR_V1 = (1 << 1),  // COLRv1 paint-based glyphs
+    ASS_COLOR_GLYPH_CBDT    = (1 << 2),  // CBDT/CBLC bitmap glyphs
+    ASS_COLOR_GLYPH_SBIX    = (1 << 3),  // sbix bitmap glyphs
+} ASS_ColorGlyphFormat;
 
 struct ass_font {
     ASS_FontDesc desc;
@@ -46,6 +56,8 @@ struct ass_font {
     FT_Face faces[ASS_FONT_MAX_FACES];
     struct hb_font_t *hb_fonts[ASS_FONT_MAX_FACES];
     int n_faces;
+    // Color glyph format support per face (bitmask of ASS_ColorGlyphFormat)
+    unsigned int color_formats[ASS_FONT_MAX_FACES];
 };
 
 void ass_charmap_magic(ASS_Library *library, FT_Face face);
@@ -70,5 +82,11 @@ FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
                       const char *postscript_name, int index);
 FT_Face ass_face_stream(ASS_Library *lib, FT_Library ftlib, const char *name,
                         const ASS_FontStream *stream, int index);
+
+// Color glyph support
+unsigned int ass_font_get_color_formats(ASS_Font *font, int face_index);
+bool ass_glyph_has_color(ASS_Font *font, int face_index, int glyph_index);
+bool ass_get_color_glyph(ASS_Font *font, int face_index, int glyph_index,
+                         double size, ColorBitmap *result);
 
 #endif                          /* LIBASS_FONT_H */
