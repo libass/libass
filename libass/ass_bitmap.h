@@ -63,4 +63,9 @@ bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2x, doubl
 void ass_shift_bitmap(Bitmap *bm, int shift_x, int shift_y);
 void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o);
 
+// Color bitmap blur using pre-multiplied alpha approach
+// Blurs RGBA by: pre-multiply RGB*A, blur all 4 channels, un-pre-multiply
+bool ass_synth_blur_color(const BitmapEngine *engine, ColorBitmap *bm,
+                          int be, double blur_r2x, double blur_r2y);
+
 #endif                          /* LIBASS_BITMAP_H */

@@ -1690,6 +1690,17 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
             return;
         }
 
+        // Apply blur to color glyph if requested (same scaling as regular glyphs)
+        if (info->be || info->blur > 0.001) {
+            double blur_radius_scale = 2 / sqrt(log(256));
+            double blur_r2x = info->blur * state->blur_scale_x * blur_radius_scale;
+            double blur_r2y = info->blur * state->blur_scale_y * blur_radius_scale;
+            // Convert to r² as expected by ass_synth_blur_color
+            blur_r2x = blur_r2x * blur_r2x;
+            blur_r2y = blur_r2y * blur_r2y;
+            ass_synth_blur_color(&render_priv->engine, cbm, info->be, blur_r2x, blur_r2y);
+        }
+
         info->color_bm = cbm;
         // Color glyphs don't have outlines, so skip outline-related processing
         return;

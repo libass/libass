@@ -299,3 +299,185 @@ void ass_free_color_bitmap(ColorBitmap *bm)
     free(bm->buffer);
     bm->buffer = NULL;
 }
+
+/**
+ * \brief Extract a single channel from RGBA ColorBitmap to alpha-only Bitmap
+ * \param cbm source RGBA bitmap
+ * \param bm destination alpha-only bitmap (must be pre-allocated)
+ * \param channel 0=R, 1=G, 2=B, 3=A
+ */
+static void extract_channel(const ColorBitmap *cbm, Bitmap *bm, int channel)
+{
+    for (int32_t y = 0; y < cbm->h; y++) {
+        const uint8_t *src = cbm->buffer + y * cbm->stride;
+        uint8_t *dst = bm->buffer + y * bm->stride;
+        for (int32_t x = 0; x < cbm->w; x++) {
+            dst[x] = src[x * 4 + channel];
+        }
+    }
+}
+
+/**
+ * \brief Merge 4 alpha-only Bitmaps back into RGBA ColorBitmap
+ * \param cbm destination RGBA bitmap
+ * \param channels array of 4 Bitmaps (R, G, B, A)
+ */
+static void merge_channels(ColorBitmap *cbm, const Bitmap channels[4])
+{
+    for (int32_t y = 0; y < cbm->h; y++) {
+        uint8_t *dst = cbm->buffer + y * cbm->stride;
+        const uint8_t *r = channels[0].buffer + y * channels[0].stride;
+        const uint8_t *g = channels[1].buffer + y * channels[1].stride;
+        const uint8_t *b = channels[2].buffer + y * channels[2].stride;
+        const uint8_t *a = channels[3].buffer + y * channels[3].stride;
+        for (int32_t x = 0; x < cbm->w; x++) {
+            dst[x * 4 + 0] = r[x];
+            dst[x * 4 + 1] = g[x];
+            dst[x * 4 + 2] = b[x];
+            dst[x * 4 + 3] = a[x];
+        }
+    }
+}
+
+/**
+ * \brief Pre-multiply RGB channels by alpha
+ * For correct blur of transparent regions, we need:
+ *   R' = R * A / 255
+ *   G' = G * A / 255
+ *   B' = B * A / 255
+ * \param channels array of 4 Bitmaps (R, G, B, A) - R,G,B are modified in-place
+ */
+static void premultiply_rgb_by_alpha(Bitmap channels[4])
+{
+    int32_t w = channels[0].w;
+    int32_t h = channels[0].h;
+
+    for (int32_t y = 0; y < h; y++) {
+        uint8_t *r = channels[0].buffer + y * channels[0].stride;
+        uint8_t *g = channels[1].buffer + y * channels[1].stride;
+        uint8_t *b = channels[2].buffer + y * channels[2].stride;
+        const uint8_t *a = channels[3].buffer + y * channels[3].stride;
+        for (int32_t x = 0; x < w; x++) {
+            uint16_t alpha = a[x];
+            r[x] = (r[x] * alpha + 127) / 255;
+            g[x] = (g[x] * alpha + 127) / 255;
+            b[x] = (b[x] * alpha + 127) / 255;
+        }
+    }
+}
+
+/**
+ * \brief Un-pre-multiply RGB channels by alpha (after blur)
+ * Reverses pre-multiplication:
+ *   R = R' * 255 / A  (with A=0 protection)
+ *   G = G' * 255 / A
+ *   B = B' * 255 / A
+ * \param channels array of 4 Bitmaps (R, G, B, A) - R,G,B are modified in-place
+ */
+static void unpremultiply_rgb_by_alpha(Bitmap channels[4])
+{
+    int32_t w = channels[0].w;
+    int32_t h = channels[0].h;
+
+    for (int32_t y = 0; y < h; y++) {
+        uint8_t *r = channels[0].buffer + y * channels[0].stride;
+        uint8_t *g = channels[1].buffer + y * channels[1].stride;
+        uint8_t *b = channels[2].buffer + y * channels[2].stride;
+        const uint8_t *a = channels[3].buffer + y * channels[3].stride;
+        for (int32_t x = 0; x < w; x++) {
+            uint16_t alpha = a[x];
+            if (alpha > 0) {
+                // Clamp to 255 in case of rounding errors
+                uint16_t rv = (r[x] * 255 + alpha / 2) / alpha;
+                uint16_t gv = (g[x] * 255 + alpha / 2) / alpha;
+                uint16_t bv = (b[x] * 255 + alpha / 2) / alpha;
+                r[x] = rv > 255 ? 255 : rv;
+                g[x] = gv > 255 ? 255 : gv;
+                b[x] = bv > 255 ? 255 : bv;
+            } else {
+                r[x] = g[x] = b[x] = 0;
+            }
+        }
+    }
+}
+
+/**
+ * \brief Blur a color (RGBA) bitmap using pre-multiplied alpha approach
+ *
+ * Algorithm:
+ * 1. Extract RGBA to 4 separate alpha-only bitmaps
+ * 2. Pre-multiply RGB channels by alpha
+ * 3. Blur all 4 channels using existing blur functions
+ * 4. Un-pre-multiply RGB by alpha
+ * 5. Merge back into RGBA
+ *
+ * This approach reuses the existing optimized blur code (including SIMD)
+ * at the cost of 4x the processing time.
+ */
+bool ass_synth_blur_color(const BitmapEngine *engine, ColorBitmap *cbm,
+                          int be, double blur_r2x, double blur_r2y)
+{
+    if (!cbm->buffer)
+        return true;
+
+    // Skip if no blur requested
+    if (be == 0 && blur_r2x <= 0.001 && blur_r2y <= 0.001)
+        return true;
+
+    int32_t w = cbm->w;
+    int32_t h = cbm->h;
+
+    // Allocate 4 alpha-only bitmaps for R, G, B, A channels
+    Bitmap channels[4] = {{0}};
+    for (int c = 0; c < 4; c++) {
+        if (!ass_alloc_bitmap(engine, &channels[c], w, h, false))
+            goto fail;
+        channels[c].left = cbm->left;
+        channels[c].top = cbm->top;
+    }
+
+    // Extract each channel
+    for (int c = 0; c < 4; c++) {
+        extract_channel(cbm, &channels[c], c);
+    }
+
+    // Pre-multiply RGB by alpha (required for correct transparent blur)
+    premultiply_rgb_by_alpha(channels);
+
+    // Blur each channel using existing optimized code
+    for (int c = 0; c < 4; c++) {
+        ass_synth_blur(engine, &channels[c], be, blur_r2x, blur_r2y);
+    }
+
+    // After blur, dimensions may have changed (gaussian blur expands the bitmap)
+    // All channels should have the same new dimensions
+    // Reallocate the color bitmap if needed
+    if (channels[0].w != w || channels[0].h != h) {
+        int32_t new_w = channels[0].w;
+        int32_t new_h = channels[0].h;
+
+        free(cbm->buffer);
+        if (!ass_alloc_color_bitmap(cbm, new_w, new_h))
+            goto fail;
+        cbm->left = channels[0].left;
+        cbm->top = channels[0].top;
+    }
+
+    // Un-pre-multiply RGB by alpha
+    unpremultiply_rgb_by_alpha(channels);
+
+    // Merge channels back into RGBA
+    merge_channels(cbm, channels);
+
+    // Clean up
+    for (int c = 0; c < 4; c++) {
+        ass_free_bitmap(&channels[c]);
+    }
+    return true;
+
+fail:
+    for (int c = 0; c < 4; c++) {
+        ass_free_bitmap(&channels[c]);
+    }
+    return false;
+}
