@@ -954,8 +954,14 @@ bool ass_glyph_has_color(ASS_Font *font, int face_index, int glyph_index)
         // Save current pixel size to restore after checking
         FT_UInt orig_ppem = face->size->metrics.y_ppem;
 
-        // Set pixel size for sbix lookup
-        FT_Set_Pixel_Sizes(face, 0, SBIX_DEFAULT_PPEM);
+        // Use font's native bitmap size if available
+        int native_ppem = SBIX_DEFAULT_PPEM;
+        if (face->num_fixed_sizes > 0) {
+            native_ppem = face->available_sizes[face->num_fixed_sizes - 1].y_ppem >> 6;
+            if (native_ppem <= 0)
+                native_ppem = SBIX_DEFAULT_PPEM;
+        }
+        FT_Set_Pixel_Sizes(face, 0, native_ppem);
 
         FT_Error error = FT_Load_Glyph(face, glyph_index,
                                        FT_LOAD_COLOR | FT_LOAD_NO_HINTING);
@@ -1003,8 +1009,16 @@ bool ass_get_color_glyph(ASS_Font *font, int face_index, int glyph_index,
 
     FT_Face face = font->faces[face_index];
 
-    // sbix fonts have fixed bitmap sizes, we scale the result to requested size
-    FT_Error error = FT_Set_Pixel_Sizes(face, 0, SBIX_DEFAULT_PPEM);
+    // Color bitmap fonts have fixed sizes - use the font's native size if available
+    int native_ppem = SBIX_DEFAULT_PPEM;  // Default for Apple Color Emoji
+    if (face->num_fixed_sizes > 0) {
+        // Use the largest available fixed size
+        native_ppem = face->available_sizes[face->num_fixed_sizes - 1].y_ppem >> 6;
+        if (native_ppem <= 0)
+            native_ppem = SBIX_DEFAULT_PPEM;
+    }
+
+    FT_Error error = FT_Set_Pixel_Sizes(face, 0, native_ppem);
     if (error) {
         // Fall back to requested size
         ass_face_set_size(face, size);
@@ -1027,8 +1041,8 @@ bool ass_get_color_glyph(ASS_Font *font, int face_index, int glyph_index,
     if (bm->width == 0 || bm->rows == 0)
         return false;
 
-    // Calculate scale factor to convert from SBIX native size to requested size
-    double scale = size / (double)SBIX_DEFAULT_PPEM;
+    // Calculate scale factor to convert from native bitmap size to requested size
+    double scale = size / (double)native_ppem;
     if (scale <= 0)
         scale = 1.0;
     else if (scale > 10.0)

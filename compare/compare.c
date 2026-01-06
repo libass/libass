@@ -45,27 +45,54 @@ static void blend_image(Image8 *frame, int32_t x0, int32_t y0,
     if (w <= 0 || h <= 0)
         return;
 
-    uint8_t r = img->color >> 24;
-    uint8_t g = img->color >> 16;
-    uint8_t b = img->color >>  8;
-    uint8_t a = img->color >>  0;
+    int32_t frame_stride = 4 * frame->width;
+    uint8_t *dst = frame->buffer + y0 * frame_stride + 4 * x0;
 
-    int32_t mul = 129 * (255 - a);
-    const int32_t offs = (int32_t) 1 << 22;
+    // Handle color bitmaps (emoji) vs alpha-only bitmaps
+    if (img->flags & ASS_IMAGE_FLAG_COLOR) {
+        // Color bitmap: RGBA per-pixel data
+        const uint8_t *src = img->color_bitmap + y1 * img->stride + x1 * 4;
 
-    int32_t stride = 4 * frame->width;
-    uint8_t *dst = frame->buffer + y0 * stride + 4 * x0;
-    const uint8_t *src = img->bitmap + y1 * img->stride + x1;
-    for (int32_t y = 0; y < h; y++) {
-        for (int32_t x = 0; x < w; x++) {
-            int32_t k = src[x] * mul;
-            dst[4 * x + 0] -= ((dst[4 * x + 0] - r) * k + offs) >> 23;
-            dst[4 * x + 1] -= ((dst[4 * x + 1] - g) * k + offs) >> 23;
-            dst[4 * x + 2] -= ((dst[4 * x + 2] - b) * k + offs) >> 23;
-            dst[4 * x + 3] -= ((dst[4 * x + 3] - 0) * k + offs) >> 23;
+        for (int32_t y = 0; y < h; y++) {
+            for (int32_t x = 0; x < w; x++) {
+                uint8_t r = src[4 * x + 0];
+                uint8_t g = src[4 * x + 1];
+                uint8_t b = src[4 * x + 2];
+                uint8_t a = src[4 * x + 3];
+
+                // Alpha compositing: out = src * a + dst * (1-a)
+                //                       = dst + (src - dst) * a / 255
+                // Note: compare uses inverted alpha (255=transparent, 0=opaque)
+                dst[4 * x + 0] += ((r - dst[4 * x + 0]) * a + 127) / 255;
+                dst[4 * x + 1] += ((g - dst[4 * x + 1]) * a + 127) / 255;
+                dst[4 * x + 2] += ((b - dst[4 * x + 2]) * a + 127) / 255;
+                dst[4 * x + 3] -= (dst[4 * x + 3] * a + 127) / 255;
+            }
+            dst += frame_stride;
+            src += img->stride;
         }
-        dst += stride;
-        src += img->stride;
+    } else {
+        // Traditional alpha-only bitmap with uniform color
+        uint8_t r = img->color >> 24;
+        uint8_t g = img->color >> 16;
+        uint8_t b = img->color >>  8;
+        uint8_t a = img->color >>  0;
+
+        int32_t mul = 129 * (255 - a);
+        const int32_t offs = (int32_t) 1 << 22;
+
+        const uint8_t *src = img->bitmap + y1 * img->stride + x1;
+        for (int32_t y = 0; y < h; y++) {
+            for (int32_t x = 0; x < w; x++) {
+                int32_t k = src[x] * mul;
+                dst[4 * x + 0] -= ((dst[4 * x + 0] - r) * k + offs) >> 23;
+                dst[4 * x + 1] -= ((dst[4 * x + 1] - g) * k + offs) >> 23;
+                dst[4 * x + 2] -= ((dst[4 * x + 2] - b) * k + offs) >> 23;
+                dst[4 * x + 3] -= ((dst[4 * x + 3] - 0) * k + offs) >> 23;
+            }
+            dst += frame_stride;
+            src += img->stride;
+        }
     }
 }
 
