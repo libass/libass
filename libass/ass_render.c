@@ -1505,14 +1505,9 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
             GlyphHashKey *k = &outline_key->u.glyph;
             FT_Face face = k->font->faces[k->face_index];
             ass_face_set_size(face, k->size);
-            if (!ass_font_get_glyph(k->font, k->face_index, k->glyph_index,
-                                    render_priv->settings.hinting))
-                return 1;
-            // Save advance and metrics BEFORE ass_glyph_has_color changes face size
-            int32_t glyph_advance = face->glyph->advance.x;
             int asc, desc;
             ass_font_get_asc_desc(k->font, k->face_index, &asc, &desc);
-            // Color glyphs have no outline data - just use metrics
+            // Check for color glyph BEFORE loading - bitmap fonts fail with FT_LOAD_NO_BITMAP
             if (ass_glyph_has_color(k->font, k->face_index, k->glyph_index)) {
                 // For SBIX fonts, FreeType loads bitmaps at native size (160)
                 // The advance we got is at requested size (k->size), but we need

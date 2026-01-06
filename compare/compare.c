@@ -518,7 +518,46 @@ static bool process_input(ItemList *list, const char *path, ASS_Library *lib)
         return false;
     }
 
+    // First pass: load fonts (needed before rendering)
     const char *name;
+    while ((name = ass_read_dir(&dir))) {
+        if (name[0] == '.')
+            continue;
+        const char *ext = strrchr(name + 1, '.');
+        if (!ext)
+            continue;
+
+        char ext_lc[5];
+        size_t pos = 0;
+        while (pos < sizeof(ext_lc) - 1) {
+            char c = ext[pos + 1];
+            if (!c)
+                break;
+            if (c >= 'A' && c <= 'Z')
+                c += 'a' - 'A';
+            ext_lc[pos] = c;
+            pos++;
+        }
+        ext_lc[pos] = '\0';
+
+        if (!strcmp(ext_lc, "ttf") ||
+            !strcmp(ext_lc, "otf") ||
+            !strcmp(ext_lc, "pfb")) {
+            if (!load_font(lib, path, name)) {
+                printf("Cannot load font '%s'!\n", name);
+                ass_close_dir(&dir);
+                return false;
+            }
+        }
+    }
+    ass_close_dir(&dir);
+
+    // Second pass: load subtitle and image files
+    if (!ass_open_dir(&dir, path)) {
+        printf("Cannot open input directory '%s'!\n", path);
+        return false;
+    }
+
     while ((name = ass_read_dir(&dir))) {
         if (name[0] == '.')
             continue;
@@ -545,14 +584,8 @@ static bool process_input(ItemList *list, const char *path, ASS_Library *lib)
         } else if (!strcmp(ext_lc, "ass")) {
             if (add_sub_item(list, path, name, ext - name))
                 continue;
-        } else if (!strcmp(ext_lc, "ttf") ||
-                   !strcmp(ext_lc, "otf") ||
-                   !strcmp(ext_lc, "pfb")) {
-            if (load_font(lib, path, name))
-                continue;
-            printf("Cannot load font '%s'!\n", name);
         } else {
-            continue;
+            continue;  // Skip fonts (already loaded) and unknown files
         }
         ass_close_dir(&dir);
         return false;
