@@ -121,7 +121,7 @@ bool ass_alloc_bitmap(const BitmapEngine *engine, Bitmap *bm,
 bool ass_realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h)
 {
     uint8_t *old = bm->buffer;
-    if (!ass_alloc_bitmap(engine, bm, w, h, false))
+    if (!ass_alloc_bitmap(engine, bm, w, h, true))
         return false;
     ass_aligned_free(old);
     return true;
@@ -267,7 +267,7 @@ bool ass_alloc_color_bitmap(ColorBitmap *bm, int32_t w, int32_t h)
         return false;
 
     ptrdiff_t stride = (ptrdiff_t)w * 4;
-    uint8_t *buf = malloc(stride * h);
+    uint8_t *buf = calloc(stride, h);
     if (!buf)
         return false;
 
@@ -428,9 +428,11 @@ bool ass_synth_blur_color(const BitmapEngine *engine, ColorBitmap *cbm,
     int32_t h = cbm->h;
 
     // Allocate 4 alpha-only bitmaps for R, G, B, A channels
+    // Must zero-initialize because stride may be larger than width,
+    // and blur reads padding bytes
     Bitmap channels[4] = {{0}};
     for (int c = 0; c < 4; c++) {
-        if (!ass_alloc_bitmap(engine, &channels[c], w, h, false))
+        if (!ass_alloc_bitmap(engine, &channels[c], w, h, true))
             goto fail;
         channels[c].left = cbm->left;
         channels[c].top = cbm->top;

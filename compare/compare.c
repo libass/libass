@@ -51,6 +51,7 @@ static void blend_image(Image8 *frame, int32_t x0, int32_t y0,
     // Handle color bitmaps (emoji) vs alpha-only bitmaps
     if (img->flags & ASS_IMAGE_FLAG_COLOR) {
         // Color bitmap: RGBA per-pixel data
+        // stride is the RGBA stride (width * 4) when ASS_IMAGE_FLAG_COLOR is set
         const uint8_t *src = img->color_bitmap + y1 * img->stride + x1 * 4;
 
         for (int32_t y = 0; y < h; y++) {

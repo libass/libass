@@ -248,22 +248,23 @@ static ASS_Image *my_draw_color_bitmap(unsigned char *color_bitmap, int bitmap_w
                                        int dst_y)
 {
     // Allocate alpha-only bitmap for backwards compatibility
-    // Applications that don't understand color_bitmap will use this
-    int alpha_stride = (bitmap_w + 31) & ~31;  // 32-byte aligned
-    unsigned char *alpha_bitmap = ass_aligned_alloc(32, alpha_stride * bitmap_h + 32, false);
+    // Use rgba_stride for both so old apps can at least render something
+    unsigned char *alpha_bitmap = ass_aligned_alloc(32, rgba_stride * bitmap_h + 32, false);
     if (!alpha_bitmap) {
         free(color_bitmap);
         return NULL;
     }
 
-    // Extract alpha channel from RGBA data as coverage
-    // The bitmap field in ASS_Image is a coverage map: 255=fully visible, 0=invisible
-    // FreeType's alpha: 255=opaque, 0=transparent - matches coverage semantics directly
+    // Extract alpha channel from RGBA data
     for (int y = 0; y < bitmap_h; y++) {
         unsigned char *src = color_bitmap + y * rgba_stride;
-        unsigned char *dst = alpha_bitmap + y * alpha_stride;
+        unsigned char *dst = alpha_bitmap + y * rgba_stride;
         for (int x = 0; x < bitmap_w; x++) {
-            dst[x] = src[x * 4 + 3];  // Use alpha directly as coverage
+            dst[x] = src[x * 4 + 3];  // Alpha channel
+        }
+        // Clear padding to avoid garbage
+        for (int x = bitmap_w; x < rgba_stride; x++) {
+            dst[x] = 0;
         }
     }
 
@@ -276,7 +277,7 @@ static ASS_Image *my_draw_color_bitmap(unsigned char *color_bitmap, int bitmap_w
 
     img->result.w = bitmap_w;
     img->result.h = bitmap_h;
-    img->result.stride = rgba_stride;   // RGBA stride (4 bytes per pixel)
+    img->result.stride = rgba_stride;   // Same stride for both bitmap and color_bitmap
     img->result.bitmap = alpha_bitmap;  // Alpha fallback for old renderers
     img->result.color = 0xFFFFFF00;     // Fallback color (white, opaque)
     img->result.dst_x = dst_x;
@@ -285,8 +286,8 @@ static ASS_Image *my_draw_color_bitmap(unsigned char *color_bitmap, int bitmap_w
     img->result.color_bitmap = color_bitmap;   // Full RGBA pixel data
 
     img->source = NULL;
-    img->buffer = alpha_bitmap;       // This gets freed with ass_aligned_free
-    img->color_buffer = color_bitmap; // This gets freed with free()
+    img->buffer = alpha_bitmap;
+    img->color_buffer = color_bitmap;
     img->ref_count = 0;
 
     return &img->result;
@@ -941,21 +942,28 @@ static ASS_Image *render_text(RenderContext *state)
 }
 
 /**
- * \brief Render color glyphs (emoji) directly to ASS_Image list
+ * \brief Render color glyphs (emoji) directly to ASS_Image lists
  *
  * Color glyphs bypass the normal bitmap combining pipeline and are
  * rendered directly. This function creates ASS_Image entries for
  * all color glyphs in the text.
  *
- * Renders in two passes:
- * 1. Shadows - alpha-only images extracted from the color glyph's alpha
- * 2. Color glyphs - the actual RGBA color bitmaps
+ * Returns two separate lists via output parameters:
+ * - shadow_head: shadow images (alpha-only, for proper layering)
+ * - main_head: color bitmap images
+ *
+ * This separation allows proper interleaving with regular glyph images
+ * for correct layer ordering.
  */
-static ASS_Image *render_color_glyphs(RenderContext *state)
+static void render_color_glyphs(RenderContext *state,
+                                ASS_Image **shadow_head,
+                                ASS_Image **main_head)
 {
     TextInfo *text_info = &state->text_info;
-    ASS_Image *head = NULL;
-    ASS_Image **current_tail = &head;
+    ASS_Image **shadow_tail = shadow_head;
+    ASS_Image **main_tail = main_head;
+    *shadow_head = NULL;
+    *main_head = NULL;
 
     // First pass: render shadows
     for (int i = 0; i < text_info->length; i++) {
@@ -1026,10 +1034,11 @@ static ASS_Image *render_color_glyphs(RenderContext *state)
                                          clip_w, x0, y0, info->c[3], NULL);
         if (img) {
             img->type = IMAGE_TYPE_SHADOW;
-            *current_tail = img;
-            current_tail = &img->next;
+            *shadow_tail = img;
+            shadow_tail = &img->next;
         }
     }
+    *shadow_tail = NULL;
 
     // Second pass: render the color glyphs themselves
     for (int i = 0; i < text_info->length; i++) {
@@ -1109,8 +1118,8 @@ static ASS_Image *render_color_glyphs(RenderContext *state)
                                                clip_w * 4, x0, y0);
         if (img) {
             img->type = IMAGE_TYPE_CHARACTER;
-            *current_tail = img;
-            current_tail = &img->next;
+            *main_tail = img;
+            main_tail = &img->next;
         }
 
         // Free the original ColorBitmap struct - we've already copied the data to our buffer
@@ -1119,8 +1128,7 @@ static ASS_Image *render_color_glyphs(RenderContext *state)
         info->color_bm = NULL;
     }
 
-    *current_tail = NULL;
-    return head;
+    *main_tail = NULL;
 }
 
 static void compute_string_bbox(TextInfo *text, ASS_DRect *bbox)
@@ -1509,14 +1517,9 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
             ass_font_get_asc_desc(k->font, k->face_index, &asc, &desc);
             // Check for color glyph BEFORE loading - bitmap fonts fail with FT_LOAD_NO_BITMAP
             if (ass_glyph_has_color(k->font, k->face_index, k->glyph_index)) {
-                // For SBIX fonts, FreeType loads bitmaps at native size (160)
-                // The advance we got is at requested size (k->size), but we need
-                // the advance at native size scaled to target, since the bitmap
-                // gets loaded at native size and scaled in ass_get_color_glyph.
-                // The bitmap width at native size is proportional to font em,
-                // so use the em square as the advance (matches typical emoji fonts).
-                // This gives advance = k->size in font units (1 em = 1 glyph width for emoji)
-                v->advance = (int32_t)(k->size * 64);  // Convert to 26.6 format
+                // Get the properly scaled advance width for the color glyph
+                v->advance = ass_get_color_glyph_advance(k->font, k->face_index,
+                                                         k->glyph_index, k->size);
                 v->asc = asc;
                 v->desc = desc;
                 v->valid = true;
@@ -3358,14 +3361,71 @@ ass_render_event(RenderContext *state, ASS_Event *event,
     event_images->event = event;
     event_images->imgs = render_text(state);
 
-    // Render color glyphs (emoji) and append to image list
-    ASS_Image *color_imgs = render_color_glyphs(state);
-    if (color_imgs) {
-        // Append color images to the end of the regular images
+    // Render color glyphs (emoji) and merge into image list for proper layer order
+    ASS_Image *color_shadows = NULL;
+    ASS_Image *color_mains = NULL;
+    render_color_glyphs(state, &color_shadows, &color_mains);
+
+    // Insert color images at correct positions based on image type and x position
+    if (color_shadows || color_mains) {
         ASS_Image **tail = &event_images->imgs;
-        while (*tail)
-            tail = &(*tail)->next;
-        *tail = color_imgs;
+        ASS_Image *color_shadow_cur = color_shadows;
+        ASS_Image *color_main_cur = color_mains;
+
+        // Walk through regular images and insert color images at correct positions
+        while (*tail) {
+            ASS_Image *cur = *tail;
+
+            // Insert color shadows before first non-shadow (outline or character)
+            // or at correct x position within shadows
+            if (color_shadow_cur && cur->type != IMAGE_TYPE_SHADOW) {
+                // We've passed all regular shadows, insert remaining color shadows
+                while (color_shadow_cur) {
+                    ASS_Image *next = color_shadow_cur->next;
+                    color_shadow_cur->next = cur;
+                    *tail = color_shadow_cur;
+                    tail = &color_shadow_cur->next;
+                    color_shadow_cur = next;
+                }
+            } else if (color_shadow_cur && cur->type == IMAGE_TYPE_SHADOW) {
+                // Insert color shadows by x position within shadow section
+                while (color_shadow_cur && color_shadow_cur->dst_x <= cur->dst_x) {
+                    ASS_Image *next = color_shadow_cur->next;
+                    color_shadow_cur->next = cur;
+                    *tail = color_shadow_cur;
+                    tail = &color_shadow_cur->next;
+                    color_shadow_cur = next;
+                }
+            }
+
+            // Insert color mains by x position within character section
+            if (color_main_cur && cur->type == IMAGE_TYPE_CHARACTER) {
+                while (color_main_cur && color_main_cur->dst_x <= cur->dst_x) {
+                    ASS_Image *next = color_main_cur->next;
+                    color_main_cur->next = cur;
+                    *tail = color_main_cur;
+                    tail = &color_main_cur->next;
+                    color_main_cur = next;
+                }
+            }
+
+            tail = &cur->next;
+        }
+
+        // Append any remaining color images at the end
+        while (color_shadow_cur) {
+            ASS_Image *next = color_shadow_cur->next;
+            *tail = color_shadow_cur;
+            tail = &color_shadow_cur->next;
+            color_shadow_cur = next;
+        }
+        while (color_main_cur) {
+            ASS_Image *next = color_main_cur->next;
+            *tail = color_main_cur;
+            tail = &color_main_cur->next;
+            color_main_cur = next;
+        }
+        *tail = NULL;
     }
 
     if (state->border_style == 4)
