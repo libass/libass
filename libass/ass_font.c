@@ -1109,3 +1109,58 @@ bool ass_get_color_glyph(ASS_Font *font, int face_index, int glyph_index,
 
     return true;
 }
+
+/**
+ * \brief Get the advance width for a color glyph at a given size
+ *
+ * This function calculates the properly scaled advance width for a color
+ * glyph. Since bitmap fonts are loaded at their native size and then scaled,
+ * we need to get the advance at native size and scale it appropriately.
+ *
+ * \param font Font to query
+ * \param face_index Face index within the font
+ * \param glyph_index Glyph index to query
+ * \param size Requested font size in pixels
+ * \return Advance width in 26.6 fixed point, or 0 on failure
+ */
+int32_t ass_get_color_glyph_advance(ASS_Font *font, int face_index,
+                                    int glyph_index, double size)
+{
+    if (face_index < 0 || face_index >= font->n_faces)
+        return 0;
+
+    unsigned int formats = font->color_formats[face_index];
+    if (formats == ASS_COLOR_GLYPH_NONE)
+        return 0;
+
+    FT_Face face = font->faces[face_index];
+
+    // Get native ppem for bitmap fonts
+    int native_ppem = SBIX_DEFAULT_PPEM;
+    if (face->num_fixed_sizes > 0) {
+        native_ppem = face->available_sizes[face->num_fixed_sizes - 1].y_ppem >> 6;
+        if (native_ppem <= 0)
+            native_ppem = SBIX_DEFAULT_PPEM;
+    }
+
+    // Save current size to restore after
+    FT_UInt orig_ppem = face->size->metrics.y_ppem;
+
+    // Load at native size to get metrics
+    FT_Set_Pixel_Sizes(face, 0, native_ppem);
+    FT_Error error = FT_Load_Glyph(face, glyph_index,
+                                   FT_LOAD_COLOR | FT_LOAD_NO_HINTING);
+
+    int32_t advance = 0;
+    if (!error) {
+        // Scale advance from native size to requested size
+        double scale = size / (double)native_ppem;
+        advance = (int32_t)(face->glyph->advance.x * scale);
+    }
+
+    // Restore original size
+    if (orig_ppem > 0)
+        FT_Set_Pixel_Sizes(face, 0, orig_ppem);
+
+    return advance;
+}

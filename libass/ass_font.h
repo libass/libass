@@ -88,5 +88,7 @@ unsigned int ass_font_get_color_formats(ASS_Font *font, int face_index);
 bool ass_glyph_has_color(ASS_Font *font, int face_index, int glyph_index);
 bool ass_get_color_glyph(ASS_Font *font, int face_index, int glyph_index,
                          double size, ColorBitmap *result);
+int32_t ass_get_color_glyph_advance(ASS_Font *font, int face_index,
+                                    int glyph_index, double size);
 
 #endif                          /* LIBASS_FONT_H */

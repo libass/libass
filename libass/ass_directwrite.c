@@ -71,7 +71,53 @@ typedef struct {
     IDWriteFont *font;
     IDWriteFontFace *face;
     IDWriteFontFileStream *stream;
+    bool has_color_glyphs;
 } FontPrivate;
+
+// Check if codepoint is likely an emoji that needs color rendering
+static bool is_emoji_codepoint(uint32_t code)
+{
+    return (code >= 0x1F300 && code <= 0x1FAF8) ||  // Misc symbols, emoticons, etc.
+           (code >= 0x2600 && code <= 0x26FF) ||    // Misc symbols
+           (code >= 0x2700 && code <= 0x27BF) ||    // Dingbats
+           (code >= 0x1F000 && code <= 0x1F02F) ||  // Mahjong, dominos
+           (code >= 0x1F0A0 && code <= 0x1F0FF);    // Playing cards
+}
+
+// Check if a font face has color glyph tables (COLR, sbix, CBDT, CBLC)
+static bool font_face_has_color_tables(IDWriteFontFace *face)
+{
+    if (!face)
+        return false;
+
+    // Table tags for color fonts
+    const UINT32 color_tables[] = {
+        DWRITE_MAKE_OPENTYPE_TAG('C', 'O', 'L', 'R'),
+        DWRITE_MAKE_OPENTYPE_TAG('s', 'b', 'i', 'x'),
+        DWRITE_MAKE_OPENTYPE_TAG('C', 'B', 'D', 'T'),
+        DWRITE_MAKE_OPENTYPE_TAG('C', 'B', 'L', 'C'),
+    };
+
+    for (int i = 0; i < sizeof(color_tables) / sizeof(color_tables[0]); i++) {
+        const void *table_data = NULL;
+        UINT32 table_size = 0;
+        void *table_context = NULL;
+        BOOL table_exists = FALSE;
+
+        HRESULT hr = IDWriteFontFace_TryGetFontTable(face, color_tables[i],
+                                                      &table_data, &table_size,
+                                                      &table_context, &table_exists);
+        if (SUCCEEDED(hr) && table_exists) {
+            if (table_context)
+                IDWriteFontFace_ReleaseFontTable(face, table_context);
+            return true;
+        }
+        if (table_context)
+            IDWriteFontFace_ReleaseFontTable(face, table_context);
+    }
+
+    return false;
+}
 
 typedef struct {
 #if ASS_WINAPI_DESKTOP
@@ -405,6 +451,11 @@ static bool check_glyph(void *data, uint32_t code)
     if (code == 0)
         return true;
 
+    // For emoji codepoints, only claim we have the glyph if this is a color font.
+    // This forces fallback to a color emoji font for proper rendering.
+    if (is_emoji_codepoint(code) && !priv->has_color_glyphs)
+        return false;
+
     if (priv->font) {
         hr = IDWriteFont_HasCharacter(priv->font, code, &exists);
         if (FAILED(hr))
@@ -635,6 +686,9 @@ static void add_font_face(IDWriteFontFace *face, ASS_FontProvider *provider,
     font_priv->shared_hdc = hdc_retain(shared_hdc);
 #endif
 
+    // Check if this is a color font
+    font_priv->has_color_glyphs = font_face_has_color_tables(font_priv->face);
+
     ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
 
 cleanup:
@@ -827,6 +881,13 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
         goto cleanup;
     font_priv->font = font;
     font = NULL;
+
+    // Check if this is a color font by creating face temporarily
+    IDWriteFontFace *temp_face = NULL;
+    if (SUCCEEDED(IDWriteFont_CreateFontFace(font_priv->font, &temp_face)) && temp_face) {
+        font_priv->has_color_glyphs = font_face_has_color_tables(temp_face);
+        IDWriteFontFace_Release(temp_face);
+    }
 
     ass_font_provider_add_font(provider, &meta, NULL, 0, font_priv);
 

@@ -432,6 +432,23 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
         meta = &implicit_meta;
     }
 
+#if 0
+    int j;
+    printf("new font:\n");
+    printf("  families: ");
+    for (j = 0; j < meta->n_family; j++)
+        printf("'%s' ", meta->families[j]);
+    printf("\n");
+    printf("  fullnames: ");
+    for (j = 0; j < meta->n_fullname; j++)
+        printf("'%s' ", meta->fullnames[j]);
+    printf("\n");
+    printf("  style_flags: %lx\n", meta->style_flags);
+    printf("  weight: %d\n", meta->weight);
+    printf("  path: %s\n", path);
+    printf("  index: %d\n", index);
+#endif
+
     // check size
     if (selector->n_font >= selector->alloc_font) {
         selector->alloc_font = FFMAX(1, 2 * selector->alloc_font);
@@ -742,8 +759,7 @@ find_font(ASS_FontSelector *priv,
                 // We want to be able to match even if the closest variant
                 // does not have the requested glyph, but another member
                 // of the family has the glyph.
-                bool has_glyph = check_glyph(font, code);
-                if (!has_glyph)
+                if (!check_glyph(font, code))
                     continue;
 
                 score_min = score;

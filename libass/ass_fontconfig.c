@@ -38,13 +38,30 @@ typedef struct fc_private {
     FcCharSet *fallback_chars;
 } ProviderPrivate;
 
+typedef struct {
+    FcPattern *pattern;
+    bool has_color_glyphs;
+} FontPriv;
+
+// Check if codepoint is likely an emoji that needs color rendering
+static bool is_emoji_codepoint(uint32_t code)
+{
+    return (code >= 0x1F300 && code <= 0x1FAF8) ||  // Misc symbols, emoticons, etc.
+           (code >= 0x2600 && code <= 0x26FF) ||    // Misc symbols
+           (code >= 0x2700 && code <= 0x27BF) ||    // Dingbats
+           (code >= 0x1F000 && code <= 0x1F02F) ||  // Mahjong, dominos
+           (code >= 0x1F0A0 && code <= 0x1F0FF);    // Playing cards
+}
+
 static bool check_postscript(void *priv)
 {
-    FcPattern *pat = (FcPattern *)priv;
-    char *format;
+    FontPriv *fp = (FontPriv *)priv;
+    if (!fp || !fp->pattern)
+        return false;
 
+    char *format;
     FcResult result =
-        FcPatternGetString(pat, FC_FONTFORMAT, 0, (FcChar8 **)&format);
+        FcPatternGetString(fp->pattern, FC_FONTFORMAT, 0, (FcChar8 **)&format);
     if (result != FcResultMatch)
         return false;
 
@@ -54,16 +71,20 @@ static bool check_postscript(void *priv)
 
 static bool check_glyph(void *priv, uint32_t code)
 {
-    FcPattern *pat = (FcPattern *)priv;
-    FcCharSet *charset;
-
-    if (!pat)
-        return true;
-
     if (code == 0)
         return true;
 
-    FcResult result = FcPatternGetCharSet(pat, FC_CHARSET, 0, &charset);
+    FontPriv *fp = (FontPriv *)priv;
+    if (!fp || !fp->pattern)
+        return true;
+
+    // For emoji codepoints, only claim we have the glyph if this is a color font.
+    // This forces fallback to a color emoji font for proper rendering.
+    if (is_emoji_codepoint(code) && !fp->has_color_glyphs)
+        return false;
+
+    FcCharSet *charset;
+    FcResult result = FcPatternGetCharSet(fp->pattern, FC_CHARSET, 0, &charset);
     if (result != FcResultMatch)
         return false;
     if (FcCharSetHasChar(charset, code) == FcTrue)
@@ -73,7 +94,12 @@ static bool check_glyph(void *priv, uint32_t code)
 
 static void destroy_font(void *priv)
 {
-    FcPatternDestroy((FcPattern *) priv);
+    FontPriv *fp = (FontPriv *)priv;
+    if (fp) {
+        if (fp->pattern)
+            FcPatternDestroy(fp->pattern);
+        free(fp);
+    }
 }
 
 static void destroy(void *priv)
@@ -208,8 +234,20 @@ static bool scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         if (result != FcResultMatch)
             meta.postscript_name = NULL;
 
+        // Create font priv structure with color info
+        FontPriv *fp = malloc(sizeof(FontPriv));
+        if (!fp)
+            continue;
+
         FcPatternReference(pat);
-        ass_font_provider_add_font(provider, &meta, path, index, (void *)pat);
+        fp->pattern = pat;
+
+        // Check if this is a color font (fontconfig 2.11.91+)
+        FcBool is_color = FcFalse;
+        FcPatternGetBool(pat, FC_COLOR, 0, &is_color);
+        fp->has_color_glyphs = (is_color == FcTrue);
+
+        ass_font_provider_add_font(provider, &meta, path, index, (void *)fp);
     }
 
     FcFontSetDestroy(fonts);
