@@ -258,7 +258,19 @@ size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
 
     FT_Face face = k->font->faces[k->face_index];
 
-    ass_face_set_size(face, k->size);
+    // For color fonts (SBIX/CBDT), load at native size and scale metrics
+    // FreeType returns incorrect metrics at non-native sizes for bitmap fonts
+    unsigned int color_formats = k->font->color_formats[k->face_index];
+    double scale = 1.0;
+    if (color_formats != ASS_COLOR_GLYPH_NONE && face->num_fixed_sizes > 0) {
+        int native_ppem = face->available_sizes[face->num_fixed_sizes - 1].y_ppem >> 6;
+        if (native_ppem <= 0)
+            native_ppem = 160;  // SBIX_DEFAULT_PPEM
+        scale = k->size / (double)native_ppem;
+        FT_Select_Size(face, face->num_fixed_sizes - 1);
+    } else {
+        ass_face_set_size(face, k->size);
+    }
 
     if (FT_Load_Glyph(face, k->glyph_index, load_flags)) {
         v->width = -1;
@@ -266,6 +278,18 @@ size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
     }
 
     memcpy(v, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
+
+    // Scale metrics for color fonts
+    if (scale != 1.0) {
+        v->width = (FT_Pos)(v->width * scale);
+        v->height = (FT_Pos)(v->height * scale);
+        v->horiBearingX = (FT_Pos)(v->horiBearingX * scale);
+        v->horiBearingY = (FT_Pos)(v->horiBearingY * scale);
+        v->horiAdvance = (FT_Pos)(v->horiAdvance * scale);
+        v->vertBearingX = (FT_Pos)(v->vertBearingX * scale);
+        v->vertBearingY = (FT_Pos)(v->vertBearingY * scale);
+        v->vertAdvance = (FT_Pos)(v->vertAdvance * scale);
+    }
 
     if (priv)  // rotate
         v->horiAdvance = v->vertAdvance;
