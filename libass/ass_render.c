@@ -47,6 +47,262 @@
 #define SUBPIXEL_ORDER 3  // ~ log2(64 / POSITION_PRECISION)
 #define BLUR_PRECISION (1.0 / 256)  // blur error as fraction of full input range
 
+/*
+ * SDF-based border generation for color emoji
+ *
+ * Uses Euclidean Distance Transform (EDT) to generate smooth borders
+ * from bitmap alpha channels. This allows borders on color emoji which
+ * have no vector outline data.
+ */
+
+/**
+ * \brief Generate Signed Distance Field from alpha channel using EDT
+ * \param alpha input alpha channel (w * h bytes)
+ * \param w width
+ * \param h height
+ * \param sdf output SDF (w * h floats, caller allocates)
+ *
+ * Uses Meijster's algorithm for O(w*h) complexity.
+ * Negative values = inside, positive = outside.
+ */
+static void generate_sdf_edt(const uint8_t *alpha, int w, int h, float *sdf)
+{
+    const float INF = 1e10f;
+    float *dt = malloc(w * h * sizeof(float));
+    if (!dt) return;
+
+    int maxdim = w > h ? w : h;
+    int *v = malloc(maxdim * sizeof(int));
+    float *z = malloc((maxdim + 1) * sizeof(float));
+    float *col = malloc(h * sizeof(float));
+    float *row = malloc(w * sizeof(float));
+
+    if (!v || !z || !col || !row) {
+        free(dt); free(v); free(z); free(col); free(row);
+        return;
+    }
+
+    // Initialize: 0 for edge pixels, INF otherwise
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            uint8_t a = alpha[y * w + x];
+            int is_edge = 0;
+            // Edge detection: look for alpha transitions
+            if (x > 0 && abs(alpha[y * w + x - 1] - a) > 64) is_edge = 1;
+            else if (x < w-1 && abs(alpha[y * w + x + 1] - a) > 64) is_edge = 1;
+            else if (y > 0 && abs(alpha[(y-1) * w + x] - a) > 64) is_edge = 1;
+            else if (y < h-1 && abs(alpha[(y+1) * w + x] - a) > 64) is_edge = 1;
+            dt[y * w + x] = is_edge ? 0 : INF;
+        }
+    }
+
+    // 1D distance transform (Meijster's algorithm)
+    #define DT1D(f, n) do { \
+        int k = 0; \
+        v[0] = 0; \
+        z[0] = -INF; \
+        z[1] = INF; \
+        for (int q = 1; q < n; q++) { \
+            float s; \
+            while (1) { \
+                s = ((f[q] + q*q) - (f[v[k]] + v[k]*v[k])) / (float)(2*q - 2*v[k]); \
+                if (s > z[k]) break; \
+                k--; \
+            } \
+            k++; \
+            v[k] = q; \
+            z[k] = s; \
+            z[k+1] = INF; \
+        } \
+        k = 0; \
+        for (int q = 0; q < n; q++) { \
+            while (z[k+1] < q) k++; \
+            f[q] = (float)((q - v[k]) * (q - v[k])) + f[v[k]]; \
+        } \
+    } while(0)
+
+    // Transform columns
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++)
+            col[y] = dt[y * w + x];
+        DT1D(col, h);
+        for (int y = 0; y < h; y++)
+            dt[y * w + x] = col[y];
+    }
+
+    // Transform rows
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++)
+            row[x] = dt[y * w + x];
+        DT1D(row, w);
+        for (int x = 0; x < w; x++)
+            dt[y * w + x] = row[x];
+    }
+
+    #undef DT1D
+
+    // Convert squared distance to signed distance
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            float d = sqrtf(dt[y * w + x]);
+            int inside = (alpha[y * w + x] > 127);
+            sdf[y * w + x] = inside ? -d : d;
+        }
+    }
+
+    free(dt);
+    free(v);
+    free(z);
+    free(col);
+    free(row);
+}
+
+/**
+ * \brief Apply SDF-based border to a color bitmap with elliptical support
+ * \param rgba input RGBA bitmap (will be freed, replaced with new allocation)
+ * \param w pointer to width (updated if border expands image)
+ * \param h pointer to height (updated if border expands image)
+ * \param stride pointer to stride (updated)
+ * \param border_x horizontal border width in pixels
+ * \param border_y vertical border width in pixels
+ * \param border_color border color in 0xRRGGBBAA format
+ * \param offset_x output: X offset to apply to dst_x
+ * \param offset_y output: Y offset to apply to dst_y
+ * \return new RGBA buffer with border, or NULL on failure
+ *
+ * For elliptical borders, generates SDF at original resolution and uses
+ * elliptical distance formula: sqrt((dx/border_x)² + (dy/border_y)²) <= 1
+ */
+static unsigned char *apply_color_border(unsigned char *rgba, int *w, int *h,
+                                         int *stride, int border_x, int border_y,
+                                         uint32_t border_color,
+                                         int *offset_x, int *offset_y)
+{
+    *offset_x = 0;
+    *offset_y = 0;
+
+    if (border_x <= 0 && border_y <= 0)
+        return rgba;
+
+    int orig_w = *w;
+    int orig_h = *h;
+    int orig_stride = *stride;
+
+    // Padding for the border region
+    int pad_x = border_x + 1;
+    int pad_y = border_y + 1;
+
+    int sdf_w = orig_w + pad_x * 2;
+    int sdf_h = orig_h + pad_y * 2;
+
+    // Extract alpha channel with padding
+    uint8_t *alpha_padded = calloc(sdf_w * sdf_h, 1);
+    if (!alpha_padded) return rgba;
+
+    for (int y = 0; y < orig_h; y++) {
+        for (int x = 0; x < orig_w; x++) {
+            alpha_padded[(y + pad_y) * sdf_w + (x + pad_x)] =
+                rgba[y * orig_stride + x * 4 + 3];
+        }
+    }
+
+    // Generate SDF at original resolution
+    float *sdf = malloc(sdf_w * sdf_h * sizeof(float));
+    if (!sdf) {
+        free(alpha_padded);
+        return rgba;
+    }
+    generate_sdf_edt(alpha_padded, sdf_w, sdf_h, sdf);
+    free(alpha_padded);
+
+    // Output dimensions with border padding
+    int new_w = orig_w + border_x * 2;
+    int new_h = orig_h + border_y * 2;
+    int new_stride = new_w * 4;
+
+    unsigned char *output = calloc(new_stride * new_h, 1);
+    if (!output) {
+        free(sdf);
+        return rgba;
+    }
+
+    // Extract border color components
+    uint8_t br = (border_color >> 24) & 0xFF;
+    uint8_t bg = (border_color >> 16) & 0xFF;
+    uint8_t bb = (border_color >> 8) & 0xFF;
+    uint8_t ba = 255 - (border_color & 0xFF);  // ASS uses inverted alpha
+
+    // Use max border for uniform, symmetric appearance
+    // True elliptical borders would require more complex edge-direction tracking
+    float border_radius = (float)(border_x > border_y ? border_x : border_y);
+
+    // Draw border using SDF with simple distance threshold
+    for (int y = 0; y < new_h; y++) {
+        int sdf_y = y - border_y + pad_y;
+        if (sdf_y < 0 || sdf_y >= sdf_h) continue;
+
+        for (int x = 0; x < new_w; x++) {
+            int sdf_x = x - border_x + pad_x;
+            if (sdf_x < 0 || sdf_x >= sdf_w) continue;
+
+            float d = sdf[sdf_y * sdf_w + sdf_x];
+
+            // Only draw border in the region outside the shape but within border distance
+            if (d > 0 && d <= border_radius) {
+                // Anti-alias the outer edge (1 pixel soft edge)
+                float aa = 1.0f;
+                if (d > border_radius - 1.0f)
+                    aa = border_radius - d + 1.0f;
+                if (aa < 0) aa = 0;
+                if (aa > 1) aa = 1;
+
+                uint8_t *dst = output + y * new_stride + x * 4;
+                dst[0] = br;
+                dst[1] = bg;
+                dst[2] = bb;
+                dst[3] = (uint8_t)(ba * aa);
+            }
+        }
+    }
+    free(sdf);
+
+    // Composite original emoji on top of border
+    for (int y = 0; y < orig_h; y++) {
+        for (int x = 0; x < orig_w; x++) {
+            uint8_t *src = rgba + y * orig_stride + x * 4;
+            uint8_t *dst = output + (y + border_y) * new_stride + (x + border_x) * 4;
+
+            // Alpha compositing (src over dst)
+            int sa = src[3];
+            if (sa == 0) continue;
+            if (sa == 255) {
+                dst[0] = src[0];
+                dst[1] = src[1];
+                dst[2] = src[2];
+                dst[3] = 255;
+            } else {
+                int da = dst[3];
+                int out_a = sa + da * (255 - sa) / 255;
+                if (out_a > 0) {
+                    dst[0] = (src[0] * sa + dst[0] * da * (255 - sa) / 255) / out_a;
+                    dst[1] = (src[1] * sa + dst[1] * da * (255 - sa) / 255) / out_a;
+                    dst[2] = (src[2] * sa + dst[2] * da * (255 - sa) / 255) / out_a;
+                    dst[3] = out_a;
+                }
+            }
+        }
+    }
+
+    // Free original, return new
+    free(rgba);
+    *w = new_w;
+    *h = new_h;
+    *stride = new_stride;
+    *offset_x = border_x;
+    *offset_y = border_y;
+
+    return output;
+}
 
 static bool text_info_init(TextInfo* text_info)
 {
@@ -1114,8 +1370,27 @@ static void render_color_glyphs(RenderContext *state,
             }
         }
 
-        ASS_Image *img = my_draw_color_bitmap(buffer, clip_w, clip_h,
-                                               clip_w * 4, x0, y0);
+        // Apply SDF-based border for color emoji
+        int bord_x = (int)(info->border_x * state->border_scale_x + 0.5);
+        int bord_y = (int)(info->border_y * state->border_scale_y + 0.5);
+        int final_w = clip_w;
+        int final_h = clip_h;
+        int final_stride = clip_w * 4;
+        int offset_x = 0, offset_y = 0;
+
+        if (bord_x > 0 || bord_y > 0) {
+            buffer = apply_color_border(buffer, &final_w, &final_h, &final_stride,
+                                        bord_x, bord_y, info->c[2],
+                                        &offset_x, &offset_y);
+            if (buffer) {
+                // Border expands the image, adjust position
+                x0 -= offset_x;
+                y0 -= offset_y;
+            }
+        }
+
+        ASS_Image *img = my_draw_color_bitmap(buffer, final_w, final_h,
+                                               final_stride, x0, y0);
         if (img) {
             img->type = IMAGE_TYPE_CHARACTER;
             *main_tail = img;
