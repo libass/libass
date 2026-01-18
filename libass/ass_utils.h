@@ -262,4 +262,17 @@ static inline int mystrtoi32(char **p, int base, int32_t *res)
     return *p != start;
 }
 
+/**
+ * \brief Check if codepoint is likely an emoji that needs color rendering
+ * Used by font providers to trigger fallback to color emoji fonts.
+ */
+static inline bool ass_is_emoji_codepoint(uint32_t code)
+{
+    return (code >= 0x1F300 && code <= 0x1FAF8) ||  /* Misc symbols, emoticons, etc. */
+           (code >= 0x2600 && code <= 0x26FF) ||    /* Misc symbols */
+           (code >= 0x2700 && code <= 0x27BF) ||    /* Dingbats */
+           (code >= 0x1F000 && code <= 0x1F02F) ||  /* Mahjong, dominos */
+           (code >= 0x1F0A0 && code <= 0x1F0FF);    /* Playing cards */
+}
+
 #endif                          /* LIBASS_UTILS_H */

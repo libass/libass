@@ -50,143 +50,177 @@
 /*
  * SDF-based border generation for color emoji
  *
- * Uses Euclidean Distance Transform (EDT) to generate smooth borders
- * from bitmap alpha channels. This allows borders on color emoji which
- * have no vector outline data.
+ * Uses a modified Euclidean Distance Transform (EDT) to generate smooth borders
+ * from bitmap alpha channels. This allows borders on color emoji which have no
+ * vector outline data.
+ *
+ * For elliptical borders (\xbord != \ybord), we track the nearest edge point
+ * for each pixel, allowing proper directional distance calculation using the
+ * elliptical distance formula: sqrt((dx/border_x)^2 + (dy/border_y)^2).
+ *
+ * Algorithm complexity:
+ *   Time:  O(w * h * border_x) - linear search in X direction per pixel
+ *   Space: O(w * h) for the near_y working array
+ *
+ * For typical emoji (64-128px) with borders up to 16px, this is efficient.
+ * Very large borders (>50px) on large images may be slow; consider caching
+ * or using a true O(w*h) EDT if this becomes a bottleneck.
  */
 
+// SDF edge detection thresholds
+#define SDF_ALPHA_NOISE_THRESH  16   // Ignore pixels below this alpha (noise filter)
+#define SDF_EDGE_ALPHA_THRESH   64   // Alpha difference to detect edge transition
+#define SDF_NO_EDGE_DIST     30000   // Sentinel distance when no edge found
+
 /**
- * \brief Generate Signed Distance Field from alpha channel using EDT
+ * \brief Generate SDF with elliptical distance for border rendering
  * \param alpha input alpha channel (w * h bytes)
  * \param w width
  * \param h height
- * \param sdf output SDF (w * h floats, caller allocates)
+ * \param border_x horizontal border radius (for elliptical distance)
+ * \param border_y vertical border radius (for elliptical distance)
+ * \param ellip_dist output elliptical distance (w * h floats, caller allocates)
  *
- * Uses Meijster's algorithm for O(w*h) complexity.
- * Negative values = inside, positive = outside.
+ * Uses a two-pass algorithm optimized for elliptical distance calculation.
+ * Pass 1: For each column, find nearest edge in Y direction (O(w*h))
+ * Pass 2: For each pixel, search nearby columns to minimize elliptical
+ *         distance (O(w*h*border_x))
  */
-static void generate_sdf_edt(const uint8_t *alpha, int w, int h, float *sdf)
+static void generate_elliptical_sdf(const uint8_t *alpha, int w, int h,
+                                    int border_x, int border_y, float *ellip_dist)
 {
-    const float INF = 1e10f;
-    float *dt = malloc(w * h * sizeof(float));
-    if (!dt) return;
+    const float INF_DIST = 1e9f;
 
-    int maxdim = w > h ? w : h;
-    int *v = malloc(maxdim * sizeof(int));
-    float *z = malloc((maxdim + 1) * sizeof(float));
-    float *col = malloc(h * sizeof(float));
-    float *row = malloc(w * sizeof(float));
+    // Use integer border values for deterministic comparisons
+    int bx = border_x > 0 ? border_x : 1;
+    int by = border_y > 0 ? border_y : 1;
 
-    if (!v || !z || !col || !row) {
-        free(dt); free(v); free(z); free(col); free(row);
+    /* Allocate working array for Y-direction nearest edge offset.
+     * Use calloc to ensure deterministic initialization. */
+    int16_t *near_y = calloc(w * h, sizeof(int16_t));
+    if (!near_y) {
+        for (int i = 0; i < w * h; i++)
+            ellip_dist[i] = INF_DIST;
         return;
     }
 
-    // Initialize: 0 for edge pixels, INF otherwise
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
+    // First pass: for each column, find nearest edge pixel in Y direction
+    for (int x = 0; x < w; x++) {
+        // Forward pass
+        int last_edge_y = -SDF_NO_EDGE_DIST;
+        for (int y = 0; y < h; y++) {
             uint8_t a = alpha[y * w + x];
             int is_edge = 0;
-            // Edge detection: look for alpha transitions
-            if (x > 0 && abs(alpha[y * w + x - 1] - a) > 64) is_edge = 1;
-            else if (x < w-1 && abs(alpha[y * w + x + 1] - a) > 64) is_edge = 1;
-            else if (y > 0 && abs(alpha[(y-1) * w + x] - a) > 64) is_edge = 1;
-            else if (y < h-1 && abs(alpha[(y+1) * w + x] - a) > 64) is_edge = 1;
-            dt[y * w + x] = is_edge ? 0 : INF;
+            /* Check 4-connected neighbors for alpha transition.
+             * Only consider significant alpha values to filter noise. */
+            if (a > SDF_ALPHA_NOISE_THRESH || (x > 0 && alpha[y * w + x - 1] > SDF_ALPHA_NOISE_THRESH) ||
+                (x < w-1 && alpha[y * w + x + 1] > SDF_ALPHA_NOISE_THRESH) ||
+                (y > 0 && alpha[(y-1) * w + x] > SDF_ALPHA_NOISE_THRESH) ||
+                (y < h-1 && alpha[(y+1) * w + x] > SDF_ALPHA_NOISE_THRESH)) {
+                if (x > 0 && abs(alpha[y * w + x - 1] - a) > SDF_EDGE_ALPHA_THRESH) is_edge = 1;
+                else if (x < w-1 && abs(alpha[y * w + x + 1] - a) > SDF_EDGE_ALPHA_THRESH) is_edge = 1;
+                else if (y > 0 && abs(alpha[(y-1) * w + x] - a) > SDF_EDGE_ALPHA_THRESH) is_edge = 1;
+                else if (y < h-1 && abs(alpha[(y+1) * w + x] - a) > SDF_EDGE_ALPHA_THRESH) is_edge = 1;
+            }
+
+            if (is_edge) {
+                last_edge_y = y;
+                near_y[y * w + x] = 0;
+            } else {
+                near_y[y * w + x] = (int16_t)(last_edge_y - y);
+            }
+        }
+
+        // Backward pass - take closer edge (in Y only)
+        last_edge_y = h + SDF_NO_EDGE_DIST;
+        for (int y = h - 1; y >= 0; y--) {
+            uint8_t a = alpha[y * w + x];
+            int is_edge = 0;
+            // Only consider significant alpha values to filter noise
+            if (a > SDF_ALPHA_NOISE_THRESH || (x > 0 && alpha[y * w + x - 1] > SDF_ALPHA_NOISE_THRESH) ||
+                (x < w-1 && alpha[y * w + x + 1] > SDF_ALPHA_NOISE_THRESH) ||
+                (y > 0 && alpha[(y-1) * w + x] > SDF_ALPHA_NOISE_THRESH) ||
+                (y < h-1 && alpha[(y+1) * w + x] > SDF_ALPHA_NOISE_THRESH)) {
+                if (x > 0 && abs(alpha[y * w + x - 1] - a) > SDF_EDGE_ALPHA_THRESH) is_edge = 1;
+                else if (x < w-1 && abs(alpha[y * w + x + 1] - a) > SDF_EDGE_ALPHA_THRESH) is_edge = 1;
+                else if (y > 0 && abs(alpha[(y-1) * w + x] - a) > SDF_EDGE_ALPHA_THRESH) is_edge = 1;
+                else if (y < h-1 && abs(alpha[(y+1) * w + x] - a) > SDF_EDGE_ALPHA_THRESH) is_edge = 1;
+            }
+
+            if (is_edge) {
+                last_edge_y = y;
+            } else {
+                int dy_back = last_edge_y - y;
+                if (abs(dy_back) < abs(near_y[y * w + x])) {
+                    near_y[y * w + x] = (int16_t)dy_back;
+                }
+            }
         }
     }
 
-    // 1D distance transform (Meijster's algorithm)
-    #define DT1D(f, n) do { \
-        int k = 0; \
-        v[0] = 0; \
-        z[0] = -INF; \
-        z[1] = INF; \
-        for (int q = 1; q < n; q++) { \
-            float s; \
-            while (1) { \
-                s = ((f[q] + q*q) - (f[v[k]] + v[k]*v[k])) / (float)(2*q - 2*v[k]); \
-                if (s > z[k]) break; \
-                k--; \
-            } \
-            k++; \
-            v[k] = q; \
-            z[k] = s; \
-            z[k+1] = INF; \
-        } \
-        k = 0; \
-        for (int q = 0; q < n; q++) { \
-            while (z[k+1] < q) k++; \
-            f[q] = (float)((q - v[k]) * (q - v[k])) + f[v[k]]; \
-        } \
-    } while(0)
+    /* Second pass: for each row, find the point that minimizes ELLIPTICAL distance.
+     * Use integer arithmetic for comparisons to ensure determinism.
+     * Compare: (dx*by)^2 + (dy*bx)^2 which is proportional to elliptical distance squared */
+    int max_search_x = bx + 2;  // Search at least bx pixels in each direction
+    int64_t by_sq = (int64_t)by * by;
+    int64_t bx_sq = (int64_t)bx * bx;
 
-    // Transform columns
-    for (int x = 0; x < w; x++) {
-        for (int y = 0; y < h; y++)
-            col[y] = dt[y * w + x];
-        DT1D(col, h);
-        for (int y = 0; y < h; y++)
-            dt[y * w + x] = col[y];
-    }
-
-    // Transform rows
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++)
-            row[x] = dt[y * w + x];
-        DT1D(row, w);
-        for (int x = 0; x < w; x++)
-            dt[y * w + x] = row[x];
-    }
-
-    #undef DT1D
-
-    // Convert squared distance to signed distance
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            float d = sqrtf(dt[y * w + x]);
+            int dy0 = near_y[y * w + x];
+            // Scaled distance: (dx*by)^2 + (dy*bx)^2 for dx=0
+            int64_t best_scaled = (int64_t)dy0 * dy0 * bx_sq;
+
+            // Search left and right
+            for (int dx = -max_search_x; dx <= max_search_x; dx++) {
+                if (dx == 0) continue;  // Already handled
+                int nx = x + dx;
+                if (nx < 0 || nx >= w) continue;
+
+                int dy = near_y[y * w + nx];
+                // Scaled elliptical distance squared: (dx*by)^2 + (dy*bx)^2
+                int64_t scaled = (int64_t)dx * dx * by_sq + (int64_t)dy * dy * bx_sq;
+
+                if (scaled < best_scaled)
+                    best_scaled = scaled;
+            }
+
+            /* Compute final distance: d = sqrt(best_scaled) / (bx * by)
+             * Use double precision for sqrt to ensure cross-platform consistency */
             int inside = (alpha[y * w + x] > 127);
-            sdf[y * w + x] = inside ? -d : d;
+            double d_scaled = sqrt((double)best_scaled);
+            double d = d_scaled / (double)(bx * by);
+            ellip_dist[y * w + x] = inside ? -(float)d : (float)d;
         }
     }
 
-    free(dt);
-    free(v);
-    free(z);
-    free(col);
-    free(row);
+    free(near_y);
 }
 
 /**
- * \brief Apply SDF-based border to a color bitmap with elliptical support
- * \param rgba input RGBA bitmap (will be freed, replaced with new allocation)
- * \param w pointer to width (updated if border expands image)
- * \param h pointer to height (updated if border expands image)
- * \param stride pointer to stride (updated)
+ * \brief Generate an alpha-only border bitmap for a color glyph
+ * \param rgba input RGBA bitmap (not modified)
+ * \param orig_w original width
+ * \param orig_h original height
+ * \param orig_stride original stride
  * \param border_x horizontal border width in pixels
  * \param border_y vertical border width in pixels
- * \param border_color border color in 0xRRGGBBAA format
- * \param offset_x output: X offset to apply to dst_x
- * \param offset_y output: Y offset to apply to dst_y
- * \return new RGBA buffer with border, or NULL on failure
+ * \param out_w output: border bitmap width
+ * \param out_h output: border bitmap height
+ * \param out_stride output: border bitmap stride
+ * \return alpha-only border bitmap (caller must free with ass_aligned_free), or NULL
  *
- * For elliptical borders, generates SDF at original resolution and uses
- * elliptical distance formula: sqrt((dx/border_x)² + (dy/border_y)²) <= 1
+ * Generates an SDF-based border as an alpha-only bitmap that can be rendered
+ * with the standard my_draw_bitmap path (which properly handles color).
+ * Uses elliptical distance: sqrt((dx/border_x)² + (dy/border_y)²) <= 1
  */
-static unsigned char *apply_color_border(unsigned char *rgba, int *w, int *h,
-                                         int *stride, int border_x, int border_y,
-                                         uint32_t border_color,
-                                         int *offset_x, int *offset_y)
+static unsigned char *generate_color_border_bitmap(const unsigned char *rgba,
+                                                   int orig_w, int orig_h, int orig_stride,
+                                                   int border_x, int border_y,
+                                                   int *out_w, int *out_h, int *out_stride)
 {
-    *offset_x = 0;
-    *offset_y = 0;
-
     if (border_x <= 0 && border_y <= 0)
-        return rgba;
-
-    int orig_w = *w;
-    int orig_h = *h;
-    int orig_stride = *stride;
+        return NULL;
 
     // Padding for the border region
     int pad_x = border_x + 1;
@@ -197,7 +231,7 @@ static unsigned char *apply_color_border(unsigned char *rgba, int *w, int *h,
 
     // Extract alpha channel with padding
     uint8_t *alpha_padded = calloc(sdf_w * sdf_h, 1);
-    if (!alpha_padded) return rgba;
+    if (!alpha_padded) return NULL;
 
     for (int y = 0; y < orig_h; y++) {
         for (int x = 0; x < orig_w; x++) {
@@ -206,37 +240,28 @@ static unsigned char *apply_color_border(unsigned char *rgba, int *w, int *h,
         }
     }
 
-    // Generate SDF at original resolution
-    float *sdf = malloc(sdf_w * sdf_h * sizeof(float));
-    if (!sdf) {
+    /* Generate elliptical distance field.
+     * Use calloc to ensure deterministic initialization. */
+    float *ellip_sdf = calloc(sdf_w * sdf_h, sizeof(float));
+    if (!ellip_sdf) {
         free(alpha_padded);
-        return rgba;
+        return NULL;
     }
-    generate_sdf_edt(alpha_padded, sdf_w, sdf_h, sdf);
+    generate_elliptical_sdf(alpha_padded, sdf_w, sdf_h, border_x, border_y, ellip_sdf);
     free(alpha_padded);
 
     // Output dimensions with border padding
     int new_w = orig_w + border_x * 2;
     int new_h = orig_h + border_y * 2;
-    int new_stride = new_w * 4;
-
-    unsigned char *output = calloc(new_stride * new_h, 1);
-    if (!output) {
-        free(sdf);
-        return rgba;
+    // Use ass_aligned_alloc for compatibility with my_draw_bitmap's freeing
+    unsigned char *border = ass_aligned_alloc(32, (size_t)new_w * new_h + 32, false);
+    if (!border) {
+        free(ellip_sdf);
+        return NULL;
     }
+    memset(border, 0, (size_t)new_w * new_h);
 
-    // Extract border color components
-    uint8_t br = (border_color >> 24) & 0xFF;
-    uint8_t bg = (border_color >> 16) & 0xFF;
-    uint8_t bb = (border_color >> 8) & 0xFF;
-    uint8_t ba = 255 - (border_color & 0xFF);  // ASS uses inverted alpha
-
-    // Use max border for uniform, symmetric appearance
-    // True elliptical borders would require more complex edge-direction tracking
-    float border_radius = (float)(border_x > border_y ? border_x : border_y);
-
-    // Draw border using SDF with simple distance threshold
+    // Draw border using elliptical distance (alpha-only)
     for (int y = 0; y < new_h; y++) {
         int sdf_y = y - border_y + pad_y;
         if (sdf_y < 0 || sdf_y >= sdf_h) continue;
@@ -245,63 +270,37 @@ static unsigned char *apply_color_border(unsigned char *rgba, int *w, int *h,
             int sdf_x = x - border_x + pad_x;
             if (sdf_x < 0 || sdf_x >= sdf_w) continue;
 
-            float d = sdf[sdf_y * sdf_w + sdf_x];
+            float d = ellip_sdf[sdf_y * sdf_w + sdf_x];
 
-            // Only draw border in the region outside the shape but within border distance
-            if (d > 0 && d <= border_radius) {
-                // Anti-alias the outer edge (1 pixel soft edge)
-                float aa = 1.0f;
-                if (d > border_radius - 1.0f)
-                    aa = border_radius - d + 1.0f;
-                if (aa < 0) aa = 0;
-                if (aa > 1) aa = 1;
-
-                uint8_t *dst = output + y * new_stride + x * 4;
-                dst[0] = br;
-                dst[1] = bg;
-                dst[2] = bb;
-                dst[3] = (uint8_t)(ba * aa);
-            }
-        }
-    }
-    free(sdf);
-
-    // Composite original emoji on top of border
-    for (int y = 0; y < orig_h; y++) {
-        for (int x = 0; x < orig_w; x++) {
-            uint8_t *src = rgba + y * orig_stride + x * 4;
-            uint8_t *dst = output + (y + border_y) * new_stride + (x + border_x) * 4;
-
-            // Alpha compositing (src over dst)
-            int sa = src[3];
-            if (sa == 0) continue;
-            if (sa == 255) {
-                dst[0] = src[0];
-                dst[1] = src[1];
-                dst[2] = src[2];
-                dst[3] = 255;
-            } else {
-                int da = dst[3];
-                int out_a = sa + da * (255 - sa) / 255;
-                if (out_a > 0) {
-                    dst[0] = (src[0] * sa + dst[0] * da * (255 - sa) / 255) / out_a;
-                    dst[1] = (src[1] * sa + dst[1] * da * (255 - sa) / 255) / out_a;
-                    dst[2] = (src[2] * sa + dst[2] * da * (255 - sa) / 255) / out_a;
-                    dst[3] = out_a;
+            /* Draw border where outside or slightly inside shape (d > -0.1)
+             * and within elliptical distance 1.0. The small inward extension
+             * closes any gap between emoji and border. Use integer threshold
+             * checks for determinism. */
+            if (d > -0.1f && d <= 1.0f) {
+                /* Convert to integer to avoid float comparison issues.
+                 * Anti-alias: fully opaque if d <= 0.9, fade to 0 at d=1.0 */
+                int d_int = (int)(d * 1000.0f);  // d in milliunits
+                int aa_int;
+                if (d_int <= 900) {  // d <= 0.9
+                    aa_int = 255;
+                } else if (d_int >= 1000) {  // d >= 1.0
+                    aa_int = 0;
+                } else {
+                    // Linear interpolation from 255 at d=0.9 to 0 at d=1.0
+                    aa_int = 255 - (d_int - 900) * 255 / 100;
                 }
+                if (aa_int < 0) aa_int = 0;
+                if (aa_int > 255) aa_int = 255;
+                border[y * new_w + x] = (uint8_t)aa_int;
             }
         }
     }
+    free(ellip_sdf);
 
-    // Free original, return new
-    free(rgba);
-    *w = new_w;
-    *h = new_h;
-    *stride = new_stride;
-    *offset_x = border_x;
-    *offset_y = border_y;
-
-    return output;
+    *out_w = new_w;
+    *out_h = new_h;
+    *out_stride = new_w;
+    return border;
 }
 
 static bool text_info_init(TextInfo* text_info)
@@ -1264,8 +1263,8 @@ static void render_color_glyphs(RenderContext *state,
         int clip_w = x1 - x0;
         int clip_h = y1 - y0;
 
-        // Create alpha-only shadow bitmap (use ass_aligned_alloc since my_draw_bitmap
-        // stores it in buffer which gets freed with ass_aligned_free)
+        /* Create alpha-only shadow bitmap (use ass_aligned_alloc since my_draw_bitmap
+         * stores it in buffer which gets freed with ass_aligned_free) */
         unsigned char *shadow_buf = ass_aligned_alloc(32, (size_t)clip_w * clip_h + 32, false);
         if (!shadow_buf)
             continue;
@@ -1314,8 +1313,8 @@ static void render_color_glyphs(RenderContext *state,
         int x1 = dst_x + cbm->w;
         int y1 = dst_y + cbm->h;
 
-        // Clip to screen - for color glyphs, use frame bounds not text clip
-        // (OSD text clips are too small for emoji)
+        /* Clip to screen - for color glyphs, use frame bounds not text clip
+         * (OSD text clips are too small for emoji) */
         int clip_x0 = 0;
         int clip_y0 = 0;
         int clip_x1 = state->renderer->frame_content_width + state->renderer->settings.left_margin + state->renderer->settings.right_margin;
@@ -1370,27 +1369,37 @@ static void render_color_glyphs(RenderContext *state,
             }
         }
 
-        // Apply SDF-based border for color emoji
+        // Generate SDF-based border for color emoji (as separate alpha-only bitmap)
         int bord_x = (int)(info->border_x * state->border_scale_x + 0.5);
         int bord_y = (int)(info->border_y * state->border_scale_y + 0.5);
-        int final_w = clip_w;
-        int final_h = clip_h;
-        int final_stride = clip_w * 4;
-        int offset_x = 0, offset_y = 0;
 
         if (bord_x > 0 || bord_y > 0) {
-            buffer = apply_color_border(buffer, &final_w, &final_h, &final_stride,
-                                        bord_x, bord_y, info->c[2],
-                                        &offset_x, &offset_y);
-            if (buffer) {
-                // Border expands the image, adjust position
-                x0 -= offset_x;
-                y0 -= offset_y;
+            int border_w, border_h, border_stride;
+            unsigned char *border_bitmap = generate_color_border_bitmap(
+                buffer, clip_w, clip_h, clip_w * 4,
+                bord_x, bord_y,
+                &border_w, &border_h, &border_stride);
+
+            if (border_bitmap) {
+                /* Create border image (renders behind emoji).
+                 * Position is adjusted by border offset. */
+                int border_x0 = x0 - bord_x;
+                int border_y0 = y0 - bord_y;
+
+                ASS_Image *border_img = my_draw_bitmap(
+                    border_bitmap, border_w, border_h, border_stride,
+                    border_x0, border_y0, info->c[2], NULL);
+                if (border_img) {
+                    border_img->type = IMAGE_TYPE_OUTLINE;
+                    *main_tail = border_img;
+                    main_tail = &border_img->next;
+                }
             }
         }
 
-        ASS_Image *img = my_draw_color_bitmap(buffer, final_w, final_h,
-                                               final_stride, x0, y0);
+        // Create emoji image (renders on top of border)
+        ASS_Image *img = my_draw_color_bitmap(buffer, clip_w, clip_h,
+                                               clip_w * 4, x0, y0);
         if (img) {
             img->type = IMAGE_TYPE_CHARACTER;
             *main_tail = img;
@@ -1710,8 +1719,8 @@ get_outline_glyph(RenderContext *state, GlyphInfo *info)
     if (!info->drawing_text.str && info->font && info->face_index >= 0) {
         if (ass_glyph_has_color(info->font, info->face_index, info->glyph_index)) {
             info->is_color_glyph = true;
-            // For color glyphs, we still need metrics for layout
-            // but we don't need the outline - we'll load the color bitmap later
+            /* For color glyphs, we still need metrics for layout
+             * but we don't need the outline - we'll load the color bitmap later */
         }
     }
 
@@ -1767,9 +1776,9 @@ get_outline_glyph(RenderContext *state, GlyphInfo *info)
     info->asc  = ass_lrint(asc  * scale.y);
     info->desc = ass_lrint(desc * scale.y);
 
-    // For color glyphs, override the advance from shaping with the correct scaled advance
-    // HarfBuzz returns advance at target size, but color glyphs are loaded at native size
-    // and scaled, so we need to use the advance from the outline cache
+    /* For color glyphs, override the advance from shaping with the correct scaled advance.
+     * HarfBuzz returns advance at target size, but color glyphs are loaded at native size
+     * and scaled, so we need to use the advance from the outline cache. */
     if (info->is_color_glyph && val->advance) {
         info->cluster_advance.x = info->advance.x = ass_lrint(val->advance * scale.x);
     }
@@ -1957,10 +1966,10 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
         if (!cbm)
             return;
 
-        // Apply scale to get actual display size (similar to outline transform)
-        // The font is rendered at font_size, but scale.y adjusts the final display size
+        /* Apply scale to get actual display size (similar to outline transform).
+         * The font is rendered at font_size, but scale.y adjusts the final display size. */
         double target_size = info->font_size * info->scale_y;
-        if (target_size < 4) target_size = 4;  // Minimum size to avoid issues
+        if (target_size < 4) target_size = 4;  /* Minimum size to avoid issues */
 
         if (!ass_get_color_glyph(info->font, info->face_index, info->glyph_index,
                                  target_size, cbm)) {
@@ -3167,11 +3176,11 @@ static void render_and_combine_glyphs(RenderContext *state,
             get_bitmap_glyph(state, info, &current_info->leftmost_x, &pos, &pos_o,
                              &offset, !current_info->bitmap_count, flags);
 
-            // Color glyphs are handled separately - they bypass bitmap combining
-            // and are rendered directly
+            /* Color glyphs are handled separately - they bypass bitmap combining
+             * and are rendered directly */
             if (info->is_color_glyph && info->color_bm) {
-                // Color glyphs don't participate in bitmap combining
-                // They will be rendered directly in ass_render_event
+                /* Color glyphs don't participate in bitmap combining.
+                 * They will be rendered directly in ass_render_event. */
                 continue;
             }
 
@@ -3651,8 +3660,8 @@ ass_render_event(RenderContext *state, ASS_Event *event,
         while (*tail) {
             ASS_Image *cur = *tail;
 
-            // Insert color shadows before first non-shadow (outline or character)
-            // or at correct x position within shadows
+            /* Insert color shadows before first non-shadow (outline or character)
+             * or at correct x position within shadows */
             if (color_shadow_cur && cur->type != IMAGE_TYPE_SHADOW) {
                 // We've passed all regular shadows, insert remaining color shadows
                 while (color_shadow_cur) {

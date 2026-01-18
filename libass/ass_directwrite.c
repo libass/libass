@@ -74,16 +74,6 @@ typedef struct {
     bool has_color_glyphs;
 } FontPrivate;
 
-// Check if codepoint is likely an emoji that needs color rendering
-static bool is_emoji_codepoint(uint32_t code)
-{
-    return (code >= 0x1F300 && code <= 0x1FAF8) ||  // Misc symbols, emoticons, etc.
-           (code >= 0x2600 && code <= 0x26FF) ||    // Misc symbols
-           (code >= 0x2700 && code <= 0x27BF) ||    // Dingbats
-           (code >= 0x1F000 && code <= 0x1F02F) ||  // Mahjong, dominos
-           (code >= 0x1F0A0 && code <= 0x1F0FF);    // Playing cards
-}
-
 // Check if a font face has color glyph tables (COLR, sbix, CBDT, CBLC)
 static bool font_face_has_color_tables(IDWriteFontFace *face)
 {
@@ -453,7 +443,7 @@ static bool check_glyph(void *data, uint32_t code)
 
     // For emoji codepoints, only claim we have the glyph if this is a color font.
     // This forces fallback to a color emoji font for proper rendering.
-    if (is_emoji_codepoint(code) && !priv->has_color_glyphs)
+    if (ass_is_emoji_codepoint(code) && !priv->has_color_glyphs)
         return false;
 
     if (priv->font) {

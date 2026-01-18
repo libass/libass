@@ -949,7 +949,11 @@ bool ass_glyph_has_color(ASS_Font *font, int face_index, int glyph_index)
     }
 #endif
 
-    // For bitmap-based color fonts (CBDT/sbix), try loading with FT_LOAD_COLOR
+    /* For bitmap-based color fonts (CBDT/sbix), try loading with FT_LOAD_COLOR.
+     * NOTE: This temporarily modifies face->size to probe for color glyphs.
+     * The original size is restored after the check. This is safe because
+     * this function is only called during glyph outline construction, before
+     * any size-dependent rendering occurs. */
     if (formats & (ASS_COLOR_GLYPH_CBDT | ASS_COLOR_GLYPH_SBIX)) {
         // Save current pixel size to restore after checking
         FT_UInt orig_ppem = face->size->metrics.y_ppem;
@@ -968,9 +972,9 @@ bool ass_glyph_has_color(ASS_Font *font, int face_index, int glyph_index)
         bool has_color = (!error && face->glyph->format == FT_GLYPH_FORMAT_BITMAP &&
                           face->glyph->bitmap.pixel_mode == FT_PIXEL_MODE_BGRA);
 
-        // Restore original pixel size
-        if (orig_ppem > 0)
-            FT_Set_Pixel_Sizes(face, 0, orig_ppem);
+        /* Restore original pixel size (always restore, even if orig_ppem was 0,
+         * since we need to undo our modification) */
+        FT_Set_Pixel_Sizes(face, 0, orig_ppem > 0 ? orig_ppem : native_ppem);
 
         if (has_color)
             return true;
@@ -1053,7 +1057,7 @@ bool ass_get_color_glyph(ASS_Font *font, int face_index, int glyph_index,
     if (out_w < 1) out_w = 1;
     if (out_h < 1) out_h = 1;
 
-    // Check for overflow: out_w * out_h * 4 must fit in size_t
+    /* Check for overflow: out_w * out_h * 4 must fit in size_t */
     if (out_w > INT32_MAX / 4 / (out_h > 0 ? out_h : 1))
         return false;
 
@@ -1086,8 +1090,8 @@ bool ass_get_color_glyph(ASS_Font *font, int face_index, int glyph_index,
             uint8_t *p10 = bm->buffer + y1 * bm->pitch + x0 * 4;
             uint8_t *p11 = bm->buffer + y1 * bm->pitch + x1 * 4;
 
-            // Bilinear interpolation for each channel with BGRA -> RGBA swizzle
-            // Source is BGRA (FreeType), output is RGBA: B->R, G->G, R->B, A->A
+            /* Bilinear interpolation for each channel with BGRA -> RGBA swizzle.
+             * Source is BGRA (FreeType), output is RGBA: B->R, G->G, R->B, A->A */
             static const int bgra_to_rgba[4] = {2, 1, 0, 3};
             for (int c = 0; c < 4; c++) {
                 int idx = bgra_to_rgba[c];

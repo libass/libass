@@ -72,16 +72,6 @@ typedef struct {
     bool has_color_glyphs;
 } FontPriv;
 
-// Check if codepoint is likely an emoji that needs color rendering
-static bool is_emoji_codepoint(uint32_t code)
-{
-    return (code >= 0x1F300 && code <= 0x1FAF8) ||  // Misc symbols, emoticons, etc.
-           (code >= 0x2600 && code <= 0x26FF) ||    // Misc symbols
-           (code >= 0x2700 && code <= 0x27BF) ||    // Dingbats
-           (code >= 0x1F000 && code <= 0x1F02F) ||  // Mahjong, dominos
-           (code >= 0x1F0A0 && code <= 0x1F0FF);    // Playing cards
-}
-
 // Check if font has color glyph tables (sbix, COLR, CBDT)
 static bool font_has_color_tables(CTFontRef font)
 {
@@ -133,7 +123,7 @@ static bool check_glyph(void *priv, uint32_t code)
 
     // For emoji codepoints, only claim we have the glyph if this is a color font.
     // This forces fallback to a color emoji font for proper rendering.
-    if (is_emoji_codepoint(code) && !fp->has_color_glyphs)
+    if (ass_is_emoji_codepoint(code) && !fp->has_color_glyphs)
         return false;
 
     // First try the character set (fast path)
@@ -341,7 +331,7 @@ static char *get_fallback(void *priv, ASS_Library *lib,
 {
     // For emoji codepoints, directly return a color emoji font.
     // CTFontCreateForString often returns .LastResort instead of the color font.
-    if (is_emoji_codepoint(codepoint)) {
+    if (ass_is_emoji_codepoint(codepoint)) {
         // Try Apple Color Emoji (macOS/iOS)
         CTFontRef emoji_font = CTFontCreateWithName(CFSTR("Apple Color Emoji"), 12.0, NULL);
         if (emoji_font) {

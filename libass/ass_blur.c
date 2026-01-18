@@ -189,7 +189,7 @@ bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2x, doubl
     if (size > INT_MAX / 4)
         return false;
 
-    int16_t *tmp = ass_aligned_alloc(2 * stripe_width, 4 * size, true);
+    int16_t *tmp = ass_aligned_alloc(2 * stripe_width, 4 * size, false);
     if (!tmp)
         return false;
 

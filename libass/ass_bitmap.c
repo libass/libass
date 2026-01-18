@@ -121,7 +121,7 @@ bool ass_alloc_bitmap(const BitmapEngine *engine, Bitmap *bm,
 bool ass_realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h)
 {
     uint8_t *old = bm->buffer;
-    if (!ass_alloc_bitmap(engine, bm, w, h, true))
+    if (!ass_alloc_bitmap(engine, bm, w, h, false))
         return false;
     ass_aligned_free(old);
     return true;
@@ -427,9 +427,9 @@ bool ass_synth_blur_color(const BitmapEngine *engine, ColorBitmap *cbm,
     int32_t w = cbm->w;
     int32_t h = cbm->h;
 
-    // Allocate 4 alpha-only bitmaps for R, G, B, A channels
-    // Must zero-initialize because stride may be larger than width,
-    // and blur reads padding bytes
+    /* Allocate 4 alpha-only bitmaps for R, G, B, A channels.
+     * Must zero-initialize because stride may be larger than width,
+     * and blur reads padding bytes. */
     Bitmap channels[4] = {{0}};
     for (int c = 0; c < 4; c++) {
         if (!ass_alloc_bitmap(engine, &channels[c], w, h, true))
@@ -451,9 +451,9 @@ bool ass_synth_blur_color(const BitmapEngine *engine, ColorBitmap *cbm,
         ass_synth_blur(engine, &channels[c], be, blur_r2x, blur_r2y);
     }
 
-    // After blur, dimensions may have changed (gaussian blur expands the bitmap)
-    // All channels should have the same new dimensions
-    // Reallocate the color bitmap if needed
+    /* After blur, dimensions may have changed (gaussian blur expands the bitmap).
+     * All channels should have the same new dimensions.
+     * Reallocate the color bitmap if needed. */
     if (channels[0].w != w || channels[0].h != h) {
         int32_t new_w = channels[0].w;
         int32_t new_h = channels[0].h;
