@@ -66,9 +66,14 @@ typedef bool    (*CheckPostscriptFunc)(void *font_priv);
  *
  * \param font_priv font private data
  * \param codepoint Unicode codepoint (UTF-32)
+ * \param exact_match true if the font was matched by exact name, meaning
+ *        the user explicitly requested this font. When true, font providers
+ *        should return the glyph even if a "better" alternative exists
+ *        (e.g., monochrome emoji when color emoji is available).
  * \return true if codepoint is supported by the font
  */
-typedef bool    (*CheckGlyphFunc)(void *font_priv, uint32_t codepoint);
+typedef bool    (*CheckGlyphFunc)(void *font_priv, uint32_t codepoint,
+                                  bool exact_match);
 
 /**
 * Get index of a font in context of a font collection.

@@ -116,9 +116,10 @@ struct font_data_ft {
     int idx;
 };
 
-static bool check_glyph_ft(void *data, uint32_t codepoint)
+static bool check_glyph_ft(void *data, uint32_t codepoint, bool exact_match)
 {
     FontDataFT *fd = (FontDataFT *)data;
+    (void)exact_match;  // Embedded fonts don't do color emoji fallback
 
     if (!codepoint)
         return true;
@@ -700,12 +701,12 @@ static void font_info_dump(ASS_FontInfo *font_infos, size_t len)
 }
 #endif
 
-static bool check_glyph(ASS_FontInfo *fi, uint32_t code)
+static bool check_glyph(ASS_FontInfo *fi, uint32_t code, bool exact_match)
 {
     ASS_FontProvider *provider = fi->provider;
     assert(provider && provider->funcs.check_glyph);
 
-    return provider->funcs.check_glyph(fi->priv, code);
+    return provider->funcs.check_glyph(fi->priv, code, exact_match);
 }
 
 static char *
@@ -759,7 +760,9 @@ find_font(ASS_FontSelector *priv,
                 // We want to be able to match even if the closest variant
                 // does not have the requested glyph, but another member
                 // of the family has the glyph.
-                if (!check_glyph(font, code))
+                // Pass exact_match=true since we matched by name, respecting
+                // the user's explicit font choice.
+                if (!check_glyph(font, code, true))
                     continue;
 
                 score_min = score;

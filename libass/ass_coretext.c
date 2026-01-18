@@ -112,7 +112,7 @@ static void destroy_font(void *priv)
     }
 }
 
-static bool check_glyph(void *priv, uint32_t code)
+static bool check_glyph(void *priv, uint32_t code, bool exact_match)
 {
     if (code == 0)
         return true;
@@ -121,9 +121,10 @@ static bool check_glyph(void *priv, uint32_t code)
     if (!fp)
         return true;
 
-    // For emoji codepoints, only claim we have the glyph if this is a color font.
-    // This forces fallback to a color emoji font for proper rendering.
-    if (ass_is_emoji_codepoint(code) && !fp->has_color_glyphs)
+    // For emoji codepoints, prefer color fonts unless the user explicitly
+    // requested this font by name. This allows fallback fonts to prefer
+    // color emoji while respecting explicit font choices.
+    if (!exact_match && ass_is_emoji_codepoint(code) && !fp->has_color_glyphs)
         return false;
 
     // First try the character set (fast path)

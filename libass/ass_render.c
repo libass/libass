@@ -1959,7 +1959,11 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
     if (info->symbol == '\n' || info->symbol == 0 || info->skip)
         return;
 
-    // Handle color glyphs separately
+    // Handle color glyphs separately.
+    // NOTE: Color glyphs (emoji) are pre-rendered bitmaps and do not support
+    // 3D transforms (\frx, \fry). Z-axis rotation (\frz) and scaling via
+    // \fscx/\fscy are supported. True 3D rotation would require texture mapping
+    // which is beyond the scope of the current bitmap-based approach.
     if (info->is_color_glyph) {
         // Load the color bitmap from the font
         ColorBitmap *cbm = malloc(sizeof(ColorBitmap));

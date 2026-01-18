@@ -59,7 +59,7 @@ static bool check_postscript(void *priv)
            !strcmp(format, "CID Type 1") || !strcmp(format, "CFF");
 }
 
-static bool check_glyph(void *priv, uint32_t code)
+static bool check_glyph(void *priv, uint32_t code, bool exact_match)
 {
     if (code == 0)
         return true;
@@ -68,9 +68,11 @@ static bool check_glyph(void *priv, uint32_t code)
     if (!fp || !fp->pattern)
         return true;
 
-    // For emoji codepoints, only claim we have the glyph if this is a color font.
-    // This forces fallback to a color emoji font for proper rendering.
-    if (ass_is_emoji_codepoint(code) && !fp->has_color_glyphs)
+    // For emoji codepoints, prefer color fonts unless the user explicitly
+    // requested this font by name. This allows fallback fonts to prefer
+    // color emoji while respecting explicit font choices (e.g., \fnSymbola
+    // will use Symbola's monochrome emoji if available).
+    if (!exact_match && ass_is_emoji_codepoint(code) && !fp->has_color_glyphs)
         return false;
 
     FcCharSet *charset;

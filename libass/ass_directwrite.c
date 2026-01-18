@@ -432,7 +432,7 @@ static unsigned get_font_index(void *data)
 /*
  * Check if the passed font has a specific unicode character.
  */
-static bool check_glyph(void *data, uint32_t code)
+static bool check_glyph(void *data, uint32_t code, bool exact_match)
 {
     HRESULT hr = S_OK;
     FontPrivate *priv = (FontPrivate *) data;
@@ -441,9 +441,10 @@ static bool check_glyph(void *data, uint32_t code)
     if (code == 0)
         return true;
 
-    // For emoji codepoints, only claim we have the glyph if this is a color font.
-    // This forces fallback to a color emoji font for proper rendering.
-    if (ass_is_emoji_codepoint(code) && !priv->has_color_glyphs)
+    // For emoji codepoints, prefer color fonts unless the user explicitly
+    // requested this font by name. This allows fallback fonts to prefer
+    // color emoji while respecting explicit font choices.
+    if (!exact_match && ass_is_emoji_codepoint(code) && !priv->has_color_glyphs)
         return false;
 
     if (priv->font) {
