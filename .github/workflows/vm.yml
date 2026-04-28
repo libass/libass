@@ -150,18 +150,6 @@ jobs:
                 ;;
             esac
 
-      - name: Fix git ownership
-        uses: cross-platform-actions/action@v1.0.0
-        with:
-          operating_system: ${{ matrix.os_image }}
-          version: ${{ matrix.os_version }}
-          environment_variables: ASAN_OPTIONS AUTOCONF_VERSION AUTOMAKE_VERSION
-          shutdown_vm: false
-          sync_files: true
-          run: |
-            # Work around https://github.com/cross-platform-actions/action/issues/108
-            git config --global --add safe.directory "$PWD"
-
       - name: Build libass
         uses: cross-platform-actions/action@v1.0.0
         with:
