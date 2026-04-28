@@ -65,14 +65,14 @@ jobs:
             # no libubsan available, thus just SIGILL
             CC: 'gcc -fsanitize=undefined,float-cast-overflow -fno-sanitize-recover=all -fsanitize-undefined-trap-on-error'
 
-          # No illumos in cross-platform-actions/action yet, see
-          #   https://github.com/cross-platform-actions/action/issues/20
-          #- name: 'ART (illumos32-qemu, OpenIndiana, i686)'
-          #  vbox: openindiana/hipster
-          #  CC: gcc -m32 -msse -msse2 -mfpmath=sse
-          #  confflags: '--host=i686-pc-solaris2.11'
-          #  ASAN_OPTIONS: ''
-          #  ART_REG_SKIP: 'font_nonunicode'
+          - name: 'ART(omnios64-qemu, illumos/OmniOS, amd64)'
+            os_image: omnios
+            os_version: r151056
+            # errors by default, but illumos has spec-incompliant iconv (const vs restrict)
+            CC: 'gcc -Wno-error=incompatible-pointer-types'
+            confenv: 'PKG_CONFIG_PATH=/opt/ooce/lib/64/pkgconfig'
+            ART_REG_SKIP: 'font_nonunicode'
+
     env:
       ASAN_OPTIONS: ${{ matrix.ASAN_OPTIONS }}
       AUTOCONF_VERSION: ${{ matrix.AUTOCONF_VERSION }}
@@ -132,21 +132,21 @@ jobs:
                   freetype_devel fribidi_devel harfbuzz_devel \
                   fontconfig_devel libunibreak_devel libpng16_devel
                 ;;
-              openindiana/*)
-                pfexec pkg install --no-backup-be \
-                    crypto/ca-certificates \
-                    developer/versioning/git \
-                    developer/gcc-10 \
-                    developer/assembler/nasm \
-                    developer/build/autoconf \
-                    developer/build/automake \
-                    developer/build/libtool \
-                    developer/build/pkg-config \
-                    system/library/freetype-2 \
-                    library/fribidi \
-                    library/c++/harfbuzz \
-                    system/library/fontconfig \
-                    image/library/libpng
+              omnios)
+                # "ooce" extra packages are not in regular search paths.
+                # Activate via /opt/ooce/lib/64/pkgconfig etc.
+                # Harfbuzz and fribidi are bundled with pango (no standalone package).
+                sudo pkg install --deny-new-be --no-backup-be \
+                  pkg:/developer/gcc14 \
+                  pkg:/developer/nasm \
+                  pkg:/developer/build/make \
+                  pkg:/developer/pkg-config \
+                  pkg:/developer/build/autoconf \
+                  pkg:/developer/build/automake \
+                  pkg:/developer/build/libtool \
+                  pkg:/ooce/library/fontconfig \
+                  pkg:/ooce/library/pango \
+                  pkg:/ooce/library/libpng
                 ;;
             esac
 
@@ -160,7 +160,8 @@ jobs:
           sync_files: true
           run: |
             ./autogen.sh
-            ./configure CC="${{ matrix.CC }}" ${{ matrix.confflags }} --enable-fuzz --enable-compare
+            env ${{ matrix.confenv }} \
+              ./configure CC="${{ matrix.CC }}" ${{ matrix.confflags }} --enable-fuzz --enable-compare
             make -j 2
 
       - name: Run Tests
