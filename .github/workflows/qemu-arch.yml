@@ -214,12 +214,12 @@ jobs:
 
 
       - name: Checkout libass
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: '${{ steps.config.outputs.chr_dir }}/home/artci/workarea/libass'
 
       - name: Checkout tests
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.event.inputs.test_repo || 'libass/libass-tests'}}
           ref: ${{ github.event.inputs.test_ref }}

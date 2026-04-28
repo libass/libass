@@ -80,17 +80,17 @@ jobs:
 
     steps:
       - name: checkout libass
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: download test samples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.event.inputs.test_repo || 'libass/libass-tests'}}
           ref: ${{ github.event.inputs.test_ref }}
           path: './libass-tests'
 
       - name: Install Packages
-        uses: cross-platform-actions/action@v0.30.0
+        uses: cross-platform-actions/action@v1.0.0
         with:
           operating_system: ${{ matrix.os_image }}
           version: ${{ matrix.os_version }}
@@ -151,7 +151,7 @@ jobs:
             esac
 
       - name: Fix git ownership
-        uses: cross-platform-actions/action@v0.30.0
+        uses: cross-platform-actions/action@v1.0.0
         with:
           operating_system: ${{ matrix.os_image }}
           version: ${{ matrix.os_version }}
@@ -163,7 +163,7 @@ jobs:
             git config --global --add safe.directory "$PWD"
 
       - name: Build libass
-        uses: cross-platform-actions/action@v0.30.0
+        uses: cross-platform-actions/action@v1.0.0
         with:
           operating_system: ${{ matrix.os_image }}
           version: ${{ matrix.os_version }}
@@ -176,7 +176,7 @@ jobs:
             make -j 2
 
       - name: Run Tests
-        uses: cross-platform-actions/action@v0.30.0
+        uses: cross-platform-actions/action@v1.0.0
         with:
           operating_system: ${{ matrix.os_image }}
           version: ${{ matrix.os_version }}
@@ -190,7 +190,7 @@ jobs:
 
       - name: Shutdown VM
         if: always()
-        uses: cross-platform-actions/action@v0.30.0
+        uses: cross-platform-actions/action@v1.0.0
         with:
           operating_system: ${{ matrix.os_image }}
           version: ${{ matrix.os_version }}

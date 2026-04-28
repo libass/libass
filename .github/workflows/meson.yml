@@ -76,12 +76,12 @@ jobs:
       SCCACHE_MAXSIZE: 200M
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: '0'
 
       - name: Download test samples
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: libass/libass-tests
           path: ${{ env.ART_SAMPLES }}
@@ -200,7 +200,7 @@ jobs:
                   fontconfig-dev libpng-dev git
 
       - name: checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: configure
         run: |
@@ -262,7 +262,7 @@ jobs:
                   libpng-dev meson ninja-build
 
       - name: checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: setup distdir
         run: |
