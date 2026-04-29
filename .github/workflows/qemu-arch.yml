@@ -122,7 +122,7 @@ jobs:
       # use it to store our (compressed) chroot dirs
       # (cache is branch scoped)
       - name: Retrieve Cached Chroots
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: cache
         with:
           path: /var/chroot/imgs

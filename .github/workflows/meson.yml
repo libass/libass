@@ -110,7 +110,7 @@ jobs:
 
       - name: Restore cache
         if: matrix.config.msvc
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ env.SCCACHE_DIR }}
           key: windows-msvc-${{ matrix.config.arch }}-${{ steps.get_time.outputs.timestamp }}
@@ -170,7 +170,7 @@ jobs:
         run: cat build/meson-logs/testlog.txt
 
       - name: Save Cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         if: always() && matrix.config.msvc
         with:
           path: ${{ env.SCCACHE_DIR }}
