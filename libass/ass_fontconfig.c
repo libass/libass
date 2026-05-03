@@ -233,7 +233,7 @@ static void cache_fallbacks(ProviderPrivate *fc)
         return;
     FcPatternAddString(pat, FC_FAMILY, (FcChar8 *)"sans-serif");
     FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
-    FcConfigSubstitute (fc->config, pat, FcMatchPattern);
+    FcConfigSubstitute(fc->config, pat, FcMatchPattern);
 #if FC_VERSION >= 21700
     FcConfigSetDefaultSubstitute(fc->config, pat);
 #else
