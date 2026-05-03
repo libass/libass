@@ -85,6 +85,7 @@ static void destroy(void *priv)
     if (fc->fallbacks)
         FcFontSetDestroy(fc->fallbacks);
     FcConfigDestroy(fc->config);
+    FcFini();
     free(fc);
 }
 
@@ -380,6 +381,7 @@ ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
         ass_msg(lib, MSGL_ERR,
                 "No valid fontconfig configuration found!");
         FcConfigDestroy(fc->config);
+        FcFini();
         free(fc);
         return NULL;
     }
