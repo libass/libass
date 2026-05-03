@@ -100,7 +100,11 @@ static bool scan_fonts(FcConfig *config, ASS_FontProvider *provider)
     if (!pat)
         return false;
 
+#if FC_VERSION >= 21700
+    FcConfigSetDefaultSubstitute(config, pat);
+#else
     FcDefaultSubstitute(pat);
+#endif
     FcResult res;
     // trim=FcFalse returns all system fonts
     fonts = FcFontSort(config, pat, FcFalse, NULL, &res);
@@ -230,7 +234,11 @@ static void cache_fallbacks(ProviderPrivate *fc)
     FcPatternAddString(pat, FC_FAMILY, (FcChar8 *)"sans-serif");
     FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
     FcConfigSubstitute (fc->config, pat, FcMatchPattern);
-    FcDefaultSubstitute (pat);
+#if FC_VERSION >= 21700
+    FcConfigSetDefaultSubstitute(fc->config, pat);
+#else
+    FcDefaultSubstitute(pat);
+#endif
 
     // FC_LANG is automatically set according to locale, but this results
     // in strange sorting sometimes, so remove the attribute completely.
