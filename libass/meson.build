@@ -69,7 +69,7 @@ libass_src = files(
 
 libass_link_with = []
 
-libass_headers = files('ass.h', 'ass_types.h')
+libass_headers = files('ass.h', 'ass_types.h', 'ass_metrics.h')
 
 if fontconfig
     libass_src += src_fontconfig
