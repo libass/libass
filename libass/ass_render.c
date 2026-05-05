@@ -3366,6 +3366,25 @@ static int ass_detect_change(ASS_Renderer *priv)
 }
 
 /**
+ * \brief free a single image.
+ * \param img image as returned by ass_render_frame().
+ *        Only img will be freed, not img->next.
+ * \return img->next
+ * Should not be called outside of ass_frame_unref
+ * once the image list's refcounting is set up.
+ */
+static ASS_Image *ass_free_image(ASS_Image *img) {
+    ASS_Image *next = img->next;
+
+    ASS_ImagePriv *priv = (ASS_ImagePriv *) img;
+    ass_cache_dec_ref(priv->source);
+    ass_aligned_free(priv->buffer);
+    free(priv);
+
+    return next;
+}
+
+/**
  * \brief render a frame
  * \param priv library handle
  * \param track track
@@ -3415,16 +3434,25 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
     if (cnt > 0)
         fix_collisions(priv, last, priv->eimg + cnt - last);
 
-    // concat lists
+    // concat lists, removing fully transparent bitmaps
     ASS_Image **tail = &priv->images_root;
     for (int i = 0; i < cnt; i++) {
         ASS_Image *cur = priv->eimg[i].imgs;
         while (cur) {
+            if (_a(cur->color) == 0xFF) {
+                cur = ass_free_image(cur);
+                continue;
+            }
+
             *tail = cur;
             tail = &cur->next;
             cur = cur->next;
         }
     }
+
+    // If the last image was skipped in the above loop, *tail may not be NULL and needs to be set to NULL.
+    *tail = NULL;
+
     ass_frame_ref(priv->images_root);
 
     if (detect_change)
@@ -3460,10 +3488,6 @@ void ass_frame_unref(ASS_Image *img)
     if (!img || --((ASS_ImagePriv *) img)->ref_count)
         return;
     do {
-        ASS_ImagePriv *priv = (ASS_ImagePriv *) img;
-        img = img->next;
-        ass_cache_dec_ref(priv->source);
-        ass_aligned_free(priv->buffer);
-        free(priv);
+        img = ass_free_image(img);
     } while (img);
 }
