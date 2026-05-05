@@ -55,6 +55,18 @@
 
 #define FEATURE_MASK(feat) (((uint32_t) 1) << (feat))
 
+#if DEBUG_LEVEL >= 1
+    #define ass_assert1(x) assert(x)
+#else
+    #define ass_assert1(x) (void)0
+#endif
+
+#if DEBUG_LEVEL >= 2
+    #define ass_assert2(x) assert(x)
+#else
+    #define ass_assert2(x) (void)0
+#endif
+
 #if DEBUG_LEVEL >= 3
     #define ASSUME(x) assert(x)
 #elif __has_builtin(__builtin_assume)

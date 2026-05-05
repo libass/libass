@@ -22,6 +22,7 @@
 #include <stdarg.h>
 
 #include "ass_filesystem.h"
+#include "ass_threading.h"
 
 typedef struct {
     char *name;
@@ -38,6 +39,11 @@ struct ass_library {
     size_t num_fontdata;
     void (*msg_callback)(int, const char *, va_list, void *);
     void *msg_callback_data;
+
+#if ENABLE_THREADS
+    pthread_mutex_t log_mutex;
+    int thread_safe_cb;
+#endif
 };
 
 char *ass_load_file(struct ass_library *library, const char *fname, FileNameSource hint, size_t *bufsize);

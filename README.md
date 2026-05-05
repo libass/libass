@@ -38,7 +38,8 @@ and there are no stability guarantees for these manual defines.
 
 - `DEBUG_LEVEL=0..3`
   - `0` use the default set of asserts; implied if macro is not defined at all
-  - `1`, `2` *unused*
+  - `1` enable additional asserts that may mildly impact performance
+  - `2` enable additional asserts that may seriously impact performance
   - `3` additionally assert assumptions usually pledged to the compiler for optimization purposes
 
 Information about the ASS format:
