@@ -93,6 +93,8 @@ void ass_aligned_free(void *ptr);
 void *ass_realloc_array(void *ptr, size_t nmemb, size_t size);
 void *ass_try_realloc_array(void *ptr, size_t nmemb, size_t size);
 
+char *ass_strchrnul(const char *s, int c);
+
 /**
  * Reallocate the array in ptr to at least count elements. For example, if
  * you do "int *ptr = NULL; ASS_REALLOC_ARRAY(ptr, 5)", you can access ptr[0]
