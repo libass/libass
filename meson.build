@@ -315,6 +315,10 @@ if not asm_option.disabled()
                 nasm_args += '-DFORCE_VEX_ENCODING=1'
             endif
 
+            if get_option('trim_asm').enabled()
+                nasm_args += '-DFUNCTION_SECTIONS=1'
+            endif
+
             add_project_arguments(nasm_args, language: 'nasm')
         endif
     elif generic_cpu_family == 'aarch64'
@@ -333,6 +337,9 @@ if not asm_option.disabled()
 
     if enable_asm
         conf.set('CONFIG_ASM', 1)
+        if get_option('trim_asm').enabled()
+            conf.set('CONFIG_ASM_DCE', 1)
+        endif
     elif asm_option.enabled()
         error(
             'Assembly was requested, but cannot be built; see prior messages.',
