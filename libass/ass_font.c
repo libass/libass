@@ -259,8 +259,20 @@ uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol)
 
     if (face->charmap->platform_id == TT_PLATFORM_MICROSOFT) {
         switch (face->charmap->encoding) {
-        case FT_ENCODING_MS_SYMBOL:
+        case FT_ENCODING_MS_SYMBOL: {
+            TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
+            if (os2) {
+                // See: https://learn.microsoft.com/en-us/typography/legacy/legacy_arabic_fonts
+                int ARABIC_CHARSET_SIMPLIFIED  = 178;
+                int ARABIC_CHARSET_TRADITIONAL = 179;
+                uint8_t charset = (os2->fsSelection >> 8) & 0xFF;
+                if (charset == ARABIC_CHARSET_SIMPLIFIED)
+                    return ass_font_charmap_arabic_simplified(symbol);
+                if (charset == ARABIC_CHARSET_TRADITIONAL)
+                    return ass_font_charmap_arabic_traditional(symbol);
+            }
             return 0xF000 | symbol;
+        }
         case FT_ENCODING_MS_SJIS:
         case FT_ENCODING_MS_GB2312:
         case FT_ENCODING_MS_BIG5:
