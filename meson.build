@@ -26,9 +26,9 @@ cc_warnings = []
 cc_features = []
 
 if cc.get_id() == 'clang-cl'
-    cc_features += '/clang:-fno-math-errno'
+    cc_features += ['/clang:-fno-math-errno', '/clang:-fwrapv']
 elif cc.get_id() != 'msvc'
-    cc_features += ['-D_GNU_SOURCE', '-D_XPLATFORM_SOURCE', '-fno-math-errno']
+    cc_features += ['-D_GNU_SOURCE', '-D_XPLATFORM_SOURCE', '-fno-math-errno', '-fwrapv']
 endif
 
 if cc.get_argument_syntax() == 'gcc'
