@@ -201,7 +201,7 @@ static int test_and_set_read_order_bit(ASS_Track *track, int id)
 static inline void clear_read_order_bit(ASS_Track *track, int id)
 {
     int index = id >> 5;
-    if (index < track->parser_priv->read_order_elems) {
+    if (index >= 0 && index < track->parser_priv->read_order_elems) {
         uint32_t mask = ~(1u << (id & 0x1F));
         track->parser_priv->read_order_bitmap[index] &= mask;
     }
