@@ -709,7 +709,7 @@ static void blend_vector_clip(RenderContext *state, ASS_Image *head)
     ol_key.u.drawing.text = state->clip_drawing_text;
 
     double m[3][3] = {{0}};
-    int32_t scale_base = lshiftwrapi(1, state->clip_drawing_scale - 1);
+    int32_t scale_base = lshiftwrapi(1, (uint32_t) state->clip_drawing_scale - 1);
     double w = scale_base > 0 ? (1.0 / scale_base) : 0;
     m[0][0] = state->screen_scale_x * w;
     m[1][1] = state->screen_scale_y * w;
