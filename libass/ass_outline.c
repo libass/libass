@@ -79,7 +79,8 @@ void ass_outline_free(ASS_Outline *outline)
 
 static bool valid_point(const FT_Vector *pt)
 {
-    return labs(pt->x) <= OUTLINE_MAX && labs(pt->y) <= OUTLINE_MAX;
+    return pt->x >= -OUTLINE_MAX && pt->x <= OUTLINE_MAX &&
+           pt->y >= -OUTLINE_MAX && pt->y <= OUTLINE_MAX;
 }
 
 /*
@@ -250,8 +251,8 @@ void ass_outline_add_rect(ASS_Outline *outline,
 {
     assert(outline->n_points + 4 <= outline->max_points);
     assert(outline->n_segments + 4 <= outline->max_segments);
-    assert(abs(x0) <= OUTLINE_MAX && abs(y0) <= OUTLINE_MAX);
-    assert(abs(x1) <= OUTLINE_MAX && abs(y1) <= OUTLINE_MAX);
+    assert(vec_in_range((ASS_Vector) { x0, y0 }, OUTLINE_MAX));
+    assert(vec_in_range((ASS_Vector) { x1, y1 }, OUTLINE_MAX));
     assert(!outline->n_segments ||
         (outline->segments[outline->n_segments - 1] & OUTLINE_CONTOUR_END));
 
@@ -279,7 +280,7 @@ void ass_outline_add_rect(ASS_Outline *outline,
 bool ass_outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment)
 {
     assert(outline->max_points);
-    if (abs(pt.x) > OUTLINE_MAX || abs(pt.y) > OUTLINE_MAX)
+    if (!vec_in_range(pt, OUTLINE_MAX))
         return false;
 
     if (outline->n_points >= outline->max_points) {
@@ -328,12 +329,11 @@ void ass_outline_close_contour(ASS_Outline *outline)
  */
 bool ass_outline_rotate_90(ASS_Outline *outline, ASS_Vector offs)
 {
-    assert(abs(offs.x) <= INT32_MAX - OUTLINE_MAX);
-    assert(abs(offs.y) <= INT32_MAX - OUTLINE_MAX);
+    assert(vec_in_range(offs, INT32_MAX - OUTLINE_MAX));
     for (size_t i = 0; i < outline->n_points; i++) {
         ASS_Vector pt = { offs.x + outline->points[i].y,
                           offs.y - outline->points[i].x };
-        if (abs(pt.x) > OUTLINE_MAX || abs(pt.y) > OUTLINE_MAX)
+        if (!vec_in_range(pt, OUTLINE_MAX))
             return false;
         outline->points[i] = pt;
     }
@@ -377,7 +377,8 @@ bool ass_outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
     int sy = scale_ord_y + 32;
     const ASS_Vector *pt = source->points;
     for (size_t i = 0; i < source->n_points; i++) {
-        if (abs(pt[i].x) > lim_x || abs(pt[i].y) > lim_y) {
+        if (pt[i].x < -lim_x || pt[i].x > lim_x ||
+            pt[i].y < -lim_y || pt[i].y > lim_y) {
             ass_outline_free(outline);
             return false;
         }
@@ -1520,7 +1521,7 @@ bool ass_outline_stroke(ASS_Outline *result, ASS_Outline *result1,
 
 #ifndef NDEBUG
     for (size_t i = 0; i < path->n_points; i++)
-        assert(abs(path->points[i].x) <= OUTLINE_MAX && abs(path->points[i].y) <= OUTLINE_MAX);
+        assert(vec_in_range(path->points[i], OUTLINE_MAX));
 #endif
 
     ASS_Vector *start = path->points, *cur = start;

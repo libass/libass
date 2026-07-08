@@ -87,6 +87,12 @@ typedef struct {
 #define OUTLINE_MAX  (((int32_t) 1 << 28) - 1)
 // cubic spline splitting requires 8 * OUTLINE_MAX + 4 <= INT32_MAX
 
+// well-defined for the whole int32_t range, unlike abs()-based checks
+static inline bool vec_in_range(ASS_Vector pt, int32_t lim)
+{
+    return pt.x >= -lim && pt.x <= lim && pt.y >= -lim && pt.y <= lim;
+}
+
 void ass_outline_clear(ASS_Outline *outline);
 bool ass_outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_segments);
 void ass_outline_free(ASS_Outline *outline);

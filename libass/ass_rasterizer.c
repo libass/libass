@@ -273,7 +273,7 @@ bool ass_rasterizer_set_outline(RasterizerData *rst,
 
 #ifndef NDEBUG
     for (size_t i = 0; i < path->n_points; i++)
-        assert(abs(path->points[i].x) <= OUTLINE_MAX && abs(path->points[i].y) <= OUTLINE_MAX);
+        assert(vec_in_range(path->points[i], OUTLINE_MAX));
 #endif
 
     ASS_Vector *start = path->points, *cur = start;
