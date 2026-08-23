@@ -175,7 +175,7 @@ static inline uint32_t ass_bswap32(uint32_t x)
 #endif
 }
 
-static inline long ass_lrint(double x)
+static inline int32_t ass_lrint(double x)
 {
 #if defined(_MSC_VER) && !defined(__clang__) && !defined(_M_ARM64EC) && (defined(_M_X64) || _M_IX86_FP == 2)
     // Unlike GCC and Clang, Visual C++ can't inline lrint() without -fp:fast, so
