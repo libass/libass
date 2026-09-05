@@ -2288,8 +2288,10 @@ static void apply_baseline_shear(RenderContext *state)
             continue;
         double fay = info->fay / info->scale_x * info->scale_y;
         for (GlyphInfo *cur = info; cur; cur = cur->next) {
-            cur->pos.y += shear + fay * cur->offset.x;
-            shear += fay * cur->advance.x;
+            double dy = shear + fay * cur->offset.x;
+            cur->pos.y += FFMINMAX(dy, INT32_MIN, INT32_MAX);
+            double next_shear = shear + fay * cur->advance.x;
+            shear = FFMINMAX(next_shear, INT32_MIN, INT32_MAX);
         }
     }
 }
@@ -2541,7 +2543,8 @@ static void render_and_combine_glyphs(RenderContext *state,
 
             ASS_Vector pos, pos_o;
             info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->par_scale_x);
-            info->pos.y = double_to_d6(device_y) + info->pos.y;
+            double pos_y = (double) double_to_d6(device_y) + info->pos.y;
+            info->pos.y = FFMINMAX(pos_y, INT32_MIN, INT32_MAX);
             get_bitmap_glyph(state, info, &current_info->leftmost_x, &pos, &pos_o,
                              &offset, !current_info->bitmap_count, flags);
 
