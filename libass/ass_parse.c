@@ -114,17 +114,6 @@ void ass_update_font(RenderContext *state)
     state->font = ass_font_new(state->renderer, &desc);
 }
 
-/**
- * \brief Convert double to int32_t without UB
- * on out-of-range values; match x86 behavior
- */
-static inline int32_t dtoi32(double val)
-{
-    if (ass_isnan(val) || val <= INT32_MIN || val >= INT32_MAX + 1LL)
-        return INT32_MIN;
-    return val;
-}
-
 static double calc_anim(double new, double old, double pwr)
 {
    return (1 - pwr) * old + new * pwr;
