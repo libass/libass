@@ -55,6 +55,11 @@ FUZZ_CPPFLAGS="${FUZZ_CPPFLAGS:--DASS_FUZZMODE=0}"
 AX_APPEND_COMPILE_FLAGS([-fno-math-errno])
 AX_APPEND_COMPILE_FLAGS([/clang:-fno-math-errno])
 
+## No UB on signed integer overflow
+## (this also enforces complement-of-two wrap around, but we shouldn’ŧ rely on that)
+AX_APPEND_COMPILE_FLAGS([-fwrapv])
+AX_APPEND_COMPILE_FLAGS([/clang:-fwrapv])
+
 ## Warnings
 AX_APPEND_COMPILE_FLAGS([ \
     -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes \
