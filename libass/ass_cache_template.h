@@ -131,6 +131,20 @@ START(bitmap_ref, bitmap_ref_key)
     VECTOR(pos_o)
 END(BitmapRef)
 
+// describes a fully rendered, time-invariant event
+// on call to ass_cache_get(), text is a non-owning view;
+// its content is duplicated when inserted; the copy is freed when dropped
+// state_generation identifies an exact snapshot of all renderer settings
+// and track/style state that the rendered output depends on
+START(event_render, event_render_hash_key)
+    STRING(text)
+    GENERIC(uint32_t, state_generation)
+    GENERIC(int, style)
+    GENERIC(int, margin_l)
+    GENERIC(int, margin_r)
+    GENERIC(int, margin_v)
+END(EventRenderHashKey)
+
 #undef START
 #undef GENERIC
 #undef STRING
