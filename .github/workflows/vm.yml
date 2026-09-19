@@ -16,6 +16,9 @@ on:
         required: false
         default: ''
 
+permissions:
+  contents: read
+
 jobs:
   ART-VM:
     # This does NOT have KVM, but the only runners with native virtualisation (MacOS) are unreliable
@@ -105,17 +108,17 @@ jobs:
             output_stream.write(f"count={num_cpus}\n")
 
       - name: checkout libass
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
 
       - name: download test samples
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
         with:
           repository: ${{ github.event.inputs.test_repo || 'libass/libass-tests'}}
           ref: ${{ github.event.inputs.test_ref }}
           path: './libass-tests'
 
       - name: Start VM
-        uses: cross-platform-actions/action@v1.4.0
+        uses: cross-platform-actions/action@24ef01df165c76df1ed2b9f9e9212e78dc2fc963  # v1.4.0
         with:
           operating_system: ${{ matrix.os_image }}
           version: ${{ matrix.os_version }}

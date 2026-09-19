@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: ${{ matrix.config.name }}
@@ -75,19 +78,19 @@ jobs:
       SCCACHE_MAXSIZE: 200M
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
         with:
           fetch-depth: '0'
 
       - name: Download test samples
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
         with:
           repository: libass/libass-tests
           path: ${{ env.ART_SAMPLES }}
 
       - name: Setup MSYS2
         if: matrix.config.msystem
-        uses: msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@e9898307ac31d1a803454791be09ab9973336e1c  # v2
         with:
           msystem: ${{ matrix.config.msystem }}
           pacboy: >-
@@ -109,7 +112,7 @@ jobs:
 
       - name: Restore cache
         if: matrix.config.msvc
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5
         with:
           path: ${{ env.SCCACHE_DIR }}
           key: windows-msvc-${{ matrix.config.arch }}-${{ steps.get_time.outputs.timestamp }}
@@ -178,7 +181,7 @@ jobs:
         run: cat build/meson-logs/testlog.txt
 
       - name: Save Cache
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5
         if: always() && matrix.config.msvc
         with:
           path: ${{ env.SCCACHE_DIR }}
@@ -208,7 +211,7 @@ jobs:
                   fontconfig-dev libpng-dev git
 
       - name: checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
 
       - name: configure
         run: |
@@ -270,7 +273,7 @@ jobs:
                   libpng-dev meson ninja-build
 
       - name: checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
 
       - name: setup distdir
         run: |
