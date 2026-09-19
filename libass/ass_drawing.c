@@ -58,13 +58,22 @@ static inline bool add_node(ASS_DrawingToken **tail, ASS_TokenType type, ASS_Vec
     return true;
 }
 
+static inline bool get_coord(const char **str, int32_t *coord)
+{
+    double val;
+    if (!mystrtod((char **) str, &val))
+        return false;
+    val *= 64;  // to D6
+    // Out of range coordinates (and NaN) count as invalid numbers
+    if (!(fabs(val) <= OUTLINE_MAX))
+        return false;
+    *coord = ass_lrint(val);
+    return true;
+}
+
 static inline bool get_point(const char **str, ASS_Vector *point)
 {
-    double x, y;
-    if (!mystrtod((char **) str, &x) || !mystrtod((char **) str, &y))
-        return false;
-    *point = (ASS_Vector) {double_to_d6(x), double_to_d6(y)};
-    return true;
+    return get_coord(str, &point->x) && get_coord(str, &point->y);
 }
 
 
