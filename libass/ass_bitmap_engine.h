@@ -51,6 +51,10 @@ typedef void BitmapMulFunc(uint8_t *restrict dst, ptrdiff_t dst_stride,
 typedef void BeBlurFunc(uint8_t *restrict buf, ptrdiff_t stride,
                         size_t width, size_t height, uint16_t *restrict tmp);
 
+typedef void BitmapShiftFunc(uint8_t *restrict buf, ptrdiff_t stride,
+                             size_t width, size_t height,
+                             uint32_t shift_x, uint32_t shift_y, uint16_t *restrict tmp);
+
 // intermediate bitmaps represented as sets of vertical stripes of int16_t[alignment / 2]
 typedef void Convert8to16Func(int16_t *restrict dst, const uint8_t *restrict src,
                               ptrdiff_t src_stride, size_t width, size_t height);
@@ -78,6 +82,9 @@ typedef struct {
 
     // be blur function
     BeBlurFunc *be_blur;
+
+    // bitmap shift function
+    BitmapShiftFunc *shift_bitmap;
 
     // gaussian blur functions
     Convert8to16Func *stripe_unpack;
