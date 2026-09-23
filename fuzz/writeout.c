@@ -112,6 +112,7 @@ static void write_header(FILE *f, ASS_Track *track, const char *originalformat_n
     HEADER_BOOL(ScaledBorderAndShadow);
     HEADER_BOOL(Kerning);
     HEADER_STR(Language);
+    HEADER_BOOL(PositionTransform);
     if (track->YCbCrMatrix != YCBCR_DEFAULT) /* Or normalise this to TV.601? */
         fprintf(f, "YCbCr Matrix: %s\n", ycbcr_to_str(track->YCbCrMatrix));
 
