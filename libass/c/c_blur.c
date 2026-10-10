@@ -31,9 +31,9 @@ static int16_t dither_line[32] = {
     56, 24, 56, 24, 56, 24, 56, 24, 56, 24, 56, 24, 56, 24, 56, 24,
 };
 
-inline static const int16_t *get_line(const int16_t *ptr, size_t offs, size_t size)
+inline static const int16_t *get_line(const int16_t *ptr, ptrdiff_t offs, size_t size)
 {
-    return offs < size ? ptr + offs : zero_line;
+    return (offs >= 0 && (size_t)offs < size) ? ptr + offs : zero_line;
 }
 
 static inline int16_t shrink_func(int16_t p1p, int16_t p1n,
