@@ -68,6 +68,8 @@ struct ass_shaper {
 
     hb_font_funcs_t *font_funcs;
     hb_buffer_t *buf;
+    hb_font_t *last_font;
+    FaceSizeMetricsHashKey last_font_key;
 
 #ifdef USE_FRIBIDI_EX_API
     FriBidiBracketType *btypes;
@@ -131,6 +133,8 @@ static bool check_par_allocations(ASS_Shaper *shaper, size_t n_pars)
  */
 void ass_shaper_free(ASS_Shaper *shaper)
 {
+    hb_font_destroy(shaper->last_font);
+    ass_cache_dec_ref(shaper->last_font_key.font);
     free(shaper->features);
     free(shaper->ctypes);
 #ifdef USE_FRIBIDI_EX_API
@@ -471,6 +475,11 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
         .face_index = info->face_index,
         .size = info->font_size,
     };
+    if (shaper->last_font && shaper->last_font_key.font == key.font &&
+        shaper->last_font_key.size == key.size &&
+        shaper->last_font_key.face_index == key.face_index)
+        return hb_font_reference(shaper->last_font);
+
     FT_Size_Metrics *m = ass_cache_get(shaper->face_size_metrics_cache, &key, NULL);
     if (!m)
         return NULL;
@@ -492,6 +501,11 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
 
     update_hb_size(hb_font, font->faces[info->face_index], m);
 
+    hb_font_destroy(shaper->last_font);
+    ass_cache_dec_ref(shaper->last_font_key.font);
+    shaper->last_font = hb_font_reference(hb_font);
+    shaper->last_font_key = key;
+    ass_cache_inc_ref(key.font);
     return hb_font;
 }
 
