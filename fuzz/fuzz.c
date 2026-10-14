@@ -47,6 +47,17 @@
     #define LEN_IN_RANGE(s) true
 #endif
 
+// Select the API path each raw input is fed to:
+//   0 (default): plain subtitle file handed to ass_read_memory()
+//   1: packed chunk stream handed to ass_process_codec_private() and
+//      ass_process_chunk() (Matroska-style embedded subtitle API path);
+//      see track_from_chunk_stream() below for the expected layout
+// The two input formats are incompatible, so a build exercises exactly one
+// of them (OSS-Fuzz builds one binary per format to keep corpora separate).
+#ifndef ASSFUZZ_CHUNK_INPUT
+    #define ASSFUZZ_CHUNK_INPUT 0
+#endif
+
 #define STR_(x) #x
 #define STR(x) STR_(x)
 
@@ -168,6 +179,79 @@ static void consume_track(ASS_Renderer *renderer, ASS_Track *track)
     }
 }
 
+#if ASSFUZZ_CHUNK_INPUT
+/*
+ * \brief Build a track from a packed binary input exercising the
+ *        embedded-subtitle API path (ass_process_codec_private() followed by
+ *        ass_process_chunk(), as used e.g. by Matroska demuxers).
+ *
+ * Expected input layout:
+ *   byte 0      flags, bit 0 selects the check_readorder setting
+ *   bytes 1-2   big-endian length of the following codec private section
+ *   [priv_len]  codec private data (may be empty)
+ *   remainder   newline-separated chunk packets, each handed to
+ *               ass_process_chunk() at an increasing timecode
+ */
+static ASS_Track *track_from_chunk_stream(const uint8_t *data, size_t size)
+{
+    if (size < 4)
+        return NULL;
+
+    int check_readorder = data[0] & 1;
+
+    size_t priv_len = ((size_t)data[1] << 8) | data[2];
+    size_t rem = size - 3;
+    if (priv_len > rem)
+        priv_len = rem / 2;
+
+    const char *priv_data   = (const char *)(data + 3);
+    const char *chunks_data = (const char *)(data + 3 + priv_len);
+    size_t chunks_len = rem - priv_len;
+
+    ASS_Track *track = ass_new_track(ass_library);
+    if (!track)
+        return NULL;
+
+    ass_set_check_readorder(track, check_readorder);
+
+    if (priv_len > 0)
+        ass_process_codec_private(track, priv_data, priv_len);
+
+    // Process remainder as newline-separated chunks
+    size_t pos = 0;
+    long long timecode = 0;
+    while (pos < chunks_len) {
+        const char *chunk_start = chunks_data + pos;
+        const char *nl = memchr(chunk_start, '\n', chunks_len - pos);
+        size_t chunk_size = nl ? (size_t)(nl - chunk_start) : (chunks_len - pos);
+
+        if (chunk_size > 0) {
+            long long duration = 1000 + (long long)(chunk_size * 50);
+            ass_process_chunk(track, chunk_start, (int)chunk_size,
+                              timecode, duration);
+            timecode += 1000;
+        }
+
+        pos += chunk_size + (nl ? 1 : 0);
+    }
+
+    return track;
+}
+#endif
+
+/*
+ * \brief Feed raw input bytes to the API path selected at compile time
+ *        (see the ASSFUZZ_CHUNK_INPUT option above)
+ */
+static ASS_Track *track_from_input(const uint8_t *data, size_t size)
+{
+#if ASSFUZZ_CHUNK_INPUT
+    return track_from_chunk_stream(data, size);
+#else
+    return ass_read_memory(ass_library, (char *)data, size, NULL);
+#endif
+}
+
 #if ASS_FUZZMODE == FUZZMODE_STANDALONE
 #include "writeout.h"
 
@@ -186,10 +270,15 @@ struct settings {
 #define READ_RET ssize_t
 #endif
 
-static ASS_Track *read_track_from_stdin(void)
+/**
+ * \brief Read raw bytes from stdin until EOF
+ * \param out_len will be set to the number of bytes read
+ * \return NUL-terminated buffer to be free()d by the caller, or NULL on error
+ */
+static uint8_t *read_stdin_bytes(size_t *out_len)
 {
     size_t smax = 4096;
-    char *buf = malloc(smax);
+    uint8_t *buf = malloc(smax);
     if (!buf)
         goto error;
     size_t s = 0;
@@ -201,7 +290,7 @@ static ASS_Track *read_track_from_stdin(void)
         s += read_b > 0 ? read_b : 0;
         if (s == smax) {
             size_t new_smax = smax > SIZE_MAX / 2 ? SIZE_MAX : smax * 2;
-            char *new_buf = realloc(buf, new_smax);
+            uint8_t *new_buf = realloc(buf, new_smax);
             if (!new_buf || new_smax <= smax) {
                 free(new_buf ? new_buf : buf);
                 goto error;
@@ -211,12 +300,53 @@ static ASS_Track *read_track_from_stdin(void)
         }
     } while (read_b > 0);
     buf[s] = '\0';
-    ASS_Track *track = ass_read_memory(ass_library, buf, s, NULL);
+    *out_len = s;
+    return buf;
+error:
+    return NULL;
+}
+
+static ASS_Track *track_from_stdin(void)
+{
+    size_t s;
+    uint8_t *buf = read_stdin_bytes(&s);
+    if (!buf) {
+        printf("Input too large!\n");
+        return NULL;
+    }
+
+    ASS_Track *track = track_from_input(buf, s);
     free(buf);
     return track;
-error:
-    printf("Input too large!\n");
-    return NULL;
+}
+
+static ASS_Track *track_from_file(const char *path)
+{
+#if ASSFUZZ_CHUNK_INPUT
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return NULL;
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (sz < 0) {
+        fclose(f);
+        return NULL;
+    }
+    uint8_t *buf = malloc(sz);
+    if (!buf || (sz > 0 && fread(buf, 1, sz, f) != (size_t)sz)) {
+        free(buf);
+        fclose(f);
+        return NULL;
+    }
+    fclose(f);
+
+    ASS_Track *track = track_from_input(buf, sz);
+    free(buf);
+    return track;
+#else
+    return ass_read_file(ass_library, path, NULL);
+#endif
 }
 
 /**
@@ -318,9 +448,9 @@ int main(int argc, char *argv[])
     }
 
     if (strcmp(settings.input, "-"))
-        track = ass_read_file(ass_library, settings.input, NULL);
+        track = track_from_file(settings.input);
     else
-        track = read_track_from_stdin();
+        track = track_from_stdin();
 
     if (!track) {
         printf("track init failed!\n");
