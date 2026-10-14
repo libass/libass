@@ -108,6 +108,7 @@ static bool init_renderer(void)
                   ASS_FONTPROVIDER_AUTODETECT, NULL, 1);
     ass_set_frame_size(ass_renderer, RWIDTH, RHEIGHT);
     ass_set_storage_size(ass_renderer, RWIDTH, RHEIGHT);
+    ass_set_cache_limits(ass_renderer, 1000, 32);
 
     return true;
 }
@@ -121,6 +122,7 @@ static bool init(void)
     }
 
     ass_set_message_cb(ass_library, msg_callback, NULL);
+    ass_set_extract_fonts(ass_library, 1);
 
     if (!init_renderer()) {
         ass_library_done(ass_library);
@@ -157,7 +159,14 @@ static inline void process_image(ASS_Image *imgs)
 
 static void consume_track(ASS_Renderer *renderer, ASS_Track *track)
 {
-    for (int n = 0; n < track->n_events; ++n) {
+    // Sanity limit the scale to prevent massive memory allocations
+    if (track->PlayResY < 100)
+        track->PlayResY = 100;
+    if (track->PlayResX < 100)
+        track->PlayResX = 100;
+
+    int max_events = track->n_events > 30 ? 30 : track->n_events;
+    for (int n = 0; n < max_events; ++n) {
         int change;
         ASS_Event event = track->events[n];
         process_image(ass_render_frame(ass_renderer, track, event.Start, &change));
@@ -380,6 +389,12 @@ int main(int argc, char *argv[])
             continue;
         }
 
+        uint8_t flags = len > 0 ? buf[0] : 0;
+        if (flags & 1)
+            ass_set_shaper(ass_renderer, ASS_SHAPING_SIMPLE);
+        else
+            ass_set_shaper(ass_renderer, ASS_SHAPING_COMPLEX);
+
         ASS_Track *track = ass_read_memory(ass_library, (char *)buf, len, NULL);
         if (!track)
             continue;
@@ -420,8 +435,27 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     if (!init())
         exit(1);
 
+    uint8_t flags = size > 0 ? data[0] : 0;
+    if (flags & 1)
+        ass_set_shaper(ass_renderer, ASS_SHAPING_SIMPLE);
+    else
+        ass_set_shaper(ass_renderer, ASS_SHAPING_COMPLEX);
+
+    if (flags & 2) {
+        static char *overrides[] = {"FontSize=24", "ScaledBorderAndShadow=yes", NULL};
+        ass_set_style_overrides(ass_library, overrides);
+    }
+
+    if (flags & 4) {
+        ass_set_line_spacing(ass_renderer, 4.0);
+        ass_set_line_position(ass_renderer, 50.0);
+        ass_set_margins(ass_renderer, 10, 10, 10, 10);
+    }
+
     track = ass_read_memory(ass_library, (char *)data, size, NULL);
     if (track) {
+        if (flags & 2)
+            ass_process_force_style(track);
         consume_track(ass_renderer, track);
         ass_free_track(track);
     }
