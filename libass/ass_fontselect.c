@@ -1095,6 +1095,11 @@ ass_fontselect_init(ASS_Library *library, FT_Library ftlibrary, size_t *num_emfo
         goto fail;
     }
 
+#ifdef CONFIG_FONTCONFIG
+    if (dfp == ASS_FONTPROVIDER_AUTODETECT && getenv("LIBASS_FORCE_FONTCONFIG"))
+        dfp = ASS_FONTPROVIDER_FONTCONFIG;
+#endif
+
     if (dfp >= ASS_FONTPROVIDER_AUTODETECT) {
         for (int i = 0; font_constructors[i].constructor; i++ )
             if (dfp == font_constructors[i].id ||
