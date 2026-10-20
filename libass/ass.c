@@ -1433,7 +1433,7 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
 {
     iconv_t icdsc;
     char *tocp = "UTF-8";
-    char *outbuf;
+    char *outbuf = NULL;
     assert(codepage);
 
     if ((icdsc = iconv_open(tocp, codepage)) != (iconv_t) (-1)) {
@@ -1443,10 +1443,13 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
         return NULL;
     }
 
+    if (size == SIZE_MAX)
+        goto out;
+
     {
-        size_t osize = size;
+        size_t osize = size + 1;
         size_t ileft = size;
-        size_t oleft = size - 1;
+        size_t oleft = size;
         char *ip;
         char *op;
         size_t rc;
