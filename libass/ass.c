@@ -1471,7 +1471,9 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
             if (rc == (size_t) (-1)) {
                 if (errno == E2BIG) {
                     size_t offset = op - outbuf;
-                    char *nbuf = realloc(outbuf, osize + size);
+                    char *nbuf = NULL;
+                    if (size <= SIZE_MAX - osize)
+                        nbuf = realloc(outbuf, osize + size);
                     if (!nbuf) {
                         free(outbuf);
                         outbuf = 0;
