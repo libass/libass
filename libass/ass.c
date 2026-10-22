@@ -1620,6 +1620,8 @@ ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
     }
 #endif
     if (!copied) {
+        if (bufsize == SIZE_MAX)
+            return 0;
         char *newbuf = malloc(bufsize + 1);
         if (!newbuf)
             return 0;
