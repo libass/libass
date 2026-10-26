@@ -292,6 +292,7 @@ static bool set_features(ASS_Track *track)
         FEATURE(BIDI_BRACKETS),
         FEATURE(WHOLE_TEXT_LAYOUT),
         FEATURE(WRAP_UNICODE),
+        FEATURE(ADVISORY_LINEBREAKS),
 #undef FEATURE
     };
     const char *p = getenv("ASS_TEST_FEATURES");
