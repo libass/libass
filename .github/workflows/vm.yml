@@ -38,7 +38,7 @@ jobs:
 
           - name: 'ART (freebsd64-qemu, FreeBSD-14, amd64)'
             os_image: freebsd
-            os_version: 14.3
+            os_version: 14.5
             # The default FreeBSD env places the libiconv header from ports in the default include path,
             # but doesn't put the corresponding library into the default library path.
             # Either inlcuding the lib path (presumably done by ports) or
@@ -61,7 +61,7 @@ jobs:
 
           - name: 'ART (haiku64-qemu, Haiku, amd64)'
             os_image: haiku
-            os_version: r1beta5
+            os_version: r1beta6
             # no libubsan available, thus just SIGILL
             CC: 'gcc -fsanitize=undefined,float-cast-overflow -fno-sanitize-recover=all -fsanitize-undefined-trap-on-error'
 
@@ -115,7 +115,7 @@ jobs:
           path: './libass-tests'
 
       - name: Start VM
-        uses: cross-platform-actions/action@v1.4.0
+        uses: cross-platform-actions/action@v1.7.0
         with:
           operating_system: ${{ matrix.os_image }}
           version: ${{ matrix.os_version }}
