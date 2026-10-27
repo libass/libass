@@ -655,10 +655,24 @@ int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable);
 void ass_free_track(ASS_Track *track);
 
 /**
+ * \brief Get a style by index without depending on sizeof(ASS_Style).
+ * \param track track
+ * \param sid style index, from 0 to track->n_styles - 1
+ * \return pointer to the style, or NULL if sid is out of range
+ *
+ * The pointer is owned by the track. It may be invalidated by any operation
+ * which adds or removes styles, or by ass_free_track(). Do not free it, use
+ * pointer arithmetic on it, or copy or clear the whole structure. Individual
+ * fields may be accessed subject to the GENERAL NOTE in ass_types.h.
+ */
+ASS_Style *ass_get_style(ASS_Track *track, size_t sid);
+
+/**
  * \brief Allocate new style.
  * \param track track
  * \return newly allocated style id >= 0, or a value < 0 on failure
- * See GENERAL NOTE in ass_types.h.
+ * Use ass_get_style() to access the new style. All its fields are initialized
+ * to zero. See GENERAL NOTE in ass_types.h.
  */
 int ass_alloc_style(ASS_Track *track);
 

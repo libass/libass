@@ -94,6 +94,13 @@ void ass_free_track(ASS_Track *track)
     free(track);
 }
 
+ASS_Style *ass_get_style(ASS_Track *track, size_t sid)
+{
+    if (sid >= (size_t) track->n_styles)
+        return NULL;
+    return &track->styles[sid];
+}
+
 static void free_style(ASS_Style *style)
 {
     free(style->Name);
