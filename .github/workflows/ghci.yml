@@ -56,7 +56,9 @@ jobs:
           - os: macos-latest
             cc: clang
             omit_asan: yes
-            art_binwrap: 'leaks --atExit --'
+            # Remove the exclusion once this FreeType bug is fixed and released
+            # https://gitlab.freedesktop.org/freetype/freetype/-/work_items/1480
+            art_binwrap: 'leaks --atExit -exclude hvf_init_axis_coordinates --'
             jobname_suffix: leaks
           # Add a Windows build (MinGW-gcc via MSYS2) with no extras
           - os: windows-latest
