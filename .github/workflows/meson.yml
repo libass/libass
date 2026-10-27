@@ -25,6 +25,17 @@ jobs:
               Import-Module "$env:VS\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
               Enter-VsDevShell -VsInstallPath $env:VS -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64"
 
+          - name: Windows (MSVC x86)
+            os: windows-latest
+            arch: x86
+            msvc: true
+            shell: 'pwsh'
+            # Require ASM since this is our only 32-bit Windows job
+            args: '-Ddefault_library=shared -Dasm=enabled'
+            devenv: |
+              Import-Module "$env:VS\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+              Enter-VsDevShell -VsInstallPath $env:VS -SkipAutomaticLocation -DevCmdArguments "-arch=x86 -host_arch=x64"
+
           - name: Windows (CLANG64)
             os: windows-latest
             msystem: CLANG64
