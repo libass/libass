@@ -108,10 +108,34 @@ ASS_Event *ass_get_event(ASS_Track *track, size_t eid)
     return &track->events[eid];
 }
 
+ASS_Style *ass_style_new(const ASS_Style *template_style)
+{
+    ASS_Style *style = calloc(1, sizeof(*style));
+    if (style && template_style) {
+        *style = *template_style;
+        style->Name = template_style->Name ? strdup(template_style->Name) : NULL;
+        style->FontName = template_style->FontName ? strdup(template_style->FontName) : NULL;
+        if ((template_style->Name && !style->Name) ||
+            (template_style->FontName && !style->FontName)) {
+            ass_style_free(style);
+            return NULL;
+        }
+    }
+    return style;
+}
+
 static void free_style(ASS_Style *style)
 {
     free(style->Name);
     free(style->FontName);
+}
+
+void ass_style_free(ASS_Style *style)
+{
+    if (!style)
+        return;
+    free_style(style);
+    free(style);
 }
 
 /// \brief Allocate a new style struct
