@@ -123,10 +123,7 @@ int ass_alloc_style(ASS_Track *track)
     return sid;
 }
 
-/// \brief Allocate a new event struct
-/// \param track track
-/// \return event id or negative value on failure
-int ass_alloc_event(ASS_Track *track)
+static int alloc_event(ASS_Track *track)
 {
     int eid;
 
@@ -144,6 +141,14 @@ int ass_alloc_event(ASS_Track *track)
     eid = track->n_events++;
     memset(track->events + eid, 0, sizeof(ASS_Event));
     return eid;
+}
+
+/// \brief Allocate a new event struct
+/// \param track track
+/// \return event id or negative value on failure
+int ass_alloc_event(ASS_Track *track)
+{
+    return alloc_event(track);
 }
 
 void ass_free_event(ASS_Track *track, int eid)
@@ -1334,7 +1339,7 @@ void ass_process_chunk(ASS_Track *track, const char *data, int size,
     ass_msg(track->library, MSGL_V, "Event at %" PRId64 ", +%" PRId64 ": %s",
            (int64_t) timecode, (int64_t) duration, str);
 
-    eid = ass_alloc_event(track);
+    eid = alloc_event(track);
     if (eid < 0)
         goto cleanup;
     event = track->events + eid;
