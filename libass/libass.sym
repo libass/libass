@@ -50,3 +50,5 @@ ass_prune_events
 ass_configure_prune
 ass_get_style
 ass_get_event
+ass_style_new
+ass_style_free

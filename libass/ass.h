@@ -580,8 +580,10 @@ void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits);
  * \brief Set style for selective style override.
  * See ass_set_selective_style_override_enabled().
  * \param style style settings to use if override is enabled. Applications
- * should initialize it with {0} before setting fields. Strings will be copied
- * by the function.
+ * should allocate it with ass_style_new() before setting fields, or obtain it
+ * from a track with ass_get_style(). Strings used by the renderer are copied;
+ * the caller retains ownership of the style and may release it after this call.
+ * FontName must be a valid non-NULL string.
  */
 void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style);
 
@@ -680,6 +682,31 @@ ASS_Style *ass_get_style(ASS_Track *track, size_t sid);
  * the GENERAL NOTE in ass_types.h.
  */
 ASS_Event *ass_get_event(ASS_Track *track, size_t eid);
+
+/**
+ * \brief Allocate a standalone style, optionally copying an existing style.
+ * \param template_style style to copy, or NULL to initialize all fields to zero
+ * \return newly allocated style, or NULL on failure
+ *
+ * If template_style is non-NULL, all fields are copied and strings are
+ * duplicated. The template may be track-owned or standalone; it is not modified
+ * and need not remain alive after this call. NULL string fields remain NULL.
+ *
+ * This style is not attached to a track. It can be used with
+ * ass_set_selective_style_override() and must be released with ass_style_free().
+ * Set individual fields rather than copying or clearing the whole structure,
+ * so future fields retain their initial values. Allocate strings with
+ * ass_malloc() and release strings being replaced with ass_free().
+ */
+ASS_Style *ass_style_new(const ASS_Style *template_style);
+
+/**
+ * \brief Free a standalone style and its strings.
+ * \param style style allocated by ass_style_new(), or NULL
+ *
+ * Do not pass a track-owned style obtained from ass_get_style().
+ */
+void ass_style_free(ASS_Style *style);
 
 /**
  * \brief Allocate new style.
