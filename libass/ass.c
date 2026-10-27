@@ -94,6 +94,12 @@ void ass_free_track(ASS_Track *track)
     free(track);
 }
 
+static void free_style(ASS_Style *style)
+{
+    free(style->Name);
+    free(style->FontName);
+}
+
 /// \brief Allocate a new style struct
 /// \param track track
 /// \return style id or negative value on failure
@@ -152,10 +158,7 @@ void ass_free_event(ASS_Track *track, int eid)
 
 void ass_free_style(ASS_Track *track, int sid)
 {
-    ASS_Style *style = track->styles + sid;
-
-    free(style->Name);
-    free(style->FontName);
+    free_style(&track->styles[sid]);
 }
 
 static int resize_read_order_bitmap(ASS_Track *track, int max_id)
