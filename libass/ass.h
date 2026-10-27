@@ -684,6 +684,38 @@ ASS_Style *ass_get_style(ASS_Track *track, size_t sid);
 ASS_Event *ass_get_event(ASS_Track *track, size_t eid);
 
 /**
+ * \brief Notify libass after manually modifying a track.
+ * \param track track
+ * \param event_id index of the modified event, or SIZE_MAX for changes to multiple
+ * events, styles or script header fields
+ * \return 0 on success, -1 if event_id is invalid (no state is refreshed)
+ *
+ * Call this after editing fields obtained through ass_get_event(),
+ * ass_get_style(), or the track itself, including initializing newly allocated
+ * events and styles. A valid event index reports changes confined to that
+ * event; use SIZE_MAX if any styles or track fields were changed. This refreshes
+ * pruning and collision placement state without invalidating event or style
+ * pointers. No renderer handle is needed.
+ *
+ * Such edits are allowed after rendering and between calls to parsing APIs,
+ * provided they are reported before the next rendering, parsing, pruning or
+ * removal operation. Multiple edits may be batched before notification; getting
+ * and allocating styles or events within a batch is allowed. Do not edit a
+ * track concurrently with another operation on it.
+ *
+ * The caller remains responsible for valid field values and string ownership
+ * (see GENERAL NOTE in ass_types.h). Event ReadOrder and render_priv must not
+ * be modified under this contract. Editable track fields are the script header
+ * fields (PlayResX through YCbCrMatrix, plus LayoutResX and LayoutResY) and
+ * default_style. Array pointers, counts, capacities, parser state and library
+ * ownership must be managed by libass. Use ass_alloc_event(), ass_alloc_style()
+ * and ass_remove_events() to change array membership; do not copy, clear or
+ * move whole structures. Notification does not permit mixing manual event
+ * allocation with ass_process_chunk() on the same track.
+ */
+int ass_track_changed(ASS_Track *track, size_t event_id);
+
+/**
  * \brief Allocate a standalone style, optionally copying an existing style.
  * \param template_style style to copy, or NULL to initialize all fields to zero
  * \return newly allocated style, or NULL on failure
@@ -792,12 +824,11 @@ void ass_process_codec_private(ASS_Track *track, const char *data, int size);
 /**
  * \brief Parse a chunk of subtitle stream data. A chunk contains exactly one
  * event in Matroska format.  See the Matroska specification for details.
- * In later libass versions (since LIBASS_VERSION==0x01300001), using this
- * function means you agree not to modify events manually, or using other
- * functions manipulating the event list like ass_process_data(). If you do
- * anyway, the internal duplicate checking might break. Calling
- * ass_flush_events(), ass_prune_events() and ass_remove_events() are still
- * allowed.
+ * Do not mix this function with other APIs which add events, such as
+ * ass_alloc_event() or ass_process_data(), on the same track. Existing events
+ * may be edited subject to the ass_track_changed() contract; in particular,
+ * their ReadOrder values must not be changed. Calling ass_flush_events(),
+ * ass_prune_events() and ass_remove_events() is allowed.
  * \param track track
  * \param data string to parse
  * \param size length of data

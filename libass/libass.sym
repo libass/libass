@@ -53,3 +53,4 @@ ass_get_event
 ass_style_new
 ass_style_free
 ass_remove_events
+ass_track_changed

@@ -44,9 +44,11 @@
  * is linked against a different libc instance than libass itself. Similarly, any
  * existing buffer being replaced or removed should be released using ass_free().
  *
- * To avoid desynchronisation with internal states, there are some restrictions
- * on when and how direct struct modification can be performed.
- * Ignoring them may lead to undefined behaviour. See the following listing:
+ * To keep internal states synchronized, report edits with ass_track_changed().
+ * Its contract permits edits between rendering and parsing calls, with
+ * restrictions on which fields may be changed and which APIs may be mixed.
+ * Applications not using this notification must follow the legacy restrictions
+ * below. Ignoring these restrictions may lead to undefined behaviour:
  *
  *  - Manual struct edits and track-modifying (including modification to the
  *    event and style elements of the track) API calls cannot be freely mixed:
