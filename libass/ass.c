@@ -265,6 +265,25 @@ static inline void update_prune_ts(ASS_Track *track, const long long ts)
         track->parser_priv->prune_next_ts = ts;
 }
 
+size_t ass_update_events(ASS_Track *track, size_t start, size_t count)
+{
+    if (start >= (size_t) track->n_events)
+        return 0;
+    size_t end = start + FFMIN(count, track->n_events - start);
+    if (start == end)
+        return 0;
+
+    if (!start && end == (size_t) track->n_events)
+        track->parser_priv->prune_next_ts = LLONG_MAX;
+    for (size_t i = start; i < end; i++) {
+        ASS_Event *event = &track->events[i];
+        free(event->render_priv);
+        event->render_priv = NULL;
+        update_prune_ts(track, event->Start + event->Duration);
+    }
+    return end - start;
+}
+
 // ==============================================================================================
 
 /**
