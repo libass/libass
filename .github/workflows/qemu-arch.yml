@@ -18,7 +18,7 @@ on:
 
 jobs:
   ART:
-    runs-on: ${{ matrix.host_os || 'ubuntu-latest' }}
+    runs-on: ubuntu-26.04
     # Run on each arch we support ASM on and furthemore
     # some additional little and big endian archs
     # ASM:    i386
@@ -48,7 +48,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
                 debian-keyring debian-archive-keyring debian-ports-archive-keyring \
-                debootstrap qemu-user-static zstd \
+                debootstrap qemu-user zstd \
                 git ca-certificates
           sudo mkdir -p /var/chroot/imgs
           sudo chmod -R 777 /var/chroot
@@ -71,7 +71,7 @@ jobs:
 
           # Make sure we have an qemu layer available
           if [ x"$qarch" != xi386  ] && [ x"$qarch" != xx86_64 ] \
-             && [ ! -x "/usr/bin/qemu-${qarch}-static" ]
+             && [ ! -x "/usr/bin/qemu-${qarch}" ]
           then
             echo "Arch '${{ matrix.arch }}/${qarch}' not supported!"
             exit 1
@@ -87,7 +87,7 @@ jobs:
               outer_prefix="linux32"
               ;;
             *)
-              inner_prefix="/usr/bin/qemu-${qarch}-static"
+              inner_prefix="/usr/bin/qemu-${qarch}"
               ;;
           esac
 
