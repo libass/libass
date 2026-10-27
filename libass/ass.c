@@ -1433,6 +1433,28 @@ void ass_configure_prune(ASS_Track *track, long long delay)
     track->parser_priv->prune_delay = delay;
 }
 
+size_t ass_remove_events(ASS_Track *track, size_t start, size_t count)
+{
+    if (start >= (size_t) track->n_events)
+        return 0;
+    count = FFMIN(count, track->n_events - start);
+    if (!count)
+        return 0;
+
+    for (size_t i = start; i < start + count; i++)
+        ass_free_event(track, i);
+    size_t remaining = track->n_events - start - count;
+    memmove(track->events + start, track->events + start + count,
+            remaining * sizeof(*track->events));
+    track->n_events -= count;
+
+    // Rebuild lazily: duplicate IDs may exist if checking was disabled.
+    free(track->parser_priv->read_order_bitmap);
+    track->parser_priv->read_order_bitmap = NULL;
+    track->parser_priv->read_order_elems = 0;
+    return count;
+}
+
 void ass_prune_events(ASS_Track *track, long long deadline)
 {
     if (deadline < track->parser_priv->prune_next_ts)
