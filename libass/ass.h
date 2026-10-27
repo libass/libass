@@ -753,8 +753,14 @@ int ass_alloc_style(ASS_Track *track);
  * \brief Allocate new event.
  * \param track track
  * \return newly allocated event id >= 0, or a value < 0 on failure
- * Use ass_get_event() to access the new event. All its fields are initialized
- * to zero. See GENERAL NOTE in ass_types.h.
+ * Use ass_get_event() to access the new event. Fields are initialized to zero,
+ * except ReadOrder, which is assigned an increasing value starting at zero.
+ * Generated ReadOrder values are not reused after pruning or removal;
+ * ass_flush_events() resets the sequence. Allocation fails if the sequence
+ * would exceed INT_MAX. Initialize the remaining fields, then notify libass
+ * with ass_track_changed() before rendering or pruning.
+ * Do not mix this function with ass_process_chunk() on the same track.
+ * See GENERAL NOTE in ass_types.h.
  */
 int ass_alloc_event(ASS_Track *track);
 

@@ -186,7 +186,12 @@ static int alloc_event(ASS_Track *track)
 /// \return event id or negative value on failure
 int ass_alloc_event(ASS_Track *track)
 {
-    return alloc_event(track);
+    if (track->parser_priv->next_read_order > INT_MAX)
+        return -1;
+    int eid = alloc_event(track);
+    if (eid >= 0)
+        track->events[eid].ReadOrder = track->parser_priv->next_read_order++;
+    return eid;
 }
 
 void ass_free_event(ASS_Track *track, int eid)
@@ -1399,6 +1404,7 @@ void ass_process_chunk(ASS_Track *track, const char *data, int size,
     ass_msg(track->library, MSGL_V, "Event at %" PRId64 ", +%" PRId64 ": %s",
            (int64_t) timecode, (int64_t) duration, str);
 
+    // Matroska supplies ReadOrder; do not consume a generated ID.
     eid = alloc_event(track);
     if (eid < 0)
         goto cleanup;
@@ -1447,6 +1453,7 @@ void ass_flush_events(ASS_Track *track)
     free(track->parser_priv->read_order_bitmap);
     track->parser_priv->read_order_bitmap = NULL;
     track->parser_priv->read_order_elems = 0;
+    track->parser_priv->next_read_order = 0;
 }
 
 void ass_configure_prune(ASS_Track *track, long long delay)
@@ -1672,6 +1679,7 @@ static ASS_Track *parse_memory(ASS_Library *library, char *buf)
     // external SSA/ASS subs does not have ReadOrder field
     for (i = 0; i < track->n_events; ++i)
         track->events[i].ReadOrder = i;
+    track->parser_priv->next_read_order = track->n_events;
 
     if (track->track_type == TRACK_TYPE_UNKNOWN) {
         ass_free_track(track);
