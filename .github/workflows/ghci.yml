@@ -60,7 +60,7 @@ jobs:
             jobname_suffix: leaks
           # Add a Windows build (MinGW-gcc via MSYS2) with no extras
           - os: windows-latest
-            msystem: MINGW32
+            msystem: MINGW64
             cc: gcc
             shell: 'msys2 {0}'
           - os: windows-latest
