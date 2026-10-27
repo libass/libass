@@ -668,6 +668,20 @@ void ass_free_track(ASS_Track *track);
 ASS_Style *ass_get_style(ASS_Track *track, size_t sid);
 
 /**
+ * \brief Get an event by index without depending on sizeof(ASS_Event).
+ * \param track track
+ * \param eid event index, from 0 to track->n_events - 1
+ * \return pointer to the event, or NULL if eid is out of range
+ *
+ * The pointer is owned by the track. It may be invalidated by any operation
+ * which adds or removes events (including automatic pruning during rendering),
+ * or by ass_free_track(). Do not free it, use pointer arithmetic on it, or copy
+ * or clear the whole structure. Individual fields may be accessed subject to
+ * the GENERAL NOTE in ass_types.h.
+ */
+ASS_Event *ass_get_event(ASS_Track *track, size_t eid);
+
+/**
  * \brief Allocate new style.
  * \param track track
  * \return newly allocated style id >= 0, or a value < 0 on failure
@@ -680,7 +694,8 @@ int ass_alloc_style(ASS_Track *track);
  * \brief Allocate new event.
  * \param track track
  * \return newly allocated event id >= 0, or a value < 0 on failure
- * See GENERAL NOTE in ass_types.h.
+ * Use ass_get_event() to access the new event. All its fields are initialized
+ * to zero. See GENERAL NOTE in ass_types.h.
  */
 int ass_alloc_event(ASS_Track *track);
 

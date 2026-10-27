@@ -101,6 +101,13 @@ ASS_Style *ass_get_style(ASS_Track *track, size_t sid)
     return &track->styles[sid];
 }
 
+ASS_Event *ass_get_event(ASS_Track *track, size_t eid)
+{
+    if (eid >= (size_t) track->n_events)
+        return NULL;
+    return &track->events[eid];
+}
+
 static void free_style(ASS_Style *style)
 {
     free(style->Name);
