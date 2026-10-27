@@ -753,6 +753,26 @@ void ass_free_style(ASS_Track *track, int sid);
 void ass_free_event(ASS_Track *track, int eid);
 
 /**
+ * \brief Remove a contiguous range of events, freeing their data.
+ * \param track track
+ * \param start index of the first event to remove
+ * \param count number of events to remove
+ * \return 0 on success, -1 if the range is invalid (track is unchanged)
+ *
+ * start + count must not exceed track->n_events. A count of zero is a no-op,
+ * including when start equals track->n_events. Remaining events retain their
+ * relative order and are compacted to close the gap; track->n_events is reduced
+ * by count. Pointers and indices for events at or after start must be reacquired
+ * after removal.
+ *
+ * Unlike ass_free_event(), this function may be used with ass_process_chunk()
+ * and after rendering. Removed ReadOrder values can be accepted again by
+ * ass_process_chunk(), unless a remaining event uses them.
+ * See GENERAL NOTE in ass_types.h for restrictions on manual track edits.
+ */
+int ass_remove_events(ASS_Track *track, size_t start, size_t count);
+
+/**
  * \brief Parse full lines of subtitle stream data.
  * \param track track
  * \param data string to parse
@@ -776,7 +796,8 @@ void ass_process_codec_private(ASS_Track *track, const char *data, int size);
  * function means you agree not to modify events manually, or using other
  * functions manipulating the event list like ass_process_data(). If you do
  * anyway, the internal duplicate checking might break. Calling
- * ass_flush_events() is still allowed.
+ * ass_flush_events(), ass_prune_events() and ass_remove_events() are still
+ * allowed.
  * \param track track
  * \param data string to parse
  * \param size length of data
