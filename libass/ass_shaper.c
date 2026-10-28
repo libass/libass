@@ -679,6 +679,8 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
  */
 static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 {
+    // Use the OpenType backend for compatibility with GDI-based renderers.
+    static const char * const shapers[] = {"ot", NULL};
     int i;
     hb_buffer_t *buf = shaper->buf;
     hb_segment_properties_t props = HB_SEGMENT_PROPERTIES_DEFAULT;
@@ -737,7 +739,7 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
             memcmp(shaper->features, shaper->last_features, sizeof(shaper->last_features))) {
             hb_shape_plan_destroy(shaper->last_plan);
             shaper->last_plan = hb_shape_plan_create_cached(hb_font_get_face(font),
-                    &props, shaper->features, shaper->n_features, NULL);
+                    &props, shaper->features, shaper->n_features, shapers);
             shaper->last_props = props;
             memcpy(shaper->last_features, shaper->features, sizeof(shaper->last_features));
         }
