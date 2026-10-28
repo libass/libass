@@ -10,7 +10,7 @@ on:
       test_repo:
         description: 'An instance of a libass-tests git repo'
         required: false
-        default: 'https://github.com/libass/libass-tests.git'
+        default: 'libass/libass-tests'
       test_ref:
         description: 'Git ref of test repo to run tests on; defaults to newest commit on default branch'
         required: false
