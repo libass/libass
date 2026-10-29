@@ -82,36 +82,8 @@ static inline int mystrcmp(char **p, const char *sample)
  */
 void ass_update_font(RenderContext *state)
 {
-    unsigned val;
-    ASS_FontDesc desc;
-
-    desc.family = state->family;
-    if (!desc.family.str)
-        return;
-    if (desc.family.len && desc.family.str[0] == '@') {
-        desc.vertical = 1;
-        desc.family.str++;
-        desc.family.len--;
-    } else {
-        desc.vertical = 0;
-    }
-
-    val = state->bold;
-    // 0 = normal, 1 = bold, >1 = exact weight
-    if (val == 1 || val == -1)
-        val = 700;               // bold
-    else if (val <= 0)
-        val = 400;               // normal
-    desc.bold = val;
-
-    val = state->italic;
-    if (val == 1)
-        val = 100;              // italic
-    else if (val <= 0)
-        val = 0;                // normal
-    desc.italic = val;
-
-    state->font = ass_font_new(state->renderer, &desc);
+    if (state->family.str)
+        state->font = ass_get_font(state->renderer, state->family, state->bold, state->italic);
 }
 
 /**

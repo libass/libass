@@ -550,16 +550,31 @@ fail:
 }
 
 /**
- * \brief Create a new ASS_Font according to "desc" argument
+ * \brief Resolve a font using ASS family and weight conventions.
  */
-ASS_Font *ass_font_new(ASS_Renderer *render_priv, ASS_FontDesc *desc)
+ASS_Font *ass_get_font(ASS_Renderer *render_priv, ASS_StringView family,
+                        unsigned bold, unsigned italic)
 {
-    ASS_Font *font = ass_cache_get(render_priv->cache.font_cache, desc, render_priv);
-    if (!font)
+    if (!family.str)
         return NULL;
-    if (font->library)
-        return font;
-    return NULL;
+
+    ASS_FontDesc desc = { .family = family };
+    if (family.len && family.str[0] == '@') {
+        desc.vertical = 1;
+        desc.family.str++;
+        desc.family.len--;
+    }
+
+    // 0 = normal, 1 or -1 = bold, other nonzero values = exact weight.
+    if (bold == 1 || bold == (unsigned) -1)
+        bold = 700;
+    else if (!bold)
+        bold = 400;
+    desc.bold = bold;
+    desc.italic = italic == 1 ? 100 : italic;
+
+    ASS_Font *font = ass_cache_get(render_priv->cache.font_cache, &desc, render_priv);
+    return font && font->library ? font : NULL;
 }
 
 size_t ass_font_construct(void *key, void *value, void *priv)
