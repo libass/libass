@@ -172,16 +172,16 @@ static bool init_features(ASS_Shaper *shaper)
 /**
  * \brief Set features depending on properties of the run
  */
-static void set_run_features(ASS_Shaper *shaper, GlyphInfo *info)
+static void set_run_features(ASS_Shaper *shaper, ASS_Font *font, double hspacing)
 {
     // enable vertical substitutions for @font runs
-    if (info->font->desc.vertical)
+    if (font->desc.vertical)
         shaper->features[VERT].value = shaper->features[VKNA].value = 1;
     else
         shaper->features[VERT].value = shaper->features[VKNA].value = 0;
 
     // disable ligatures if horizontal spacing is non-standard
-    if (info->hspacing)
+    if (hspacing)
         shaper->features[LIGA].value = shaper->features[CLIG].value = 0;
     else
         shaper->features[LIGA].value = shaper->features[CLIG].value = 1;
@@ -711,7 +711,7 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         props.language  = hb_shaper_get_run_language(shaper, props.script);
         hb_buffer_set_segment_properties(buf, &props);
 
-        set_run_features(shaper, glyphs + offset);
+        set_run_features(shaper, glyphs[offset].font, glyphs[offset].hspacing);
         hb_shape(font, buf, shaper->features, shaper->n_features);
 
         shape_harfbuzz_process_run(glyphs, buf,
