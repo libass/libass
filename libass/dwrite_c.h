@@ -15,12 +15,14 @@
 #include <unknwn.h>
 
 typedef struct IDWriteFactory IDWriteFactory;
+typedef struct IDWriteFactory2 IDWriteFactory2;
 typedef struct IDWriteFactory3 IDWriteFactory3;
 typedef struct IDWriteFont IDWriteFont;
 typedef struct IDWriteFontCollection IDWriteFontCollection;
 typedef struct IDWriteFontFace IDWriteFontFace;
 typedef struct IDWriteFontFace3 IDWriteFontFace3;
 typedef struct IDWriteFontFaceReference IDWriteFontFaceReference;
+typedef struct IDWriteFontFallback IDWriteFontFallback;
 typedef struct IDWriteFontFamily IDWriteFontFamily;
 typedef struct IDWriteFontList IDWriteFontList;
 typedef struct IDWriteFontFile IDWriteFontFile;
@@ -29,7 +31,9 @@ typedef struct IDWriteFontFileStream IDWriteFontFileStream;
 typedef struct IDWriteFontSet IDWriteFontSet;
 typedef struct IDWriteInlineObject IDWriteInlineObject;
 typedef struct IDWriteLocalizedStrings IDWriteLocalizedStrings;
+typedef struct IDWriteNumberSubstitution IDWriteNumberSubstitution;
 typedef struct IDWritePixelSnapping IDWritePixelSnapping;
+typedef struct IDWriteTextAnalysisSource IDWriteTextAnalysisSource;
 typedef struct IDWriteTextFormat IDWriteTextFormat;
 typedef struct IDWriteTextLayout IDWriteTextLayout;
 typedef struct IDWriteTextRenderer IDWriteTextRenderer;
@@ -129,6 +133,13 @@ typedef enum DWRITE_LOCALITY {
   DWRITE_LOCALITY_PARTIAL,
   DWRITE_LOCALITY_LOCAL
 } DWRITE_LOCALITY;
+
+typedef enum DWRITE_READING_DIRECTION {
+    DWRITE_READING_DIRECTION_LEFT_TO_RIGHT = 0,
+    DWRITE_READING_DIRECTION_RIGHT_TO_LEFT,
+    DWRITE_READING_DIRECTION_TOP_TO_BOTTOM,
+    DWRITE_READING_DIRECTION_BOTTOM_TO_TOP,
+} DWRITE_READING_DIRECTION;
 
 typedef struct DWRITE_FONT_METRICS {
   UINT16 designUnitsPerEm;
@@ -252,8 +263,8 @@ DECLARE_INTERFACE_(IDWriteFactory,IUnknown)
 #endif /*COBJMACROS*/
 
 #undef  INTERFACE
-#define INTERFACE IDWriteFactory3
-DECLARE_INTERFACE_(IDWriteFactory3,IDWriteFactory)
+#define INTERFACE IDWriteFactory2
+DECLARE_INTERFACE_(IDWriteFactory2,IDWriteFactory)
 {
     BEGIN_INTERFACE
 
@@ -315,7 +326,84 @@ DECLARE_INTERFACE_(IDWriteFactory3,IDWriteFactory)
     STDMETHOD(dummy19)(THIS);
 
     /* IDWriteFactory2 methods */
-    STDMETHOD(dummy20)(THIS);
+    STDMETHOD(GetSystemFontFallback)(THIS_
+        IDWriteFontFallback** fontFallback) PURE;
+    /* rest dropped */
+    END_INTERFACE
+};
+#ifdef COBJMACROS
+#define IDWriteFactory2_QueryInterface(This,riid,ppvObject) (This)->lpVtbl->QueryInterface(This,riid,ppvObject)
+#define IDWriteFactory2_AddRef(This) (This)->lpVtbl->AddRef(This)
+#define IDWriteFactory2_Release(This) (This)->lpVtbl->Release(This)
+#define IDWriteFactory2_GetSystemFontFallback(This,fontFallback) (This)->lpVtbl->GetSystemFontFallback(This,fontFallback)
+#endif /*COBJMACROS*/
+
+#undef  INTERFACE
+#define INTERFACE IDWriteFactory3
+DECLARE_INTERFACE_(IDWriteFactory3,IDWriteFactory2)
+{
+    BEGIN_INTERFACE
+
+#ifndef __cplusplus
+    /* IUnknown methods */
+    STDMETHOD(QueryInterface)(THIS_ REFIID riid, void **ppvObject) PURE;
+    STDMETHOD_(ULONG, AddRef)(THIS) PURE;
+    STDMETHOD_(ULONG, Release)(THIS) PURE;
+
+    /* IDWriteFactory methods */
+    STDMETHOD(GetSystemFontCollection)(THIS_
+        IDWriteFontCollection **fontCollection,
+        BOOL checkForUpdates __MINGW_DEF_ARG_VAL(FALSE)) PURE;
+
+    STDMETHOD(dummy1)(THIS);
+    STDMETHOD(dummy2)(THIS);
+    STDMETHOD(dummy3)(THIS);
+    STDMETHOD(dummy4)(THIS);
+    STDMETHOD(dummy5)(THIS);
+    STDMETHOD(dummy6)(THIS);
+    STDMETHOD(dummy7)(THIS);
+    STDMETHOD(dummy8)(THIS);
+    STDMETHOD(dummy9)(THIS);
+    STDMETHOD(dummy10)(THIS);
+    STDMETHOD(dummy11)(THIS);
+
+    STDMETHOD(CreateTextFormat)(THIS_
+        WCHAR const *fontFamilyName,
+        IDWriteFontCollection *fontCollection,
+        DWRITE_FONT_WEIGHT fontWeight,
+        DWRITE_FONT_STYLE fontStyle,
+        DWRITE_FONT_STRETCH fontStretch,
+        FLOAT fontSize,
+        WCHAR const *localeName,
+        IDWriteTextFormat **textFormat) PURE;
+
+    STDMETHOD(dummy12)(THIS);
+
+    STDMETHOD(GetGdiInterop)(THIS_
+        IDWriteGdiInterop **gdiInterop) PURE;
+
+    STDMETHOD(CreateTextLayout)(THIS_
+        WCHAR const *string,
+        UINT32 stringLength,
+        IDWriteTextFormat *textFormat,
+        FLOAT maxWidth,
+        FLOAT maxHeight,
+        IDWriteTextLayout **textLayout) PURE;
+#endif
+
+    STDMETHOD(dummy13)(THIS);
+    STDMETHOD(dummy14)(THIS);
+    STDMETHOD(dummy15)(THIS);
+    STDMETHOD(dummy16)(THIS);
+    STDMETHOD(dummy17)(THIS);
+
+    /* IDWriteFactory1 methods */
+    STDMETHOD(dummy18)(THIS);
+    STDMETHOD(dummy19)(THIS);
+
+    /* IDWriteFactory2 methods */
+    STDMETHOD(GetSystemFontFallback)(THIS_
+        IDWriteFontFallback** fontFallback) PURE;
     STDMETHOD(dummy21)(THIS);
     STDMETHOD(dummy22)(THIS);
     STDMETHOD(dummy23)(THIS);
@@ -341,6 +429,7 @@ DECLARE_INTERFACE_(IDWriteFactory3,IDWriteFactory)
 #define IDWriteFactory3_CreateTextFormat(This,fontFamilyName,fontCollection,fontWeight,fontStyle,fontStretch,fontSize,localeName,textFormat) (This)->lpVtbl->CreateTextFormat(This,fontFamilyName,fontCollection,fontWeight,fontStyle,fontStretch,fontSize,localeName,textFormat)
 #define IDWriteFactory3_CreateTextLayout(This,string,stringLength,textFormat,maxWidth,maxHeight,textLayout) (This)->lpVtbl->CreateTextLayout(This,string,stringLength,textFormat,maxWidth,maxHeight,textLayout)
 #define IDWriteFactory3_GetGdiInterop(This,gdiInterop) (This)->lpVtbl->GetGdiInterop(This,gdiInterop)
+#define IDWriteFactory3_GetSystemFontFallback(This,fontFallback) (This)->lpVtbl->GetSystemFontFallback(This,fontFallback)
 #define IDWriteFactory3_GetSystemFontSet(This,fontSet) (This)->lpVtbl->GetSystemFontSet(This,fontSet)
 #endif /*COBJMACROS*/
 
@@ -631,6 +720,43 @@ DECLARE_INTERFACE_(IDWriteFontFaceReference,IUnknown)
 #endif /*COBJMACROS*/
 
 #undef  INTERFACE
+#define INTERFACE IDWriteFontFallback
+DECLARE_INTERFACE_(IDWriteFontFallback,IUnknown)
+{
+    BEGIN_INTERFACE
+
+#ifndef __cplusplus
+    /* IUnknown methods */
+    STDMETHOD(QueryInterface)(THIS_ REFIID riid, void **ppvObject) PURE;
+    STDMETHOD_(ULONG, AddRef)(THIS) PURE;
+    STDMETHOD_(ULONG, Release)(THIS) PURE;
+#endif
+
+    /* IDWriteFontFallback methods */
+    STDMETHOD(MapCharacters)(THIS_
+        IDWriteTextAnalysisSource* analysisSource,
+        UINT32 textPosition,
+        UINT32 textLength,
+        IDWriteFontCollection* baseFontCollection,
+        wchar_t const* baseFamilyName,
+        DWRITE_FONT_WEIGHT baseWeight,
+        DWRITE_FONT_STYLE baseStyle,
+        DWRITE_FONT_STRETCH baseStretch,
+        UINT32* mappedLength,
+        IDWriteFont** mappedFont,
+        FLOAT* scale
+        ) PURE;
+
+    END_INTERFACE
+};
+#ifdef COBJMACROS
+#define IDWriteFontFallback_QueryInterface(This,riid,ppvObject) (This)->lpVtbl->QueryInterface(This,riid,ppvObject)
+#define IDWriteFontFallback_AddRef(This) (This)->lpVtbl->AddRef(This)
+#define IDWriteFontFallback_Release(This) (This)->lpVtbl->Release(This)
+#define IDWriteFontFallback_MapCharacters(This,analysisSource,textPosition,textLength,baseFontCollection,baseFamilyName,baseWeight,baseStyle,baseStretch,mappedLength,mappedFont,scale) (This)->lpVtbl->MapCharacters(This,analysisSource,textPosition,textLength,baseFontCollection,baseFamilyName,baseWeight,baseStyle,baseStretch,mappedLength,mappedFont,scale)
+#endif /*COBJMACROS*/
+
+#undef  INTERFACE
 #define INTERFACE IDWriteFontFamily
 DECLARE_INTERFACE_(IDWriteFontFamily,IDWriteFontList)
 {
@@ -850,6 +976,27 @@ DECLARE_INTERFACE_(IDWriteLocalizedStrings,IUnknown)
 #endif /*COBJMACROS*/
 
 #undef  INTERFACE
+#define INTERFACE IDWriteNumberSubstitution
+DECLARE_INTERFACE_(IDWriteNumberSubstitution,IUnknown)
+{
+    BEGIN_INTERFACE
+
+#ifndef __cplusplus
+    /* IUnknown methods */
+    STDMETHOD(QueryInterface)(THIS_ REFIID riid, void **ppvObject) PURE;
+    STDMETHOD_(ULONG, AddRef)(THIS) PURE;
+    STDMETHOD_(ULONG, Release)(THIS) PURE;
+#endif
+
+    END_INTERFACE
+};
+#ifdef COBJMACROS
+#define IDWriteNumberSubstitution_QueryInterface(This,riid,ppvObject) (This)->lpVtbl->QueryInterface(This,riid,ppvObject)
+#define IDWriteNumberSubstitution_AddRef(This) (This)->lpVtbl->AddRef(This)
+#define IDWriteNumberSubstitution_Release(This) (This)->lpVtbl->Release(This)
+#endif /*COBJMACROS*/
+
+#undef  INTERFACE
 #define INTERFACE IDWriteTextFormat
 DECLARE_INTERFACE_(IDWriteTextFormat,IUnknown)
 {
@@ -955,6 +1102,49 @@ DECLARE_INTERFACE_(IDWriteTextLayout,IDWriteTextFormat)
 #endif /*COBJMACROS*/
 
 #undef  INTERFACE
+#define INTERFACE IDWriteTextAnalysisSource
+DECLARE_INTERFACE_(IDWriteTextAnalysisSource,IUnknown)
+{
+    BEGIN_INTERFACE
+
+#ifndef __cplusplus
+    /* IUnknown methods */
+    STDMETHOD(QueryInterface)(THIS_ REFIID riid, void **ppvObject) PURE;
+    STDMETHOD_(ULONG, AddRef)(THIS) PURE;
+    STDMETHOD_(ULONG, Release)(THIS) PURE;
+
+#endif
+    STDMETHOD(GetTextAtPosition)(THIS_
+        UINT32 textPosition,
+        WCHAR const** textString,
+        UINT32* textLength) PURE;
+    STDMETHOD(GetTextBeforePosition)(THIS_
+        UINT32 textPosition,
+        WCHAR const** textString,
+        UINT32* textLength) PURE;
+    STDMETHOD_(DWRITE_READING_DIRECTION, GetParagraphReadingDirection)(THIS) PURE;
+    STDMETHOD(GetLocaleName)(THIS_
+        UINT32 textPosition,
+        UINT32* textLength,
+        WCHAR const** localeName) PURE;
+    STDMETHOD(GetNumberSubstitution)(THIS_
+        UINT32 textPosition,
+        UINT32* textLength,
+        IDWriteNumberSubstitution** numberSubstitution) PURE;
+    END_INTERFACE
+};
+#ifdef COBJMACROS
+#define IDWriteTextAnalysisSource_QueryInterface(This,riid,ppvObject) (This)->lpVtbl->QueryInterface(This,riid,ppvObject)
+#define IDWriteTextAnalysisSource_AddRef(This) (This)->lpVtbl->AddRef(This)
+#define IDWriteTextAnalysisSource_Release(This) (This)->lpVtbl->Release(This)
+#define IDWriteTextAnalysisSource_GetTextAtPosition(This,textPosition,textString,textLength) (This)->lpVtbl->GetTextAtPosition(This,textPosition,textString,textLength)
+#define IDWriteTextAnalysisSource_GetTextBeforePosition(This,textPosition,textString,textLength) (This)->lpVtbl->GetTextBeforePosition(This,textPosition,textString,textLength)
+#define IDWriteTextAnalysisSource_GetParagraphReadingDirection(This) (This)->lpVtbl->GetParagraphReadingDirection(This,)
+#define IDWriteTextAnalysisSource_GetLocaleName(This,textPosition,textLength,localeName) (This)->lpVtbl->GetLocaleName(This,textPosition,textLength,localeName)
+#define IDWriteTextAnalysisSource_GetNumberSubstitution(This,textPosition,textLength,numberSubstitution) (This)->lpVtbl->GetNumberSubstitution(This,textPosition,textLength,numberSubstitution)
+#endif /*COBJMACROS*/
+
+#undef  INTERFACE
 #define INTERFACE IDWriteTextRenderer
 DECLARE_INTERFACE_(IDWriteTextRenderer,IDWritePixelSnapping)
 {
@@ -1046,9 +1236,11 @@ DECLARE_INTERFACE_(IDWriteGdiInterop,IUnknown)
 #endif /*COBJMACROS*/
 
 DEFINE_GUID(IID_IDWriteFactory, 0xb859ee5a,0xd838,0x4b5b,0xa2,0xe8,0x1a,0xdc,0x7d,0x93,0xdb,0x48);
+DEFINE_GUID(IID_IDWriteFactory2, 0x0439fc60,0xca44,0x4994,0x8d,0xee,0x3a,0x9a,0xf7,0xb7,0x32,0xec);
 DEFINE_GUID(IID_IDWriteFactory3, 0x9a1b41c3,0xd3bb,0x466a,0x87,0xfc,0xfe,0x67,0x55,0x6a,0x3b,0x65);
 DEFINE_GUID(IID_IDWriteFontFace3, 0xd37d7598,0x09be,0x4222,0xa2,0x36,0x20,0x81,0x34,0x1c,0xc1,0xf2);
 DEFINE_GUID(IID_IDWritePixelSnapping, 0xeaf3a2da,0xecf4,0x4d24,0xb6,0x44,0xb3,0x4f,0x68,0x42,0x02,0x4b);
+DEFINE_GUID(IID_IDWriteTextAnalysisSource, 0x688e1a58,0x5094,0x47c8,0xad,0xc8,0xfb,0xce,0xa6,0x0a,0xe9,0x2b);
 DEFINE_GUID(IID_IDWriteTextRenderer, 0xef8a8135,0x5cc6,0x45fe,0x88,0x25,0xc5,0xa0,0x72,0x4e,0xb8,0x19);
 
 #endif /* __INC_DWRITE__ */
