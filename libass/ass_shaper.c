@@ -291,11 +291,8 @@ get_reference_table(hb_face_t *hbface, hb_tag_t tag, void *font_data)
     return NULL;
   }
 
-  hb_blob_t *blob = hb_blob_create(buf, len, HB_MEMORY_MODE_WRITABLE, buf, free);
-  if (len > 0 && hb_blob_is_immutable(blob))
-      free(buf);
-
-  return blob;
+  // HarfBuzz frees buf itself if the blob cannot be created
+  return hb_blob_create(buf, len, HB_MEMORY_MODE_WRITABLE, buf, free);
 }
 
 static hb_bool_t
