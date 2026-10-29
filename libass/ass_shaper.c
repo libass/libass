@@ -606,6 +606,27 @@ hb_shaper_get_run_language(ASS_Shaper *shaper, hb_script_t script)
 }
 
 /**
+ * \brief Pre-create a shaper plan for the specified font in Harfbuzz's cache.
+ *        Assumes Latin script and LTR; other cases will lazy-init.
+ */
+bool ass_shaper_prewarm_font(ASS_Shaper *shaper, ASS_Font *font, double hspacing)
+{
+    hb_segment_properties_t props = HB_SEGMENT_PROPERTIES_DEFAULT;
+    props.direction = HB_DIRECTION_LTR;
+    props.script = HB_SCRIPT_LATIN;
+    props.language = hb_shaper_get_run_language(shaper, props.script);
+    set_run_features(shaper, font, hspacing);
+
+    hb_shape_plan_t *plan = hb_shape_plan_create_cached(
+        hb_font_get_face(font->hb_fonts[0]), &props,
+        shaper->features, shaper->n_features, NULL);
+
+    bool valid = hb_shape_plan_get_shaper(plan) != NULL;
+    hb_shape_plan_destroy(plan);
+    return valid;
+}
+
+/**
  * \brief Feed a run of shaped characters into the GlyphInfo array.
  *
  * \param glyphs GlyphInfo array

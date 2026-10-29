@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01705000
+#define LIBASS_VERSION 0x01705010
 
 #ifdef __cplusplus
 extern "C" {
@@ -605,6 +605,43 @@ int ass_fonts_update(ASS_Renderer *priv);
  */
 void ass_set_cache_limits(ASS_Renderer *priv, int glyph_max,
                           int bitmap_max_size);
+
+/**
+ * Flags for ass_prewarm_caches().
+ */
+typedef enum {
+    /** Also cache metrics for printable ASCII glyphs present in each style font. */
+    ASS_PREWARM_ASCII = 1 << 0,
+} ASS_CachePrewarmFlags;
+
+/**
+ * \brief Prepare internal caches before rendering starts.
+ *
+ * Performs some potentially-expensive operations that depend on track metadata,
+ * and would otherwise happen during rendering. Currently, this means loading
+ * style-specified fonts and pre-populating caches with their metrics data.
+ *
+ * If ASS_PREWARM_ASCII is passed, some additional pre-cacheing will be done
+ * specifically for the ASCII printable characters used by the font,
+ * under the assumption that it's reasonably likely that at least some of them
+ * will be used at some point for scripts in most languages.
+ *
+ * This should be called after loading track headers and memory fonts,
+ * configuring font providers, and setting any selective style overrides.
+ *
+ * This optional operation moves first-use work to startup and may load fonts
+ * or glyphs that are never used. It can take time (usually milliseconds,
+ * potentially tens of milliseconds) and allocate additional memory.
+ *
+ * \param priv renderer handle
+ * \param track subtitle track belonging to the renderer's ASS_Library
+ * \param flags bitmask of ASS_CachePrewarmFlags; zero selects the default work.
+ * \return 0 on success, -1 for invalid arguments/setup or a preparation failure.
+ * On failure, some entries may have been prepared; rendering can still proceed.
+ *
+ * Available since LIBASS_VERSION 0x01705010.
+ */
+int ass_prewarm_caches(ASS_Renderer *priv, ASS_Track *track, unsigned flags);
 
 /**
  * \brief Render a frame, producing a list of ASS_Image.
