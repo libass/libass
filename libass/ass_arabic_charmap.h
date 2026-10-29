@@ -26,5 +26,6 @@
 
 uint32_t ass_font_charmap_arabic_simplified(uint32_t symbol);
 uint32_t ass_font_charmap_arabic_traditional(uint32_t symbol);
+uint32_t ass_font_charmap_hebrew(uint32_t symbol);
 
 #endif /* LIBASS_ASS_ARABIC_CHARMAP_H */
