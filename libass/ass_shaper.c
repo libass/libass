@@ -80,6 +80,7 @@ struct ass_shaper {
 struct ass_shaper_metrics_data {
     Cache *metrics_cache;
     FaceSizeMetricsHashKey hash_key;
+    bool vertical;
 };
 
 /**
@@ -175,7 +176,7 @@ static bool init_features(ASS_Shaper *shaper)
 static void set_run_features(ASS_Shaper *shaper, GlyphInfo *info)
 {
     // enable vertical substitutions for @font runs
-    if (info->font->desc.vertical)
+    if (info->vertical)
         shaper->features[VERT].value = shaper->features[VKNA].value = 1;
     else
         shaper->features[VERT].value = shaper->features[VKNA].value = 0;
@@ -217,7 +218,7 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics,
     bool rotate = false;
     // if @font rendering is enabled and the glyph should be rotated,
     // make cached_h_advance pick up the right advance later
-    if (metrics->hash_key.font->desc.vertical && unicode >= VERTICAL_LOWER_BOUND)
+    if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
         rotate = true;
 
     GlyphMetricsHashKey key = {
@@ -225,6 +226,7 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics,
         .face_index = metrics->hash_key.face_index,
         .size = metrics->hash_key.size,
         .glyph_index = glyph,
+        .vertical = metrics->vertical,
     };
     FT_Glyph_Metrics *val = ass_cache_get(metrics->metrics_cache, &key,
                                           rotate ? metrics : NULL);
@@ -487,6 +489,7 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
     }
     metrics->metrics_cache = shaper->metrics_cache;
     metrics->hash_key = key;
+    metrics->vertical = info->vertical;
 
     hb_font_set_funcs(hb_font, shaper->font_funcs, metrics, free);
 
