@@ -80,7 +80,7 @@ START(glyph_metrics, glyph_metrics_hash_key)
     GENERIC(double, size)
     GENERIC(int, face_index)
     GENERIC(int, glyph_index)
-    GENERIC(bool, vertical)  // @font vertical layout
+    GENERIC(bool, rotate)  // use vertical advance for rotated glyphs
 END(GlyphMetricsHashKey)
 
 // describes an outline glyph

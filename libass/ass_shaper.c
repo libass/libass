@@ -80,7 +80,7 @@ struct ass_shaper {
 struct ass_shaper_metrics_data {
     Cache *metrics_cache;
     FaceSizeMetricsHashKey hash_key;
-    bool vertical;
+    bool rotate;
 };
 
 /**
@@ -212,24 +212,16 @@ static void update_hb_size(hb_font_t *hb_font, FT_Face face, FT_Size_Metrics *m)
  */
 
 static FT_Glyph_Metrics *
-get_cached_metrics(struct ass_shaper_metrics_data *metrics,
-                   hb_codepoint_t unicode, hb_codepoint_t glyph)
+get_cached_metrics(struct ass_shaper_metrics_data *metrics, hb_codepoint_t glyph)
 {
-    bool rotate = false;
-    // if @font rendering is enabled and the glyph should be rotated,
-    // make cached_h_advance pick up the right advance later
-    if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
-        rotate = true;
-
     GlyphMetricsHashKey key = {
         .font = metrics->hash_key.font,
         .face_index = metrics->hash_key.face_index,
         .size = metrics->hash_key.size,
         .glyph_index = glyph,
-        .vertical = metrics->vertical,
+        .rotate = metrics->rotate,
     };
-    FT_Glyph_Metrics *val = ass_cache_get(metrics->metrics_cache, &key,
-                                          rotate ? metrics : NULL);
+    FT_Glyph_Metrics *val = ass_cache_get(metrics->metrics_cache, &key, NULL);
     if (!val || val->width < 0)
         return NULL;
 
@@ -269,7 +261,7 @@ size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
 
     memcpy(v, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
 
-    if (priv)  // rotate
+    if (k->rotate)
         v->horiAdvance = v->vertAdvance;
 
     return 1;
@@ -313,8 +305,6 @@ get_glyph_nominal(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
     if (!*glyph)
         return false;
 
-    // rotate glyph advances for @fonts while we still know the Unicode codepoints
-    get_cached_metrics(metrics_priv, unicode, *glyph);
     return true;
 }
 
@@ -331,8 +321,6 @@ get_glyph_variation(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
     if (!*glyph)
         return false;
 
-    // rotate glyph advances for @fonts while we still know the Unicode codepoints
-    get_cached_metrics(metrics_priv, unicode, *glyph);
     return true;
 }
 
@@ -341,7 +329,7 @@ cached_h_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                  void *user_data)
 {
     struct ass_shaper_metrics_data *metrics_priv = font_data;
-    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, 0, glyph);
+    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, glyph);
     if (!metrics)
         return 0;
 
@@ -353,7 +341,7 @@ cached_v_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                  void *user_data)
 {
     struct ass_shaper_metrics_data *metrics_priv = font_data;
-    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, 0, glyph);
+    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, glyph);
     if (!metrics)
         return 0;
 
@@ -372,7 +360,7 @@ cached_v_origin(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                 hb_position_t *x, hb_position_t *y, void *user_data)
 {
     struct ass_shaper_metrics_data *metrics_priv = font_data;
-    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, 0, glyph);
+    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, glyph);
     if (!metrics)
         return false;
 
@@ -407,7 +395,7 @@ cached_extents(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                hb_glyph_extents_t *extents, void *user_data)
 {
     struct ass_shaper_metrics_data *metrics_priv = font_data;
-    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, 0, glyph);
+    FT_Glyph_Metrics *metrics = get_cached_metrics(metrics_priv, glyph);
     if (!metrics)
         return false;
 
@@ -489,7 +477,8 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
     }
     metrics->metrics_cache = shaper->metrics_cache;
     metrics->hash_key = key;
-    metrics->vertical = info->vertical;
+    // Shape runs split on flags, so all glyphs in this run agree on rotation.
+    metrics->rotate = !!(info->flags & DECO_ROTATE);
 
     hb_font_set_funcs(hb_font, shaper->font_funcs, metrics, free);
 
