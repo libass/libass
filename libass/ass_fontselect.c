@@ -94,10 +94,15 @@ struct font_selector {
     char *path_default;
     int index_default;
 
-    // font database
-    int n_font;
-    int alloc_font;
-    ASS_FontInfo *font_infos;
+    // embedded font database
+    int embedded_n_font;
+    int embedded_alloc_font;
+    ASS_FontInfo *embedded_font_infos;
+
+    // provider font database
+    int provider_n_font;
+    int provider_alloc_font;
+    ASS_FontInfo *provider_font_infos;
 
     ASS_FontProvider *default_provider;
     ASS_FontProvider *embedded_provider;
@@ -215,7 +220,7 @@ ass_font_provider_new(ASS_FontSelector *selector, ASS_FontProviderFuncs *funcs,
  *
  * \param info FontInfo struct to free associated data from
  */
-static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
+void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
 {
     int j;
 
@@ -239,6 +244,17 @@ static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
 
     if (info->extended_family)
         free(info->extended_family);
+}
+
+/**
+ * Free the provider-specific private data.
+ *
+ * \param info FontInfo struct to free private data from.
+ */
+void ass_font_provider_destroy_private_fontinfo(ASS_FontInfo *info)
+{
+    if (info->provider)
+        info->provider->funcs.destroy_font(info->priv);
 }
 
 /**
@@ -373,21 +389,62 @@ static void free_font_info(ASS_FontProviderMetaData *meta)
 /**
  * \brief Add a font to a font provider.
  * \param provider the font provider
- * \param meta basic metadata of the font
- * \param path path to the font file, or NULL
- * \param index face index inside the file (-1 to look up by PostScript name)
- * \param data private data for the font
- * \return success
+ * \param info The font to add to the database.
+ * \param is_embedded If true, the font will be added to the embedded db.
+ *                    If false, it will be added to the provider db.
+ * \return True if the font has been successfully added to the provider. Otherwise, false.
+ * \note After calling this function, **do not** call `ass_font_provider_free_fontinfo`
+ *       on the `info` parameter, as its contents have been copied.
  */
 bool
 ass_font_provider_add_font(ASS_FontProvider *provider,
-                           ASS_FontProviderMetaData *meta, const char *path,
-                           int index, void *data)
+                           ASS_FontInfo* info, bool is_embedded)
+{
+    if (!provider || !info)
+        return false;
+
+    ASS_FontSelector *selector = provider->parent;
+
+    // Select the appropriate font database
+    int *n_font = is_embedded ? &selector->embedded_n_font : &selector->provider_n_font;
+    int *alloc_font = is_embedded ? &selector->embedded_alloc_font : &selector->provider_alloc_font;
+    ASS_FontInfo **font_infos = is_embedded ? &selector->embedded_font_infos : &selector->provider_font_infos;
+
+    // check size
+    if (*n_font >= *alloc_font) {
+        size_t new_size = FFMAX(1, 2 * (*alloc_font));
+        if (!ASS_REALLOC_ARRAY(*font_infos, new_size))
+            return false;
+        *alloc_font = new_size;
+    }
+
+    ASS_FontInfo *new_font_info = *font_infos + *n_font;
+    *new_font_info = *info;
+    (*n_font)++;
+    return true;
+}
+
+/**
+ * \brief Get the font info from a provider's font.
+ * \param provider the font provider
+ * \param meta the font metadata. See struct definition for more information.
+ * \param path absolute path to font, or NULL for memory-based fonts
+ * \param index index inside a font collection file
+ *              (-1 to look up by PostScript name)
+ * \param data private data for font callbacks
+ * \return A pointer to an ASS_FontInfo corresponding to the given parameters.
+ */
+ASS_FontInfo *
+ass_font_provider_get_font_info(ASS_FontProvider *provider,
+                                ASS_FontProviderMetaData *meta, const char *path,
+                                int index, void *data)
 {
     int i;
     ASS_FontSelector *selector = provider->parent;
-    ASS_FontInfo *info = NULL;
     ASS_FontProviderMetaData implicit_meta = {0};
+    ASS_FontInfo *info = calloc(1, sizeof(ASS_FontInfo));
+    if (!info)
+        goto error;
 
     if (!meta->n_family) {
         FT_Face face;
@@ -446,17 +503,6 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     printf("  index: %d\n", index);
 #endif
 
-    // check size
-    if (selector->n_font >= selector->alloc_font) {
-        selector->alloc_font = FFMAX(1, 2 * selector->alloc_font);
-        selector->font_infos = realloc(selector->font_infos,
-                selector->alloc_font * sizeof(ASS_FontInfo));
-    }
-
-    // copy over metadata
-    info = selector->font_infos + selector->n_font;
-    memset(info, 0, sizeof(ASS_FontInfo));
-
     // set uid
     info->uid = selector->uid++;
 
@@ -510,22 +556,22 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     info->priv  = data;
     info->provider = provider;
 
-    selector->n_font++;
-
     free_font_info(&implicit_meta);
     free(implicit_meta.postscript_name);
 
-    return true;
+    return info;
 
 error:
-    if (info)
+    if (info) {
         ass_font_provider_free_fontinfo(info);
+        free(info);
+    }
 
     free_font_info(&implicit_meta);
     free(implicit_meta.postscript_name);
     provider->funcs.destroy_font(data);
 
-    return false;
+    return NULL;
 }
 
 /**
@@ -537,21 +583,37 @@ static void ass_fontselect_cleanup(ASS_FontSelector *selector)
 {
     int i, w;
 
-    for (i = 0, w = 0; i < selector->n_font; i++) {
-        ASS_FontInfo *info = selector->font_infos + i;
+    for (i = 0, w = 0; i < selector->embedded_n_font; i++) {
+        ASS_FontInfo *info = selector->embedded_font_infos + i;
 
         // update write pointer
         if (info->provider != NULL) {
             // rewrite, if needed
             if (w != i)
-                memcpy(selector->font_infos + w, selector->font_infos + i,
+                memcpy(selector->embedded_font_infos + w, selector->embedded_font_infos + i,
                         sizeof(ASS_FontInfo));
             w++;
         }
 
     }
 
-    selector->n_font = w;
+    selector->embedded_n_font = w;
+
+    for (i = 0, w = 0; i < selector->provider_n_font; i++) {
+        ASS_FontInfo *info = selector->provider_font_infos + i;
+
+        // update write pointer
+        if (info->provider != NULL) {
+            // rewrite, if needed
+            if (w != i)
+                memcpy(selector->provider_font_infos + w, selector->provider_font_infos + i,
+                        sizeof(ASS_FontInfo));
+            w++;
+        }
+
+    }
+
+    selector->provider_n_font = w;
 }
 
 void ass_font_provider_free(ASS_FontProvider *provider)
@@ -560,12 +622,23 @@ void ass_font_provider_free(ASS_FontProvider *provider)
     ASS_FontSelector *selector = provider->parent;
 
     // free all fonts and mark their entries
-    for (i = 0; i < selector->n_font; i++) {
-        ASS_FontInfo *info = selector->font_infos + i;
+    for (i = 0; i < selector->embedded_n_font; i++) {
+        ASS_FontInfo *info = selector->embedded_font_infos + i;
 
         if (info->provider == provider) {
             ass_font_provider_free_fontinfo(info);
-            info->provider->funcs.destroy_font(info->priv);
+            ass_font_provider_destroy_private_fontinfo(info);
+            info->provider = NULL;
+        }
+
+    }
+
+    for (i = 0; i < selector->provider_n_font; i++) {
+        ASS_FontInfo *info = selector->provider_font_infos + i;
+
+        if (info->provider == provider) {
+            ass_font_provider_free_fontinfo(info);
+            ass_font_provider_destroy_private_fontinfo(info);
             info->provider = NULL;
         }
 
@@ -705,75 +778,117 @@ static bool check_glyph(ASS_FontInfo *fi, uint32_t code)
     return provider->funcs.check_glyph(fi->priv, code);
 }
 
-static char *
-find_font(ASS_FontSelector *priv,
-          ASS_FontProviderMetaData meta, bool match_extended_family,
-          unsigned bold, unsigned italic,
-          int *index, char **postscript_name, int *uid, ASS_FontStream *stream,
-          uint32_t code, bool *name_match)
+/**
+ * \brief Check if a font matches the given criteria.
+ * \param font The font to check.
+ * \param meta The requested font metadata used for comparison. Only the
+ *             `fullnames` and `n_fullname` fields are considered for matching.
+ * \param match_extended_family If true, the function allows matching against
+ *                              extended family names as defined by the provider.
+ *                              This behavior is provider-dependent.
+ * \param bold The requested boldness level.
+ * \param italic The requested italic style.
+ * \param name_match Set to true if the font matches the metadata,
+ *                   otherwise set to false.
+ * \param score Score representing the match. The lower, the better.
+ */
+static void
+is_font_match(ASS_FontInfo *font, ASS_FontProviderMetaData meta,
+              bool match_extended_family,
+              unsigned bold, unsigned italic,
+              bool *name_match, unsigned *score)
 {
     ASS_FontInfo req = {0};
-    ASS_FontInfo *selected = NULL;
-
-    // do we actually have any fonts?
-    if (!priv->n_font)
-        return NULL;
 
     // fill font request
     req.style_flags = (italic ? FT_STYLE_FLAG_ITALIC : 0);
     req.weight      = bold;
 
     // Match font family name against font list
-    unsigned score_min = UINT_MAX;
+    *score = UINT_MAX;
     for (int i = 0; i < meta.n_fullname; i++) {
         const char *fullname = meta.fullnames[i];
 
-        for (int x = 0; x < priv->n_font; x++) {
-            ASS_FontInfo *font = &priv->font_infos[x];
-            unsigned score = UINT_MAX;
+        if (matches_family_name(font, fullname, match_extended_family)) {
+            // If there's a family match, compare font attributes
+            // to determine best match in that particular family
+            *score = font_attributes_similarity(font, &req);
+            *name_match = true;
+            break;
+        } else if (matches_full_or_postscript_name(font, fullname)) {
+            // If we don't have any match, compare fullnames against request
+            // if there is a match now, assign lowest score possible. This means
+            // the font should be chosen instantly, without further search.
+            *score = 0;
+            *name_match = true;
+            break;
+        }
+    }
+}
 
-            if (matches_family_name(font, fullname, match_extended_family)) {
-                // If there's a family match, compare font attributes
-                // to determine best match in that particular family
-                score = font_attributes_similarity(font, &req);
-                *name_match = true;
-            } else if (matches_full_or_postscript_name(font, fullname)) {
-                // If we don't have any match, compare fullnames against request
-                // if there is a match now, assign lowest score possible. This means
-                // the font should be chosen instantly, without further search.
-                score = 0;
-                *name_match = true;
-            }
+bool ass_update_best_matching_font(ASS_FontInfo *info,
+                                   ASS_FontProviderMetaData requested_font,
+                                   bool match_extended_family,
+                                   unsigned bold, unsigned italic,
+                                   uint32_t code, bool *name_match,
+                                   unsigned *best_font_score)
+{
+    if (!info)
+        return false;
 
-            // Consider updating idx if score is better than current minimum
-            if (score < score_min) {
-                // Check if the font has the requested glyph.
-                // We are doing this here, for every font face, because
-                // coverage might differ between the variants of a font
-                // family. In practice, it is common that the regular
-                // style has the best coverage while bold/italic/etc
-                // variants cover less (e.g. FreeSans family).
-                // We want to be able to match even if the closest variant
-                // does not have the requested glyph, but another member
-                // of the family has the glyph.
-                if (!check_glyph(font, code))
-                    continue;
+    unsigned score = UINT_MAX;
+    is_font_match(info, requested_font, match_extended_family, bold, italic, name_match, &score);
 
-                score_min = score;
-                selected = font;
-            }
+    if (score < *best_font_score) {
+        // Check if the font has the requested glyph.
+        // We are doing this here, for every font face, because
+        // coverage might differ between the variants of a font
+        // family. In practice, it is common that the regular
+        // style has the best coverage while bold/italic/etc
+        // variants cover less (e.g. FreeSans family).
+        // We want to be able to match even if the closest variant
+        // does not have the requested glyph, but another member
+        // of the family has the glyph.
+        if (check_glyph(info, code)) {
+            *best_font_score = score;
+            return true;
+        }
+    }
 
-            // Lowest possible score instantly matches; this is typical
-            // for fullname matches, but can also occur with family matches.
-            if (score == 0)
-                break;
+    return false;
+}
+
+static ASS_FontInfo *
+find_font(ASS_FontSelector *priv,
+          ASS_FontProviderMetaData meta, bool match_extended_family,
+          unsigned bold, unsigned italic,
+          uint32_t code, bool *name_match)
+{
+    ASS_FontInfo *selected = NULL;
+
+    // do we actually have any fonts?
+    if (!priv->embedded_n_font)
+        return NULL;
+
+    unsigned score_min = UINT_MAX;
+    for (int x = 0; x < priv->embedded_n_font; x++) {
+        ASS_FontInfo *font = &priv->embedded_font_infos[x];
+        if (ass_update_best_matching_font(font, meta, match_extended_family, bold, italic, code, name_match, &score_min)) {
+            selected = font;
         }
 
-        // The list of names is sorted by priority. If we matched anything,
-        // we can and should stop.
-        if (selected != NULL)
+        // Lowest possible score instantly matches; this is typical
+        // for fullname matches, but can also occur with family matches.
+        if (score_min == 0)
             break;
     }
+
+    return selected;
+}
+
+static char *
+get_font_result(ASS_FontInfo *selected, int *index, char **postscript_name, int *uid, ASS_FontStream *stream)
+{
 
     // found anything?
     char *result = NULL;
@@ -817,8 +932,11 @@ static char *select_font(ASS_FontSelector *priv,
 {
     ASS_FontProvider *default_provider = priv->default_provider;
     ASS_FontProviderMetaData meta = {0};
+    ASS_FontInfo *matched_font = NULL;
     char *result = NULL;
     bool name_match = false;
+    bool font_queried_via_provider = false;
+    bool font_queried_via_provider_error = false;
 
     if (family == NULL)
         return NULL;
@@ -839,9 +957,8 @@ static char *select_font(ASS_FontSelector *priv,
         meta = default_meta;
     }
 
-    result = find_font(priv, meta, match_extended_family,
-                       bold, italic, index, postscript_name, uid,
-                       stream, code, &name_match);
+    matched_font = find_font(priv, meta, match_extended_family,
+                             bold, italic, code, &name_match);
 
     // If no matching font was found, it might not exist in the font list
     // yet. Call the match_fonts callback to fill in the missing fonts
@@ -851,14 +968,24 @@ static char *select_font(ASS_FontSelector *priv,
         // TODO: consider changing the API to make more efficient
         // implementations possible.
         for (int i = 0; i < meta.n_fullname; i++) {
-            default_provider->funcs.match_fonts(default_provider->priv,
+            matched_font = default_provider->funcs.match_fonts(default_provider->priv,
                                                 priv->library, default_provider,
-                                                meta.fullnames[i]);
+                                                meta.fullnames[i], match_extended_family,
+                                                bold, italic, code);
+            // TODO - This might be a bad idea because
+            // we may not get the best font if meta.n_fullname > 1
+            // Currently, only fontconfig can have a meta.n_fullname > 1,
+            // but since it doesn't define match_fonts, we don't have the problem
+            if (matched_font)
+                break;
         }
-        result = find_font(priv, meta, match_extended_family,
-                           bold, italic, index, postscript_name, uid,
-                           stream, code, &name_match);
+
+        font_queried_via_provider_error = !ass_font_provider_add_font(default_provider, matched_font, false);
+        font_queried_via_provider = true;
     }
+
+    if (!font_queried_via_provider || !font_queried_via_provider_error)
+        result = get_font_result(matched_font, index, postscript_name, uid, stream);
 
     // cleanup
     if (meta.fullnames != default_meta.fullnames) {
@@ -866,6 +993,9 @@ static char *select_font(ASS_FontSelector *priv,
             free(meta.fullnames[i]);
         free(meta.fullnames);
     }
+
+    if (font_queried_via_provider)
+        free(matched_font);
 
     return result;
 }
@@ -997,11 +1127,15 @@ static void process_fontdata(ASS_FontProvider *priv, int idx)
         ft->face = face;
         ft->idx  = idx;
 
-        if (!ass_font_provider_add_font(priv, &info, NULL, face_index, ft)) {
+        ASS_FontInfo* font_info = ass_font_provider_get_font_info(priv, &info, NULL, face_index, ft);
+        if (!font_info) {
             ass_msg(library, MSGL_WARN, "Failed to add embedded font '%s'",
                     name);
             free(ft);
         }
+
+        ass_font_provider_add_font(priv, font_info, true);
+        free(font_info);
 
         free_font_info(&info);
     }
@@ -1165,7 +1299,8 @@ void ass_fontselect_free(ASS_FontSelector *priv)
     if (priv->embedded_provider)
         ass_font_provider_free(priv->embedded_provider);
 
-    free(priv->font_infos);
+    free(priv->embedded_font_infos);
+    free(priv->provider_font_infos);
     free(priv->path_default);
     free(priv->family_default);
 
