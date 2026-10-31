@@ -324,6 +324,62 @@ const CacheDesc glyph_metrics_cache_desc = {
     .value_size = sizeof(FT_Glyph_Metrics)
 };
 
+// shaping cache
+static ass_hashcode shaping_hash(void *key, ass_hashcode hval)
+{
+    ShapingHashKey *k = key;
+    hval = shaping_parameters_hash(&k->parameters, hval);
+    hval = ass_hash_buf(&k->text_length, sizeof(k->text_length), hval);
+    hval = ass_hash_buf(&k->offset, sizeof(k->offset), hval);
+    hval = ass_hash_buf(&k->length, sizeof(k->length), hval);
+    return ass_hash_buf(k->text, k->text_length * sizeof(*k->text), hval);
+}
+
+static bool shaping_compare(void *a, void *b)
+{
+    ShapingHashKey *ak = a, *bk = b;
+    return shaping_parameters_compare(&ak->parameters, &bk->parameters) &&
+        ak->text_length == bk->text_length && ak->offset == bk->offset &&
+        ak->length == bk->length &&
+        !memcmp(ak->text, bk->text, ak->text_length * sizeof(*ak->text));
+}
+
+static bool shaping_key_move(void *dst, void *src)
+{
+    ShapingHashKey *d = dst, *s = src;
+    if (!d)
+        return true;
+
+    *d = *s;
+    d->text = NULL;
+    if (!ASS_REALLOC_ARRAY(d->text, s->text_length))
+        return false;
+    memcpy(d->text, s->text, s->text_length * sizeof(*s->text));
+    ass_cache_inc_ref(d->parameters.font);
+    return true;
+}
+
+static void shaping_destruct(void *key, void *value)
+{
+    ShapingHashKey *k = key;
+    ShapingHashValue *v = value;
+    ass_cache_dec_ref(k->parameters.font);
+    free(k->text);
+    hb_buffer_destroy(v->buffer);
+}
+
+size_t ass_shaping_construct(void *key, void *value, void *priv);
+
+const CacheDesc shaping_cache_desc = {
+    .hash_func = shaping_hash,
+    .compare_func = shaping_compare,
+    .key_move_func = shaping_key_move,
+    .construct_func = ass_shaping_construct,
+    .destruct_func = shaping_destruct,
+    .key_size = sizeof(ShapingHashKey),
+    .value_size = sizeof(ShapingHashValue)
+};
+
 
 
 // Cache data
@@ -576,4 +632,9 @@ Cache *ass_bitmap_cache_create(void)
 Cache *ass_composite_cache_create(void)
 {
     return ass_cache_create(&composite_cache_desc);
+}
+
+Cache *ass_shaping_cache_create(void)
+{
+    return ass_cache_create(&shaping_cache_desc);
 }

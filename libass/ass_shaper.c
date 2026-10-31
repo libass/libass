@@ -30,6 +30,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_TRUETYPE_TABLES_H
+
 enum {
     VERT = 0,
     VKNA,
@@ -67,7 +68,7 @@ struct ass_shaper {
     Cache *metrics_cache;
 
     hb_font_funcs_t *font_funcs;
-    hb_buffer_t *buf;
+    Cache *shaping_cache;
 
 #ifdef USE_FRIBIDI_EX_API
     FriBidiBracketType *btypes;
@@ -140,7 +141,6 @@ void ass_shaper_free(ASS_Shaper *shaper)
     free(shaper->cmap);
     free(shaper->pbase_dir);
     hb_font_funcs_destroy(shaper->font_funcs);
-    hb_buffer_destroy(shaper->buf);
     free(shaper);
 }
 
@@ -651,6 +651,50 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
     }
 }
 
+typedef struct {
+    ASS_Shaper *shaper;
+    GlyphInfo *info;
+} ShapeCacheContext;
+
+size_t ass_shaping_construct(void *key, void *value, void *priv)
+{
+    ShapingHashKey *k = key;
+    ShapingHashValue *v = value;
+    ShapeCacheContext *ctx = priv;
+    ASS_Shaper *shaper = ctx->shaper;
+    size_t size = sizeof(*k) + sizeof(*v) + k->text_length * sizeof(*k->text);
+
+    v->buffer = NULL;
+
+    hb_font_t *font = get_hb_font(shaper, ctx->info);
+    if (!font)
+        return size;
+
+    hb_buffer_t *buf = hb_buffer_create();
+    hb_buffer_add_utf32(buf, k->text, k->text_length, k->offset, k->length);
+
+    hb_segment_properties_t props = HB_SEGMENT_PROPERTIES_DEFAULT;
+    props.direction = k->parameters.direction;
+    props.script = k->parameters.script;
+    props.language = k->parameters.language;
+    hb_buffer_set_segment_properties(buf, &props);
+
+    set_run_features(shaper, ctx->info);
+    hb_shape(font, buf, shaper->features, shaper->n_features);
+
+    hb_font_destroy(font);
+    if (!hb_buffer_allocation_successful(buf)) {
+        hb_buffer_destroy(buf);
+        return size;
+    }
+
+    v->buffer = buf;
+
+    // HarfBuzz does not expose buffer capacity; account for the glyph data.
+    return size + hb_buffer_get_length(buf) *
+        (sizeof(hb_glyph_info_t) + sizeof(hb_glyph_position_t));
+}
+
 /**
  * \brief Shape event text with HarfBuzz. Full OpenType shaping.
  * \param glyphs glyph clusters
@@ -659,8 +703,6 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
 static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 {
     int i;
-    hb_buffer_t *buf = shaper->buf;
-    hb_segment_properties_t props = HB_SEGMENT_PROPERTIES_DEFAULT;
 
     // Initialize: skip all glyphs, this is undone later as needed
     for (i = 0; i < len; i++)
@@ -673,9 +715,6 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         }
 
         int offset = i;
-        hb_font_t *font = get_hb_font(shaper, glyphs + offset);
-        if (!font)
-            return false;
         int run_id = glyphs[offset].shape_run_id;
         int level = shaper->emblevels[offset];
 
@@ -684,40 +723,41 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
                 level == shaper->emblevels[i + 1])
             i++;
 
-        hb_buffer_pre_allocate(buf, i - offset + 1);
-
-        int lead_context = 0, trail_context = 0;
+        // Cache unscaled positions, so scale and paint need not be in the key.
+        ShapingHashKey key = {
+            .parameters = {
+                .font = glyphs[offset].font,
+                // Canonicalize signed zero for hashing and numeric comparison.
+                .size = glyphs[offset].font_size ? glyphs[offset].font_size : 0,
+                .face_index = glyphs[offset].face_index,
+                .direction = FRIBIDI_LEVEL_IS_RTL(level) ?
+                    HB_DIRECTION_RTL : HB_DIRECTION_LTR,
+                .script = glyphs[offset].script,
+                .language = hb_shaper_get_run_language(shaper, glyphs[offset].script),
+                .kerning = shaper->features[KERN].value,
+                .spacing = !!glyphs[offset].hspacing,
+            },
+            .length = i - offset + 1,
+        };
         if (shaper->whole_text_layout) {
-            hb_buffer_add_utf32(buf, shaper->event_text, len,
-                    offset, i - offset + 1);
+            key.text = shaper->event_text;
+            key.text_length = len;
+            key.offset = offset;
         } else {
-            if (offset > 0 && !glyphs[offset].starts_new_run &&
-                    is_shaping_control(glyphs[offset - 1].symbol))
-                lead_context = 1;
-            if (i < (len - 1) && !glyphs[i + 1].starts_new_run &&
-                    is_shaping_control(glyphs[i + 1].symbol))
-                trail_context = 1;
-
-            hb_buffer_add_utf32(buf,
-                    shaper->event_text + offset - lead_context,
-                    i - offset + 1 + lead_context + trail_context,
-                    lead_context, i - offset + 1);
+            int lead_context = offset > 0 && !glyphs[offset].starts_new_run &&
+                is_shaping_control(glyphs[offset - 1].symbol);
+            int trail_context = i < len - 1 && !glyphs[i + 1].starts_new_run &&
+                is_shaping_control(glyphs[i + 1].symbol);
+            key.text = shaper->event_text + offset - lead_context;
+            key.text_length = key.length + lead_context + trail_context;
+            key.offset = lead_context;
         }
 
-        props.direction = FRIBIDI_LEVEL_IS_RTL(level) ?
-            HB_DIRECTION_RTL : HB_DIRECTION_LTR;
-        props.script = glyphs[offset].script;
-        props.language  = hb_shaper_get_run_language(shaper, props.script);
-        hb_buffer_set_segment_properties(buf, &props);
-
-        set_run_features(shaper, glyphs + offset);
-        hb_shape(font, buf, shaper->features, shaper->n_features);
-
-        shape_harfbuzz_process_run(glyphs, buf,
-                shaper->whole_text_layout ? 0 : offset - lead_context);
-        hb_buffer_reset(buf);
-
-        hb_font_destroy(font);
+        ShapeCacheContext ctx = {shaper, glyphs + offset};
+        ShapingHashValue *v = ass_cache_get(shaper->shaping_cache, &key, &ctx);
+        if (!v || !v->buffer)
+            return false;
+        shape_harfbuzz_process_run(glyphs, v->buffer, offset - key.offset);
     }
 
     return true;
@@ -1013,12 +1053,15 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
     }
 }
 
+
 /**
  * \brief Create a new shaper instance
  */
-ASS_Shaper *ass_shaper_new(Cache *metrics_cache, Cache *face_size_metrics_cache)
+ASS_Shaper *ass_shaper_new(Cache *metrics_cache, Cache *face_size_metrics_cache,
+                          Cache *shaping_cache)
 {
     assert(metrics_cache);
+    assert(shaping_cache);
 
     ASS_Shaper *shaper = calloc(1, sizeof(*shaper));
     if (!shaper)
@@ -1030,6 +1073,7 @@ ASS_Shaper *ass_shaper_new(Cache *metrics_cache, Cache *face_size_metrics_cache)
         goto error;
     shaper->face_size_metrics_cache = face_size_metrics_cache;
     shaper->metrics_cache = metrics_cache;
+    shaper->shaping_cache = shaping_cache;
 
     hb_font_funcs_t *funcs = shaper->font_funcs = hb_font_funcs_create();
     if (hb_font_funcs_is_immutable(funcs))
@@ -1046,10 +1090,6 @@ ASS_Shaper *ass_shaper_new(Cache *metrics_cache, Cache *face_size_metrics_cache)
     hb_font_funcs_set_glyph_contour_point_func(funcs, get_contour_point, NULL, NULL);
 
     hb_font_funcs_make_immutable(funcs);
-
-    shaper->buf = hb_buffer_create();
-    if (!hb_buffer_allocation_successful(shaper->buf))
-        goto error;
 
     return shaper;
 
