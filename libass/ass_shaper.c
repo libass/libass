@@ -615,12 +615,11 @@ hb_shaper_get_run_language(ASS_Shaper *shaper, hb_script_t script)
 static void
 shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
 {
-    int j;
-    int num_glyphs = hb_buffer_get_length(buf);
-    hb_glyph_info_t *glyph_info = hb_buffer_get_glyph_infos(buf, NULL);
-    hb_glyph_position_t *pos    = hb_buffer_get_glyph_positions(buf, NULL);
+    unsigned num_glyphs = hb_buffer_get_length(buf);
+    const hb_glyph_info_t *glyph_info = hb_buffer_get_glyph_infos(buf, NULL);
+    const hb_glyph_position_t *pos = hb_buffer_get_glyph_positions(buf, NULL);
 
-    for (j = 0; j < num_glyphs; j++) {
+    for (unsigned j = 0; j < num_glyphs; j++) {
         unsigned idx = glyph_info[j].cluster + offset;
         GlyphInfo *info = glyphs + idx;
         GlyphInfo *root = info;
