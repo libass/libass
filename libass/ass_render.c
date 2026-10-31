@@ -141,14 +141,17 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->cache.outline_cache = ass_outline_cache_create();
     priv->cache.face_size_metrics_cache = ass_face_size_metrics_cache_create();
     priv->cache.metrics_cache = ass_glyph_metrics_cache_create();
+    priv->cache.event_render_cache = ass_event_render_cache_create();
     if (!priv->cache.font_cache || !priv->cache.bitmap_cache ||
         !priv->cache.composite_cache || !priv->cache.outline_cache ||
-        !priv->cache.face_size_metrics_cache || !priv->cache.metrics_cache)
+        !priv->cache.face_size_metrics_cache || !priv->cache.metrics_cache ||
+        !priv->cache.event_render_cache)
         goto fail;
 
     priv->cache.glyph_max = GLYPH_CACHE_MAX;
     priv->cache.bitmap_max_size = BITMAP_CACHE_MAX_SIZE;
     priv->cache.composite_max_size = COMPOSITE_CACHE_MAX_SIZE;
+    priv->cache.event_render_max_size = EVENT_RENDER_CACHE_MAX_SIZE;
 
     if (!render_context_init(&priv->state, priv))
         goto fail;
@@ -180,6 +183,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     ass_frame_unref(render_priv->images_root);
     ass_frame_unref(render_priv->prev_images_root);
 
+    ass_cache_done(render_priv->cache.event_render_cache);
     ass_cache_done(render_priv->cache.composite_cache);
     ass_cache_done(render_priv->cache.bitmap_cache);
     ass_cache_done(render_priv->cache.outline_cache);
@@ -194,6 +198,9 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     free(render_priv->eimg);
 
     render_context_done(&render_priv->state);
+
+    free(render_priv->state_blob);
+    free(render_priv->state_scratch);
 
     free(render_priv->settings.default_font);
     free(render_priv->settings.default_family);
@@ -210,7 +217,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
 static ASS_Image *my_draw_bitmap(unsigned char *bitmap, int bitmap_w,
                                  int bitmap_h, int stride, int dst_x,
                                  int dst_y, uint32_t color,
-                                 CompositeHashValue *source)
+                                 void *source)
 {
     ASS_ImagePriv *img = malloc(sizeof(ASS_ImagePriv));
     if (!img) {
@@ -1121,6 +1128,7 @@ init_render_context(RenderContext *state, ASS_Event *event)
     state->event = event;
     state->parsed_tags = 0;
     state->evt_type = EVENT_NORMAL;
+    state->time_dependent = false;
 
     state->wrap_style = render_priv->track->WrapStyle;
 
@@ -2796,8 +2804,8 @@ static void add_background(RenderContext *state, EventImages *event_images)
  * Process event, appending resulting ASS_Image's to images_root.
  */
 static bool
-ass_render_event(RenderContext *state, ASS_Event *event,
-                 EventImages *event_images)
+render_event_real(RenderContext *state, ASS_Event *event,
+                  EventImages *event_images)
 {
     ASS_Renderer *render_priv = state->renderer;
     if (event->Style >= render_priv->track->n_styles) {
@@ -3015,11 +3023,117 @@ ass_render_event(RenderContext *state, ASS_Event *event,
     return true;
 }
 
+struct event_render_construct_ctx {
+    RenderContext *state;
+    ASS_Event *event;
+    EventImages ei;
+    bool rendered;
+    bool ok;
+};
+
+size_t ass_event_render_construct(void *key, void *value, void *priv)
+{
+    EventRenderHashKey *k = key;
+    EventRenderHashValue *v = value;
+    struct event_render_construct_ctx *ctx = priv;
+
+    ctx->ok = render_event_real(ctx->state, ctx->event, &ctx->ei);
+    ctx->rendered = true;
+
+    v->valid = ctx->ok;
+    v->time_dependent = ctx->state->time_dependent;
+    v->imgs = NULL;
+
+    size_t size = sizeof(EventRenderHashValue) + k->text.len;
+    if (ctx->ok && !v->time_dependent) {
+        v->imgs = ctx->ei.imgs;
+        ass_frame_ref(v->imgs);
+        v->top = ctx->ei.top;
+        v->height = ctx->ei.height;
+        v->left = ctx->ei.left;
+        v->width = ctx->ei.width;
+        v->detect_collisions = ctx->ei.detect_collisions;
+        v->shift_direction = ctx->ei.shift_direction;
+        for (ASS_Image *img = v->imgs; img; img = img->next)
+            size += sizeof(ASS_ImagePriv) + (size_t) img->h * img->stride;
+    }
+    return FFMAX(size, 2);
+}
+
+static bool
+ass_render_event(RenderContext *state, ASS_Event *event,
+                 EventImages *event_images)
+{
+    ASS_Renderer *render_priv = state->renderer;
+
+    if (!event->Text)
+        return render_event_real(state, event, event_images);
+
+    EventRenderHashKey key = {
+        .text = {event->Text, strlen(event->Text)},
+        .state_generation = render_priv->state_generation,
+        .style = event->Style,
+        .margin_l = event->MarginL,
+        .margin_r = event->MarginR,
+        .margin_v = event->MarginV,
+    };
+    struct event_render_construct_ctx ctx = { state, event };
+    EventRenderHashValue *v =
+        ass_cache_get(render_priv->cache.event_render_cache, &key, &ctx);
+    if (!v)
+        return render_event_real(state, event, event_images);
+    if (v->time_dependent) {
+        if (!ctx.rendered)
+            return render_event_real(state, event, event_images);
+        if (!ctx.ok)
+            return false;
+        *event_images = ctx.ei;
+        return true;
+    }
+    if (!v->valid)
+        return false;
+
+    // Hand out fresh ASS_Image clones referencing the cached bitmaps, so
+    // per-frame collision shifting cannot modify the cached list. Each
+    // clone holds a reference on the cache entry, keeping the bitmap
+    // memory alive even if the entry is evicted.
+    ASS_Image *head = NULL, **tail = &head;
+    for (ASS_Image *img = v->imgs; img; img = img->next) {
+        ASS_Image *clone = my_draw_bitmap(img->bitmap, img->w, img->h,
+                                          img->stride, img->dst_x, img->dst_y,
+                                          img->color, v);
+        if (!clone) {
+            while (head) {
+                ASS_ImagePriv *ip = (ASS_ImagePriv *) head;
+                head = head->next;
+                ass_cache_dec_ref(ip->source);
+                free(ip);
+            }
+            return false;
+        }
+        *tail = clone;
+        tail = &clone->next;
+    }
+    *tail = NULL;
+
+    memset(event_images, 0, sizeof(*event_images));
+    event_images->imgs = head;
+    event_images->top = v->top;
+    event_images->height = v->height;
+    event_images->left = v->left;
+    event_images->width = v->width;
+    event_images->detect_collisions = v->detect_collisions;
+    event_images->shift_direction = v->shift_direction;
+    event_images->event = event;
+    return true;
+}
+
 /**
  * \brief Check cache limits and reset cache if they are exceeded
  */
 static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
 {
+    ass_cache_cut(cache->event_render_cache, cache->event_render_max_size);
     ass_cache_cut(cache->composite_cache, cache->composite_max_size);
     ass_cache_cut(cache->bitmap_cache, cache->bitmap_max_size);
     ass_cache_cut(cache->outline_cache, cache->glyph_max);
@@ -3038,6 +3152,96 @@ static void setup_shaper(ASS_Shaper *shaper, ASS_Renderer *render_priv)
 #endif
     ass_shaper_set_whole_text_layout(shaper,
             track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_WHOLE_TEXT_LAYOUT));
+}
+
+static void blob_append(ASS_Renderer *priv, const void *data, size_t len)
+{
+    if (!priv->state_scratch_ok || !len)
+        return;
+    if (priv->state_scratch_len + len > priv->state_scratch_cap) {
+        size_t cap = FFMAX(2 * priv->state_scratch_cap,
+                           priv->state_scratch_len + len);
+        char *buf = realloc(priv->state_scratch, cap);
+        if (!buf) {
+            priv->state_scratch_ok = false;
+            return;
+        }
+        priv->state_scratch = buf;
+        priv->state_scratch_cap = cap;
+    }
+    memcpy(priv->state_scratch + priv->state_scratch_len, data, len);
+    priv->state_scratch_len += len;
+}
+
+static void blob_append_string(ASS_Renderer *priv, const char *str)
+{
+    size_t len = str ? strlen(str) : 0;
+    blob_append(priv, &len, sizeof(len));
+    blob_append(priv, str, len);
+}
+
+static void blob_append_style(ASS_Renderer *priv, const ASS_Style *style)
+{
+    blob_append(priv, &style->FontSize,
+                sizeof(*style) - offsetof(ASS_Style, FontSize));
+    blob_append_string(priv, style->Name);
+    blob_append_string(priv, style->FontName);
+}
+
+/**
+ * \brief Snapshot all renderer settings and track state that rendered
+ * events depend on and map it to a generation id. Rendered output of a
+ * time-invariant event is fully determined by (generation, event text,
+ * style index, event margins), which makes the generation usable as an
+ * exactly compared event render cache key component.
+ */
+static void calc_state_generation(ASS_Renderer *priv)
+{
+    ASS_Track *track = priv->track;
+    ASS_Settings *s = &priv->settings;
+
+    priv->state_scratch_len = 0;
+    priv->state_scratch_ok = true;
+
+    blob_append(priv, s, offsetof(ASS_Settings, default_font));
+    blob_append_string(priv, s->default_font);
+    blob_append_string(priv, s->default_family);
+    blob_append_style(priv, &priv->user_override_style);
+    blob_append(priv, &priv->render_id, sizeof(priv->render_id));
+    blob_append(priv, &priv->num_emfonts, sizeof(priv->num_emfonts));
+    blob_append(priv, &priv->par_scale_x, sizeof(priv->par_scale_x));
+
+    blob_append(priv, &track->track_type,
+                offsetof(ASS_Track, Language) -
+                offsetof(ASS_Track, track_type));
+    blob_append_string(priv, track->Language);
+    blob_append(priv, &track->YCbCrMatrix, sizeof(track->YCbCrMatrix));
+    blob_append(priv, &track->LayoutResX, sizeof(track->LayoutResX));
+    blob_append(priv, &track->LayoutResY, sizeof(track->LayoutResY));
+    blob_append(priv, &track->parser_priv->feature_flags,
+                sizeof(track->parser_priv->feature_flags));
+    for (int i = 0; i < track->n_styles; i++)
+        blob_append_style(priv, track->styles + i);
+
+    if (!priv->state_scratch_ok) {
+        // don't keep a partial snapshot, force a new generation until
+        // a complete one can be built again
+        free(priv->state_blob);
+        priv->state_blob = NULL;
+        priv->state_blob_len = 0;
+        priv->state_generation++;
+    } else if (!priv->state_blob ||
+            priv->state_scratch_len != priv->state_blob_len ||
+            memcmp(priv->state_scratch, priv->state_blob,
+                   priv->state_blob_len)) {
+        char *blob = priv->state_blob;
+        size_t len = priv->state_blob_len;
+        priv->state_blob = priv->state_scratch;
+        priv->state_blob_len = priv->state_scratch_len;
+        priv->state_scratch = blob;
+        priv->state_scratch_cap = len;
+        priv->state_generation++;
+    }
 }
 
 /**
@@ -3088,6 +3292,8 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
             par = 1.0;
     }
     render_priv->par_scale_x = par;
+
+    calc_state_generation(render_priv);
 
     render_priv->prev_images_root = render_priv->images_root;
     render_priv->images_root = NULL;

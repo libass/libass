@@ -45,13 +45,14 @@
 #define BITMAP_CACHE_MAX_SIZE (128 * MEGABYTE)
 #define COMPOSITE_CACHE_RATIO 2
 #define COMPOSITE_CACHE_MAX_SIZE (BITMAP_CACHE_MAX_SIZE / COMPOSITE_CACHE_RATIO)
+#define EVENT_RENDER_CACHE_MAX_SIZE (32 * MEGABYTE)
 
 #define PARSED_FADE (1<<0)
 #define PARSED_A    (1<<1)
 
 typedef struct {
     ASS_Image result;
-    CompositeHashValue *source;
+    void *source;               // ref-held cache value the bitmap belongs to
     unsigned char *buffer;
     size_t ref_count;
 } ASS_ImagePriv;
@@ -219,6 +220,7 @@ struct render_context {
     double font_size;
     int parsed_tags;
     int flags;                  // decoration flags (underline/strike-through)
+    bool time_dependent;        // rendered output depends on the timestamp
 
     int alignment;              // alignment overrides go here; if zero, style value will be used
     int justify;                // justify instructions
@@ -303,9 +305,11 @@ typedef struct {
     Cache *composite_cache;
     Cache *face_size_metrics_cache;
     Cache *metrics_cache;
+    Cache *event_render_cache;
     size_t glyph_max;
     size_t bitmap_max_size;
     size_t composite_max_size;
+    size_t event_render_max_size;
 } CacheStore;
 
 struct ass_renderer {
@@ -315,6 +319,16 @@ struct ass_renderer {
     size_t num_emfonts;
     ASS_Settings settings;
     int render_id;
+
+    // exact snapshot of all renderer/track/style state rendered events
+    // depend on, mapped to a generation id used in event render cache keys
+    uint32_t state_generation;
+    char *state_blob;
+    size_t state_blob_len;
+    char *state_scratch;
+    size_t state_scratch_len;
+    size_t state_scratch_cap;
+    bool state_scratch_ok;
 
     ASS_Image *images_root;     // rendering result is stored here
     ASS_Image *prev_images_root;
