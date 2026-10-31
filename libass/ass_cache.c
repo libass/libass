@@ -539,6 +539,9 @@ void ass_cache_empty(Cache *cache)
 
 void ass_cache_done(Cache *cache)
 {
+    if (!cache)
+        return;
+
     ass_cache_empty(cache);
     free(cache->map);
     free(cache);
