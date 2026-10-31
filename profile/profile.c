@@ -41,9 +41,9 @@ void msg_callback(int level, const char *fmt, va_list va, void *data)
 {
     if (level > 6)
         return;
-    printf("libass: ");
-    vprintf(fmt, va);
-    printf("\n");
+    char fmt_buf[1024];
+    snprintf(fmt_buf, sizeof(fmt_buf), "libass: %s\n", fmt);
+    vfprintf(stderr, fmt_buf, va);
 }
 
 static void init(int frame_w, int frame_h)
