@@ -34,14 +34,17 @@
 #define START(funcname, structname) \
     static ass_hashcode funcname##_hash(void *buf, ass_hashcode hval) \
     { \
-        struct structname *p = buf;
+        struct structname *p = buf; \
+        unsigned char packed[sizeof(*p) + 8] = {0}; \
+        size_t used = 0;
 #define GENERIC(type, member) \
-        hval = ass_hash_buf(&p->member, sizeof(p->member), hval);
+        memcpy(packed + used, &p->member, sizeof(p->member)); \
+        used += sizeof(p->member);
 #define STRING(member) \
         hval = ass_hash_buf(p->member.str, p->member.len, hval);
 #define VECTOR(member) GENERIC(, member.x); GENERIC(, member.y);
 #define END(typedefname) \
-        return hval; \
+        return used ? ass_hash_buf(packed, (used + 7) & ~(size_t) 7, hval) : hval; \
     }
 
 #else
