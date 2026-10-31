@@ -68,6 +68,11 @@ struct ass_shaper {
 
     hb_font_funcs_t *font_funcs;
     hb_buffer_t *buf;
+    hb_shape_plan_t *last_plan;
+    hb_segment_properties_t last_props;
+    hb_feature_t last_features[NUM_FEATURES];
+    hb_font_t *last_font;
+    FaceSizeMetricsHashKey last_font_key;
 
 #ifdef USE_FRIBIDI_EX_API
     FriBidiBracketType *btypes;
@@ -131,6 +136,9 @@ static bool check_par_allocations(ASS_Shaper *shaper, size_t n_pars)
  */
 void ass_shaper_free(ASS_Shaper *shaper)
 {
+    hb_shape_plan_destroy(shaper->last_plan);
+    hb_font_destroy(shaper->last_font);
+    ass_cache_dec_ref(shaper->last_font_key.font);
     free(shaper->features);
     free(shaper->ctypes);
 #ifdef USE_FRIBIDI_EX_API
@@ -471,6 +479,11 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
         .face_index = info->face_index,
         .size = info->font_size,
     };
+    if (shaper->last_font && shaper->last_font_key.font == key.font &&
+        shaper->last_font_key.size == key.size &&
+        shaper->last_font_key.face_index == key.face_index)
+        return hb_font_reference(shaper->last_font);
+
     FT_Size_Metrics *m = ass_cache_get(shaper->face_size_metrics_cache, &key, NULL);
     if (!m)
         return NULL;
@@ -492,6 +505,13 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
 
     update_hb_size(hb_font, font->faces[info->face_index], m);
 
+    hb_shape_plan_destroy(shaper->last_plan);
+    shaper->last_plan = NULL;
+    hb_font_destroy(shaper->last_font);
+    ass_cache_dec_ref(shaper->last_font_key.font);
+    shaper->last_font = hb_font_reference(hb_font);
+    shaper->last_font_key = key;
+    ass_cache_inc_ref(key.font);
     return hb_font;
 }
 
@@ -659,6 +679,8 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
  */
 static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 {
+    // Use the OpenType backend for compatibility with GDI-based renderers.
+    static const char * const shapers[] = {"ot", NULL};
     int i;
     hb_buffer_t *buf = shaper->buf;
     hb_segment_properties_t props = HB_SEGMENT_PROPERTIES_DEFAULT;
@@ -712,7 +734,16 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         hb_buffer_set_segment_properties(buf, &props);
 
         set_run_features(shaper, glyphs + offset);
-        hb_shape(font, buf, shaper->features, shaper->n_features);
+        if (!shaper->last_plan ||
+            !hb_segment_properties_equal(&props, &shaper->last_props) ||
+            memcmp(shaper->features, shaper->last_features, sizeof(shaper->last_features))) {
+            hb_shape_plan_destroy(shaper->last_plan);
+            shaper->last_plan = hb_shape_plan_create_cached(hb_font_get_face(font),
+                    &props, shaper->features, shaper->n_features, shapers);
+            shaper->last_props = props;
+            memcpy(shaper->last_features, shaper->features, sizeof(shaper->last_features));
+        }
+        hb_shape_plan_execute(shaper->last_plan, font, buf, shaper->features, shaper->n_features);
 
         shape_harfbuzz_process_run(glyphs, buf,
                 shaper->whole_text_layout ? 0 : offset - lead_context);
