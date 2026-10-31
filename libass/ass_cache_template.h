@@ -70,15 +70,15 @@ END(BitmapHashKey)
 
 // font is refed when inserted and unrefed when dropped
 START(face_size_metrics, face_size_metrics_hash_key)
-    GENERIC(ASS_Font *, font)
     GENERIC(double, size)
+    GENERIC(ASS_Font *, font)
     GENERIC(int, face_index)
 END(FaceSizeMetricsHashKey)
 
 // font is refed when inserted and unrefed when dropped
 START(glyph_metrics, glyph_metrics_hash_key)
-    GENERIC(ASS_Font *, font)
     GENERIC(double, size)
+    GENERIC(ASS_Font *, font)
     GENERIC(int, face_index)
     GENERIC(int, glyph_index)
 END(GlyphMetricsHashKey)
@@ -86,8 +86,8 @@ END(GlyphMetricsHashKey)
 // describes an outline glyph
 // font is refed when inserted and unrefed when dropped
 START(glyph, glyph_hash_key)
-    GENERIC(ASS_Font *, font)
     GENERIC(double, size) // font size
+    GENERIC(ASS_Font *, font)
     GENERIC(int, face_index)
     GENERIC(int, glyph_index)
     GENERIC(int, bold)
