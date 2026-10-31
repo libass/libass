@@ -54,7 +54,6 @@ START(font, ass_font_desc )
     STRING(family)
     GENERIC(unsigned, bold)
     GENERIC(unsigned, italic)
-    GENERIC(int, vertical)  // @font vertical layout
 END(ASS_FontDesc)
 
 // describes an outline bitmap
@@ -81,6 +80,7 @@ START(glyph_metrics, glyph_metrics_hash_key)
     GENERIC(double, size)
     GENERIC(int, face_index)
     GENERIC(int, glyph_index)
+    GENERIC(bool, rotate)  // use vertical advance for rotated glyphs
 END(GlyphMetricsHashKey)
 
 // describes an outline glyph
