@@ -1146,7 +1146,9 @@ init_render_context(RenderContext *state, ASS_Event *event)
     ass_apply_transition_effects(state);
     state->explicit = state->evt_type != EVENT_NORMAL ||
                       ass_event_has_hard_overrides(event->Text);
-
+    state->linebreaks_are_advisory = !state->explicit &&
+        (render_priv->track->parser_priv->feature_flags &
+         FEATURE_MASK(ASS_FEATURE_ADVISORY_LINEBREAKS));
     ass_reset_render_context(state, NULL);
     state->alignment = state->style->Alignment;
     state->justify = state->style->Justify;
@@ -1731,24 +1733,31 @@ static void trim_whitespace(RenderContext *state)
 
 /*
  * Starts a new line on the first breakable character after overflow
+ * Returns true if automatic breaks were added to text with explicit breaks.
+ * With ignore_hard_breaks, tries a tentative layout and returns true only if
+ * it reduces line count, applying the candidate breaks in that case.
  */
-static void
-wrap_lines_naive(RenderContext *state, double max_text_width, char *unibrks)
+static bool
+wrap_lines_naive(RenderContext *state, double max_text_width, char *unibrks,
+                 bool ignore_hard_breaks)
 {
     ASS_Renderer *render_priv = state->renderer;
     TextInfo *text_info = &state->text_info;
     GlyphInfo *s1  = text_info->glyphs; // current line start
     int last_breakable = -1;
     int break_type = 0;
+    bool explicit_break = false, automatic_break = false;
+    int n_lines = 1;
 
-    text_info->n_lines = 1;
     for (int i = 0; i < text_info->length; ++i) {
         GlyphInfo *cur = text_info->glyphs + i;
+        explicit_break |= cur->is_explicit_break;
         int break_at = -1;
         double s_offset = d6_to_double(s1->bbox.x_min + s1->pos.x);
         double len = d6_to_double(cur->bbox.x_max + cur->pos.x) - s_offset;
 
-        if (FORCEBREAK(cur->symbol, i)) {
+        if (!ignore_hard_breaks &&
+            (cur->is_explicit_break || FORCEBREAK(cur->symbol, i))) {
             break_type = 2;
             break_at = i;
             ass_msg(render_priv->library, MSGL_DBG2,
@@ -1767,8 +1776,13 @@ wrap_lines_naive(RenderContext *state, double max_text_width, char *unibrks)
         }
 
         if (break_at != -1 && break_at + 1 < text_info->length) {
+            // Reject as soon as the candidate cannot improve the line count.
+            // Otherwise the original layout already provides enough storage.
+            if (ignore_hard_breaks && n_lines >= text_info->n_lines - 1)
+                return false;
+
             // need to use one more line
-            if (text_info->n_lines >= text_info->max_lines) {
+            if (n_lines >= text_info->max_lines) {
                 // Try to raise the maximum number of lines
                 bool success = false;
                 if (text_info->max_lines <= INT_MAX / 2) {
@@ -1779,18 +1793,30 @@ wrap_lines_naive(RenderContext *state, double max_text_width, char *unibrks)
                 // the best we can do is to avoid UB by discarding the previous break
                 if (!success) {
                     s1->linebreak = 0;
-                    text_info->n_lines--;
+                    n_lines--;
                 }
             }
 
             // marking break_at+1 as start of a new line
             int lead = break_at + 1; // the first symbol of the new line
-            text_info->glyphs[lead].linebreak = break_type;
+            if (ignore_hard_breaks)
+                text_info->lines[n_lines].start = lead;
+            else
+                text_info->glyphs[lead].linebreak = break_type;
+            automatic_break |= break_type == 1;
             last_breakable = -1;
             s1 = text_info->glyphs + lead;
-            text_info->n_lines++;
+            n_lines++;
         }
     }
+    if (ignore_hard_breaks) {
+        for (int i = 0; i < text_info->length; i++)
+            text_info->glyphs[i].linebreak = 0;
+        for (int i = 1; i < n_lines; i++)
+            text_info->glyphs[text_info->lines[i].start].linebreak = 1;
+    }
+    text_info->n_lines = n_lines;
+    return ignore_hard_breaks || (explicit_break && automatic_break);
 }
 
 /*
@@ -1902,10 +1928,10 @@ static void
 wrap_lines_smart(RenderContext *state, double max_text_width)
 {
     char *unibrks = NULL;
+    TextInfo *text_info = &state->text_info;
 
 #ifdef CONFIG_UNIBREAK
     ASS_Renderer *render_priv = state->renderer;
-    TextInfo *text_info = &state->text_info;
     if (render_priv->track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_WRAP_UNICODE)) {
         unibrks = text_info->breaks;
         set_linebreaks_utf32(
@@ -1925,8 +1951,20 @@ wrap_lines_smart(RenderContext *state, double max_text_width)
     }
 #endif
 
-    wrap_lines_naive(state, max_text_width, unibrks);
+    bool needs_reflow = wrap_lines_naive(state, max_text_width, unibrks, false);
+    bool ignore_hard_breaks = false;
+    if (state->linebreaks_are_advisory && needs_reflow) {
+        // Breaks were shaped as spaces, so only wrapping needs a retry.
+        ignore_hard_breaks = wrap_lines_naive(state, max_text_width, unibrks, true);
+    }
     wrap_lines_rebalance(state, max_text_width, unibrks);
+
+    // Keep the usual whitespace trimming and empty-line metrics for retained
+    // explicit breaks. Shaping and Unicode breaking still use the spaces.
+    if (state->linebreaks_are_advisory && !ignore_hard_breaks)
+        for (int i = 0; i < text_info->length; i++)
+            if (text_info->glyphs[i].is_explicit_break)
+                text_info->glyphs[i].symbol = '\n';
 
     trim_whitespace(state);
     measure_text(state);
@@ -2054,6 +2092,7 @@ static bool parse_events(RenderContext *state, ASS_Event *event)
     ASS_Renderer *render_priv = state->renderer;
 
     char *p = event->Text, *q;
+    bool trim_spaces = false;
 
     // Event parsing.
     while (true) {
@@ -2087,6 +2126,24 @@ static bool parse_events(RenderContext *state, ASS_Event *event)
         if (code == 0)
             break;
 
+        bool hard_break = code == '\n';
+        if (state->linebreaks_are_advisory) {
+            // Preserve trimming around parsed hard breaks, including literal
+            // LF characters in synthetic events supplied by applications.
+            // Keep trimming following spaces even if intervening tags change
+            // the wrap style again.
+            if (hard_break) {
+                while (text_info->length &&
+                       text_info->glyphs[text_info->length - 1].symbol == ' ')
+                    text_info->length--;
+                trim_spaces = true;
+            } else if (code == ' ' && trim_spaces) {
+                continue;
+            } else {
+                trim_spaces = false;
+            }
+        }
+
         // face could have been changed in get_next_char
         if (!state->font)
             goto fail;
@@ -2117,6 +2174,7 @@ static bool parse_events(RenderContext *state, ASS_Event *event)
         }
 
         // Fill glyph information
+        info->is_explicit_break = hard_break;
         info->symbol = code;
         info->font = state->font;
         for (int i = 0; i < 4; i++)
@@ -2820,6 +2878,15 @@ ass_render_event(RenderContext *state, ASS_Event *event,
         // no valid symbols in the event; this can be smth like {comment}
         free_render_context(state);
         return false;
+    }
+
+    if (state->linebreaks_are_advisory) {
+        // Parsing uses the script's wrap style to decide which breaks would
+        // trim surrounding spaces. Advisory linebreak layout always uses q0.
+        state->wrap_style = 0;
+        for (int i = 0; i < text_info->length; i++)
+            if (text_info->glyphs[i].is_explicit_break)
+                text_info->glyphs[i].symbol = ' ';
     }
 
     split_style_runs(state);
