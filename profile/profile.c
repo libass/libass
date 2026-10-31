@@ -89,6 +89,8 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    ass_prewarm_caches(ass_renderer, track, 0);
+
     while (tm < end_time) {
         ass_render_frame(ass_renderer, track, (int) (tm * 1000), NULL);
         tm += 1 / fps;

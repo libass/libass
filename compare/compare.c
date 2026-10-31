@@ -351,6 +351,7 @@ static Result process_image(ASS_Renderer *renderer, ASS_Track *track,
 
     ass_set_storage_size(renderer, target.width, target.height);
     ass_set_frame_size(renderer, scale_x * target.width, scale_y * target.height);
+    ass_prewarm_caches(renderer, track, 0);
     ASS_Image *img = ass_render_frame(renderer, track, time, NULL);
 
     const char *out_file = NULL;
