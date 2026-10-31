@@ -291,6 +291,7 @@ typedef struct ass_track {
     int ScaledBorderAndShadow; // 0 or 1 (boolean)
     int Kerning; // 0 or 1 (boolean)
     char *Language; // zero-terminated ISO-639-1 code
+    int PositionTransform; // 0 or 1 (boolean)
     ASS_YCbCrMatrix YCbCrMatrix;
 
     int default_style;      // index of default style
