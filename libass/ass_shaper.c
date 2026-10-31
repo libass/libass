@@ -49,7 +49,7 @@ struct ass_shaper {
     ASS_ShapingLevel shaping_level;
 
     // FriBidi log2vis
-    int n_codepoints, n_pars;
+    size_t n_codepoints, n_pars;
     FriBidiChar *event_text; // just a reference, owned by text_info
     FriBidiCharType *ctypes;
     FriBidiLevel *emblevels;
@@ -71,6 +71,7 @@ struct ass_shaper {
 
 #ifdef USE_FRIBIDI_EX_API
     FriBidiBracketType *btypes;
+    size_t n_btypes;
     bool bidi_brackets;
 #endif
 
@@ -101,14 +102,21 @@ static bool check_codepoint_allocations(ASS_Shaper *shaper, size_t new_size)
 {
     if (new_size > shaper->n_codepoints) {
         if (!ASS_REALLOC_ARRAY(shaper->ctypes, new_size) ||
-#ifdef USE_FRIBIDI_EX_API
-            (shaper->bidi_brackets && !ASS_REALLOC_ARRAY(shaper->btypes, new_size)) ||
-#endif
             !ASS_REALLOC_ARRAY(shaper->emblevels, new_size) ||
             !ASS_REALLOC_ARRAY(shaper->cmap, new_size))
             return false;
         shaper->n_codepoints = new_size;
     }
+#ifdef USE_FRIBIDI_EX_API
+    // btypes is only grown while bracket matching is enabled, so it must
+    // track its own size: n_codepoints can have advanced past it during
+    // frames rendered with the feature off.
+    if (shaper->bidi_brackets && new_size > shaper->n_btypes) {
+        if (!ASS_REALLOC_ARRAY(shaper->btypes, new_size))
+            return false;
+        shaper->n_btypes = new_size;
+    }
+#endif
     return true;
 }
 
