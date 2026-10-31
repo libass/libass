@@ -344,7 +344,7 @@ struct cache {
     size_t cache_size;
 };
 
-#define CACHE_BUCKETS 0xFFFF
+#define CACHE_BUCKETS 0x10000
 #define CACHE_ALIGN 8
 #define CACHE_ITEM_SIZE ((sizeof(CacheItem) + (CACHE_ALIGN - 1)) & ~(CACHE_ALIGN - 1))
 
