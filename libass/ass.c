@@ -94,6 +94,50 @@ void ass_free_track(ASS_Track *track)
     free(track);
 }
 
+ASS_Style *ass_get_style(ASS_Track *track, size_t sid)
+{
+    if (sid >= (size_t) track->n_styles)
+        return NULL;
+    return &track->styles[sid];
+}
+
+ASS_Event *ass_get_event(ASS_Track *track, size_t eid)
+{
+    if (eid >= (size_t) track->n_events)
+        return NULL;
+    return &track->events[eid];
+}
+
+ASS_Style *ass_style_new(const ASS_Style *template_style)
+{
+    ASS_Style *style = calloc(1, sizeof(*style));
+    if (style && template_style) {
+        *style = *template_style;
+        style->Name = template_style->Name ? strdup(template_style->Name) : NULL;
+        style->FontName = template_style->FontName ? strdup(template_style->FontName) : NULL;
+        if ((template_style->Name && !style->Name) ||
+            (template_style->FontName && !style->FontName)) {
+            ass_style_free(style);
+            return NULL;
+        }
+    }
+    return style;
+}
+
+static void free_style(ASS_Style *style)
+{
+    free(style->Name);
+    free(style->FontName);
+}
+
+void ass_style_free(ASS_Style *style)
+{
+    if (!style)
+        return;
+    free_style(style);
+    free(style);
+}
+
 /// \brief Allocate a new style struct
 /// \param track track
 /// \return style id or negative value on failure
@@ -117,10 +161,7 @@ int ass_alloc_style(ASS_Track *track)
     return sid;
 }
 
-/// \brief Allocate a new event struct
-/// \param track track
-/// \return event id or negative value on failure
-int ass_alloc_event(ASS_Track *track)
+static int alloc_event(ASS_Track *track)
 {
     int eid;
 
@@ -140,6 +181,19 @@ int ass_alloc_event(ASS_Track *track)
     return eid;
 }
 
+/// \brief Allocate a new event struct
+/// \param track track
+/// \return event id or negative value on failure
+int ass_alloc_event(ASS_Track *track)
+{
+    if (track->parser_priv->next_read_order > INT_MAX)
+        return -1;
+    int eid = alloc_event(track);
+    if (eid >= 0)
+        track->events[eid].ReadOrder = track->parser_priv->next_read_order++;
+    return eid;
+}
+
 void ass_free_event(ASS_Track *track, int eid)
 {
     ASS_Event *event = track->events + eid;
@@ -152,10 +206,7 @@ void ass_free_event(ASS_Track *track, int eid)
 
 void ass_free_style(ASS_Track *track, int sid)
 {
-    ASS_Style *style = track->styles + sid;
-
-    free(style->Name);
-    free(style->FontName);
+    free_style(&track->styles[sid]);
 }
 
 static int resize_read_order_bitmap(ASS_Track *track, int max_id)
@@ -216,6 +267,28 @@ static inline void update_prune_ts(ASS_Track *track, const long long ts)
 {
     if (ts < track->parser_priv->prune_next_ts)
         track->parser_priv->prune_next_ts = ts;
+}
+
+int ass_track_changed(ASS_Track *track, size_t event_id)
+{
+    size_t first, end;
+    if (event_id == SIZE_MAX) {
+        first = 0;
+        end = track->n_events;
+        track->parser_priv->prune_next_ts = LLONG_MAX;
+    } else {
+        if (event_id >= (size_t) track->n_events)
+            return -1;
+        first = event_id;
+        end = event_id + 1;
+    }
+    for (size_t i = first; i < end; i++) {
+        ASS_Event *event = &track->events[i];
+        free(event->render_priv);
+        event->render_priv = NULL;
+        update_prune_ts(track, event->Start + event->Duration);
+    }
+    return 0;
 }
 
 // ==============================================================================================
@@ -1331,7 +1404,8 @@ void ass_process_chunk(ASS_Track *track, const char *data, int size,
     ass_msg(track->library, MSGL_V, "Event at %" PRId64 ", +%" PRId64 ": %s",
            (int64_t) timecode, (int64_t) duration, str);
 
-    eid = ass_alloc_event(track);
+    // Matroska supplies ReadOrder; do not consume a generated ID.
+    eid = alloc_event(track);
     if (eid < 0)
         goto cleanup;
     event = track->events + eid;
@@ -1379,11 +1453,34 @@ void ass_flush_events(ASS_Track *track)
     free(track->parser_priv->read_order_bitmap);
     track->parser_priv->read_order_bitmap = NULL;
     track->parser_priv->read_order_elems = 0;
+    track->parser_priv->next_read_order = 0;
 }
 
 void ass_configure_prune(ASS_Track *track, long long delay)
 {
     track->parser_priv->prune_delay = delay;
+}
+
+int ass_remove_events(ASS_Track *track, size_t start, size_t count)
+{
+    if (start > (size_t) track->n_events || count > track->n_events - start)
+        return -1;
+    if (!count)
+        return 0;
+
+    for (size_t i = start; i < start + count; i++)
+        ass_free_event(track, i);
+    size_t remaining = track->n_events - start - count;
+    if (remaining)
+        memmove(track->events + start, track->events + start + count,
+                remaining * sizeof(*track->events));
+    track->n_events -= count;
+
+    // Rebuild lazily: duplicate IDs may exist if checking was disabled.
+    free(track->parser_priv->read_order_bitmap);
+    track->parser_priv->read_order_bitmap = NULL;
+    track->parser_priv->read_order_elems = 0;
+    return 0;
 }
 
 void ass_prune_events(ASS_Track *track, long long deadline)
@@ -1582,6 +1679,7 @@ static ASS_Track *parse_memory(ASS_Library *library, char *buf)
     // external SSA/ASS subs does not have ReadOrder field
     for (i = 0; i < track->n_events; ++i)
         track->events[i].ReadOrder = i;
+    track->parser_priv->next_read_order = track->n_events;
 
     if (track->track_type == TRACK_TYPE_UNKNOWN) {
         ass_free_track(track);

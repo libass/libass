@@ -44,9 +44,21 @@
  * is linked against a different libc instance than libass itself. Similarly, any
  * existing buffer being replaced or removed should be released using ass_free().
  *
- * To avoid desynchronisation with internal states, there are some restrictions
- * on when and how direct struct modification can be performed.
- * Ignoring them may lead to undefined behaviour. See the following listing:
+ * Use ass_get_style() and ass_get_event() to access track array elements, and
+ * ass_remove_events() to remove events without moving structures yourself.
+ * Use ass_style_new() for standalone styles, e.g. for selective overrides.
+ * These APIs avoid depending on structure sizes: access individual fields,
+ * rather than allocating, copying, clearing, or doing pointer arithmetic on
+ * whole structures. This permits future fields to be added without requiring
+ * applications using these APIs to be rebuilt. Direct array access and
+ * caller-allocated styles remain supported for now, but will be deprecated
+ * in a future API break.
+ *
+ * To keep internal states synchronized, report edits with ass_track_changed().
+ * Its contract permits edits between rendering and parsing calls, with
+ * restrictions on which fields may be changed and which APIs may be mixed.
+ * Applications not using this notification must follow the legacy restrictions
+ * below. Ignoring these restrictions may lead to undefined behaviour:
  *
  *  - Manual struct edits and track-modifying (including modification to the
  *    event and style elements of the track) API calls cannot be freely mixed:

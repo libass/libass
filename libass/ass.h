@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01705000
+#define LIBASS_VERSION 0x01705010
 
 #ifdef __cplusplus
 extern "C" {
@@ -580,8 +580,10 @@ void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits);
  * \brief Set style for selective style override.
  * See ass_set_selective_style_override_enabled().
  * \param style style settings to use if override is enabled. Applications
- * should initialize it with {0} before setting fields. Strings will be copied
- * by the function.
+ * should allocate it with ass_style_new() before setting fields, or obtain it
+ * from a track with ass_get_style(). Strings used by the renderer are copied;
+ * the caller retains ownership of the style and may release it after this call.
+ * FontName must be a valid non-NULL string.
  */
 void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style);
 
@@ -655,10 +657,95 @@ int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable);
 void ass_free_track(ASS_Track *track);
 
 /**
+ * \brief Get a style by index without depending on sizeof(ASS_Style).
+ * \param track track
+ * \param sid style index, from 0 to track->n_styles - 1
+ * \return pointer to the style, or NULL if sid is out of range
+ *
+ * The pointer is owned by the track. It may be invalidated by any operation
+ * which adds or removes styles, or by ass_free_track(). Do not free it, use
+ * pointer arithmetic on it, or copy or clear the whole structure. Individual
+ * fields may be accessed subject to the GENERAL NOTE in ass_types.h.
+ */
+ASS_Style *ass_get_style(ASS_Track *track, size_t sid);
+
+/**
+ * \brief Get an event by index without depending on sizeof(ASS_Event).
+ * \param track track
+ * \param eid event index, from 0 to track->n_events - 1
+ * \return pointer to the event, or NULL if eid is out of range
+ *
+ * The pointer is owned by the track. It may be invalidated by any operation
+ * which adds or removes events (including automatic pruning during rendering),
+ * or by ass_free_track(). Do not free it, use pointer arithmetic on it, or copy
+ * or clear the whole structure. Individual fields may be accessed subject to
+ * the GENERAL NOTE in ass_types.h.
+ */
+ASS_Event *ass_get_event(ASS_Track *track, size_t eid);
+
+/**
+ * \brief Notify libass after manually modifying a track.
+ * \param track track
+ * \param event_id index of the modified event, or SIZE_MAX for changes to multiple
+ * events, styles or script header fields
+ * \return 0 on success, -1 if event_id is invalid (no state is refreshed)
+ *
+ * Call this after editing fields obtained through ass_get_event(),
+ * ass_get_style(), or the track itself, including initializing newly allocated
+ * events and styles. A valid event index reports changes confined to that
+ * event; use SIZE_MAX if any styles or track fields were changed. This refreshes
+ * pruning and collision placement state without invalidating event or style
+ * pointers. No renderer handle is needed.
+ *
+ * Such edits are allowed after rendering and between calls to parsing APIs,
+ * provided they are reported before the next rendering, parsing, pruning or
+ * removal operation. Multiple edits may be batched before notification; getting
+ * and allocating styles or events within a batch is allowed. Do not edit a
+ * track concurrently with another operation on it.
+ *
+ * The caller remains responsible for valid field values and string ownership
+ * (see GENERAL NOTE in ass_types.h). Event ReadOrder and render_priv must not
+ * be modified under this contract. Editable track fields are the script header
+ * fields (PlayResX through YCbCrMatrix, plus LayoutResX and LayoutResY) and
+ * default_style. Array pointers, counts, capacities, parser state and library
+ * ownership must be managed by libass. Use ass_alloc_event(), ass_alloc_style()
+ * and ass_remove_events() to change array membership; do not copy, clear or
+ * move whole structures. Notification does not permit mixing manual event
+ * allocation with ass_process_chunk() on the same track.
+ */
+int ass_track_changed(ASS_Track *track, size_t event_id);
+
+/**
+ * \brief Allocate a standalone style, optionally copying an existing style.
+ * \param template_style style to copy, or NULL to initialize all fields to zero
+ * \return newly allocated style, or NULL on failure
+ *
+ * If template_style is non-NULL, all fields are copied and strings are
+ * duplicated. The template may be track-owned or standalone; it is not modified
+ * and need not remain alive after this call. NULL string fields remain NULL.
+ *
+ * This style is not attached to a track. It can be used with
+ * ass_set_selective_style_override() and must be released with ass_style_free().
+ * Set individual fields rather than copying or clearing the whole structure,
+ * so future fields retain their initial values. Allocate strings with
+ * ass_malloc() and release strings being replaced with ass_free().
+ */
+ASS_Style *ass_style_new(const ASS_Style *template_style);
+
+/**
+ * \brief Free a standalone style and its strings.
+ * \param style style allocated by ass_style_new(), or NULL
+ *
+ * Do not pass a track-owned style obtained from ass_get_style().
+ */
+void ass_style_free(ASS_Style *style);
+
+/**
  * \brief Allocate new style.
  * \param track track
  * \return newly allocated style id >= 0, or a value < 0 on failure
- * See GENERAL NOTE in ass_types.h.
+ * Use ass_get_style() to access the new style. All its fields are initialized
+ * to zero. See GENERAL NOTE in ass_types.h.
  */
 int ass_alloc_style(ASS_Track *track);
 
@@ -666,6 +753,13 @@ int ass_alloc_style(ASS_Track *track);
  * \brief Allocate new event.
  * \param track track
  * \return newly allocated event id >= 0, or a value < 0 on failure
+ * Use ass_get_event() to access the new event. Fields are initialized to zero,
+ * except ReadOrder, which is assigned an increasing value starting at zero.
+ * Generated ReadOrder values are not reused after pruning or removal;
+ * ass_flush_events() resets the sequence. Allocation fails if the sequence
+ * would exceed INT_MAX. Initialize the remaining fields, then notify libass
+ * with ass_track_changed() before rendering or pruning.
+ * Do not mix this function with ass_process_chunk() on the same track.
  * See GENERAL NOTE in ass_types.h.
  */
 int ass_alloc_event(ASS_Track *track);
@@ -697,6 +791,26 @@ void ass_free_style(ASS_Track *track, int sid);
 void ass_free_event(ASS_Track *track, int eid);
 
 /**
+ * \brief Remove a contiguous range of events, freeing their data.
+ * \param track track
+ * \param start index of the first event to remove
+ * \param count number of events to remove
+ * \return 0 on success, -1 if the range is invalid (track is unchanged)
+ *
+ * start + count must not exceed track->n_events. A count of zero is a no-op,
+ * including when start equals track->n_events. Remaining events retain their
+ * relative order and are compacted to close the gap; track->n_events is reduced
+ * by count. Pointers and indices for events at or after start must be reacquired
+ * after removal.
+ *
+ * Unlike ass_free_event(), this function may be used with ass_process_chunk()
+ * and after rendering. Removed ReadOrder values can be accepted again by
+ * ass_process_chunk(), unless a remaining event uses them.
+ * See GENERAL NOTE in ass_types.h for restrictions on manual track edits.
+ */
+int ass_remove_events(ASS_Track *track, size_t start, size_t count);
+
+/**
  * \brief Parse full lines of subtitle stream data.
  * \param track track
  * \param data string to parse
@@ -716,11 +830,11 @@ void ass_process_codec_private(ASS_Track *track, const char *data, int size);
 /**
  * \brief Parse a chunk of subtitle stream data. A chunk contains exactly one
  * event in Matroska format.  See the Matroska specification for details.
- * In later libass versions (since LIBASS_VERSION==0x01300001), using this
- * function means you agree not to modify events manually, or using other
- * functions manipulating the event list like ass_process_data(). If you do
- * anyway, the internal duplicate checking might break. Calling
- * ass_flush_events() is still allowed.
+ * Do not mix this function with other APIs which add events, such as
+ * ass_alloc_event() or ass_process_data(), on the same track. Existing events
+ * may be edited subject to the ass_track_changed() contract; in particular,
+ * their ReadOrder values must not be changed. Calling ass_flush_events(),
+ * ass_prune_events() and ass_remove_events() is allowed.
  * \param track track
  * \param data string to parse
  * \param size length of data
