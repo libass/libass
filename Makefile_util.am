@@ -21,18 +21,32 @@ compare_compare_LDFLAGS = $(AM_LDFLAGS) $(LIBPNG_LIBS) -static
 EXTRA_DIST += compare/README.md
 
 if ENABLE_FUZZ
-noinst_PROGRAMS += fuzz/fuzz
+noinst_PROGRAMS += fuzz/fuzz fuzz/fuzz_chunk
 endif
 fuzz_fuzz_SOURCES = fuzz/fuzz.c fuzz/writeout.h fuzz/writeout.c
 fuzz_fuzz_CPPFLAGS = $(AM_CPPFLAGS) $(FUZZ_CPPFLAGS)
 fuzz_fuzz_LDADD = libass/libass.la
 fuzz_fuzz_LDFLAGS = $(AM_LDFLAGS) $(FUZZ_LDFLAGS) -static
 
+fuzz_fuzz_chunk_SOURCES = fuzz/fuzz_chunk.c
+fuzz_fuzz_chunk_CPPFLAGS = $(AM_CPPFLAGS) $(FUZZ_CPPFLAGS)
+fuzz_fuzz_chunk_LDADD = libass/libass.la
+fuzz_fuzz_chunk_LDFLAGS = $(AM_LDFLAGS) $(FUZZ_LDFLAGS) -static
+
 if ENABLE_FUZZ
 fuzz/fuzz_ossfuzz: fuzz/fuzz-fuzz.o libass/libass.la $(srcdir)/libass.pc
 	$$CXX $$CXXFLAGS -std=c++11 \
 		-o $@ \
 		fuzz/fuzz-fuzz.o \
+		$$LIB_FUZZING_ENGINE libass/.libs/libass.a \
+		-Wl,-Bstatic \
+		$$(pkg-config --static --libs $(srcdir)/libass.pc | sed -e 's/-lm //g' -e 's/-lass //g') \
+		-Wl,-Bdynamic
+
+fuzz/fuzz_chunk_ossfuzz: fuzz/fuzz_chunk-fuzz_chunk.o libass/libass.la $(srcdir)/libass.pc
+	$$CXX $$CXXFLAGS -std=c++11 \
+		-o $@ \
+		fuzz/fuzz_chunk-fuzz_chunk.o \
 		$$LIB_FUZZING_ENGINE libass/.libs/libass.a \
 		-Wl,-Bstatic \
 		$$(pkg-config --static --libs $(srcdir)/libass.pc | sed -e 's/-lm //g' -e 's/-lass //g') \
