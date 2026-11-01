@@ -79,6 +79,7 @@ static void text_info_done(TextInfo* text_info)
 static bool render_context_init(RenderContext *state, ASS_Renderer *priv)
 {
     state->renderer = priv;
+    state->scratch_buffer = (ASS_ScratchBuffer) {0};
 
     if (!text_info_init(&state->text_info))
         return false;
@@ -91,6 +92,7 @@ static bool render_context_init(RenderContext *state, ASS_Renderer *priv)
 
 static void render_context_done(RenderContext *state)
 {
+    ass_aligned_free(state->scratch_buffer.buffer);
     ass_rasterizer_done(&state->rasterizer);
 
     if (state->shaper)
@@ -2588,7 +2590,7 @@ static void render_and_combine_glyphs(RenderContext *state,
         key.filter = info->filter;
         key.bitmap_count = info->bitmap_count;
         key.bitmaps = info->bitmaps;
-        CompositeHashValue *val = ass_cache_get(render_priv->cache.composite_cache, &key, render_priv);
+        CompositeHashValue *val = ass_cache_get(render_priv->cache.composite_cache, &key, state);
         if (!val)
             continue;
 
@@ -2642,7 +2644,8 @@ int ass_be_padding(int be)
 
 size_t ass_composite_construct(void *key, void *value, void *priv)
 {
-    ASS_Renderer *render_priv = priv;
+    RenderContext *state = priv;
+    ASS_Renderer *render_priv = state->renderer;
     CompositeHashKey *k = key;
     CompositeHashValue *v = value;
     memset(v, 0, sizeof(*v));
@@ -2723,8 +2726,10 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
     double r2x = restore_blur(k->filter.blur_x);
     double r2y = restore_blur(k->filter.blur_y);
     if (!(flags & FILTER_NONZERO_BORDER) || (flags & FILTER_BORDER_STYLE_3))
-        ass_synth_blur(&render_priv->engine, &v->bm, k->filter.be, r2x, r2y);
-    ass_synth_blur(&render_priv->engine, &v->bm_o, k->filter.be, r2x, r2y);
+        ass_synth_blur(&render_priv->engine, &v->bm,
+                        k->filter.be, r2x, r2y, &state->scratch_buffer);
+    ass_synth_blur(&render_priv->engine, &v->bm_o,
+                    k->filter.be, r2x, r2y, &state->scratch_buffer);
 
     if (!(flags & FILTER_FILL_IN_BORDER) && !(flags & FILTER_FILL_IN_SHADOW))
         ass_fix_outline(&v->bm, &v->bm_o);
@@ -3438,6 +3443,13 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
 
     if (track->parser_priv->prune_delay >= 0)
         ass_prune_events(track, now - track->parser_priv->prune_delay);
+
+    // Avoid keeping oversized scratch buffers around between frames
+    ASS_ScratchBuffer *scratch = &priv->state.scratch_buffer;
+    if (scratch->capacity > SCRATCH_BUFFER_MAX_SIZE) {
+        ass_aligned_free(scratch->buffer);
+        *scratch = (ASS_ScratchBuffer) {0};
+    }
 
     return priv->images_root;
 }

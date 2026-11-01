@@ -45,6 +45,7 @@
 #define BITMAP_CACHE_MAX_SIZE (128 * MEGABYTE)
 #define COMPOSITE_CACHE_RATIO 2
 #define COMPOSITE_CACHE_MAX_SIZE (BITMAP_CACHE_MAX_SIZE / COMPOSITE_CACHE_RATIO)
+#define SCRATCH_BUFFER_MAX_SIZE (8 * MEGABYTE)
 
 #define PARSED_FADE (1<<0)
 #define PARSED_A    (1<<1)
@@ -292,6 +293,7 @@ struct render_context {
     double border_scale_y;
     double blur_scale_x;
     double blur_scale_y;
+    ASS_ScratchBuffer scratch_buffer;
 };
 
 typedef struct render_context RenderContext;
