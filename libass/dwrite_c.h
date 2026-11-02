@@ -728,6 +728,48 @@ DECLARE_INTERFACE_(IDWriteFontFileLoader,IUnknown)
 #endif /*COBJMACROS*/
 
 #undef  INTERFACE
+#define INTERFACE IDWriteLocalFontFileLoader
+DECLARE_INTERFACE_(IDWriteLocalFontFileLoader,IUnknown)
+{
+    BEGIN_INTERFACE
+
+#ifndef __cplusplus
+    /* IUnknown methods */
+    STDMETHOD(QueryInterface)(THIS_ REFIID riid, void **ppvObject) PURE;
+    STDMETHOD_(ULONG, AddRef)(THIS) PURE;
+    STDMETHOD_(ULONG, Release)(THIS) PURE;
+#endif
+
+    /* IDWriteFontFileLoader methods */
+    STDMETHOD(CreateStreamFromKey)(THIS_
+        void const *fontFileReferenceKey,
+        UINT32 fontFileReferenceKeySize,
+        IDWriteFontFileStream **fontFileStream) PURE;
+
+    /* IDWriteLocalFontFileLoader methods */
+    STDMETHOD(GetFilePathLengthFromKey)(THIS_
+        void const *fontFileReferenceKey,
+        UINT32 fontFileReferenceKeySize,
+        UINT32 *filePathLength) PURE;
+
+    STDMETHOD(GetFilePathFromKey)(THIS_
+        void const *fontFileReferenceKey,
+        UINT32 fontFileReferenceKeySize,
+        WCHAR *filePath,
+        UINT32 filePathSize) PURE;
+
+    END_INTERFACE
+};
+#ifdef COBJMACROS
+#define IDWriteLocalFontFileLoader_QueryInterface(This,riid,ppvObject) (This)->lpVtbl->QueryInterface(This,riid,ppvObject)
+#define IDWriteLocalFontFileLoader_AddRef(This) (This)->lpVtbl->AddRef(This)
+#define IDWriteLocalFontFileLoader_Release(This) (This)->lpVtbl->Release(This)
+#define IDWriteLocalFontFileLoader_CreateStreamFromKey(This,fontFileReferenceKey,fontFileReferenceKeySize,fontFileStream) (This)->lpVtbl->CreateStreamFromKey(This,fontFileReferenceKey,fontFileReferenceKeySize,fontFileStream)
+#define IDWriteLocalFontFileLoader_GetFilePathLengthFromKey(This,fontFileReferenceKey,fontFileReferenceKeySize,filePathLength) (This)->lpVtbl->GetFilePathLengthFromKey(This,fontFileReferenceKey,fontFileReferenceKeySize,filePathLength)
+#define IDWriteLocalFontFileLoader_GetFilePathFromKey(This,fontFileReferenceKey,fontFileReferenceKeySize,filePath,filePathSize) (This)->lpVtbl->GetFilePathFromKey(This,fontFileReferenceKey,fontFileReferenceKeySize,filePath,filePathSize)
+#endif /*COBJMACROS*/
+
+#undef  INTERFACE
 #define INTERFACE IDWriteFontFileStream
 DECLARE_INTERFACE_(IDWriteFontFileStream,IUnknown)
 {
@@ -1050,5 +1092,6 @@ DEFINE_GUID(IID_IDWriteFactory3, 0x9a1b41c3,0xd3bb,0x466a,0x87,0xfc,0xfe,0x67,0x
 DEFINE_GUID(IID_IDWriteFontFace3, 0xd37d7598,0x09be,0x4222,0xa2,0x36,0x20,0x81,0x34,0x1c,0xc1,0xf2);
 DEFINE_GUID(IID_IDWritePixelSnapping, 0xeaf3a2da,0xecf4,0x4d24,0xb6,0x44,0xb3,0x4f,0x68,0x42,0x02,0x4b);
 DEFINE_GUID(IID_IDWriteTextRenderer, 0xef8a8135,0x5cc6,0x45fe,0x88,0x25,0xc5,0xa0,0x72,0x4e,0xb8,0x19);
+DEFINE_GUID(IID_IDWriteLocalFontFileLoader, 0xb2d9f3ec,0xc9fe,0x4a11,0xa2,0xec,0xd8,0x62,0x08,0xf7,0xc0,0xa2);
 
 #endif /* __INC_DWRITE__ */
