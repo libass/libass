@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #endif
 
+#include "ass.h"
 #include "writeout.h"
 
 
@@ -132,7 +133,7 @@ static void write_styles(FILE *f, ASS_Track *track)
 
     // don't print out builtin fallback
     for (int i = 1; i < track->n_styles; i++) {
-        ASS_Style *s = track->styles + i;
+        ASS_Style *s = ass_get_style(track, i);
         fprintf(f, "Style: "
                    "%s,%s,%.3f,&H%08X,&H%08X,&H%08X,&H%08X,%d,%d,%d,%d,"
                    "%.3f,%.3f,%.3f,%.3f,%d,%.3f,%.3f,%d,%d,%d,%d,%d\n",
@@ -155,7 +156,7 @@ static void write_events(FILE *f, ASS_Track *track)
         "MarginL, MarginR, MarginV, Effect, Text\n");
 
     for (int i = 0; i < track->n_events; i++) {
-        ASS_Event *e = track->events + i;
+        ASS_Event *e = ass_get_event(track, i);
         bool flag = time_to_str(e->Start, &start);
         flag = flag && time_to_str(e->Start + e->Duration, &end);
         if (!flag) {
@@ -164,7 +165,7 @@ static void write_events(FILE *f, ASS_Track *track)
             continue;
         }
         fprintf(f, "Dialogue: %d,%s,%s,%s,%s,%03d,%03d,%03d,%s,%s\n",
-            e->Layer, start, end, (track->styles + e->Style)->Name,
+            e->Layer, start, end, ass_get_style(track, e->Style)->Name,
             e->Name ? e->Name : "",
             e->MarginL, e->MarginR, e->MarginV,
             e->Effect ? e->Effect : "",
