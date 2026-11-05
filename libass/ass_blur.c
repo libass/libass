@@ -170,7 +170,8 @@ static void find_best_method(BlurMethod *blur, double r2)
  * \param r2x in: desired standard deviation along X axis squared
  * \param r2y in: desired standard deviation along Y axis squared
  */
-bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2x, double r2y)
+bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm,
+                       double r2x, double r2y, ASS_ScratchBuffer *scratch)
 {
     BlurMethod blur_x, blur_y;
     find_best_method(&blur_x, r2x);
@@ -189,7 +190,7 @@ bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2x, doubl
     if (size > INT_MAX / 4)
         return false;
 
-    int16_t *tmp = ass_aligned_alloc(2 * stripe_width, 4 * size, false);
+    int16_t *tmp = ass_scratch_alloc(scratch, 2 * stripe_width, 4 * size);
     if (!tmp)
         return false;
 
@@ -227,15 +228,12 @@ bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2x, doubl
     }
     assert(w == end_w && h == end_h);
 
-    if (!ass_realloc_bitmap(engine, bm, w, h)) {
-        ass_aligned_free(tmp);
+    if (!ass_realloc_bitmap(engine, bm, w, h))
         return false;
-    }
     bm->left -= ((blur_x.radius + 4) << blur_x.level) - 4;
     bm->top  -= ((blur_y.radius + 4) << blur_y.level) - 4;
 
     engine->stripe_pack(bm->buffer, bm->stride, buf[index], w, h);
-    ass_aligned_free(tmp);
     return true;
 }
 
