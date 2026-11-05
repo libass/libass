@@ -34,14 +34,17 @@
 #define START(funcname, structname) \
     static ass_hashcode funcname##_hash(void *buf, ass_hashcode hval) \
     { \
-        struct structname *p = buf;
+        struct structname *p = buf; \
+        unsigned char packed[sizeof(*p) + 8] = {0}; \
+        size_t used = 0;
 #define GENERIC(type, member) \
-        hval = ass_hash_buf(&p->member, sizeof(p->member), hval);
+        memcpy(packed + used, &p->member, sizeof(p->member)); \
+        used += sizeof(p->member);
 #define STRING(member) \
         hval = ass_hash_buf(p->member.str, p->member.len, hval);
 #define VECTOR(member) GENERIC(, member.x); GENERIC(, member.y);
 #define END(typedefname) \
-        return hval; \
+        return used ? ass_hash_buf(packed, (used + 7) & ~(size_t) 7, hval) : hval; \
     }
 
 #else
@@ -70,15 +73,15 @@ END(BitmapHashKey)
 
 // font is refed when inserted and unrefed when dropped
 START(face_size_metrics, face_size_metrics_hash_key)
-    GENERIC(ASS_Font *, font)
     GENERIC(double, size)
+    GENERIC(ASS_Font *, font)
     GENERIC(int, face_index)
 END(FaceSizeMetricsHashKey)
 
 // font is refed when inserted and unrefed when dropped
 START(glyph_metrics, glyph_metrics_hash_key)
-    GENERIC(ASS_Font *, font)
     GENERIC(double, size)
+    GENERIC(ASS_Font *, font)
     GENERIC(int, face_index)
     GENERIC(int, glyph_index)
 END(GlyphMetricsHashKey)
@@ -86,8 +89,8 @@ END(GlyphMetricsHashKey)
 // describes an outline glyph
 // font is refed when inserted and unrefed when dropped
 START(glyph, glyph_hash_key)
-    GENERIC(ASS_Font *, font)
     GENERIC(double, size) // font size
+    GENERIC(ASS_Font *, font)
     GENERIC(int, face_index)
     GENERIC(int, glyph_index)
     GENERIC(int, bold)
