@@ -59,7 +59,7 @@ struct ass_shaper {
 
     // OpenType features
     int n_features;
-    hb_feature_t *features;
+    hb_feature_t features[NUM_FEATURES];
     hb_language_t language;
 
     // Glyph and face-size metrics caches, to speed up shaping
@@ -131,7 +131,6 @@ static bool check_par_allocations(ASS_Shaper *shaper, size_t n_pars)
  */
 void ass_shaper_free(ASS_Shaper *shaper)
 {
-    free(shaper->features);
     free(shaper->ctypes);
 #ifdef USE_FRIBIDI_EX_API
     free(shaper->btypes);
@@ -148,12 +147,8 @@ void ass_shaper_free(ASS_Shaper *shaper)
  * \brief set up the HarfBuzz OpenType feature list with some
  * standard features.
  */
-static bool init_features(ASS_Shaper *shaper)
+static void init_features(ASS_Shaper *shaper)
 {
-    shaper->features = calloc(NUM_FEATURES, sizeof(hb_feature_t));
-    if (!shaper->features)
-        return false;
-
     shaper->n_features = NUM_FEATURES;
     shaper->features[VERT].tag = HB_TAG('v', 'e', 'r', 't');
     shaper->features[VERT].end = UINT_MAX;
@@ -165,8 +160,6 @@ static bool init_features(ASS_Shaper *shaper)
     shaper->features[LIGA].end = UINT_MAX;
     shaper->features[CLIG].tag = HB_TAG('c', 'l', 'i', 'g');
     shaper->features[CLIG].end = UINT_MAX;
-
-    return true;
 }
 
 /**
@@ -1027,8 +1020,7 @@ ASS_Shaper *ass_shaper_new(Cache *metrics_cache, Cache *face_size_metrics_cache)
 
     shaper->base_direction = FRIBIDI_PAR_ON;
 
-    if (!init_features(shaper))
-        goto error;
+    init_features(shaper);
     shaper->face_size_metrics_cache = face_size_metrics_cache;
     shaper->metrics_cache = metrics_cache;
 
