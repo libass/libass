@@ -42,6 +42,15 @@ typedef struct {
     int asc, desc;  // ascender/descender
 } OutlineHashValue;
 
+typedef struct {
+    bool valid;             // false: the event renders to nothing
+    bool time_dependent;    // never cached, always rendered fresh
+    ASS_Image *imgs;        // ref-held rendered image list (pre-collision)
+    int top, height, left, width;
+    int detect_collisions;
+    int shift_direction;
+} EventRenderHashValue;
+
 // Create definitions for bitmap, outline and composite hash keys
 #define CREATE_STRUCT_DEFINITIONS
 #include "ass_cache_template.h"
@@ -112,5 +121,6 @@ Cache *ass_face_size_metrics_cache_create(void);
 Cache *ass_glyph_metrics_cache_create(void);
 Cache *ass_bitmap_cache_create(void);
 Cache *ass_composite_cache_create(void);
+Cache *ass_event_render_cache_create(void);
 
 #endif                          /* LIBASS_CACHE_H */
