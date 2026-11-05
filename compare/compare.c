@@ -281,6 +281,43 @@ static bool load_font(ASS_Library *lib, const char *dir, const char *file)
     return true;
 }
 
+static bool set_features(ASS_Track *track)
+{
+    static const struct {
+        const char *name;
+        ASS_Feature feature;
+    } features[] = {
+#define FEATURE(name) {#name, ASS_FEATURE_ ## name}
+        FEATURE(INCOMPATIBLE_EXTENSIONS),
+        FEATURE(BIDI_BRACKETS),
+        FEATURE(WHOLE_TEXT_LAYOUT),
+        FEATURE(WRAP_UNICODE),
+        FEATURE(ADVISORY_LINEBREAKS),
+#undef FEATURE
+    };
+    const char *p = getenv("ASS_TEST_FEATURES");
+    if (!p)
+        return true;
+
+    while (*(p += strspn(p, " \t\r\n,"))) {
+        size_t len = strcspn(p, " \t\r\n,");
+        size_t i;
+        for (i = 0; i < sizeof(features) / sizeof(features[0]); i++)
+            if (strlen(features[i].name) == len && !strncmp(p, features[i].name, len))
+                break;
+        if (i == sizeof(features) / sizeof(features[0])) {
+            printf("Unknown feature in ASS_TEST_FEATURES: '%.*s'!\n", (int) len, p);
+            return false;
+        }
+        if (ass_track_set_feature(track, features[i].feature, 1) < 0) {
+            printf("Unsupported feature in ASS_TEST_FEATURES: '%s'!\n", features[i].name);
+            return false;
+        }
+        p += len;
+    }
+    return true;
+}
+
 static ASS_Track *load_track(ASS_Library *lib,
                              const char *dir, const char *file)
 {
@@ -289,6 +326,10 @@ static ASS_Track *load_track(ASS_Library *lib,
     ASS_Track *track = ass_read_file(lib, path, NULL);
     if (!track) {
         printf("Cannot load subtitle file '%s'!\n", file);
+        return NULL;
+    }
+    if (!set_features(track)) {
+        ass_free_track(track);
         return NULL;
     }
     printf("Processing '%s':\n", file);
@@ -689,8 +730,10 @@ int main(int argc, char *argv[])
             continue;
         }
         total++;
-        if (!track)
+        if (!track) {
+            result = R_ERROR;
             continue;
+        }
         Result res = process_image(renderer, track, list.items[i].dir, output,
                                    name, list.items[i].time,
                                    scale_x, scale_y);
