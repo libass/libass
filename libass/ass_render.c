@@ -39,7 +39,6 @@
 #define MAX_LINES_INITIAL 64
 #define MAX_BITMAPS_INITIAL 16
 #define MAX_SUB_BITMAPS_INITIAL 64
-#define SUBPIXEL_MASK 63
 #define STROKER_PRECISION 16     // stroker error in integer units, unrelated to final accuracy
 #define RASTERIZER_PRECISION 16  // rasterizer spline approximation error in 1/64 pixel units
 #define POSITION_PRECISION 8.0   // rough estimate of transform error in 1/64 pixel units
@@ -2740,12 +2739,7 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
         } else {
             ass_copy_bitmap(&render_priv->engine, &v->bm_s, &v->bm);
         }
-
-        // Works right even for negative offsets
-        // '>>' rounds toward negative infinity, '&' returns correct remainder
-        v->bm_s.left += k->filter.shadow.x >> 6;
-        v->bm_s.top  += k->filter.shadow.y >> 6;
-        ass_shift_bitmap(&v->bm_s, k->filter.shadow.x & SUBPIXEL_MASK, k->filter.shadow.y & SUBPIXEL_MASK);
+        ass_shift_bitmap(&render_priv->engine, &v->bm_s, k->filter.shadow.x, k->filter.shadow.y);
     }
 
     if ((flags & FILTER_FILL_IN_SHADOW) && !(flags & FILTER_FILL_IN_BORDER))

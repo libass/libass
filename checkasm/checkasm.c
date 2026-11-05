@@ -59,6 +59,7 @@ static const struct {
 } tests[] = {
     { "rasterizer", checkasm_check_rasterizer },
     { "blend_bitmaps", checkasm_check_blend_bitmaps },
+    { "shift", checkasm_check_shift },
     { "be_blur", checkasm_check_be_blur },
     { "blur", checkasm_check_blur },
     { 0 }

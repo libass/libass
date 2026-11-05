@@ -29,6 +29,7 @@ src_x86 = files(
     'x86/blur.asm',
     'x86/cpuid.asm',
     'x86/rasterizer.asm',
+    'x86/shift.asm',
 )
 src_aarch64 = files(
     'aarch64/asm.S',
@@ -36,6 +37,7 @@ src_aarch64 = files(
     'aarch64/blend_bitmaps.S',
     'aarch64/blur.S',
     'aarch64/rasterizer.S',
+    'aarch64/shift.S',
 )
 src_fontconfig = files('ass_fontconfig.c')
 src_directwrite = files('ass_directwrite.c')
@@ -46,6 +48,7 @@ libass_src = files(
     'c/c_blend_bitmaps.c',
     'c/c_blur.c',
     'c/c_rasterizer.c',
+    'c/c_shift.c',
     'ass.c',
     'ass_arabic_charmap.c',
     'ass_bitmap.c',
