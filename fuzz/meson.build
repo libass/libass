@@ -16,6 +16,17 @@ libass_fuzz = executable(
     link_with: libass_for_tools,
 )
 
+libass_fuzz_chunk = executable(
+    'fuzz_chunk',
+    files('fuzz_chunk.c'),
+    install: false,
+    include_directories: incs,
+    dependencies: deps,
+    link_args: get_option('fuzz-link-args'),
+    link_language: get_option('fuzz-link-language'),
+    link_with: libass_for_tools,
+)
+
 art_samples = get_option('art-samples')
 if art_samples != ''
     dir = join_paths(art_samples, 'crash')
