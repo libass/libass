@@ -56,6 +56,75 @@ char *ass_strndup_fallback(const char *s, size_t n)
 }
 #endif
 
+#if (defined(_WIN32) || defined(__APPLE__) || defined(__linux__) || defined(__FreeBSD__)) && \
+    (defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)) && \
+    (defined(__GNUC__))
+#define ALIGNED_OVERREADS_SAFE 1
+#endif
+
+#if __has_attribute(vector_size) && defined(ALIGNED_OVERREADS_SAFE)
+
+#if __has_builtin(__builtin_ia32_pmovmskb128) && defined(__SSE2__)
+#define VEC_ANY_ZERO(x) (__builtin_ia32_pmovmskb128((x) == 0) != 0)
+#define VECTOR_SIZE 16
+#elif __has_builtin(__builtin_neon_vminvq_u8) && defined(__ARM_NEON__)
+#define VEC_ANY_ZERO(x) (__builtin_neon_vminvq_u8(x) == 0)
+#define VECTOR_SIZE 16
+#elif __has_builtin(__builtin_aarch64_reduc_umin_scal_v16qi_uu) && defined(__ARM_NEON__)
+#define VEC_ANY_ZERO(x) (__builtin_aarch64_reduc_umin_scal_v16qi_uu(x) == 0)
+#define VECTOR_SIZE 16
+#endif
+
+#ifdef VEC_ANY_ZERO
+typedef unsigned char CheckVector __attribute__ ((vector_size(VECTOR_SIZE)));
+#endif
+
+#endif // __has_attribute(vector_size)
+
+#if ALIGNED_OVERREADS_SAFE && !defined(VEC_ANY_ZERO)
+
+typedef size_t CheckVector;
+#define USE_SCALAR_TYPE 1
+#define LOWS ((size_t)-1 / 0xFF)
+#define HIGHS (LOWS * 0x80)
+#define VEC_ANY_ZERO(vec) (((vec) - LOWS) & ~(vec) & HIGHS)
+#define BROADCAST(c) ((c) * LOWS)
+
+#endif // defined(ALIGNED_OVERREADS_SAFE) && !defined(VEC_ANY_ZERO)
+
+#if ALIGNED_OVERREADS_SAFE && __has_attribute(no_sanitize)
+__attribute__((no_sanitize("address")))
+#endif
+char *ass_strchrnul(const char *s, int c)
+{
+#if ALIGNED_OVERREADS_SAFE && !defined(__GLIBC__)
+    for (; (uintptr_t)s % sizeof(CheckVector); s++) {
+        if (!*s || *s == c)
+            return (char*)s;
+    }
+
+    for (;; s += sizeof(CheckVector)) {
+        CheckVector vec;
+        memcpy(&vec, s, sizeof(vec));
+#ifdef USE_SCALAR_TYPE
+        if (VEC_ANY_ZERO(vec) || VEC_ANY_ZERO(vec ^ BROADCAST(c)))
+            break;
+#else
+        if (VEC_ANY_ZERO(vec & (vec != (unsigned char)c)))
+            break;
+#endif
+    }
+#endif
+#ifdef HAVE_STRCHRNUL
+    return strchrnul(s, c);
+#else // HAVE_STRCHRNUL
+    while (*s && *s != c)
+        s++;
+
+    return (char*)s;
+#endif // HAVE_STRCHRNUL
+}
+
 void *ass_aligned_alloc(size_t alignment, size_t size, bool zero)
 {
     assert(!(alignment & (alignment - 1))); // alignment must be power of 2
