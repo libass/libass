@@ -19,7 +19,7 @@
 #define STRIPE_WIDTH  (ALIGNMENT / 2)
 #define STRIPE_MASK   (STRIPE_WIDTH - 1)
 
-inline static void SUFFIX(copy_line)(int16_t *buf, const int16_t *ptr, size_t offs, size_t size)
+inline static void SUFFIX(copy_line)(int16_t *buf, const int16_t *ptr, ptrdiff_t offs, size_t size)
 {
     memcpy(buf, get_line(ptr, offs, size), STRIPE_WIDTH * sizeof(buf[0]));
 }
@@ -98,7 +98,7 @@ void SUFFIX(ass_shrink_horz)(int16_t *restrict dst, const int16_t *restrict src,
     size_t size = ((src_width + STRIPE_MASK) & ~STRIPE_MASK) * src_height;
     size_t step = STRIPE_WIDTH * src_height;
 
-    size_t offs = 0;
+    ptrdiff_t offs = 0;
     int16_t buf[3 * STRIPE_WIDTH];
     int16_t *ptr = buf + STRIPE_WIDTH;
     for (size_t x = 0; x < dst_width; x += STRIPE_WIDTH) {
@@ -128,7 +128,7 @@ void SUFFIX(ass_shrink_vert)(int16_t *restrict dst, const int16_t *restrict src,
     size_t step = STRIPE_WIDTH * src_height;
 
     for (size_t x = 0; x < src_width; x += STRIPE_WIDTH) {
-        size_t offs = 0;
+        ptrdiff_t offs = 0;
         for (size_t y = 0; y < dst_height; y++) {
             const int16_t *p1p = get_line(src, offs - 4 * STRIPE_WIDTH, step);
             const int16_t *p1n = get_line(src, offs - 3 * STRIPE_WIDTH, step);
@@ -162,7 +162,7 @@ void SUFFIX(ass_expand_horz)(int16_t *restrict dst, const int16_t *restrict src,
     size_t size = ((src_width + STRIPE_MASK) & ~STRIPE_MASK) * src_height;
     size_t step = STRIPE_WIDTH * src_height;
 
-    size_t offs = 0;
+    ptrdiff_t offs = 0;
     int16_t buf[2 * STRIPE_WIDTH];
     int16_t *ptr = buf + STRIPE_WIDTH;
     for (size_t x = STRIPE_WIDTH; x < dst_width; x += 2 * STRIPE_WIDTH) {
@@ -206,7 +206,7 @@ void SUFFIX(ass_expand_vert)(int16_t *restrict dst, const int16_t *restrict src,
     size_t step = STRIPE_WIDTH * src_height;
 
     for (size_t x = 0; x < src_width; x += STRIPE_WIDTH) {
-        size_t offs = 0;
+        ptrdiff_t offs = 0;
         for (size_t y = 0; y < dst_height; y += 2) {
             const int16_t *p1 = get_line(src, offs - 2 * STRIPE_WIDTH, step);
             const int16_t *z0 = get_line(src, offs - 1 * STRIPE_WIDTH, step);
@@ -241,7 +241,7 @@ static inline void SUFFIX(blur_horz)(int16_t *restrict dst, const int16_t *restr
     size_t size = ((src_width + STRIPE_MASK) & ~STRIPE_MASK) * src_height;
     size_t step = STRIPE_WIDTH * src_height;
 
-    size_t offs = 0;
+    ptrdiff_t offs = 0;
     int16_t buf[3 * STRIPE_WIDTH];
     int16_t *ptr = buf + 2 * STRIPE_WIDTH;
     for (size_t x = 0; x < dst_width; x += STRIPE_WIDTH) {
@@ -276,7 +276,7 @@ static inline void SUFFIX(blur_vert)(int16_t *restrict dst, const int16_t *restr
     size_t step = STRIPE_WIDTH * src_height;
 
     for (size_t x = 0; x < src_width; x += STRIPE_WIDTH) {
-        size_t offs = 0;
+        ptrdiff_t offs = 0;
         for (size_t y = 0; y < dst_height; y++) {
             int32_t acc[STRIPE_WIDTH];
             for (int k = 0; k < STRIPE_WIDTH; k++)
