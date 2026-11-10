@@ -22,6 +22,7 @@ Makefile.in
 /compare/compare
 /profile/profile
 /fuzz/fuzz
+/fuzz/fuzz_drawing
 /checkasm/checkasm
 
 # pkgconfig
