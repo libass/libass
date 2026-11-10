@@ -139,6 +139,10 @@ static bool composite_key_move(void *dst, void *src)
     CompositeHashKey *d = dst, *s = src;
     if (d) {
         *d = *s;
+        d->bitmaps = ass_realloc_array(NULL, s->bitmap_count, sizeof(BitmapRef));
+        if (!d->bitmaps)
+            return false;
+        memcpy(d->bitmaps, s->bitmaps, s->bitmap_count * sizeof(BitmapRef));
         for (size_t i = 0; i < d->bitmap_count; i++) {
             ass_cache_inc_ref(d->bitmaps[i].bm);
             ass_cache_inc_ref(d->bitmaps[i].bm_o);
@@ -146,7 +150,6 @@ static bool composite_key_move(void *dst, void *src)
         return true;
     }
 
-    free(s->bitmaps);
     return true;
 }
 

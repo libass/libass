@@ -102,6 +102,19 @@ static inline bool ass_string_equal(ASS_StringView str1, ASS_StringView str2)
 void *ass_aligned_alloc(size_t alignment, size_t size, bool zero);
 void ass_aligned_free(void *ptr);
 
+typedef struct {
+    void *buffer;
+    size_t capacity;
+} ASS_ScratchBuffer;
+
+/**
+ * Get aligned temporary storage, reusing or growing a zero-initialized buffer.
+ * Contents are not preserved on reallocation. Free buffer with ass_aligned_free()
+ * when done and zero the structure before reusing it.
+ * A failed allocation leaves the buffer unchanged.
+ */
+void *ass_scratch_alloc(ASS_ScratchBuffer *scratch, size_t alignment, size_t size);
+
 void *ass_realloc_array(void *ptr, size_t nmemb, size_t size);
 void *ass_try_realloc_array(void *ptr, size_t nmemb, size_t size);
 

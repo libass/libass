@@ -79,6 +79,23 @@ void ass_aligned_free(void *ptr)
         free(*((void **)ptr - 1));
 }
 
+void *ass_scratch_alloc(ASS_ScratchBuffer *scratch, size_t alignment, size_t size)
+{
+    if (scratch->capacity < size || ((uintptr_t) scratch->buffer & (alignment - 1))) {
+        size_t capacity = FFMAX(scratch->capacity, 4096);
+        while (capacity < size && capacity <= SIZE_MAX / 2)
+            capacity *= 2;
+        capacity = FFMAX(capacity, size);
+        void *buffer = ass_aligned_alloc(alignment, capacity, false);
+        if (!buffer)
+            return NULL;
+        ass_aligned_free(scratch->buffer);
+        scratch->buffer = buffer;
+        scratch->capacity = capacity;
+    }
+    return scratch->buffer;
+}
+
 /**
  * This works similar to realloc(ptr, nmemb * size), but checks for overflow.
  *
