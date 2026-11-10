@@ -61,6 +61,10 @@ struct parser_priv {
     int read_order_elems; // size in uint32_t units of read_order_bitmap
     int check_readorder;
 
+    // Default ReadOrder for manually allocated and text-parsed events.
+    // INT_MAX + 1 means exhausted; reset only by a full event flush.
+    unsigned next_read_order;
+
     // tracks [Script Info] headers set by the script
     uint32_t header_flags;
 
