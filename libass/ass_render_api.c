@@ -37,10 +37,15 @@ static void ass_reconfigure(ASS_Renderer *priv)
 
     priv->width = settings->frame_width;
     priv->height = settings->frame_height;
-    priv->frame_content_width = settings->frame_width - settings->left_margin -
-        settings->right_margin;
-    priv->frame_content_height = settings->frame_height - settings->top_margin -
-        settings->bottom_margin;
+    long long content_width = (long long) settings->frame_width -
+        settings->left_margin - settings->right_margin;
+    long long content_height = (long long) settings->frame_height -
+        settings->top_margin - settings->bottom_margin;
+    if (content_width <= 0 || content_width > INT_MAX ||
+        content_height <= 0 || content_height > INT_MAX)
+        content_width = content_height = 0;
+    priv->frame_content_width = content_width;
+    priv->frame_content_height = content_height;
     priv->fit_width =
         (long long) priv->frame_content_width * priv->height >=
         (long long) priv->frame_content_height * priv->width ?

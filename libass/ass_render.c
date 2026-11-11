@@ -3051,6 +3051,9 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
         && !render_priv->settings.frame_height)
         return false;               // library not initialized
 
+    if (!render_priv->frame_content_width || !render_priv->frame_content_height)
+        return false;               // invalid video rectangle
+
     if (!render_priv->fontselect)
         return false;
 
