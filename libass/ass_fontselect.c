@@ -277,6 +277,8 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
             char buf[1024];
             ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
                                 name.string_len);
+            if (!buf[0])
+                continue;
 
             if (name.name_id == TT_NAME_ID_FULL_NAME && num_fullname < MAX_FULLNAME) {
                 fullnames[num_fullname] = strdup(buf);
@@ -297,9 +299,10 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
 
     // check if we got a valid family - if not, use
     // whatever the font provider or FreeType gives us
-    if (num_family == 0 && (fallback_family_name || face->family_name)) {
-        families[0] =
-            strdup(fallback_family_name ? fallback_family_name : face->family_name);
+    if (!fallback_family_name || !*fallback_family_name)
+        fallback_family_name = face->family_name;
+    if (num_family == 0 && fallback_family_name && *fallback_family_name) {
+        families[0] = strdup(fallback_family_name);
         if (families[0] == NULL)
             goto error;
         num_family++;
