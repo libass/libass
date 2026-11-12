@@ -157,6 +157,7 @@ static inline void process_image(ASS_Image *imgs)
 
 static void consume_track(ASS_Renderer *renderer, ASS_Track *track)
 {
+    ass_prewarm_caches(renderer, track, ASS_PREWARM_ASCII);
     for (int n = 0; n < track->n_events; ++n) {
         int change;
         ASS_Event event = track->events[n];
