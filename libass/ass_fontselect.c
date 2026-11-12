@@ -392,7 +392,7 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     ASS_FontInfo *info = NULL;
     ASS_FontProviderMetaData implicit_meta = {0};
 
-    if (!meta->n_family) {
+    if (!meta->n_family && !meta->n_fullname) {
         FT_Face face;
         if (provider->funcs.get_font_index)
             index = provider->funcs.get_font_index(data);
@@ -469,9 +469,11 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     info->n_family      = meta->n_family;
     info->is_postscript = meta->is_postscript;
 
-    info->families = calloc(meta->n_family, sizeof(char *));
-    if (info->families == NULL)
-        goto error;
+    if (meta->n_family) {
+        info->families = calloc(meta->n_family, sizeof(char *));
+        if (info->families == NULL)
+            goto error;
+    }
 
     if (meta->n_fullname) {
         info->fullnames = calloc(meta->n_fullname, sizeof(char *));
@@ -802,8 +804,10 @@ find_font(ASS_FontSelector *priv,
             // though.
             if (selected->postscript_name)
                 result = selected->postscript_name;
-            else
+            else if (selected->n_family)
                 result = selected->families[0];
+            else
+                result = selected->fullnames[0];
         } else
             result = selected->path;
 
