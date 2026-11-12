@@ -309,7 +309,7 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
     }
 
     // we absolutely need a name
-    if (num_family == 0)
+    if (num_family == 0 && num_fullname == 0)
         goto error;
 
     // calculate sensible weight
