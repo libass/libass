@@ -189,6 +189,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
 
     render_context_done(&render_priv->state);
 
+    ass_cache_promote(&render_priv->cache.client_set);
     ass_cache_done(render_priv->cache.composite_cache);
     ass_cache_done(render_priv->cache.bitmap_cache);
     ass_cache_done(render_priv->cache.outline_cache);
@@ -3100,6 +3101,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     render_priv->prev_images_root = render_priv->images_root;
     render_priv->images_root = NULL;
 
+    ass_cache_promote(&render_priv->cache.client_set);
     check_cache_limits(render_priv, &render_priv->cache);
 
     return true;

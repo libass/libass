@@ -354,7 +354,11 @@ typedef struct cache_item {
     const CacheDesc *desc;
     struct cache_item *next, **prev;
     struct cache_item *queue_next, **queue_prev;
+    struct cache_item *promote_next;
     size_t size, ref_count;
+    ass_hashcode hash;
+
+    size_t last_used_frame;
 } CacheItem;
 
 struct cache {
@@ -365,9 +369,13 @@ struct cache {
     const CacheDesc *desc;
 
     size_t cache_size;
+
+    size_t cur_frame;
 };
 
 struct cache_client {
+    CacheItem *promote_first;
+
     struct cache_client *next;
 };
 
@@ -453,41 +461,45 @@ void *ass_cache_get(Cache *cache, CacheClient *client, void *key, void *priv)
 {
     const CacheDesc *desc = cache->desc;
     size_t key_offs = CACHE_ITEM_SIZE + align_cache(desc->value_size);
-    unsigned bucket = desc->hash_func(key, ASS_HASH_INIT) % cache->buckets;
-    CacheItem *item = cache->map[bucket];
-    while (item) {
-        if (desc->compare_func(key, (char *) item + key_offs)) {
-            assert(item->size);
-            if (!item->queue_prev || item->queue_next) {
-                if (item->queue_prev) {
-                    item->queue_next->queue_prev = item->queue_prev;
-                    *item->queue_prev = item->queue_next;
-                } else
-                    item->ref_count++;
-                *cache->queue_last = item;
-                item->queue_prev = cache->queue_last;
-                cache->queue_last = &item->queue_next;
-                item->queue_next = NULL;
-            }
-            desc->key_move_func(NULL, key);
+    ass_hashcode hash = desc->hash_func(key, ASS_HASH_INIT);
+    unsigned bucket = hash % cache->buckets;
 
-            return (char *) item + CACHE_ITEM_SIZE;
+    for (CacheItem *item = cache->map[bucket]; item; item = item->next) {
+        if (item->hash != hash || !desc->compare_func(key, (char *) item + key_offs))
+            continue;
+
+        assert(item->size);
+        if (item->last_used_frame != cache->cur_frame) {
+            item->last_used_frame = cache->cur_frame;
+            assert(!item->promote_next);
+            item->promote_next = client->promote_first;
+            client->promote_first = item;
         }
-        item = item->next;
+        desc->key_move_func(NULL, key);
+        return (char *) item + CACHE_ITEM_SIZE;
     }
 
-    item = malloc(key_offs + desc->key_size);
+    CacheItem *item = malloc(key_offs + desc->key_size);
     if (!item) {
         desc->key_move_func(NULL, key);
         return NULL;
     }
-    item->cache = cache;
-    item->desc = desc;
     void *new_key = (char *) item + key_offs;
     if (!desc->key_move_func(new_key, key)) {
         free(item);
         return NULL;
     }
+
+    item->cache = cache;
+    item->desc = desc;
+    item->hash = hash;
+    item->last_used_frame = cache->cur_frame;
+    item->ref_count = 1;
+    item->queue_next = NULL;
+    item->queue_prev = NULL;
+    item->promote_next = client->promote_first;
+    client->promote_first = item;
+
     void *value = (char *) item + CACHE_ITEM_SIZE;
     item->size = desc->construct_func(new_key, value, priv);
     assert(item->size);
@@ -498,12 +510,6 @@ void *ass_cache_get(Cache *cache, CacheClient *client, void *key, void *priv)
     item->prev = bucketptr;
     item->next = *bucketptr;
     *bucketptr = item;
-
-    *cache->queue_last = item;
-    item->queue_prev = cache->queue_last;
-    cache->queue_last = &item->queue_next;
-    item->queue_next = NULL;
-    item->ref_count = 1;
 
     cache->cache_size += item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
     return value;
@@ -518,6 +524,8 @@ void *ass_cache_key(void *value)
 static inline void destroy_item(const CacheDesc *desc, CacheItem *item)
 {
     assert(item->desc == desc);
+    assert(!item->next);
+    assert(!item->prev);
     char *value = (char *) item + CACHE_ITEM_SIZE;
     if (desc->key_destruct_func)
         desc->key_destruct_func(value + align_cache(desc->value_size));
@@ -536,55 +544,98 @@ void ass_cache_inc_ref(void *value)
     item->ref_count++;
 }
 
+static void dec_ref_item(CacheItem *item)
+{
+    assert(item->size);
+    assert(item->ref_count);
+    if (--item->ref_count == 0)
+        destroy_item(item->desc, item);
+}
+
 void ass_cache_dec_ref(void *value)
 {
     if (!value)
         return;
     CacheItem *item = value_to_item(value);
-    assert(item->size);
-    assert(item->ref_count);
-    if (--item->ref_count)
-        return;
+    dec_ref_item(item);
+}
 
-    Cache *cache = item->cache;
-    if (cache) {
-        if (item->next)
-            item->next->prev = item->prev;
-        *item->prev = item->next;
+void ass_cache_promote(CacheClientSet *set)
+{
+    for (CacheClient *client = set->first_client; client; client = client->next) {
+        while (client->promote_first) {
+            CacheItem *item = client->promote_first;
+            assert(item->prev);
+            assert(item->queue_prev || !item->queue_next);
+            assert(item->cache->queue_last);
+            assert(item->queue_next != item);
+            assert(item->queue_prev != &item->queue_next);
 
-        cache->cache_size -= item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
+            // Skip if we're already at the end of the queue
+            if (!item->queue_prev || item->queue_next) {
+                if (item->queue_prev)
+                    *item->queue_prev = item->queue_next;
+                if (item->queue_next)
+                    item->queue_next->queue_prev = item->queue_prev;
+                item->queue_next = NULL;
+
+                item->queue_prev = item->cache->queue_last;
+                *item->cache->queue_last = item;
+                item->cache->queue_last = &item->queue_next;
+
+                assert(item->queue_prev != &item->queue_next);
+            }
+
+            client->promote_first = item->promote_next;
+            item->promote_next = NULL;
+        }
     }
-    destroy_item(item->desc, item);
 }
 
 void ass_cache_cut(Cache *cache, size_t max_size)
 {
-    if (cache->cache_size <= max_size)
-        return;
+    assert(cache->queue_last);
 
-    do {
+    while (cache->cache_size > max_size && cache->queue_first) {
         CacheItem *item = cache->queue_first;
-        if (!item)
-            break;
+        assert(item->prev);
         assert(item->size);
+        assert(item->queue_prev == &cache->queue_first);
+        assert(item->queue_next != item);
+        assert(item->queue_prev != &item->queue_next);
+        assert(!item->promote_next);
 
-        cache->queue_first = item->queue_next;
-        if (--item->ref_count) {
-            item->queue_prev = NULL;
-            continue;
+        if (item->last_used_frame == cache->cur_frame) {
+            // everything after this must have been last used this frame
+            break;
         }
 
-        if (item->next)
-            item->next->prev = item->prev;
-        *item->prev = item->next;
+        if (item->queue_next) {
+            assert(item->queue_next->queue_prev != &item->queue_next->queue_next);
+            item->queue_next->queue_prev = &cache->queue_first;
+        } else {
+            cache->queue_last = &cache->queue_first;
+        }
 
-        cache->cache_size -= item->size + (item->size == 1 ? 0 : CACHE_ITEM_SIZE);
-        destroy_item(cache->desc, item);
-    } while (cache->cache_size > max_size);
-    if (cache->queue_first)
-        cache->queue_first->queue_prev = &cache->queue_first;
-    else
-        cache->queue_last = &cache->queue_first;
+        cache->queue_first = item->queue_next;
+
+        CacheItem *item_next = item->next;
+        if (item_next)
+            item_next->prev = item->prev;
+        *item->prev = item_next;
+
+        item->next = NULL;
+        item->prev = NULL;
+        item->queue_prev = NULL;
+        item->queue_next = NULL;
+
+        size_t item_size = item->size;
+        cache->cache_size -= item_size + (item_size == 1 ? 0 : CACHE_ITEM_SIZE);
+
+        dec_ref_item(item);
+    }
+
+    cache->cur_frame++;
 }
 
 void ass_cache_empty(Cache *cache)
@@ -592,18 +643,28 @@ void ass_cache_empty(Cache *cache)
     for (int i = 0; i < cache->buckets; i++) {
         CacheItem *item = cache->map[i];
         while (item) {
+            assert(item->queue_prev || !item->queue_next);
+            assert(item->prev);
             assert(item->size);
             CacheItem *next = item->next;
-            if (item->queue_prev)
-                item->ref_count--;
-            if (item->ref_count)
-                item->cache = NULL;
-            else
-                destroy_item(cache->desc, item);
+
+            item->next = NULL;
+            item->prev = NULL;
+            item->queue_prev = NULL;
+            item->queue_next = NULL;
+            item->promote_next = NULL;
+
+            size_t item_size = item->size;
+            cache->cache_size -= item_size + (item_size == 1 ? 0 : CACHE_ITEM_SIZE);
+
+            dec_ref_item(item);
+
             item = next;
         }
         cache->map[i] = NULL;
     }
+
+    assert(!cache->cache_size);
 
     cache->queue_first = NULL;
     cache->queue_last = &cache->queue_first;
