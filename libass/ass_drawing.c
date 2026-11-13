@@ -27,8 +27,19 @@
 #include "ass_drawing.h"
 #include "ass_font.h"
 
-#define DRAWING_INITIAL_POINTS 100
-#define DRAWING_INITIAL_SEGMENTS 100
+typedef struct {
+    size_t points, segments;
+    bool started;
+} DrawingSize;
+
+static void drawing_add_size(DrawingSize *size, size_t points, size_t segments)
+{
+    if (!points)
+        return;
+    size->points += points + !size->started;
+    size->segments += segments;
+    size->started = true;
+}
 
 /*
  * \brief Free a list of tokens
@@ -156,7 +167,7 @@ static inline bool add_root_node(ASS_DrawingToken **root, ASS_DrawingToken **tai
  * \brief Tokenize a drawing string into a list of ASS_DrawingToken
  * This also expands points for closing b-splines
  */
-static ASS_DrawingToken *drawing_tokenize(const char *str)
+static ASS_DrawingToken *drawing_tokenize(const char *str, DrawingSize *size)
 {
     const char *p = str;
     ASS_DrawingToken *root = NULL, *tail = NULL, *spline_start = NULL;
@@ -166,6 +177,7 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
 
     while (p && *p) {
         char cmd = *p;
+        size_t count;
         p++;
         /* VSFilter compat:
          * In guliverkli(2) VSFilter all drawings
@@ -188,7 +200,12 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
                 if (!add_root_node(&root, &tail, &points, point, TOKEN_MOVE))
                     return NULL;
             }
-            points += add_many_points(&p, &tail, TOKEN_MOVE, 1, &error);
+            count = add_many_points(&p, &tail, TOKEN_MOVE, 1, &error);
+            points += count;
+            if (count && size->started) {
+                size->segments++;
+                size->started = false;
+            }
             break;
         case 'n':
             if (!root) {
@@ -205,12 +222,16 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
         case 'l':
             if (!root)
                 continue;
-            points += add_many_points(&p, &tail, TOKEN_LINE, 1, &error);
+            count = add_many_points(&p, &tail, TOKEN_LINE, 1, &error);
+            points += count;
+            drawing_add_size(size, count, count);
             break;
         case 'b':
             if (!root)
                 continue;
-            points += add_many_points(&p, &tail, TOKEN_CUBIC_BEZIER, 3, &error);
+            count = add_many_points(&p, &tail, TOKEN_CUBIC_BEZIER, 3, &error);
+            points += count;
+            drawing_add_size(size, count, count / 3);
             break;
         case 's':
             if (!root)
@@ -223,11 +244,14 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
                 break;
             }
             points += 3;
+            drawing_add_size(size, 3, 1);
             //-fallthrough
         case 'p':
             if (points < 3)
                 continue;
-            points += add_many_points(&p, &tail, TOKEN_EXTEND_SPLINE, 1, &error);
+            count = add_many_points(&p, &tail, TOKEN_EXTEND_SPLINE, 1, &error);
+            points += count;
+            drawing_add_size(size, 3 * count, count);
             break;
         case 'c':
             if (!spline_start)
@@ -240,6 +264,7 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
                 }
                 spline_start = spline_start->next;
             }
+            drawing_add_size(size, 9, 3);
             spline_start = NULL;
             break;
         default:
@@ -250,6 +275,8 @@ static ASS_DrawingToken *drawing_tokenize(const char *str)
             goto fail;
     }
 
+    if (size->started)
+        size->segments++;
     return root;
 
 fail:
@@ -314,11 +341,14 @@ static inline void assert_4_back(ASS_DrawingToken *token)
 bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
                        const char *text, ASS_Library *lib)
 {
-    if (!ass_outline_alloc(outline, DRAWING_INITIAL_POINTS, DRAWING_INITIAL_SEGMENTS))
-        return false;
+    ass_outline_clear(outline);
     rectangle_reset(cbox);
 
-    ASS_DrawingToken *tokens = drawing_tokenize(text);
+    DrawingSize size = {0};
+    ASS_DrawingToken *tokens = drawing_tokenize(text, &size);
+    if (size.points && tokens &&
+        !ass_outline_alloc(outline, size.points, size.segments))
+        goto error;
 
     bool started = false;
     ASS_Vector pen = {0, 0};
@@ -388,6 +418,8 @@ bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
         ass_outline_close_contour(outline);
     }
 
+    assert(!tokens || outline->n_points == size.points);
+    assert(!tokens || outline->n_segments == size.segments);
     if (lib)
         ass_msg(lib, MSGL_V,
                 "Parsed drawing with %zu points and %zu segments",
