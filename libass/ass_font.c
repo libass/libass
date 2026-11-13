@@ -545,6 +545,8 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 
     ret = font->n_faces++;
 
+    memset(font->cmap_cache, 0, sizeof(font->cmap_cache));
+
 fail:
     return ret;
 }
@@ -571,6 +573,7 @@ size_t ass_font_construct(void *key, void *value, void *priv)
     font->library = render_priv->library;
     font->ftlibrary = render_priv->ftlibrary;
     font->n_faces = 0;
+    memset(font->cmap_cache, 0, sizeof(font->cmap_cache));
     font->desc.family = desc->family;
     font->desc.bold = desc->bold;
     font->desc.italic = desc->italic;
@@ -723,6 +726,13 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
         return 0;
     }
 
+    ASS_FontCmapEntry *ce = &font->cmap_cache[ass_font_cmap_slot(symbol)];
+    if (ce->symbol == symbol) {
+        *face_index = ce->face_index;
+        *glyph_index = ce->glyph_index;
+        return 1;
+    }
+
     for (i = 0; i < font->n_faces && index == 0; ++i) {
         face = font->faces[i];
         index = ass_font_index_magic(face, symbol);
@@ -746,6 +756,7 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
                 index = FT_Get_Char_Index(face, index);
             if (index == 0 && face->num_charmaps > 0) {
                 int i;
+                FT_CharMap charmap = face->charmap;
                 ass_msg(font->library, MSGL_WARN,
                     "Glyph 0x%X not found, broken font? Trying all charmaps", symbol);
                 for (i = 0; i < face->num_charmaps; i++) {
@@ -755,6 +766,10 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
                         index = FT_Get_Char_Index(face, index);
                     if (index) break;
                 }
+                if (index == 0 && charmap)
+                    FT_Set_Charmap(face, charmap);
+                else // The active charmap changed, clear cache.
+                    memset(font->cmap_cache, 0, sizeof(font->cmap_cache));
             }
             if (index == 0) {
                 ass_msg(font->library, MSGL_ERR,
@@ -768,6 +783,10 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
     // FIXME: make sure we have a valid face_index. this is a HACK.
     *face_index  = FFMAX(*face_index, 0);
     *glyph_index = index;
+
+    ce->symbol = symbol;
+    ce->face_index = *face_index;
+    ce->glyph_index = index;
 
     return 1;
 }
