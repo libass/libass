@@ -26,6 +26,8 @@
 #include "ass_render.h"
 #include "ass_utils.h"
 
+#define SUBPIXEL_PRECISION_BREAK_HEIGHT 1800
+
 static void ass_reconfigure(ASS_Renderer *priv)
 {
     ASS_Settings *settings = &priv->settings;
@@ -41,6 +43,18 @@ static void ass_reconfigure(ASS_Renderer *priv)
         settings->right_margin;
     priv->frame_content_height = settings->frame_height - settings->top_margin -
         settings->bottom_margin;
+
+    // Estimate an orientation-independent resolution class from the content
+    // dimensions as a proxy for expected text detail. Allow for cropping a
+    // 16:9 picture, but limit the inferred height increase to 1/3 so very wide
+    // pictures retain sufficient precision.
+    int long_side = FFMAX(0, FFMAX(priv->frame_content_width, priv->frame_content_height));
+    int short_side = FFMAX(0, FFMIN(priv->frame_content_width, priv->frame_content_height));
+    int reference_height = FFMAX(short_side, FFMIN((int64_t) long_side * 9 / 16,
+                                                 (int64_t) short_side * 4 / 3));
+    priv->position_precision_reduction =
+        reference_height >= SUBPIXEL_PRECISION_BREAK_HEIGHT ? 1 : 0;
+
     priv->fit_width =
         (long long) priv->frame_content_width * priv->height >=
         (long long) priv->frame_content_height * priv->width ?

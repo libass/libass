@@ -326,6 +326,7 @@ struct ass_renderer {
     int width, height;          // screen dimensions (the whole frame from ass_set_frame_size)
     int frame_content_height;   // content frame height ( = screen height - API margins )
     int frame_content_width;    // content frame width ( = screen width - API margins )
+    unsigned position_precision_reduction; // 0: eighth, 1: quarter pixel
     double fit_height;          // content frame height without zoom & pan (fit to screen & letterboxed)
     double fit_width;           // content frame width without zoom & pan (fit to screen & letterboxed)
     ASS_Track *track;
