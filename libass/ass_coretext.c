@@ -153,10 +153,42 @@ static bool get_font_info_ct(CTFontDescriptorRef fontd,
     return true;
 }
 
-static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
+static void update_best_matching_font(ASS_FontProvider *provider, ASS_FontProviderMetaData *meta,
+                                      const char *path, int index, void *font_priv,
+                                      ASS_FontProviderMetaData requested_font,
+                                      ASS_FontInfo **best_font_info, unsigned *best_font_score,
+                                      bool match_extended_family, unsigned bold, unsigned italic,
+                                      uint32_t code)
+{
+    ASS_FontInfo* info = ass_font_provider_get_font_info(provider, meta, path, index, font_priv);
+    if (!info)
+        return;
+
+    bool name_match = false;
+    if (ass_update_best_matching_font(info, requested_font, match_extended_family, bold, italic, code, &name_match, best_font_score)) {
+        if (*best_font_info) {
+            ass_font_provider_free_fontinfo(*best_font_info);
+            ass_font_provider_destroy_private_fontinfo((*best_font_info));
+            free(*best_font_info);
+        }
+        *best_font_info = info;
+    } else {
+        ass_font_provider_free_fontinfo(info);
+        ass_font_provider_destroy_private_fontinfo(info);
+        free(info);
+    }
+}
+
+static ASS_FontInfo *process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd,
+                                         ASS_FontProviderMetaData requested_font,
+                                         bool match_extended_family, unsigned bold,
+                                         unsigned italic, uint32_t code)
 {
     if (!fontsd)
-        return;
+        return NULL;
+
+    ASS_FontInfo *best_font_info = NULL;
+    unsigned best_font_score = UINT_MAX;
 
     for (int i = 0; i < CFArrayGetCount(fontsd); i++) {
         ASS_FontProviderMetaData meta = {0};
@@ -167,7 +199,9 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
         if (get_font_info_ct(fontd, &path, &meta)) {
             CFCharacterSetRef set =
                 CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
-            ass_font_provider_add_font(provider, &meta, path, index, (void*)set);
+            update_best_matching_font(provider, &meta, path, index, (void*)set, requested_font,
+                                      &best_font_info, &best_font_score,
+                                      match_extended_family, bold, italic, code);
         }
 
         free(meta.postscript_name);
@@ -175,15 +209,25 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
 
         free(path);
     }
+
+    return best_font_info;
 }
 
-static void match_fonts(void *priv, ASS_Library *lib, ASS_FontProvider *provider,
-                        char *name)
+static ASS_FontInfo* match_fonts(void *priv, ASS_Library *lib,
+                                 ASS_FontProvider *provider, char *name,
+                                 bool match_extended_family,
+                                 unsigned bold, unsigned italic,
+                                 uint32_t code)
 {
+    ASS_FontProviderMetaData requested_font = {
+        .n_fullname = 1,
+        .fullnames  = (char **)&name,
+    };
+
     CFStringRef cfname =
         CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8);
     if (!cfname)
-        return;
+        return NULL;
 
     enum { attributes_n = 3 };
     CTFontDescriptorRef ctdescrs[attributes_n] = {0};
@@ -238,7 +282,8 @@ static void match_fonts(void *priv, ASS_Library *lib, ASS_FontProvider *provider
     if (!fontsd)
         goto cleanup;
 
-    process_descriptors(provider, fontsd);
+    return process_descriptors(provider, fontsd, requested_font,
+                               match_extended_family, bold, italic, code);
 
 cleanup:
     SAFE_CFRelease(fontsd);
@@ -249,6 +294,8 @@ cleanup:
 
     SAFE_CFRelease(descriptors);
     CFRelease(cfname);
+
+    return NULL;
 }
 
 static char *get_fallback(void *priv, ASS_Library *lib,
