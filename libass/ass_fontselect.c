@@ -390,10 +390,10 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     ASS_FontProviderMetaData implicit_meta = {0};
 
     if (!meta->n_family) {
-        FT_Face face;
+        FT_Face face = NULL;
         if (provider->funcs.get_font_index)
             index = provider->funcs.get_font_index(data);
-        if (!path) {
+        if (provider->funcs.get_data) {
             ASS_FontStream stream = {
                 .func = provider->funcs.get_data,
                 .priv = data,
@@ -405,7 +405,7 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
                 meta->postscript_name : meta->extended_family;
             face = ass_face_stream(selector->library, selector->ftlibrary,
                                    name, &stream, index);
-        } else {
+        } else if (path) {
             face = ass_face_open(selector->library, selector->ftlibrary,
                                  path, meta->postscript_name, index);
         }
