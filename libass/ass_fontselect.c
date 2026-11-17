@@ -376,7 +376,8 @@ static void free_font_info(ASS_FontProviderMetaData *meta)
  * \param meta basic metadata of the font
  * \param path path to the font file, or NULL
  * \param index face index inside the file (-1 to look up by PostScript name)
- * \param data private data for the font
+ * \param data private data for the font; ownership is taken regardless
+ *             of the result (released via destroy_font on failure)
  * \return success
  */
 bool
