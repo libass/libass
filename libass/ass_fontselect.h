@@ -276,7 +276,10 @@ ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
  * \param path absolute path to font, or NULL for memory-based fonts
  * \param index index inside a font collection file
  *              (-1 to look up by PostScript name)
- * \param data private data for font callbacks
+ * \param data private data for font callbacks. Ownership is taken
+ *             unconditionally: on failure, data is released through the
+ *             provider's destroy_font callback, so the caller must not
+ *             free it.
  * \return success
  *
  */
