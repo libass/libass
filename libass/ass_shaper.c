@@ -964,6 +964,26 @@ void ass_shaper_set_whole_text_layout(ASS_Shaper *shaper, bool enable)
 }
 
 /**
+ * \brief Whether bidi is resolved over whole paragraphs while each
+ * run is still shaped on its own: Encoding -2 without whole text
+ * layout. Runs may then be reordered and split.
+ */
+bool ass_shaper_rtl_runs(ASS_Shaper *shaper)
+{
+    return !shaper->whole_text_layout &&
+        shaper->base_direction == FRIBIDI_PAR_RTL;
+}
+
+/**
+ * \brief Whether bidi is resolved over whole paragraphs, not run by run.
+ */
+static bool whole_text_bidi(ASS_Shaper *shaper)
+{
+    return shaper->whole_text_layout ||
+        shaper->base_direction == FRIBIDI_PAR_RTL;
+}
+
+/**
  * \brief Shape an event's text. Calculates directional runs and shapes them.
  * \param text_info event's text
  * \return success, when 0
@@ -1006,7 +1026,7 @@ bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info)
         // Embedding levels must be calculated one bidi "paragraph" at a time
         if (i == text_info->length - 1 ||
                 shaper->ctypes[i] == FRIBIDI_TYPE_BS ||
-                (!shaper->whole_text_layout &&
+                (!whole_text_bidi(shaper) &&
                     (glyphs[i + 1].starts_new_run || glyphs[i].hspacing))) {
             dir = shaper->base_direction;
 #ifdef USE_FRIBIDI_EX_API
@@ -1127,7 +1147,7 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
         // or U+000D, U+0085, U+2029 only without it
         if (i == text_info->length - 1 || glyphs[i + 1].linebreak ||
                 shaper->ctypes[i] == FRIBIDI_TYPE_BS ||
-                (!shaper->whole_text_layout &&
+                (!whole_text_bidi(shaper) &&
                     (glyphs[i + 1].starts_new_run || glyphs[i].hspacing))) {
             ret = fribidi_reorder_line(0,
                     shaper->ctypes, i - last_break + 1, last_break, *pdir,

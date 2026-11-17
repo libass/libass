@@ -260,6 +260,11 @@ typedef enum {
      * Algorithm and shaping the text within each run separately.
      * The individual runs are then laid out left-to-right,
      * even if they contain right-to-left text.
+     * The libass extension Encoding -2 instead runs the Unicode
+     * Bidirectional Algorithm on the whole text with a right-to-left
+     * base direction and lays out the runs accordingly, as if this
+     * feature were enabled, but still shapes each run separately
+     * and restarts \fay shear at each run.
      *
      * When this feature is enabled, each event's text is processed as a whole
      * (as far as possible). In particular, the Unicode Bidirectional

@@ -2277,10 +2277,27 @@ static void apply_baseline_shear(RenderContext *state)
     bool whole_text_layout =
         render_priv->track->parser_priv->feature_flags &
         FEATURE_MASK(ASS_FEATURE_WHOLE_TEXT_LAYOUT);
+    // Encoding -2 reorders runs and may split them,
+    // so track the run of each glyph in visual order
+    bool rtl_runs = ass_shaper_rtl_runs(state->shaper);
+    int run_start = 0, run_end = 0;
     for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + cmap[i];
-        if (text_info->glyphs[i].linebreak ||
-            (!whole_text_layout && text_info->glyphs[i].starts_new_run))
+        if (text_info->glyphs[i].linebreak)
+            shear = 0;
+        if (rtl_runs) {
+            if (cmap[i] < run_start || cmap[i] >= run_end) {
+                shear = 0;
+                run_start = cmap[i];
+                while (run_start > 0 &&
+                       !text_info->glyphs[run_start].starts_new_run)
+                    run_start--;
+                run_end = cmap[i] + 1;
+                while (run_end < text_info->length &&
+                       !text_info->glyphs[run_end].starts_new_run)
+                    run_end++;
+            }
+        } else if (!whole_text_layout && text_info->glyphs[i].starts_new_run)
             shear = 0;
         if (!info->scale_x || !info->scale_y)
             info->skip = true;
