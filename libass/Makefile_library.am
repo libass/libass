@@ -27,6 +27,7 @@ libass_libass_internal_la_SOURCES = \
     libass/ass_arabic_charmap.h libass/ass_arabic_charmap.c \
     libass/c/rasterizer_template.h libass/c/c_rasterizer.c \
     libass/c/c_blend_bitmaps.c \
+    libass/c/c_shift.c \
     libass/c/c_be_blur.c \
     libass/c/blur_template.h libass/c/c_blur.c \
     libass/wyhash.h
@@ -36,6 +37,7 @@ if X86
 libass_libass_internal_la_SOURCES += \
     libass/x86/rasterizer.asm \
     libass/x86/blend_bitmaps.asm \
+    libass/x86/shift.asm \
     libass/x86/be_blur.asm \
     libass/x86/blur.asm \
     libass/x86/cpuid.h libass/x86/cpuid.asm
@@ -44,6 +46,7 @@ if AARCH64
 libass_libass_internal_la_SOURCES += \
     libass/aarch64/rasterizer.S \
     libass/aarch64/blend_bitmaps.S \
+    libass/aarch64/shift.S \
     libass/aarch64/be_blur.S \
     libass/aarch64/blur.S \
     libass/aarch64/asm.S
