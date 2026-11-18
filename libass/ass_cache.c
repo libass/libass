@@ -336,7 +336,6 @@ typedef struct cache_item {
 } CacheItem;
 
 struct cache {
-    unsigned buckets;
     CacheItem **map;
     CacheItem *queue_first, **queue_last;
 
@@ -345,6 +344,7 @@ struct cache {
     size_t cache_size;
 };
 
+#define CACHE_BUCKETS 0x10000
 #define CACHE_ALIGN 8
 #define CACHE_ITEM_SIZE ((sizeof(CacheItem) + (CACHE_ALIGN - 1)) & ~(CACHE_ALIGN - 1))
 
@@ -365,10 +365,9 @@ Cache *ass_cache_create(const CacheDesc *desc)
     Cache *cache = calloc(1, sizeof(*cache));
     if (!cache)
         return NULL;
-    cache->buckets = 0xFFFF;
     cache->queue_last = &cache->queue_first;
     cache->desc = desc;
-    cache->map = calloc(cache->buckets, sizeof(CacheItem *));
+    cache->map = calloc(CACHE_BUCKETS, sizeof(CacheItem *));
     if (!cache->map) {
         free(cache);
         return NULL;
@@ -385,7 +384,7 @@ void *ass_cache_get(Cache *cache, void *key, void *priv)
 {
     const CacheDesc *desc = cache->desc;
     size_t key_offs = CACHE_ITEM_SIZE + align_cache(desc->value_size);
-    unsigned bucket = desc->hash_func(key, ASS_HASH_INIT) % cache->buckets;
+    unsigned bucket = desc->hash_func(key, ASS_HASH_INIT) % CACHE_BUCKETS;
     CacheItem *item = cache->map[bucket];
     while (item) {
         if (desc->compare_func(key, (char *) item + key_offs)) {
@@ -516,7 +515,7 @@ void ass_cache_cut(Cache *cache, size_t max_size)
 
 void ass_cache_empty(Cache *cache)
 {
-    for (int i = 0; i < cache->buckets; i++) {
+    for (int i = 0; i < CACHE_BUCKETS; i++) {
         CacheItem *item = cache->map[i];
         while (item) {
             assert(item->size);
