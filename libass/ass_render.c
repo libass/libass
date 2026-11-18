@@ -2017,7 +2017,7 @@ static void split_style_runs(RenderContext *state)
             info->drawing_text.str ||
             last->drawing_text.str ||
             !ass_string_equal(last->font->desc.family, info->font->desc.family) ||
-            last->font->desc.vertical != info->font->desc.vertical ||
+            last->vertical != info->vertical ||
             last->font_size != info->font_size ||
             last->c[0] != info->c[0] ||
             last->c[1] != info->c[1] ||
@@ -2119,6 +2119,7 @@ static bool parse_events(RenderContext *state, ASS_Event *event)
         // Fill glyph information
         info->symbol = code;
         info->font = state->font;
+        info->vertical = state->vertical;
         for (int i = 0; i < 4; i++)
             info->c[i] = state->c[i];
 
@@ -2142,7 +2143,7 @@ static bool parse_events(RenderContext *state, ASS_Event *event)
         info->bold = state->bold;
         info->italic = state->italic;
         info->flags = state->flags;
-        if (info->font->desc.vertical && code >= VERTICAL_LOWER_BOUND)
+        if (info->vertical && code >= VERTICAL_LOWER_BOUND)
             info->flags |= DECO_ROTATE;
         info->frx = state->frx;
         info->fry = state->fry;

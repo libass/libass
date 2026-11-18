@@ -574,7 +574,6 @@ size_t ass_font_construct(void *key, void *value, void *priv)
     font->desc.family = desc->family;
     font->desc.bold = desc->bold;
     font->desc.italic = desc->italic;
-    font->desc.vertical = desc->vertical;
 
     int error = add_face(render_priv->fontselect, font, 0);
     if (error == -1)

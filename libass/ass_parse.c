@@ -89,11 +89,11 @@ void ass_update_font(RenderContext *state)
     if (!desc.family.str)
         return;
     if (desc.family.len && desc.family.str[0] == '@') {
-        desc.vertical = 1;
+        state->vertical = true;
         desc.family.str++;
         desc.family.len--;
     } else {
-        desc.vertical = 0;
+        state->vertical = false;
     }
 
     val = state->bold;
