@@ -17,6 +17,16 @@ Test program command line:
   - 2: `BAD` level or less required, default mode;
   - 3: `FAIL` level or less required, i. e. any difference accepted, error checking mode.
 
+Set `ASS_TEST_FEATURES` to a whitespace- or comma-separated list of `ASS_Feature`
+enum names without the `ASS_FEATURE_` prefix to enable with `ass_track_set_feature()`
+on every loaded track. Unset or empty leaves all features disabled. Unknown names
+and features unsupported by the build fail the comparison rather than silently
+using different settings. For example:
+
+```sh
+ASS_TEST_FEATURES='WHOLE_TEXT_LAYOUT,WRAP_UNICODE' compare test/
+```
+
 An input directory consists of font files (`*.ttf`, `*.otf` and `*.pfb`), subtitle files (`*.ass`), and image files (`*.png`).
 All the fonts required for rendering should be present in the input directories as
 libass is configured to not use anything external outside of it (`ASS_FONTPROVIDER_NONE`).
