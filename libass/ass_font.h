@@ -50,7 +50,8 @@ struct ass_font {
 };
 
 void ass_charmap_magic(ASS_Library *library, FT_Face face);
-ASS_Font *ass_font_new(ASS_Renderer *render_priv, ASS_FontDesc *desc);
+ASS_Font *ass_get_font(ASS_Renderer *render_priv, ASS_StringView family,
+                        unsigned bold, unsigned italic);
 void ass_face_set_size(FT_Face face, double size);
 int ass_face_get_weight(FT_Face face);
 FT_Long ass_face_get_style_flags(FT_Face face);

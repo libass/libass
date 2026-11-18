@@ -249,6 +249,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    ass_prewarm_caches(ass_renderer, track, 0);
+
     ASS_Image *img =
         ass_render_frame(ass_renderer, track, (int) (tm * 1000), NULL);
     image_t *frame = gen_image(frame_w, frame_h);
