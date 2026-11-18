@@ -277,6 +277,8 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
             char buf[1024];
             ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
                                 name.string_len);
+            if (!buf[0])
+                continue;
 
             if (name.name_id == TT_NAME_ID_FULL_NAME && num_fullname < MAX_FULLNAME) {
                 fullnames[num_fullname] = strdup(buf);
@@ -297,16 +299,17 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
 
     // check if we got a valid family - if not, use
     // whatever the font provider or FreeType gives us
-    if (num_family == 0 && (fallback_family_name || face->family_name)) {
-        families[0] =
-            strdup(fallback_family_name ? fallback_family_name : face->family_name);
+    if (!fallback_family_name || !*fallback_family_name)
+        fallback_family_name = face->family_name;
+    if (num_family == 0 && fallback_family_name && *fallback_family_name) {
+        families[0] = strdup(fallback_family_name);
         if (families[0] == NULL)
             goto error;
         num_family++;
     }
 
     // we absolutely need a name
-    if (num_family == 0)
+    if (num_family == 0 && num_fullname == 0)
         goto error;
 
     // calculate sensible weight
@@ -389,7 +392,7 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     ASS_FontInfo *info = NULL;
     ASS_FontProviderMetaData implicit_meta = {0};
 
-    if (!meta->n_family) {
+    if (!meta->n_family && !meta->n_fullname) {
         FT_Face face;
         if (provider->funcs.get_font_index)
             index = provider->funcs.get_font_index(data);
@@ -466,9 +469,11 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     info->n_family      = meta->n_family;
     info->is_postscript = meta->is_postscript;
 
-    info->families = calloc(meta->n_family, sizeof(char *));
-    if (info->families == NULL)
-        goto error;
+    if (meta->n_family) {
+        info->families = calloc(meta->n_family, sizeof(char *));
+        if (info->families == NULL)
+            goto error;
+    }
 
     if (meta->n_fullname) {
         info->fullnames = calloc(meta->n_fullname, sizeof(char *));
@@ -799,8 +804,10 @@ find_font(ASS_FontSelector *priv,
             // though.
             if (selected->postscript_name)
                 result = selected->postscript_name;
-            else
+            else if (selected->n_family)
                 result = selected->families[0];
+            else
+                result = selected->fullnames[0];
         } else
             result = selected->path;
 
