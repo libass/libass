@@ -41,6 +41,8 @@ AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
 AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
     [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
+AC_ARG_ENABLE([trim-asm], AS_HELP_STRING([--enable-trim-asm],
+    [eliminate redundant asm functions where possible @<:@default=disabled@:>@]))
 
 AC_ARG_VAR([ART_SAMPLES],
     [Path to the root of libass' regression testing sample repository. If set, it is used in make check.])
@@ -332,6 +334,9 @@ AS_IF([test "x$enable_asm" != xno], [
                     ASFLAGS="$ASFLAGS -DFORCE_VEX_ENCODING=1"
                 ])
 
+                AS_IF([test "x$enable_trim_asm" = xyes], [
+                    ASFLAGS="$ASFLAGS -DFUNCTION_SECTIONS=1"
+                ])
                 AC_MSG_CHECKING([if $AS supports vpmovzxwd])
                 echo "vpmovzxwd ymm0, xmm0" > conftest.asm
                 AS_IF([$AS conftest.asm $ASFLAGS -o conftest.o >conftest.log 2>&1], [
@@ -384,6 +389,7 @@ AS_IF([test "x$enable_shared" != xno], [
 
 ## Setup conditionals for use in Makefiles
 AM_CONDITIONAL([ASM], [test "x$can_asm" = xtrue])
+AM_CONDITIONAL([TRIM_ASM], [test "x$enable_trim_asm" = xyes])
 AM_CONDITIONAL([X86], [test "x$cpu_family" = xx86])
 AM_CONDITIONAL([X86_64], [test "x$cpu_family" = xx86 && test "x$BITS" = x64])
 AM_CONDITIONAL([AARCH64], [test "x$cpu_family" = xaarch64])
@@ -404,6 +410,9 @@ AM_CONDITIONAL([DIRECTWRITE], [test "x$directwrite" = xtrue])
 ## Define C Macros not relating to libraries
 AM_COND_IF([ASM], [
     AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])
+    AM_COND_IF([TRIM_ASM], [
+        AC_DEFINE(CONFIG_ASM_DCE, 1, [TRIM ASM enabled])
+    ])
     AM_COND_IF([X86], [
         AC_DEFINE(ARCH_X86, 1, [targeting a 32- or 64-bit x86 host architecture])
     ])
