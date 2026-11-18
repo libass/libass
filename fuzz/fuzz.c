@@ -159,11 +159,13 @@ static void consume_track(ASS_Renderer *renderer, ASS_Track *track)
 {
     for (int n = 0; n < track->n_events; ++n) {
         int change;
-        ASS_Event event = track->events[n];
-        process_image(ass_render_frame(ass_renderer, track, event.Start, &change));
-        if (event.Duration > 1) {
-            process_image(ass_render_frame(ass_renderer, track, event.Start + event.Duration/2, &change));
-            process_image(ass_render_frame(ass_renderer, track, event.Start + event.Duration-1, &change));
+        ASS_Event *event = ass_get_event(track, n);
+        long long start = event->Start;
+        long long duration = event->Duration;
+        process_image(ass_render_frame(ass_renderer, track, start, &change));
+        if (duration > 1) {
+            process_image(ass_render_frame(ass_renderer, track, start + duration/2, &change));
+            process_image(ass_render_frame(ass_renderer, track, start + duration-1, &change));
         }
     }
 }
