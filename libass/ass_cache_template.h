@@ -83,6 +83,17 @@ START(glyph_metrics, glyph_metrics_hash_key)
     GENERIC(int, glyph_index)
 END(GlyphMetricsHashKey)
 
+START(shaping_parameters, shaping_parameters)
+    GENERIC(ASS_Font *, font)
+    GENERIC(double, size)
+    GENERIC(int, face_index)
+    GENERIC(hb_language_t, language)
+    GENERIC(hb_script_t, script)
+    GENERIC(hb_direction_t, direction)
+    GENERIC(bool, kerning)
+    GENERIC(bool, spacing)
+END(ShapingParameters)
+
 // describes an outline glyph
 // font is refed when inserted and unrefed when dropped
 START(glyph, glyph_hash_key)
