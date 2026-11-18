@@ -58,6 +58,12 @@
     GENERIC_FUNCTION(mul_bitmaps,  suffix) \
     GENERIC_FUNCTION(be_blur,      suffix)
 
+#define SHIFT_PROTOYPES(suffix) \
+    BitmapShiftFunc ass_shift_bitmap_ ## suffix;
+
+#define SHIFT_FUNCTIONS(suffix) \
+    GENERIC_FUNCTION(shift_bitmap, suffix)
+
 
 #define PARAM_BLUR_SET(suffix) \
     ass_blur4_ ## suffix, \
@@ -102,12 +108,17 @@
     RASTERIZER_PROTOTYPES(16, suffix) \
     RASTERIZER_PROTOTYPES(32, suffix) \
     GENERIC_PROTOTYPES(suffix) \
+    SHIFT_PROTOYPES(suffix) \
     BLUR_PROTOTYPES(alignment, suffix)
 
-#define ALL_FUNCTIONS(align_order_, alignment, suffix) \
+#define BASE_FUNCTIONS(align_order_, alignment, suffix) \
     RASTERIZER_FUNCTIONS(suffix) \
     GENERIC_FUNCTIONS(suffix) \
     BLUR_FUNCTIONS(align_order_, alignment, suffix)
+
+#define ALL_FUNCTIONS(align_order_, alignment, suffix) \
+    BASE_FUNCTIONS(align_order_, alignment, suffix) \
+    SHIFT_FUNCTIONS(suffix)
 
 
 unsigned ass_get_cpu_flags(unsigned mask)
@@ -167,16 +178,20 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
     BitmapEngine engine = {0};
     engine.tile_order = mask & ASS_FLAG_LARGE_TILES ? 5 : 4;
 
+    ALL_FUNCTIONS(4, 16, c)
+    if (mask & ASS_FLAG_WIDE_STRIPE) {
+        BLUR_FUNCTIONS(5, 32, c)
+    }
+
 #if CONFIG_ASM
     unsigned flags = ass_get_cpu_flags(mask);
 #if ARCH_X86
     if (flags & ASS_CPU_FLAG_X86_AVX2) {
         ALL_PROTOTYPES(32, avx2)
-        ALL_FUNCTIONS(5, 32, avx2)
-        return engine;
+        BASE_FUNCTIONS(5, 32, avx2)
     } else if (flags & ASS_CPU_FLAG_X86_SSE2) {
         ALL_PROTOTYPES(16, sse2)
-        ALL_FUNCTIONS(4, 16, sse2)
+        BASE_FUNCTIONS(4, 16, sse2)
         if (flags & ASS_CPU_FLAG_X86_SSSE3) {
             ALL_PROTOTYPES(16, ssse3)
             RASTERIZER_FUNCTION(fill_generic, ssse3)
@@ -185,20 +200,15 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
             BLUR_FUNCTION(expand_horz, 16, ssse3)
             PARAM_BLUR_FUNCTION(horz, 16, ssse3)
         }
-        return engine;
     }
 #elif ARCH_AARCH64
     if (flags & ASS_CPU_FLAG_ARM_NEON) {
         ALL_PROTOTYPES(16, neon)
-        ALL_FUNCTIONS(4, 16, neon)
-        return engine;
+        BASE_FUNCTIONS(4, 16, neon)
+        SHIFT_FUNCTIONS(neon)
     }
 #endif
 #endif
 
-    ALL_FUNCTIONS(4, 16, c)
-    if (mask & ASS_FLAG_WIDE_STRIPE) {
-        BLUR_FUNCTIONS(5, 32, c)
-    }
     return engine;
 }
