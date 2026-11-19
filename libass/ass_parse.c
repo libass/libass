@@ -102,7 +102,8 @@ void ass_update_font(RenderContext *state)
         val = 700;               // bold
     else if (val <= 0)
         val = 400;               // normal
-    desc.bold = val;
+    // Allow weights beyond the 16-bit OS/2 range for faux bold, but avoid overflow.
+    desc.bold = FFMIN(val, 100000);
 
     val = state->italic;
     if (val == 1)
