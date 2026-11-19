@@ -95,6 +95,15 @@ void msg_callback(int level, const char *fmt, va_list va, void *data)
 static const int RWIDTH  = 854;
 static const int RHEIGHT = 480;
 
+// libass scales the script coordinate system (PlayRes) up to the storage
+// size, so a hostile tiny PlayRes would blow up glyph outlines and
+// rasterizer scratch buffers (and thus transient allocations) accordingly;
+// clamp it to keep the maximum upscale factor bounded.
+static const int MIN_PLAYRES = 100;
+
+// Cap the amount of render work done per input
+static const int MAX_RENDERED_EVENTS = 30;
+
 static bool init_renderer(void)
 {
     if (ass_renderer)
@@ -108,6 +117,7 @@ static bool init_renderer(void)
                   ASS_FONTPROVIDER_AUTODETECT, NULL, 1);
     ass_set_frame_size(ass_renderer, RWIDTH, RHEIGHT);
     ass_set_storage_size(ass_renderer, RWIDTH, RHEIGHT);
+    ass_set_cache_limits(ass_renderer, 1000, 32);
 
     return true;
 }
@@ -121,6 +131,7 @@ static bool init(void)
     }
 
     ass_set_message_cb(ass_library, msg_callback, NULL);
+    ass_set_extract_fonts(ass_library, 1);
 
     if (!init_renderer()) {
         ass_library_done(ass_library);
@@ -157,7 +168,16 @@ static inline void process_image(ASS_Image *imgs)
 
 static void consume_track(ASS_Renderer *renderer, ASS_Track *track)
 {
-    for (int n = 0; n < track->n_events; ++n) {
+    // See MIN_PLAYRES above
+    if (track->PlayResY < MIN_PLAYRES)
+        track->PlayResY = MIN_PLAYRES;
+    if (track->PlayResX < MIN_PLAYRES)
+        track->PlayResX = MIN_PLAYRES;
+
+    int max_events = track->n_events > MAX_RENDERED_EVENTS
+                         ? MAX_RENDERED_EVENTS
+                         : track->n_events;
+    for (int n = 0; n < max_events; ++n) {
         int change;
         ASS_Event event = track->events[n];
         process_image(ass_render_frame(ass_renderer, track, event.Start, &change));
@@ -166,6 +186,57 @@ static void consume_track(ASS_Renderer *renderer, ASS_Track *track)
             process_image(ass_render_frame(ass_renderer, track, event.Start + event.Duration-1, &change));
         }
     }
+}
+
+/*
+ * Extra configuration exercised with each input, selected by the final byte
+ * of the input. It is stripped off before the remaining bytes are handed to
+ * the parser (see consume_input()), so the input itself stays an ordinary
+ * subtitle file (in particular, byte 0 remains the file's actual first byte).
+ */
+#define FUZZCFG_SHAPER_SIMPLE   (1 << 0)
+#define FUZZCFG_STYLE_OVERRIDES (1 << 1)
+#define FUZZCFG_MARGINS         (1 << 2)
+
+/*
+ * \brief Parse (all but the final byte of) an input and render the result.
+ *
+ * The final input byte selects FUZZCFG_* configuration; everything before it
+ * is parsed as an ordinary subtitle file. The -o writeout mode does not use
+ * this convention and always parses its input as-is.
+ */
+static void consume_input(const uint8_t *data, size_t size)
+{
+    uint8_t flags = size > 0 ? data[size - 1] : 0;
+    if (size > 0)
+        --size;
+
+    ass_set_shaper(ass_renderer, (flags & FUZZCFG_SHAPER_SIMPLE) ?
+                                       ASS_SHAPING_SIMPLE : ASS_SHAPING_COMPLEX);
+
+    // Style overrides are sticky on the library, so explicitly clear them
+    // when unset (relevant for the persistent-library fuzzing modes)
+    static char *overrides[] = {
+        "FontSize=24", "ScaledBorderAndShadow=yes", NULL
+    };
+    ass_set_style_overrides(ass_library,
+                            (flags & FUZZCFG_STYLE_OVERRIDES) ? overrides : NULL);
+
+    if (flags & FUZZCFG_MARGINS) {
+        ass_set_line_spacing(ass_renderer, 4.0);
+        ass_set_line_position(ass_renderer, 50.0);
+        ass_set_margins(ass_renderer, 10, 10, 10, 10);
+    }
+
+    ASS_Track *track = ass_read_memory(ass_library, (char *)data, size, NULL);
+    if (!track)
+        return;
+
+    if (flags & FUZZCFG_STYLE_OVERRIDES)
+        ass_process_force_style(track);
+
+    consume_track(ass_renderer, track);
+    ass_free_track(track);
 }
 
 #if ASS_FUZZMODE == FUZZMODE_STANDALONE
@@ -186,10 +257,15 @@ struct settings {
 #define READ_RET ssize_t
 #endif
 
-static ASS_Track *read_track_from_stdin(void)
+/**
+ * \brief Read raw bytes from stdin until EOF
+ * \param out_len will be set to the number of bytes read
+ * \return NUL-terminated buffer to be free()d by the caller, or NULL on error
+ */
+static uint8_t *read_stdin_bytes(size_t *out_len)
 {
     size_t smax = 4096;
-    char *buf = malloc(smax);
+    uint8_t *buf = malloc(smax);
     if (!buf)
         goto error;
     size_t s = 0;
@@ -201,7 +277,7 @@ static ASS_Track *read_track_from_stdin(void)
         s += read_b > 0 ? read_b : 0;
         if (s == smax) {
             size_t new_smax = smax > SIZE_MAX / 2 ? SIZE_MAX : smax * 2;
-            char *new_buf = realloc(buf, new_smax);
+            uint8_t *new_buf = realloc(buf, new_smax);
             if (!new_buf || new_smax <= smax) {
                 free(new_buf ? new_buf : buf);
                 goto error;
@@ -211,12 +287,55 @@ static ASS_Track *read_track_from_stdin(void)
         }
     } while (read_b > 0);
     buf[s] = '\0';
-    ASS_Track *track = ass_read_memory(ass_library, buf, s, NULL);
+    *out_len = s;
+    return buf;
+error:
+    return NULL;
+}
+
+static ASS_Track *read_track_from_stdin(void)
+{
+    size_t s;
+    uint8_t *buf = read_stdin_bytes(&s);
+    if (!buf) {
+        printf("Input too large!\n");
+        return NULL;
+    }
+
+    ASS_Track *track = ass_read_memory(ass_library, (char *)buf, s, NULL);
     free(buf);
     return track;
-error:
-    printf("Input too large!\n");
-    return NULL;
+}
+
+/**
+ * \brief Read a whole file into memory
+ * \param out_len will be set to the file size in bytes
+ * \return buffer to be free()d by the caller, or NULL on error
+ */
+static uint8_t *read_file_bytes(const char *path, size_t *out_len)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return NULL;
+
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (sz < 0) {
+        fclose(f);
+        return NULL;
+    }
+
+    uint8_t *buf = malloc(sz);
+    if (!buf || (sz > 0 && fread(buf, 1, sz, f) != (size_t)sz)) {
+        free(buf);
+        fclose(f);
+        return NULL;
+    }
+    fclose(f);
+
+    *out_len = sz;
+    return buf;
 }
 
 /**
@@ -306,7 +425,11 @@ int main(int argc, char *argv[])
                "  -o [FILE]:\n"
                "    Write out parsed file content in a standardized form\n"
                "    into FILE or if omitted a generated temporary file.\n"
-               "    If used the input file will not be processed, only parsed.\n",
+               "    If used the input file will not be processed, only parsed.\n"
+               "\n"
+               "  Without -o the input is rendered; its final byte selects\n"
+               "    additional renderer configuration to exercise (this makes\n"
+               "    it usable as a drop-in reproducer for the fuzz targets).\n",
                argc ? argv[0] : "fuzz");
         return FUZZ_BAD_USAGE;
     }
@@ -317,25 +440,37 @@ int main(int argc, char *argv[])
         goto cleanup;
     }
 
-    if (strcmp(settings.input, "-"))
-        track = ass_read_file(ass_library, settings.input, NULL);
-    else
-        track = read_track_from_stdin();
+    if (settings.mode == WRITEOUT_TRACK) {
+        if (strcmp(settings.input, "-"))
+            track = ass_read_file(ass_library, settings.input, NULL);
+        else
+            track = read_track_from_stdin();
 
-    if (!track) {
-        printf("track init failed!\n");
-        retval = FUZZ_INIT_ERR;
-        goto cleanup;
-    }
+        if (!track) {
+            printf("track init failed!\n");
+            retval = FUZZ_INIT_ERR;
+            goto cleanup;
+        }
 
-    switch (settings.mode) {
-    case CONSUME_INPUT:
-        consume_track(ass_renderer, track);
-        break;
-
-    case WRITEOUT_TRACK:
         write_out_track(track, settings.output);
-        break;
+    } else {
+        // Rendering path: the final input byte selects the configuration to
+        // exercise, matching the behaviour of the libFuzzer/AFL++ targets
+        size_t in_len;
+        uint8_t *in_bytes;
+        if (strcmp(settings.input, "-"))
+            in_bytes = read_file_bytes(settings.input, &in_len);
+        else
+            in_bytes = read_stdin_bytes(&in_len);
+
+        if (!in_bytes) {
+            printf("could not read input!\n");
+            retval = FUZZ_INIT_ERR;
+            goto cleanup;
+        }
+
+        consume_input(in_bytes, in_len);
+        free(in_bytes);
     }
 
 cleanup:
@@ -380,12 +515,8 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        ASS_Track *track = ass_read_memory(ass_library, (char *)buf, len, NULL);
-        if (!track)
-            continue;
-        consume_track(ass_renderer, track);
+        consume_input(buf, len);
 
-        ass_free_track(track);
         ass_renderer_done(ass_renderer);
         ass_renderer = NULL;
         ass_clear_fonts(ass_library);
@@ -415,16 +546,10 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     if (!LEN_IN_RANGE(size))
         return 0;
 
-    ASS_Track *track = NULL;
-
     if (!init())
         exit(1);
 
-    track = ass_read_memory(ass_library, (char *)data, size, NULL);
-    if (track) {
-        consume_track(ass_renderer, track);
-        ass_free_track(track);
-    }
+    consume_input(data, size);
 
     ass_renderer_done(ass_renderer);
     ass_library_done(ass_library);
