@@ -16,6 +16,21 @@ libass_fuzz = executable(
     link_with: libass_for_tools,
 )
 
+# Second build of the same harness exercising the chunk-based
+# embedded subtitle API path instead of full file parsing
+libass_fuzz_chunk = executable(
+    'fuzz_chunk',
+    fuzz_src,
+    install: false,
+    include_directories: incs,
+    dependencies: deps,
+    c_args: ['-DASSFUZZ_CHUNK_INPUT=1'],
+    cpp_args: ['-DASSFUZZ_CHUNK_INPUT=1'],
+    link_args: get_option('fuzz-link-args'),
+    link_language: get_option('fuzz-link-language'),
+    link_with: libass_for_tools,
+)
+
 art_samples = get_option('art-samples')
 if art_samples != ''
     dir = join_paths(art_samples, 'crash')
