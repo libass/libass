@@ -1261,9 +1261,19 @@ size_t ass_outline_construct(void *key, void *value, void *priv)
             if (!ass_drawing_parse(&v->outline[0], &bbox, text, render_priv->library))
                 return 1;
 
-            v->advance = bbox.x_max - bbox.x_min;
-            v->asc = bbox.y_max - bbox.y_min;
-            v->desc = 0;
+            // A drawing with no tokens leaves the bounding box unset.
+            if (bbox.x_min > bbox.x_max || bbox.y_min > bbox.y_max)
+                break;
+
+            int64_t advance = (int64_t) bbox.x_max - bbox.x_min;
+            int64_t asc = (int64_t) bbox.y_max - bbox.y_min;
+            if (advance > INT_MAX || asc > INT_MAX) {
+                ass_outline_free(&v->outline[0]);
+                return 1;
+            }
+
+            v->advance = advance;
+            v->asc = asc;
             break;
         }
     case OUTLINE_BORDER:
