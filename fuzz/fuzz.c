@@ -47,6 +47,23 @@
     #define LEN_IN_RANGE(s) true
 #endif
 
+// Select the input each raw testcase represents:
+//   0 (default): plain subtitle file handed to ass_read_memory()
+//   1: raw ASS drawing text; run through the internal drawing parser
+//      (ass_drawing_parse()) and, if the result is reasonably sized,
+//      rendered via a synthetic dialogue, see track_from_drawing_input()
+//      below
+// The two input formats are incompatible, so a build exercises exactly one
+// of them (OSS-Fuzz builds one binary per format to keep corpora separate).
+#ifndef ASSFUZZ_DRAWING_INPUT
+    #define ASSFUZZ_DRAWING_INPUT 0
+#endif
+
+#if ASSFUZZ_DRAWING_INPUT
+#include "ass_drawing.h"
+#include "ass_outline.h"
+#endif
+
 #define STR_(x) #x
 #define STR(x) STR_(x)
 
@@ -168,6 +185,86 @@ static void consume_track(ASS_Renderer *renderer, ASS_Track *track)
     }
 }
 
+#if ASSFUZZ_DRAWING_INPUT
+/*
+ * \brief Build a track from raw ASS drawing text.
+ *
+ * The text is first handed to the internal drawing parser directly
+ * (ass_drawing_parse()) to exercise it on its own. If the drawing is valid
+ * and its bounding box is small enough, the text is additionally wrapped in
+ * a minimal synthetic dialogue ({\p1}...{\p0}) and parsed through the normal
+ * pipeline. The bounding box check keeps pathologically large drawings from
+ * causing huge allocations during rendering.
+ */
+static ASS_Track *track_from_drawing_input(const uint8_t *data, size_t size)
+{
+    char *draw_str = malloc(size + 1);
+    if (!draw_str)
+        return NULL;
+    memcpy(draw_str, data, size);
+    draw_str[size] = '\0';
+
+    // 1. Direct outline parser execution (fuzzes all drawing commands,
+    //    beziers, and splines)
+    ASS_Outline outline = {0};
+    ASS_Rect cbox = {0};
+    bool valid = ass_drawing_parse(&outline, &cbox, draw_str, ass_library);
+    if (valid)
+        ass_outline_free(&outline);
+
+    // 2. Check bounding box before rendering to prevent pathological
+    //    multi-gigabyte allocations
+    int64_t w_d6 = (int64_t)cbox.x_max - cbox.x_min;
+    int64_t h_d6 = (int64_t)cbox.y_max - cbox.y_min;
+    bool bbox_safe = valid && w_d6 >= 0 && h_d6 >= 0 &&
+                     (w_d6 >> 6) <= 4096 && (h_d6 >> 6) <= 4096;
+
+    // 3. Full render pipeline via synthetic ASS dialogue (only for
+    //    reasonable bounding boxes)
+    ASS_Track *track = NULL;
+    if (bbox_safe) {
+        static const char header[] =
+            "[Script Info]\n"
+            "PlayResX: 640\n"
+            "PlayResY: 360\n"
+            "[V4+ Styles]\n"
+            "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+            "Style: Default,sans-serif,20,&H0000FFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,0,5,10,10,10,1\n"
+            "[Events]\n"
+            "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+            "Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\p1}";
+        static const char footer[] = "{\\p0}\n";
+
+        size_t script_len = sizeof(header) - 1 + size + sizeof(footer);
+        char *script = malloc(script_len);
+        if (script) {
+            memcpy(script, header, sizeof(header) - 1);
+            memcpy(script + sizeof(header) - 1, draw_str, size);
+            memcpy(script + sizeof(header) - 1 + size, footer, sizeof(footer));
+
+            track = ass_read_memory(ass_library, script, script_len - 1, NULL);
+            free(script);
+        }
+    }
+
+    free(draw_str);
+    return track;
+}
+#endif
+
+/*
+ * \brief Feed raw input bytes to the input format selected at compile time
+ *        (see the ASSFUZZ_DRAWING_INPUT option above)
+ */
+static ASS_Track *track_from_input(const uint8_t *data, size_t size)
+{
+#if ASSFUZZ_DRAWING_INPUT
+    return track_from_drawing_input(data, size);
+#else
+    return ass_read_memory(ass_library, (char *)data, size, NULL);
+#endif
+}
+
 #if ASS_FUZZMODE == FUZZMODE_STANDALONE
 #include "writeout.h"
 
@@ -186,10 +283,15 @@ struct settings {
 #define READ_RET ssize_t
 #endif
 
-static ASS_Track *read_track_from_stdin(void)
+/**
+ * \brief Read raw bytes from stdin until EOF
+ * \param out_len will be set to the number of bytes read
+ * \return NUL-terminated buffer to be free()d by the caller, or NULL on error
+ */
+static uint8_t *read_stdin_bytes(size_t *out_len)
 {
     size_t smax = 4096;
-    char *buf = malloc(smax);
+    uint8_t *buf = malloc(smax);
     if (!buf)
         goto error;
     size_t s = 0;
@@ -201,7 +303,7 @@ static ASS_Track *read_track_from_stdin(void)
         s += read_b > 0 ? read_b : 0;
         if (s == smax) {
             size_t new_smax = smax > SIZE_MAX / 2 ? SIZE_MAX : smax * 2;
-            char *new_buf = realloc(buf, new_smax);
+            uint8_t *new_buf = realloc(buf, new_smax);
             if (!new_buf || new_smax <= smax) {
                 free(new_buf ? new_buf : buf);
                 goto error;
@@ -211,12 +313,54 @@ static ASS_Track *read_track_from_stdin(void)
         }
     } while (read_b > 0);
     buf[s] = '\0';
-    ASS_Track *track = ass_read_memory(ass_library, buf, s, NULL);
+    *out_len = s;
+    return buf;
+error:
+    return NULL;
+}
+
+static ASS_Track *track_from_stdin(void)
+{
+    size_t s;
+    uint8_t *buf = read_stdin_bytes(&s);
+    if (!buf) {
+        printf("Input too large!\n");
+        return NULL;
+    }
+
+    ASS_Track *track = track_from_input(buf, s);
     free(buf);
     return track;
-error:
-    printf("Input too large!\n");
-    return NULL;
+}
+
+static ASS_Track *track_from_file(const char *path)
+{
+#if ASSFUZZ_DRAWING_INPUT
+    // The raw bytes are needed for the direct drawing-parser pass
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return NULL;
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (sz < 0) {
+        fclose(f);
+        return NULL;
+    }
+    uint8_t *buf = malloc(sz);
+    if (!buf || (sz > 0 && fread(buf, 1, sz, f) != (size_t)sz)) {
+        free(buf);
+        fclose(f);
+        return NULL;
+    }
+    fclose(f);
+
+    ASS_Track *track = track_from_input(buf, sz);
+    free(buf);
+    return track;
+#else
+    return ass_read_file(ass_library, path, NULL);
+#endif
 }
 
 /**
@@ -318,9 +462,9 @@ int main(int argc, char *argv[])
     }
 
     if (strcmp(settings.input, "-"))
-        track = ass_read_file(ass_library, settings.input, NULL);
+        track = track_from_file(settings.input);
     else
-        track = read_track_from_stdin();
+        track = track_from_stdin();
 
     if (!track) {
         printf("track init failed!\n");
@@ -380,7 +524,7 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        ASS_Track *track = ass_read_memory(ass_library, (char *)buf, len, NULL);
+        ASS_Track *track = track_from_input(buf, len);
         if (!track)
             continue;
         consume_track(ass_renderer, track);
@@ -420,7 +564,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     if (!init())
         exit(1);
 
-    track = ass_read_memory(ass_library, (char *)data, size, NULL);
+    track = track_from_input(data, size);
     if (track) {
         consume_track(ass_renderer, track);
         ass_free_track(track);
