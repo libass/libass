@@ -1073,7 +1073,7 @@ void ass_process_karaoke_effects(RenderContext *state)
                 --last_visible;
 
             int x_start = first_visible->pos.x;
-            int x_end = last_visible->pos.x + last_visible->advance.x;
+            int x_end = last_visible->pos.x + (uint32_t) last_visible->advance.x;
             double dt = (double) (tm_current - tm_start) / (tm_end - tm_start);
             double frz = fmod(start->frz, 360);
             if (frz > 90 && frz < 270) {
@@ -1085,12 +1085,12 @@ void ass_process_karaoke_effects(RenderContext *state)
                     info->c[1] = tmp;
                 }
             }
-            x = x_start + ass_lrint((x_end - x_start) * dt);
+            x = x_start + (uint32_t) ass_lrint(((double) x_end - x_start) * dt);
         }
 
         for (GlyphInfo *info = start; info < end; info++) {
             info->effect_type = effect_type;
-            info->effect_timing = x - info->pos.x;
+            info->effect_timing = x - (uint32_t) info->pos.x;
         }
     }
 }
