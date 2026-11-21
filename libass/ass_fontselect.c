@@ -346,6 +346,7 @@ error:
 
     info->families = info->fullnames = NULL;
     info->n_family = info->n_fullname = 0;
+    info->postscript_name = NULL;
 
     return false;
 }
