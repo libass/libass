@@ -204,6 +204,17 @@ static inline long ass_lrint(double x)
     #define ass_isnan isnan
 #endif
 
+/**
+ * \brief Convert double to int32_t without UB
+ * on out-of-range values; match x86 behavior
+ */
+static inline int32_t dtoi32(double val)
+{
+    if (ass_isnan(val) || val <= INT32_MIN || val >= INT32_MAX + 1LL)
+        return INT32_MIN;
+    return val;
+}
+
 static inline int d6_to_int(int x)
 {
     return (x + 32) >> 6;
