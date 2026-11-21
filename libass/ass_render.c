@@ -497,8 +497,9 @@ render_glyph(RenderContext *state, Bitmap *bm, int dst_x, int dst_y,
 
 static bool quantize_transform(double m[3][3], ASS_Vector *pos,
                                ASS_DVector *offset, bool first,
-                               BitmapHashKey *key)
+                               unsigned precision_reduction, BitmapHashKey *key)
 {
+    ASSUME(precision_reduction <= 1);
     // Full transform:
     // x_out = (m_xx * x + m_xy * y + m_xz) / z,
     // y_out = (m_yx * x + m_yy * y + m_yz) / z,
@@ -536,13 +537,16 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
         delta[1] = offset->y;
     }
 
+    double pre_round_factor = precision_reduction ? 0.5 : 1.0;
     int32_t qr[2];  // quantized center position
     for (int i = 0; i < 2; i++) {
         center[i] /= 64 >> SUBPIXEL_ORDER;
         center[i] -= delta[i];
         if (!(fabs(center[i]) < max_val))
             return false;
-        qr[i] = ass_lrint(center[i]);
+        // The cache-key units are in eighths of a pixel regardless of
+        // precision; lower precision just means the low bits are always zero.
+        qr[i] = lshiftwrapi(ass_lrint(center[i] * pre_round_factor), precision_reduction);
     }
 
     // Minimal bounding box z coordinate
@@ -722,7 +726,8 @@ static void blend_vector_clip(RenderContext *state, ASS_Image *head)
     BitmapHashKey key;
     key.outline = ass_cache_get(render_priv->cache.outline_cache, &ol_key, render_priv);
     if (!key.outline || !key.outline->valid ||
-            !quantize_transform(m, &pos, NULL, true, &key))
+            !quantize_transform(m, &pos, NULL, true,
+                                render_priv->position_precision_reduction, &key))
         return;
 
     Bitmap *clip_bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
@@ -1406,7 +1411,8 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
 
     BitmapHashKey key;
     key.outline = info->outline;
-    if (!quantize_transform(m, pos, offset, first, &key))
+    unsigned precision_reduction = render_priv->position_precision_reduction;
+    if (!quantize_transform(m, pos, offset, first, precision_reduction, &key))
         return;
 
     info->bm = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
@@ -1530,7 +1536,7 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
 
     key.outline = ass_cache_get(render_priv->cache.outline_cache, &ol_key, render_priv);
     if (!key.outline || !key.outline->valid ||
-            !quantize_transform(m, pos_o, offset, false, &key))
+            !quantize_transform(m, pos_o, offset, false, precision_reduction, &key))
         return;
 
     info->bm_o = ass_cache_get(render_priv->cache.bitmap_cache, &key, state);
