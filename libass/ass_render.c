@@ -2198,7 +2198,7 @@ static void retrieve_glyphs(RenderContext *state)
         }
 
         // add horizontal letter spacing
-        info->cluster_advance.x += info->hspacing_scaled;
+        info->cluster_advance.x += (uint32_t) info->hspacing_scaled;
     }
 }
 
@@ -2213,14 +2213,14 @@ static void preliminary_layout(RenderContext *state)
             info->pos.x = cluster_pen.x;
             info->pos.y = cluster_pen.y;
 
-            cluster_pen.x += info->advance.x;
-            cluster_pen.y += info->advance.y;
+            cluster_pen.x += (uint32_t) info->advance.x;
+            cluster_pen.y += (uint32_t) info->advance.y;
 
             info = info->next;
         } while (info);
         info = state->text_info.glyphs + i;
-        pen.x += info->cluster_advance.x;
-        pen.y += info->cluster_advance.y;
+        pen.x += (uint32_t) info->cluster_advance.x;
+        pen.y += (uint32_t) info->cluster_advance.y;
     }
 }
 
@@ -2244,21 +2244,21 @@ static void reorder_text(RenderContext *state)
         GlyphInfo *info = text_info->glyphs + cmap[i];
         if (text_info->glyphs[i].linebreak) {
             pen.x = 0;
-            pen.y += double_to_d6(text_info->lines[lineno-1].desc);
-            pen.y += double_to_d6(text_info->lines[lineno].asc);
-            pen.y += double_to_d6(render_priv->settings.line_spacing);
+            pen.y += (uint32_t) double_to_d6(text_info->lines[lineno-1].desc);
+            pen.y += (uint32_t) double_to_d6(text_info->lines[lineno].asc);
+            pen.y += (uint32_t) double_to_d6(render_priv->settings.line_spacing);
             lineno++;
         }
         if (info->skip)
             continue;
         ASS_Vector cluster_pen = pen;
-        pen.x += info->cluster_advance.x;
-        pen.y += info->cluster_advance.y;
+        pen.x += (uint32_t) info->cluster_advance.x;
+        pen.y += (uint32_t) info->cluster_advance.y;
         while (info) {
-            info->pos.x = info->offset.x + cluster_pen.x;
-            info->pos.y = info->offset.y + cluster_pen.y;
-            cluster_pen.x += info->advance.x;
-            cluster_pen.y += info->advance.y;
+            info->pos.x = info->offset.x + (uint32_t) cluster_pen.x;
+            info->pos.y = info->offset.y + (uint32_t) cluster_pen.y;
+            cluster_pen.x += (uint32_t) info->advance.x;
+            cluster_pen.y += (uint32_t) info->advance.y;
             info = info->next;
         }
     }
@@ -2347,7 +2347,7 @@ static void align_lines(RenderContext *state, double max_text_width)
             for (j = last_break + 1; j < i; ++j) {
                 GlyphInfo *info = glyphs + j;
                 while (info) {
-                    info->pos.x += double_to_d6(shift);
+                    info->pos.x += (uint32_t) double_to_d6(shift);
                     info = info->next;
                 }
             }
@@ -2380,10 +2380,10 @@ static void calculate_rotation_params(RenderContext *state, ASS_DRect *bbox,
     for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + i;
         while (info) {
-            info->shift.x = info->pos.x + double_to_d6(device_x - center.x +
+            info->shift.x = (uint32_t) info->pos.x + double_to_d6(device_x - center.x +
                     info->shadow_x * state->border_scale_x /
                     render_priv->par_scale_x);
-            info->shift.y = info->pos.y + double_to_d6(device_y - center.y +
+            info->shift.y = (uint32_t) info->pos.y + double_to_d6(device_y - center.y +
                     info->shadow_y * state->border_scale_y);
             info = info->next;
         }
@@ -2537,7 +2537,7 @@ static void render_and_combine_glyphs(RenderContext *state,
 
             ASS_Vector pos, pos_o;
             info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->par_scale_x);
-            info->pos.y = double_to_d6(device_y) + info->pos.y;
+            info->pos.y = double_to_d6(device_y) + (uint32_t) info->pos.y;
             get_bitmap_glyph(state, info, &current_info->leftmost_x, &pos, &pos_o,
                              &offset, !current_info->bitmap_count, flags);
 
