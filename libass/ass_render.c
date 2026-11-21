@@ -1364,7 +1364,7 @@ static void calc_transform_matrix(RenderContext *state,
 
     double scale_x = dist * render_priv->par_scale_x;
     double offs_x = info->pos.x - info->shift.x * render_priv->par_scale_x;
-    double offs_y = info->pos.y - info->shift.y;
+    double offs_y = (double) info->pos.y - info->shift.y;
     for (int i = 0; i < 3; i++) {
         m[0][i] = z4[i] * offs_x + x4[i] * scale_x;
         m[1][i] = z4[i] * offs_y + y3[i] * dist;
@@ -1427,8 +1427,8 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
                 render_priv->par_scale_x,
             64 * info->border_y * state->border_scale_y,
         };
-        double width = info->hspacing_scaled + info->advance.x;
-        double height = info->asc + info->desc;
+        double width = (double) info->hspacing_scaled + info->advance.x;
+        double height = (double) info->asc + info->desc;
 
         ASS_DVector orig_scale;
         orig_scale.x = info->scale_x * info->scale_fix;
@@ -1745,8 +1745,8 @@ wrap_lines_naive(RenderContext *state, double max_text_width, char *unibrks)
     for (int i = 0; i < text_info->length; ++i) {
         GlyphInfo *cur = text_info->glyphs + i;
         int break_at = -1;
-        double s_offset = d6_to_double(s1->bbox.x_min + s1->pos.x);
-        double len = d6_to_double(cur->bbox.x_max + cur->pos.x) - s_offset;
+        double s_offset = d6_to_double(s1->bbox.x_min) + d6_to_double(s1->pos.x);
+        double len = d6_to_double(cur->bbox.x_max) + d6_to_double(cur->pos.x) - s_offset;
 
         if (FORCEBREAK(cur->symbol, i)) {
             break_type = 2;
@@ -1854,18 +1854,14 @@ wrap_lines_rebalance(RenderContext *state, double max_text_width, char *unibrks)
 
                     GlyphInfo *e2 = rewind_trailing_spaces(s2, s3);
 
-                    l1 = d6_to_double(
-                        (e1_old->bbox.x_max + e1_old->pos.x) -
-                        (s1->bbox.x_min + s1->pos.x));
-                    l2 = d6_to_double(
-                        (e2->bbox.x_max + e2->pos.x) -
-                        (s2->bbox.x_min + s2->pos.x));
-                    l1_new = d6_to_double(
-                        (e1->bbox.x_max + e1->pos.x) -
-                        (s1->bbox.x_min + s1->pos.x));
-                    l2_new = d6_to_double(
-                        (e2->bbox.x_max + e2->pos.x) -
-                        (w->bbox.x_min + w->pos.x));
+                    l1 = d6_to_double(e1_old->bbox.x_max) + d6_to_double(e1_old->pos.x) -
+                         d6_to_double(s1->bbox.x_min) - d6_to_double(s1->pos.x);
+                    l2 = d6_to_double(e2->bbox.x_max) + d6_to_double(e2->pos.x) -
+                         d6_to_double(s2->bbox.x_min) - d6_to_double(s2->pos.x);
+                    l1_new = d6_to_double(e1->bbox.x_max) + d6_to_double(e1->pos.x) -
+                             d6_to_double(s1->bbox.x_min) - d6_to_double(s1->pos.x);
+                    l2_new = d6_to_double(e2->bbox.x_max) + d6_to_double(e2->pos.x) -
+                             d6_to_double(w->bbox.x_min) - d6_to_double(w->pos.x);
 
                     if (DIFF(l1_new, l2_new) < DIFF(l1, l2)) {
                         w->linebreak = 1;
