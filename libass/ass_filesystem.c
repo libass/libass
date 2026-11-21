@@ -369,10 +369,12 @@ bool ass_open_dir(ASS_Dir *dir, const char *path)
     if (!check_add_size_wtf16to8(&size, wlen) || !check_add_size_wtf16to8(&size, wlen1) ||
             !(dir->path = malloc(size))) {
         FindClose(dir->handle);
+        free(wpath);
         return false;
     }
     dir->max_path = size;
     char *ptr = convert_wtf16to8(dir->path, wpath, wlen);
+    free(wpath);
     if (add_separator)
         *ptr++ = '\\';
     convert_wtf16to8(ptr, data.cFileName, wlen1 + 1);
