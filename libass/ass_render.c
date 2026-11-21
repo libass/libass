@@ -1364,7 +1364,7 @@ static void calc_transform_matrix(RenderContext *state,
 
     double scale_x = dist * render_priv->par_scale_x;
     double offs_x = info->pos.x - info->shift.x * render_priv->par_scale_x;
-    double offs_y = info->pos.y - info->shift.y;
+    double offs_y = (double) info->pos.y - info->shift.y;
     for (int i = 0; i < 3; i++) {
         m[0][i] = z4[i] * offs_x + x4[i] * scale_x;
         m[1][i] = z4[i] * offs_y + y3[i] * dist;
@@ -1427,8 +1427,8 @@ get_bitmap_glyph(RenderContext *state, GlyphInfo *info,
                 render_priv->par_scale_x,
             64 * info->border_y * state->border_scale_y,
         };
-        double width = info->hspacing_scaled + info->advance.x;
-        double height = info->asc + info->desc;
+        double width = (double) info->hspacing_scaled + info->advance.x;
+        double height = (double) info->asc + info->desc;
 
         ASS_DVector orig_scale;
         orig_scale.x = info->scale_x * info->scale_fix;
@@ -1745,8 +1745,8 @@ wrap_lines_naive(RenderContext *state, double max_text_width, char *unibrks)
     for (int i = 0; i < text_info->length; ++i) {
         GlyphInfo *cur = text_info->glyphs + i;
         int break_at = -1;
-        double s_offset = d6_to_double(s1->bbox.x_min + s1->pos.x);
-        double len = d6_to_double(cur->bbox.x_max + cur->pos.x) - s_offset;
+        double s_offset = d6_to_double(s1->bbox.x_min) + d6_to_double(s1->pos.x);
+        double len = d6_to_double(cur->bbox.x_max) + d6_to_double(cur->pos.x) - s_offset;
 
         if (FORCEBREAK(cur->symbol, i)) {
             break_type = 2;
@@ -1854,18 +1854,14 @@ wrap_lines_rebalance(RenderContext *state, double max_text_width, char *unibrks)
 
                     GlyphInfo *e2 = rewind_trailing_spaces(s2, s3);
 
-                    l1 = d6_to_double(
-                        (e1_old->bbox.x_max + e1_old->pos.x) -
-                        (s1->bbox.x_min + s1->pos.x));
-                    l2 = d6_to_double(
-                        (e2->bbox.x_max + e2->pos.x) -
-                        (s2->bbox.x_min + s2->pos.x));
-                    l1_new = d6_to_double(
-                        (e1->bbox.x_max + e1->pos.x) -
-                        (s1->bbox.x_min + s1->pos.x));
-                    l2_new = d6_to_double(
-                        (e2->bbox.x_max + e2->pos.x) -
-                        (w->bbox.x_min + w->pos.x));
+                    l1 = d6_to_double(e1_old->bbox.x_max) + d6_to_double(e1_old->pos.x) -
+                         d6_to_double(s1->bbox.x_min) - d6_to_double(s1->pos.x);
+                    l2 = d6_to_double(e2->bbox.x_max) + d6_to_double(e2->pos.x) -
+                         d6_to_double(s2->bbox.x_min) - d6_to_double(s2->pos.x);
+                    l1_new = d6_to_double(e1->bbox.x_max) + d6_to_double(e1->pos.x) -
+                             d6_to_double(s1->bbox.x_min) - d6_to_double(s1->pos.x);
+                    l2_new = d6_to_double(e2->bbox.x_max) + d6_to_double(e2->pos.x) -
+                             d6_to_double(w->bbox.x_min) - d6_to_double(w->pos.x);
 
                     if (DIFF(l1_new, l2_new) < DIFF(l1, l2)) {
                         w->linebreak = 1;
@@ -2202,7 +2198,7 @@ static void retrieve_glyphs(RenderContext *state)
         }
 
         // add horizontal letter spacing
-        info->cluster_advance.x += info->hspacing_scaled;
+        info->cluster_advance.x += (uint32_t) info->hspacing_scaled;
     }
 }
 
@@ -2217,14 +2213,14 @@ static void preliminary_layout(RenderContext *state)
             info->pos.x = cluster_pen.x;
             info->pos.y = cluster_pen.y;
 
-            cluster_pen.x += info->advance.x;
-            cluster_pen.y += info->advance.y;
+            cluster_pen.x += (uint32_t) info->advance.x;
+            cluster_pen.y += (uint32_t) info->advance.y;
 
             info = info->next;
         } while (info);
         info = state->text_info.glyphs + i;
-        pen.x += info->cluster_advance.x;
-        pen.y += info->cluster_advance.y;
+        pen.x += (uint32_t) info->cluster_advance.x;
+        pen.y += (uint32_t) info->cluster_advance.y;
     }
 }
 
@@ -2248,21 +2244,21 @@ static void reorder_text(RenderContext *state)
         GlyphInfo *info = text_info->glyphs + cmap[i];
         if (text_info->glyphs[i].linebreak) {
             pen.x = 0;
-            pen.y += double_to_d6(text_info->lines[lineno-1].desc);
-            pen.y += double_to_d6(text_info->lines[lineno].asc);
-            pen.y += double_to_d6(render_priv->settings.line_spacing);
+            pen.y += (uint32_t) double_to_d6(text_info->lines[lineno-1].desc);
+            pen.y += (uint32_t) double_to_d6(text_info->lines[lineno].asc);
+            pen.y += (uint32_t) double_to_d6(render_priv->settings.line_spacing);
             lineno++;
         }
         if (info->skip)
             continue;
         ASS_Vector cluster_pen = pen;
-        pen.x += info->cluster_advance.x;
-        pen.y += info->cluster_advance.y;
+        pen.x += (uint32_t) info->cluster_advance.x;
+        pen.y += (uint32_t) info->cluster_advance.y;
         while (info) {
-            info->pos.x = info->offset.x + cluster_pen.x;
-            info->pos.y = info->offset.y + cluster_pen.y;
-            cluster_pen.x += info->advance.x;
-            cluster_pen.y += info->advance.y;
+            info->pos.x = info->offset.x + (uint32_t) cluster_pen.x;
+            info->pos.y = info->offset.y + (uint32_t) cluster_pen.y;
+            cluster_pen.x += (uint32_t) info->advance.x;
+            cluster_pen.y += (uint32_t) info->advance.y;
             info = info->next;
         }
     }
@@ -2288,8 +2284,8 @@ static void apply_baseline_shear(RenderContext *state)
             continue;
         double fay = info->fay / info->scale_x * info->scale_y;
         for (GlyphInfo *cur = info; cur; cur = cur->next) {
-            cur->pos.y += shear + fay * cur->offset.x;
-            shear += fay * cur->advance.x;
+            cur->pos.y = dtoi32(cur->pos.y + (shear + fay * cur->offset.x));
+            shear = dtoi32(shear + fay * cur->advance.x);
         }
     }
 }
@@ -2351,7 +2347,7 @@ static void align_lines(RenderContext *state, double max_text_width)
             for (j = last_break + 1; j < i; ++j) {
                 GlyphInfo *info = glyphs + j;
                 while (info) {
-                    info->pos.x += double_to_d6(shift);
+                    info->pos.x += (uint32_t) double_to_d6(shift);
                     info = info->next;
                 }
             }
@@ -2384,10 +2380,10 @@ static void calculate_rotation_params(RenderContext *state, ASS_DRect *bbox,
     for (int i = 0; i < text_info->length; i++) {
         GlyphInfo *info = text_info->glyphs + i;
         while (info) {
-            info->shift.x = info->pos.x + double_to_d6(device_x - center.x +
+            info->shift.x = (uint32_t) info->pos.x + double_to_d6(device_x - center.x +
                     info->shadow_x * state->border_scale_x /
                     render_priv->par_scale_x);
-            info->shift.y = info->pos.y + double_to_d6(device_y - center.y +
+            info->shift.y = (uint32_t) info->pos.y + double_to_d6(device_y - center.y +
                     info->shadow_y * state->border_scale_y);
             info = info->next;
         }
@@ -2541,7 +2537,7 @@ static void render_and_combine_glyphs(RenderContext *state,
 
             ASS_Vector pos, pos_o;
             info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->par_scale_x);
-            info->pos.y = double_to_d6(device_y) + info->pos.y;
+            info->pos.y = double_to_d6(device_y) + (uint32_t) info->pos.y;
             get_bitmap_glyph(state, info, &current_info->leftmost_x, &pos, &pos_o,
                              &offset, !current_info->bitmap_count, flags);
 
