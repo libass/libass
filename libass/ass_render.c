@@ -2288,8 +2288,8 @@ static void apply_baseline_shear(RenderContext *state)
             continue;
         double fay = info->fay / info->scale_x * info->scale_y;
         for (GlyphInfo *cur = info; cur; cur = cur->next) {
-            cur->pos.y += shear + fay * cur->offset.x;
-            shear += fay * cur->advance.x;
+            cur->pos.y = dtoi32(cur->pos.y + (shear + fay * cur->offset.x));
+            shear = dtoi32(shear + fay * cur->advance.x);
         }
     }
 }
