@@ -3358,6 +3358,77 @@ static ASS_Image *ass_free_image(ASS_Image *img) {
     return next;
 }
 
+static int prewarm_style(ASS_Renderer *priv, const ASS_Style *style,
+                         double font_scale, unsigned flags)
+{
+    if (!style->FontName || !*style->FontName ||
+        !isfinite(style->FontSize) || style->FontSize <= 0)
+        return 0;
+
+    ASS_StringView family = { style->FontName, strlen(style->FontName) };
+    ASS_Font *font = ass_get_font(priv, family, style->Bold, style->Italic);
+    if (!font || !ass_shaper_prewarm_font(priv->state.shaper, font, style->Spacing))
+        return -1;
+
+    // Unhinted metrics use a fixed size; hinted metrics use the output scale.
+    double size = priv->settings.hinting == ASS_HINTING_NONE ? 256 :
+        fabs(style->FontSize * style->ScaleY * font_scale);
+    if (!isfinite(size) || size <= 0)
+        return 0;
+
+    FaceSizeMetricsHashKey size_key = { .font = font, .size = size };
+    if (!ass_cache_get(priv->cache.face_size_metrics_cache, &size_key, NULL))
+        return -1;
+
+    if (flags & ASS_PREWARM_ASCII) {
+        FT_Face face = font->faces[0];
+        for (unsigned code = 0x20; code <= 0x7e; code++) {
+            // Speculative glyphs must not add fallback faces.
+            unsigned symbol = ass_font_index_magic(face, code);
+            unsigned glyph = symbol ? FT_Get_Char_Index(face, symbol) : 0;
+            if (!glyph)
+                continue;
+
+            GlyphMetricsHashKey key = {
+                .font = font, .size = size, .glyph_index = glyph,
+            };
+            if (!ass_cache_get(priv->cache.metrics_cache, &key, NULL))
+                return -1;
+        }
+    }
+
+    return 0;
+}
+
+int ass_prewarm_caches(ASS_Renderer *priv, ASS_Track *track, unsigned flags)
+{
+    if (!priv || !track || !priv->fontselect || priv->library != track->library)
+        return -1;
+
+    ass_lazy_track_init(priv->library, track);
+    if (priv->library->num_fontdata != priv->num_emfonts) {
+        assert(priv->library->num_fontdata > priv->num_emfonts);
+        priv->num_emfonts = ass_update_embedded_fonts(priv->fontselect, priv->num_emfonts);
+    }
+
+    ASS_Shaper *shaper = priv->state.shaper;
+    ass_shaper_set_kerning(shaper, track->Kerning);
+    ass_shaper_set_language(shaper, track->Language);
+
+    double height = priv->settings.use_margins ? priv->fit_height : priv->frame_content_height;
+    double font_scale = height * priv->settings.font_size_coeff;
+
+    for (int i = 0; i < track->n_styles; i++) {
+        if (prewarm_style(priv, &track->styles[i], font_scale / track->PlayResY, flags) < 0)
+            return -1;
+    }
+
+    if (prewarm_style(priv, &priv->user_override_style, font_scale / 288, flags) < 0)
+        return -1;
+
+    return 0;
+}
+
 /**
  * \brief render a frame
  * \param priv library handle
