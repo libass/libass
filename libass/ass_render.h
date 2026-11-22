@@ -45,6 +45,7 @@
 #define BITMAP_CACHE_MAX_SIZE (128 * MEGABYTE)
 #define COMPOSITE_CACHE_RATIO 2
 #define COMPOSITE_CACHE_MAX_SIZE (BITMAP_CACHE_MAX_SIZE / COMPOSITE_CACHE_RATIO)
+#define SCRATCH_BUFFER_MAX_SIZE (8 * MEGABYTE)
 
 #define PARSED_FADE (1<<0)
 #define PARSED_A    (1<<1)
@@ -109,8 +110,7 @@ typedef struct {
     // karaoke origin: screen coordinate of leftmost post-transform control point x in subpixels
     int32_t leftmost_x;
 
-    size_t bitmap_count, max_bitmap_count;
-    BitmapRef *bitmaps;
+    size_t bitmap_count, bitmap_offset;
 
     int x, y;
     Bitmap *bm, *bm_o, *bm_s;   // glyphs, outline, shadow bitmaps
@@ -200,6 +200,8 @@ typedef struct {
     int max_glyphs;
     int max_lines;
     unsigned max_bitmaps;
+    BitmapRef *bitmap_refs;
+    size_t max_bitmap_refs;
 } TextInfo;
 
 #include "ass_shaper.h"
@@ -292,6 +294,7 @@ struct render_context {
     double border_scale_y;
     double blur_scale_x;
     double blur_scale_y;
+    ASS_ScratchBuffer scratch_buffer;
 };
 
 typedef struct render_context RenderContext;
