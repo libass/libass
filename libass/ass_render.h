@@ -127,6 +127,7 @@ typedef struct glyph_info {
     unsigned symbol;
     bool skip;                  // skip glyph when layouting text
     bool is_trimmed_whitespace;
+    bool vertical;              // @font vertical layout
     ASS_Font *font;
     int face_index;
     int glyph_index;
@@ -216,6 +217,7 @@ struct render_context {
     ASS_Style *style;
 
     ASS_Font *font;
+    bool vertical;              // @font vertical layout
     double font_size;
     int parsed_tags;
     int flags;                  // decoration flags (underline/strike-through)
