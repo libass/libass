@@ -157,6 +157,7 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
 
     ass_reconfigure(priv);
 
+    ass_cache_empty(priv->cache.shaping_cache);
     ass_cache_empty(priv->cache.font_cache);
     ass_cache_empty(priv->cache.metrics_cache);
 
