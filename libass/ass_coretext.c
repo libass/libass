@@ -274,7 +274,8 @@ static char *get_fallback(void *priv, ASS_Library *lib,
         return NULL;
     }
 
-    CTFontRef fb = CTFontCreateForString(font, r, CFRangeMake(0, 1));
+    CTFontRef fb = CTFontCreateForString(font, r,
+                                         CFRangeMake(0, CFStringGetLength(r)));
     CFRelease(font);
     CFRelease(r);
     if (!fb)
