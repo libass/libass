@@ -286,6 +286,21 @@ typedef enum {
      */
     ASS_FEATURE_WRAP_UNICODE,
 
+    /**
+     * Reflow events eligible for selective style overrides using wrap style 0,
+     * regardless of the script's WrapStyle and \q tags.
+     * If a selective-style-override-eligible event contains at least one
+     * explicit line break, and automatic wrapping would add an additional one,
+     * we retry wrapping with hard breaks ignored, keeping the result only if
+     * it has fewer lines than wrapping with the hard breaks respected.
+     *
+     * Intended for user font and size overrides, to avoid unnecessarily
+     * increasing the number of lines.
+     * Must be enabled explicitly; not included in
+     * ASS_FEATURE_INCOMPATIBLE_EXTENSIONS.
+     */
+    ASS_FEATURE_ADVISORY_LINEBREAKS,
+
     // New enum values can be added here in new ABI-compatible library releases.
 } ASS_Feature;
 

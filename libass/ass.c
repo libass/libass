@@ -1824,12 +1824,13 @@ int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable)
         FEATURE_MASK(ASS_FEATURE_WRAP_UNICODE) |
 #endif
         FEATURE_MASK(ASS_FEATURE_WHOLE_TEXT_LAYOUT) |
+        FEATURE_MASK(ASS_FEATURE_ADVISORY_LINEBREAKS) |
         0;
     uint32_t requested = 0;
 
     switch (feature) {
     case ASS_FEATURE_INCOMPATIBLE_EXTENSIONS:
-        requested = supported;
+        requested = supported & ~FEATURE_MASK(ASS_FEATURE_ADVISORY_LINEBREAKS);
         break;
     default:
         if (!(FEATURE_MASK(feature) & supported))

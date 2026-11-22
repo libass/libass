@@ -127,6 +127,7 @@ typedef struct glyph_info {
     unsigned symbol;
     bool skip;                  // skip glyph when layouting text
     bool is_trimmed_whitespace;
+    bool is_explicit_break;     // newline specified in the event text
     ASS_Font *font;
     int face_index;
     int glyph_index;
@@ -182,6 +183,7 @@ typedef struct glyph_info {
 
 typedef struct {
     double asc, desc;
+    int start; // candidate line start during tentative reflow
 } LineInfo;
 
 typedef struct {
@@ -277,6 +279,7 @@ struct render_context {
     unsigned italic;
     int treat_family_as_pattern;
     int wrap_style;
+    bool linebreaks_are_advisory; // use wrap style 0 with optional reflow
     int font_encoding;
 
     // combination of ASS_OVERRIDE_BIT_* flags that apply right now
