@@ -25,7 +25,8 @@ EXTRA_DIST += gen_defs.py meson_options.txt meson.build \
               libass/meson.build libass/ass/meson.build \
               fuzz/meson.build checkasm/meson.build \
               compare/meson.build \
-              profile/meson.build test/meson.build
+              profile/meson.build test/meson.build \
+              fuzz/corpus
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libass.pc
