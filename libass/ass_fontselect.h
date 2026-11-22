@@ -169,8 +169,8 @@ typedef struct font_provider_funcs {
 
 /*
  * Basic font metadata. All strings must be encoded with UTF-8.
- * At minimum one family is required.
- * If no family names are present, ass_font_provider_add_font
+ * At minimum one family or full name is required.
+ * If neither family nor full names are present, ass_font_provider_add_font
  * will open the font file and read metadata from there,
  * replacing everything but extended_family.
  */
