@@ -60,7 +60,7 @@ add_project_arguments(
 
 # Configuration
 
-str_check_functions = ['strdup', 'strndup']
+str_check_functions = ['strdup', 'strndup', 'strchrnul']
 
 foreach name : str_check_functions
     if (
