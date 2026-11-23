@@ -39,6 +39,24 @@ typedef struct ass_font ASS_Font;
 #define DECO_STRIKETHROUGH 2
 #define DECO_ROTATE        4
 
+// Direct-mapped cache for codepoint -> (face, glyph index) lookups.
+// Avoids repeated FreeType charmap searches, which dominate shaping
+// time on long events, and repeated font fallback searches for
+// codepoints no font covers.
+#define ASS_FONT_CMAP_CACHE_BITS 8
+#define ASS_FONT_CMAP_CACHE_SIZE (1 << ASS_FONT_CMAP_CACHE_BITS)
+
+typedef struct {
+    uint32_t symbol;   // 0 = empty slot
+    uint32_t glyph_index;
+    int face_index;
+} ASS_FontCmapEntry;
+
+static inline unsigned ass_font_cmap_slot(uint32_t symbol)
+{
+    return (symbol * 2654435761u) >> (32 - ASS_FONT_CMAP_CACHE_BITS);
+}
+
 struct ass_font {
     ASS_FontDesc desc;
     ASS_Library *library;
@@ -47,6 +65,7 @@ struct ass_font {
     FT_Face faces[ASS_FONT_MAX_FACES];
     struct hb_font_t *hb_fonts[ASS_FONT_MAX_FACES];
     int n_faces;
+    ASS_FontCmapEntry cmap_cache[ASS_FONT_CMAP_CACHE_SIZE];
 };
 
 void ass_charmap_magic(ASS_Library *library, FT_Face face);
