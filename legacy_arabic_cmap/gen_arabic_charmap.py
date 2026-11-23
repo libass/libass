@@ -55,7 +55,7 @@ def hash_functions():
 
 def find_hash(table : list[list[int]]) -> tuple[HashFunc, int]:
     m = len(table).bit_length()
-    for n in [m, m + 1]:
+    for n in range(m, m + 3):
         for func in hash_functions():
             if test_hash(table, func, n):
                 return func, n
@@ -164,6 +164,10 @@ def main():
         {
             "file": Path(__file__).parent.joinpath("ArabicPUATraditional.txt"),
             "function": "ass_font_charmap_arabic_traditional",
+        },
+        {
+            "file": Path(__file__).parent.joinpath("HebrewPUA.txt"),
+            "function": "ass_font_charmap_hebrew",
         },
     ]
 

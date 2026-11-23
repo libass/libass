@@ -253,6 +253,7 @@ static bool convert_unicode_to_legacy_symbol(FT_Face face, uint32_t symbol, uint
 
     if (os2) {
         // See: https://learn.microsoft.com/en-us/typography/legacy/legacy_arabic_fonts
+        int HEBREW_LEGACY_CHARSET = 177;
         int ARABIC_CHARSET_SIMPLIFIED  = 178;
         int ARABIC_CHARSET_TRADITIONAL = 179;
         uint8_t charset = (os2->fsSelection >> 8) & 0xFF;
@@ -262,6 +263,10 @@ static bool convert_unicode_to_legacy_symbol(FT_Face face, uint32_t symbol, uint
         }
         if (charset == ARABIC_CHARSET_TRADITIONAL) {
             *legacy_symbol = ass_font_charmap_arabic_traditional(symbol);
+            return true;
+        }
+        if (charset == HEBREW_LEGACY_CHARSET) {
+            *legacy_symbol = ass_font_charmap_hebrew(symbol);
             return true;
         }
     }
