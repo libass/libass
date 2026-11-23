@@ -61,6 +61,7 @@ static const struct {
     { "blend_bitmaps", checkasm_check_blend_bitmaps },
     { "be_blur", checkasm_check_be_blur },
     { "blur", checkasm_check_blur },
+    { "shift_bitmap", checkasm_check_shift_bitmap },
     { 0 }
 };
 
