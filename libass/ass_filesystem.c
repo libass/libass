@@ -50,6 +50,42 @@ static bool alloc_path(ASS_Dir *dir, size_t size)
 }
 
 
+#if HAVE_FSTAT || defined(_WIN32)
+// Microsoft docs require types.h to be included before stat.h
+// In POSIX >= Issue 6 just stat.h suffices, but include both anyway
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#if defined(_WIN32)
+#define fstat(...) _fstati64(__VA_ARGS__)
+#define stat _stati64
+#ifndef S_ISREG
+// MinGW already defines this but pure Microsoft docs don't mention it
+#define S_ISREG(m) ((m & _S_IFMT) == _S_IFREG)
+#endif
+#endif
+
+int ass_get_file_memory_size(const FILE *fp, size_t *size)
+{
+    struct stat info;
+    int fd = fileno((FILE *) fp);
+
+    if (fstat(fd, &info) || !S_ISREG(info.st_mode))
+        return 1;
+
+    if (info.st_size > SIZE_MAX)
+        return -1;
+
+    *size = (size_t) info.st_size;
+    return 0;
+}
+#else
+int ass_get_file_memory_size(const FILE *fp, size_t *size)
+{
+    return 1;
+}
+#endif
+
 #if !defined(_WIN32) || defined(__CYGWIN__)
 
 #include <dirent.h>

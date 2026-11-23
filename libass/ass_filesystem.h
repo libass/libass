@@ -29,6 +29,15 @@ typedef enum {
 
 FILE *ass_open_file(const char *filename, FileNameSource hint);
 
+/*
+ * If filesize in bytes can be determined and fits into size_t,
+ * it is written to the size paramter and zero is returned.
+ * If the size cannot be determined a positive value is returned
+ * and if the file size exceeds SIZE_MAX a negative value is returned.
+ * In both of the latter cases the passed in size is not modified.
+ */
+int ass_get_file_memory_size(const FILE *fp, size_t *size);
+
 typedef struct {
     void *handle;
     char *path;
