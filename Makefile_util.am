@@ -52,6 +52,7 @@ endif
 checkasm_checkasm_SOURCES = \
     checkasm/rasterizer.c \
     checkasm/blend_bitmaps.c \
+    checkasm/shift.c \
     checkasm/be_blur.c \
     checkasm/blur.c \
     checkasm/checkasm.h checkasm/checkasm.c \

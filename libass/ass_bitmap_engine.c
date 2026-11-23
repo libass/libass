@@ -47,6 +47,7 @@
     BitmapBlendFunc ass_add_bitmaps_  ## suffix; \
     BitmapBlendFunc ass_imul_bitmaps_ ## suffix; \
     BitmapMulFunc   ass_mul_bitmaps_  ## suffix; \
+    ShiftFunc       ass_shift_        ## suffix; \
     BeBlurFunc      ass_be_blur_      ## suffix;
 
 #define GENERIC_FUNCTION(name, suffix) \
@@ -56,6 +57,7 @@
     GENERIC_FUNCTION(add_bitmaps,  suffix) \
     GENERIC_FUNCTION(imul_bitmaps, suffix) \
     GENERIC_FUNCTION(mul_bitmaps,  suffix) \
+    GENERIC_FUNCTION(shift,        suffix) \
     GENERIC_FUNCTION(be_blur,      suffix)
 
 
@@ -180,6 +182,7 @@ BitmapEngine ass_bitmap_engine_init(unsigned mask)
         if (flags & ASS_CPU_FLAG_X86_SSSE3) {
             ALL_PROTOTYPES(16, ssse3)
             RASTERIZER_FUNCTION(fill_generic, ssse3)
+            GENERIC_FUNCTION(shift, ssse3)
             GENERIC_FUNCTION(be_blur, ssse3)
             BLUR_FUNCTION(shrink_horz, 16, ssse3)
             BLUR_FUNCTION(expand_horz, 16, ssse3)
