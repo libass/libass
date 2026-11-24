@@ -49,7 +49,7 @@ struct ass_shaper {
     ASS_ShapingLevel shaping_level;
 
     // FriBidi log2vis
-    int n_codepoints, n_pars;
+    size_t n_codepoints, n_pars;
     FriBidiChar *event_text; // just a reference, owned by text_info
     FriBidiCharType *ctypes;
     FriBidiLevel *emblevels;
@@ -71,7 +71,7 @@ struct ass_shaper {
 
 #ifdef USE_FRIBIDI_EX_API
     FriBidiBracketType *btypes;
-    int n_btypes;
+    size_t n_btypes;
     bool bidi_brackets;
 #endif
 
