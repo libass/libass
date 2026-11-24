@@ -1772,8 +1772,9 @@ wrap_lines_naive(RenderContext *state, double max_text_width, char *unibrks)
                 // Try to raise the maximum number of lines
                 bool success = false;
                 if (text_info->max_lines <= INT_MAX / 2) {
-                    text_info->max_lines *= 2;
-                    success = ASS_REALLOC_ARRAY(text_info->lines, text_info->max_lines);
+                    success = ASS_REALLOC_ARRAY(text_info->lines, 2 * text_info->max_lines);
+                    if (success)
+                        text_info->max_lines *= 2;
                 }
                 // If realloc fails it's screwed and due to error-info not propagating (FIXME),
                 // the best we can do is to avoid UB by discarding the previous break
@@ -3384,10 +3385,12 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
         if ((event->Start <= now)
             && (now < (event->Start + event->Duration))) {
             if (cnt >= priv->eimg_size) {
-                priv->eimg_size += 100;
-                priv->eimg =
-                    realloc(priv->eimg,
-                            priv->eimg_size * sizeof(EventImages));
+                if (priv->eimg_size > INT_MAX / 2)
+                    break;
+                int eimg_size = FFMAX(100, 2 * priv->eimg_size);
+                if (!ASS_REALLOC_ARRAY(priv->eimg, eimg_size))
+                    break;
+                priv->eimg_size = eimg_size;
             }
             if (ass_render_event(&priv->state, event, priv->eimg + cnt))
                 cnt++;
